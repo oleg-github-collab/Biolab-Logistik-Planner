@@ -1,21 +1,38 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { db, isFirstSetupRequired } = require('../database');
+const db = require('../database'); // Import db directly
 const { auth, adminAuth } = require('../middleware/auth');
 const router = express.Router();
 
 // @route   GET /api/auth/first-setup
 // @desc    Check if this is the first setup
 router.get('/first-setup', (req, res) => {
-  isFirstSetupRequired((err, isFirstSetup) => {
+  db.get("SELECT COUNT(*) as userCount FROM users", (err, userRow) => {
     if (err) {
       return res.status(500).json({ error: 'Server error' });
     }
     
-    res.json({ 
-      isFirstSetup: isFirstSetup,
-      message: isFirstSetup ? 'First setup required' : 'System already configured'
+    if (userRow.userCount === 0) {
+      return res.json({ 
+        isFirstSetup: true,
+        message: 'First setup required'
+      });
+    }
+    
+    // Check system flag
+    db.get("SELECT value FROM system_flags WHERE name = 'first_setup_completed'", (err, flagRow) => {
+      if (err || !flagRow || flagRow.value !== 'true') {
+        return res.json({ 
+          isFirstSetup: true,
+          message: 'First setup required'
+        });
+      }
+      
+      res.json({ 
+        isFirstSetup: false,
+        message: 'System already configured'
+      });
     });
   });
 });
@@ -27,10 +44,12 @@ router.post('/register', async (req, res) => {
   
   try {
     // Always check if first setup is required
-    isFirstSetupRequired(async (err, isFirstSetup) => {
+    db.get("SELECT COUNT(*) as userCount FROM users", async (err, userRow) => {
       if (err) {
         return res.status(500).json({ error: 'Server error' });
       }
+      
+      const isFirstSetup = userRow.userCount === 0;
       
       // For first setup, allow registration without authentication
       // For subsequent registrations, require admin authentication
@@ -165,12 +184,12 @@ router.post('/login', async (req, res) => {
   
   try {
     // First, check if first setup is required
-    isFirstSetupRequired((err, isFirstSetup) => {
+    db.get("SELECT COUNT(*) as userCount FROM users", (err, userRow) => {
       if (err) {
         return res.status(500).json({ error: 'Server error' });
       }
       
-      if (isFirstSetup) {
+      if (userRow.userCount === 0) {
         return res.status(403).json({ 
           error: 'First setup required', 
           firstSetupRequired: true 

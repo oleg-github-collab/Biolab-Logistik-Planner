@@ -90,6 +90,14 @@ function initializeDatabase() {
     )
   `);
 
+  // Create system_flags table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS system_flags (
+      name TEXT PRIMARY KEY,
+      value TEXT
+    )
+  `);
+
   // Check if FORCE_FIRST_SETUP environment variable is set
   const forceFirstSetup = process.env.FORCE_FIRST_SETUP === 'true';
   
@@ -115,7 +123,6 @@ function initializeDatabase() {
       console.log('No users found - initializing first setup');
       
       // Create a special flag to indicate first setup
-      db.run("CREATE TABLE IF NOT EXISTS system_flags (name TEXT PRIMARY KEY, value TEXT)");
       db.run("INSERT OR REPLACE INTO system_flags (name, value) VALUES ('first_setup_completed', 'false')");
       
       console.log('First setup initialized - waiting for admin registration');
@@ -159,7 +166,5 @@ function isFirstSetupRequired(callback) {
   });
 }
 
-module.exports = { 
-  db: db, 
-  isFirstSetupRequired: isFirstSetupRequired 
-};
+// Export the database instance directly
+module.exports = db;

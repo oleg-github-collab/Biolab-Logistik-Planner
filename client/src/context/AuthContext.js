@@ -25,6 +25,13 @@ const authReducer = (state, action) => {
         user: action.payload,
         isAuthenticated: true,
       };
+    case 'USER_ERROR':
+      return {
+        ...state,
+        user: null,
+        token: null,
+        isAuthenticated: false,
+      };
     default:
       return state;
   }
@@ -47,7 +54,11 @@ export const AuthProvider = ({ children }) => {
           dispatch({ type: 'LOAD_USER', payload: res.data });
         } catch (err) {
           console.error('Error loading user:', err);
-          logout();
+          // Only logout if it's an auth error (401 or 403)
+          if (err.response?.status === 401 || err.response?.status === 403) {
+            dispatch({ type: 'USER_ERROR' });
+            localStorage.removeItem('token');
+          }
         }
       }
     };

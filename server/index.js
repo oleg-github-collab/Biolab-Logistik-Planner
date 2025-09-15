@@ -3,7 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const path = require('path');
-const db = require('./database');
+const db = require('./database'); // Import db directly
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -17,7 +17,7 @@ app.use(helmet({
       "script-src": ["'self'", "'unsafe-inline'", "https://*.railway.app"],
       "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       "font-src": ["'self'", "https://fonts.gstatic.com"],
-      "img-src": ["'self'", "data:", "https://*.railway.app"]
+      "img-src": ["'self'", "", "https://*.railway.app"]
     }
   }
 }));
@@ -48,7 +48,7 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/schedule', require('./routes/schedule'));
 app.use('/api/messages', require('./routes/messages'));
 app.use('/api/waste', require('./routes/waste'));
-app.use('/api/admin', require('./routes/admin')); // Add admin routes
+app.use('/api/admin', require('./routes/admin'));
 
 // Serve static assets if in production
 if (process.env.NODE_ENV === 'production') {
@@ -58,6 +58,15 @@ if (process.env.NODE_ENV === 'production') {
     res.sendFile(path.resolve(__dirname, '..', 'client', 'build', 'index.html'));
   });
 }
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV
+  });
+});
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -98,7 +107,7 @@ schedule.scheduleJob('0 1 * * 1', function() {
           [userId, formatDateForDB(lastWeekStart)],
           (err, scheduleData) => {
             if (err) {
-              console.error('Error getting schedule data:', err.message);
+              console.error('Error getting schedule ', err.message);
               return;
             }
             
@@ -166,20 +175,20 @@ function formatDateForDB(date) {
   return date.toISOString().split('T')[0];
 }
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV
-  });
-});
-
 // Start server
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV}`);
   console.log(`API Base URL: ${process.env.NODE_ENV === 'production' ? 'https://your-app.railway.app/api' : 'http://localhost:5000/api'}`);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received. Shutting down gracefully...');
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
 });
 
 module.exports = app;

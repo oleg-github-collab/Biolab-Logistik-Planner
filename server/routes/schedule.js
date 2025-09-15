@@ -1,5 +1,5 @@
 const express = require('express');
-const db = require('../database');
+const db = require('../database'); // Import db directly
 const { auth } = require('../middleware/auth');
 const router = express.Router();
 

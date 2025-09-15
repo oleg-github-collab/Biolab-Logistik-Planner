@@ -4,42 +4,30 @@ const db = require('../database');
 const { auth, adminAuth } = require('../middleware/auth');
 const router = express.Router();
 
-// A helper function to promisify db.all for use with async/await
+// Helper functions to wrap sqlite3 callback API in Promises for async/await
 const dbAll = (query, params = []) => {
   return new Promise((resolve, reject) => {
     db.all(query, params, (err, rows) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(rows);
-      }
+      if (err) return reject(err);
+      resolve(rows);
     });
   });
 };
 
-// A helper function to promisify db.get
 const dbGet = (query, params = []) => {
   return new Promise((resolve, reject) => {
     db.get(query, params, (err, row) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(row);
-      }
+      if (err) return reject(err);
+      resolve(row);
     });
   });
 };
 
-// A helper function to promisify db.run
 const dbRun = (query, params = []) => {
   return new Promise((resolve, reject) => {
-    // Use 'function' to access 'this' for lastID and changes
-    db.run(query, params, function(err) {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(this);
-      }
+    db.run(query, params, function (err) { // Use 'function' to access 'this'
+      if (err) return reject(err);
+      resolve(this);
     });
   });
 };
@@ -52,6 +40,7 @@ router.get('/users', [auth, adminAuth], async (req, res) => {
     const users = await dbAll("SELECT id, name, email, role, created_at FROM users ORDER BY name");
     res.json(users);
   } catch (err) {
+    console.error(err.message);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -69,7 +58,7 @@ router.put('/users/:id', [auth, adminAuth], async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
     
-    // 2. Check for email conflicts
+    // 2. Check for email conflicts if email is being updated
     if (email) {
       const existingEmailUser = await dbGet("SELECT id FROM users WHERE email = ? AND id != ?", [email, id]);
       if (existingEmailUser) {
@@ -77,7 +66,7 @@ router.put('/users/:id', [auth, adminAuth], async (req, res) => {
       }
     }
     
-    // 3. Check for name conflicts
+    // 3. Check for name conflicts if name is being updated
     if (name) {
       const existingNameUser = await dbGet("SELECT id FROM users WHERE name = ? AND id != ?", [name, id]);
       if (existingNameUser) {
@@ -102,7 +91,7 @@ router.put('/users/:id', [auth, adminAuth], async (req, res) => {
       updateValues.push(role);
     }
     
-    // 5. Hash password if provided (this is now valid within an async function)
+    // 5. Hash password if provided (this is now valid within the async function)
     if (password) {
       const hashedPassword = await bcrypt.hash(password, 10);
       updateFields.push("password = ?");
@@ -110,7 +99,7 @@ router.put('/users/:id', [auth, adminAuth], async (req, res) => {
     }
     
     if (updateFields.length === 0) {
-      return res.status(400).json({ error: 'No fields to update' });
+      return res.status(400).json({ error: 'No fields to update provided' });
     }
     
     // Add updated_at timestamp
@@ -161,6 +150,7 @@ router.delete('/users/:id', [auth, adminAuth], async (req, res) => {
       deletedId: id
     });
   } catch (err) {
+    console.error(err.message);
     res.status(500).json({ error: 'Server error' });
   }
 });
