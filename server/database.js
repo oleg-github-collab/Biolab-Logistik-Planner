@@ -1,7 +1,7 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
-const bcrypt = require('bcryptjs'); // Add this require
+const bcrypt = require('bcryptjs');
 
 // Ensure data directory exists
 const dataDir = path.join(__dirname, '..', 'data');
@@ -29,7 +29,8 @@ function initializeDatabase() {
       email TEXT NOT NULL UNIQUE,
       password TEXT NOT NULL,
       role TEXT DEFAULT 'employee',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
@@ -89,6 +90,20 @@ function initializeDatabase() {
     )
   `);
 
+  // Check if FORCE_FIRST_SETUP environment variable is set
+  const forceFirstSetup = process.env.FORCE_FIRST_SETUP === 'true';
+  
+  if (forceFirstSetup) {
+    console.log('FORCE_FIRST_SETUP enabled - clearing all users');
+    db.run("DELETE FROM users", (err) => {
+      if (err) {
+        console.error('Error clearing users:', err.message);
+      } else {
+        console.log('All users cleared for first setup');
+      }
+    });
+  }
+
   // Insert default users if none exist
   db.get("SELECT COUNT(*) as count FROM users", async (err, row) => {
     if (err) {
@@ -97,35 +112,21 @@ function initializeDatabase() {
     }
     
     if (row.count === 0) {
-      try {
-        // Define default users
-        const defaultUsers = [
-          { name: "Sebastian", email: "sebastian@example.com", password: "password123", role: "employee" },
-          { name: "Lukas", email: "lukas@example.com", password: "password123", role: "employee" },
-          { name: "Manager", email: "manager@example.com", password: "password123", role: "admin" }
-        ];
-
-        // Hash passwords and insert users
-        for (const user of defaultUsers) {
-          const hashedPassword = await bcrypt.hash(user.password, 10);
-          
-          db.run(
-            "INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)",
-            [user.name, user.email, hashedPassword, user.role],
-            (err) => {
-              if (err) {
-                console.error(`Error inserting user ${user.name}:`, err.message);
-              } else {
-                console.log(`User ${user.name} inserted successfully`);
-              }
-            }
-          );
+      console.log('No users found - initializing first setup');
+      
+      // Create a special flag to indicate first setup
+      db.run("CREATE TABLE IF NOT EXISTS system_flags (name TEXT PRIMARY KEY, value TEXT)");
+      db.run("INSERT OR REPLACE INTO system_flags (name, value) VALUES ('first_setup_completed', 'false')");
+      
+      console.log('First setup initialized - waiting for admin registration');
+    } else {
+      // Check if first setup was completed
+      db.get("SELECT value FROM system_flags WHERE name = 'first_setup_completed'", (err, row) => {
+        if (err || !row) {
+          console.log('Marking first setup as completed');
+          db.run("INSERT OR REPLACE INTO system_flags (name, value) VALUES ('first_setup_completed', 'true')");
         }
-        
-        console.log('Default users inserted with hashed passwords');
-      } catch (error) {
-        console.error('Error hashing passwords:', error);
-      }
+      });
     }
   });
 
@@ -137,4 +138,28 @@ function initializeDatabase() {
   db.run("CREATE INDEX IF NOT EXISTS idx_waste_next_disposal ON waste_items(next_disposal_date)");
 }
 
-module.exports = db;
+// Add function to check if first setup is required
+function isFirstSetupRequired(callback) {
+  db.get("SELECT COUNT(*) as userCount FROM users", (err, userRow) => {
+    if (err) {
+      return callback(err, false);
+    }
+    
+    if (userRow.userCount === 0) {
+      return callback(null, true);
+    }
+    
+    // Check system flag
+    db.get("SELECT value FROM system_flags WHERE name = 'first_setup_completed'", (err, flagRow) => {
+      if (err || !flagRow || flagRow.value !== 'true') {
+        return callback(null, true);
+      }
+      callback(null, false);
+    });
+  });
+}
+
+module.exports = { 
+  db: db, 
+  isFirstSetupRequired: isFirstSetupRequired 
+};

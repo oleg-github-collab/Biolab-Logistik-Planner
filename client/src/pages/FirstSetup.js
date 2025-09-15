@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { register, checkFirstSetup } from '../utils/api';
+import { useAuth } from '../context/AuthContext';
 
 const FirstSetup = () => {
   const [formData, setFormData] = useState({
@@ -12,7 +13,30 @@ const FirstSetup = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [setupStatus, setSetupStatus] = useState('checking');
   const navigate = useNavigate();
+  const { login: authLogin } = useAuth();
+
+  // Check if first setup is really required
+  useEffect(() => {
+    const verifyFirstSetup = async () => {
+      try {
+        const response = await checkFirstSetup();
+        if (!response.data.isFirstSetup) {
+          // Redirect to login if first setup is not required
+          navigate('/login');
+        } else {
+          setSetupStatus('ready');
+        }
+      } catch (err) {
+        console.error('Error checking first setup:', err);
+        setError('Could not connect to server. Please try again later.');
+        setSetupStatus('error');
+      }
+    };
+
+    verifyFirstSetup();
+  }, [navigate]);
 
   const handleChange = (e) => {
     setFormData({
@@ -62,13 +86,13 @@ const FirstSetup = () => {
       const response = await register(
         formData.name, 
         formData.email, 
-        formData.password, 
-        'admin'
+        formData.password
       );
       
       if (response.data.token) {
         // Save token and user data to localStorage
         localStorage.setItem('token', response.data.token);
+        authLogin(response.data.token, response.data.user);
         setSuccess(true);
         
         // Redirect to dashboard after 2 seconds
@@ -78,16 +102,59 @@ const FirstSetup = () => {
       }
     } catch (err) {
       console.error('Registration error:', err);
-      setError(err.response?.data?.error || 'Registration failed. Please try again.');
+      if (err.response?.data?.firstSetupRequired) {
+        // This means we need to force refresh
+        setSetupStatus('ready');
+      } else {
+        setError(err.response?.data?.error || 'Registration failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
+  if (setupStatus === 'checking') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-biolab-blue to-blue-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <p className="text-white text-lg">Überprüfe Systemstatus...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (setupStatus === 'error') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-biolab-blue to-blue-900 flex items-center justify-center p-4">
+        <div className="bg-white bg-opacity-90 backdrop-blur-lg rounded-2xl shadow-xl p-8 w-full max-w-md border border-white border-opacity-20 text-center">
+          <div className="mb-4 p-3 bg-red-100 rounded-full inline-block">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-bold text-gray-800 mb-2">Fehler</h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="bg-biolab-blue hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium transition-colors"
+          >
+            Seite neu laden
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-biolab-blue to-blue-900 flex items-center justify-center p-4">
       <div className="bg-white bg-opacity-90 backdrop-blur-lg rounded-2xl shadow-xl p-8 w-full max-w-md border border-white border-opacity-20">
         <div className="text-center mb-8">
+          <div className="mb-4 p-3 bg-blue-100 rounded-full inline-block">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
           <h1 className="text-3xl font-bold text-biolab-dark mb-2">Biolab Logistik Planner</h1>
           <h2 className="text-xl font-semibold text-gray-700 mb-4">Ersteinrichtung</h2>
           <p className="text-gray-600">
@@ -190,8 +257,15 @@ const FirstSetup = () => {
           </form>
         )}
         
-        <div className="mt-8 text-center text-sm text-gray-500">
-          <p>Systemversion: 1.0.0</p>
+        <div className="mt-8 pt-6 border-t border-gray-200">
+          <div className="text-center">
+            <h3 className="text-sm font-medium text-gray-700 mb-2">Hinweis</h3>
+            <ul className="text-xs text-gray-500 space-y-1">
+              <li>• Dieser Account erhält automatisch Admin-Rechte</li>
+              <li>• Du kannst später weitere Benutzer hinzufügen</li>
+              <li>• Das Passwort muss mindestens 6 Zeichen lang sein</li>
+            </ul>
+          </div>
         </div>
       </div>
     </div>

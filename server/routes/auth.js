@@ -1,43 +1,40 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const db = require('../database');
+const { db, isFirstSetupRequired } = require('../database');
 const { auth, adminAuth } = require('../middleware/auth');
 const router = express.Router();
 
 // @route   GET /api/auth/first-setup
-// @desc    Check if this is the first setup (no users exist)
+// @desc    Check if this is the first setup
 router.get('/first-setup', (req, res) => {
-  db.get("SELECT COUNT(*) as count FROM users", (err, row) => {
+  isFirstSetupRequired((err, isFirstSetup) => {
     if (err) {
       return res.status(500).json({ error: 'Server error' });
     }
     
     res.json({ 
-      isFirstSetup: row.count === 0,
-      userCount: row.count
+      isFirstSetup: isFirstSetup,
+      message: isFirstSetup ? 'First setup required' : 'System already configured'
     });
   });
 });
 
 // @route   POST /api/auth/register
-// @desc    Register a new user (admin only, or first user during setup)
+// @desc    Register a new user
 router.post('/register', async (req, res) => {
   const { name, email, password, role = 'employee' } = req.body;
   
   try {
-    // Check if this is the first setup
-    db.get("SELECT COUNT(*) as count FROM users", async (err, row) => {
+    // Always check if first setup is required
+    isFirstSetupRequired(async (err, isFirstSetup) => {
       if (err) {
         return res.status(500).json({ error: 'Server error' });
       }
       
-      const isFirstSetup = row.count === 0;
-      const isValidRole = ['employee', 'admin'].includes(role);
-      
-      // If not first setup, require admin privileges
+      // For first setup, allow registration without authentication
+      // For subsequent registrations, require admin authentication
       if (!isFirstSetup) {
-        // For non-first-setup, we need to validate JWT
         const token = req.header('Authorization')?.replace('Bearer ', '');
         
         if (!token) {
@@ -47,7 +44,6 @@ router.post('/register', async (req, res) => {
         try {
           const decoded = jwt.verify(token, process.env.JWT_SECRET || 'biolab-logistik-secret-key');
           
-          // Check if user is admin
           if (decoded.user.role !== 'admin') {
             return res.status(403).json({ error: 'Access denied. Admin privileges required.' });
           }
@@ -56,8 +52,17 @@ router.post('/register', async (req, res) => {
         }
       }
       
-      if (!isValidRole) {
-        return res.status(400).json({ error: 'Invalid role specified' });
+      // Validate inputs
+      if (!name?.trim()) {
+        return res.status(400).json({ error: 'Name is required' });
+      }
+      
+      if (!email?.trim()) {
+        return res.status(400).json({ error: 'Email is required' });
+      }
+      
+      if (!password || password.length < 6) {
+        return res.status(400).json({ error: 'Password must be at least 6 characters' });
       }
       
       // Check if user already exists
@@ -78,17 +83,17 @@ router.post('/register', async (req, res) => {
             return res.status(500).json({ error: 'Server error' });
           }
           
+          // Determine role for first user
+          const userRole = isFirstSetup ? 'admin' : (role === 'admin' ? 'admin' : 'employee');
+          
           // Insert user
           db.run(
             "INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)",
-            [name, email, hashedPassword, role],
+            [name, email, hashedPassword, userRole],
             function(err) {
               if (err) {
                 return res.status(500).json({ error: 'Server error' });
               }
-              
-              // If this is the first user, make them admin automatically
-              const userRole = isFirstSetup ? 'admin' : role;
               
               // Get the created user
               db.get(
@@ -99,16 +104,15 @@ router.post('/register', async (req, res) => {
                     return res.status(500).json({ error: 'Server error' });
                   }
                   
-                  // If this was the first setup, update role to admin
+                  // If this was the first setup, mark it as completed
                   if (isFirstSetup) {
                     db.run(
-                      "UPDATE users SET role = 'admin' WHERE id = ?",
-                      [user.id],
+                      "INSERT OR REPLACE INTO system_flags (name, value) VALUES ('first_setup_completed', 'true')",
                       (err) => {
                         if (err) {
-                          console.error('Error updating first user to admin:', err);
+                          console.error('Error marking first setup as completed:', err);
                         } else {
-                          user.role = 'admin';
+                          console.log('First setup completed successfully');
                         }
                       }
                     );
@@ -137,7 +141,7 @@ router.post('/register', async (req, res) => {
                       res.status(201).json({ 
                         token, 
                         user: payload.user,
-                        message: isFirstSetup ? 'First admin user created successfully' : 'User registered successfully'
+                        message: isFirstSetup ? 'Admin account created successfully' : 'User registered successfully'
                       });
                     }
                   );
@@ -160,50 +164,64 @@ router.post('/login', async (req, res) => {
   const { email, password } = req.body;
   
   try {
-    // Check if user exists
-    db.get("SELECT * FROM users WHERE email = ?", [email], async (err, user) => {
+    // First, check if first setup is required
+    isFirstSetupRequired((err, isFirstSetup) => {
       if (err) {
         return res.status(500).json({ error: 'Server error' });
       }
       
-      if (!user) {
-        return res.status(400).json({ error: 'Invalid credentials' });
+      if (isFirstSetup) {
+        return res.status(403).json({ 
+          error: 'First setup required', 
+          firstSetupRequired: true 
+        });
       }
       
-      // Compare hashed password
-      const isMatch = await bcrypt.compare(password, user.password);
-      
-      if (!isMatch) {
-        return res.status(400).json({ error: 'Invalid credentials' });
-      }
-      
-      // Create JWT payload
-      const payload = {
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role
+      // Check if user exists
+      db.get("SELECT * FROM users WHERE email = ?", [email], async (err, user) => {
+        if (err) {
+          return res.status(500).json({ error: 'Server error' });
         }
-      };
-      
-      // Sign token
-      jwt.sign(
-        payload,
-        process.env.JWT_SECRET || 'biolab-logistik-secret-key',
-        { expiresIn: '7d' },
-        (err, token) => {
-          if (err) {
-            return res.status(500).json({ error: 'Server error' });
+        
+        if (!user) {
+          return res.status(400).json({ error: 'Invalid credentials' });
+        }
+        
+        // Compare hashed password
+        const isMatch = await bcrypt.compare(password, user.password);
+        
+        if (!isMatch) {
+          return res.status(400).json({ error: 'Invalid credentials' });
+        }
+        
+        // Create JWT payload
+        const payload = {
+          user: {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role
           }
-          
-          res.json({ 
-            token, 
-            user: payload.user,
-            message: 'Login successful'
-          });
-        }
-      );
+        };
+        
+        // Sign token
+        jwt.sign(
+          payload,
+          process.env.JWT_SECRET || 'biolab-logistik-secret-key',
+          { expiresIn: '7d' },
+          (err, token) => {
+            if (err) {
+              return res.status(500).json({ error: 'Server error' });
+            }
+            
+            res.json({ 
+              token, 
+              user: payload.user,
+              message: 'Login successful'
+            });
+          }
+        );
+      });
     });
   } catch (err) {
     console.error('Login error:', err.message);

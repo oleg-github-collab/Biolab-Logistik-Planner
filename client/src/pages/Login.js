@@ -10,34 +10,29 @@ const Login = () => {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isFirstSetup, setIsFirstSetup] = useState(false);
   const [checkingSetup, setCheckingSetup] = useState(true);
   const { login: authLogin } = useAuth();
   const navigate = useNavigate();
 
-  // Check if this is the first setup
+  // Check if first setup is required
   useEffect(() => {
     const verifyFirstSetup = async () => {
       try {
         const response = await checkFirstSetup();
-        setIsFirstSetup(response.data.isFirstSetup);
+        setCheckingSetup(false);
+        
+        if (response.data.isFirstSetup) {
+          navigate('/first-setup');
+        }
       } catch (err) {
         console.error('Error checking first setup:', err);
         setError('Could not connect to server. Please try again later.');
-      } finally {
         setCheckingSetup(false);
       }
     };
 
     verifyFirstSetup();
-  }, []);
-
-  // Redirect if first setup
-  useEffect(() => {
-    if (!checkingSetup && isFirstSetup) {
-      navigate('/first-setup');
-    }
-  }, [checkingSetup, isFirstSetup, navigate]);
+  }, [navigate]);
 
   const handleChange = (e) => {
     setFormData({
@@ -59,7 +54,13 @@ const Login = () => {
       navigate('/dashboard');
     } catch (err) {
       console.error('Login error:', err.response?.data || err.message);
-      setError('Ungültige Anmeldeinformationen. Bitte versuche es erneut.');
+      
+      if (err.response?.data?.firstSetupRequired) {
+        // Redirect to first setup if required
+        navigate('/first-setup');
+      } else {
+        setError('Ungültige Anmeldeinformationen. Bitte versuche es erneut.');
+      }
     } finally {
       setLoading(false);
     }
@@ -70,14 +71,10 @@ const Login = () => {
       <div className="min-h-screen bg-gradient-to-br from-biolab-blue to-blue-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-          <p className="text-white text-lg">System wird initialisiert...</p>
+          <p className="text-white text-lg">System wird überprüft...</p>
         </div>
       </div>
     );
-  }
-
-  if (isFirstSetup) {
-    return null; // Will be redirected to first-setup
   }
 
   return (
@@ -139,12 +136,20 @@ const Login = () => {
         </form>
         
         <div className="mt-6 pt-6 border-t border-gray-200">
-          <h3 className="text-sm font-medium text-gray-700 mb-2">Brauchst du Hilfe?</h3>
-          <ul className="text-xs text-gray-500 space-y-1">
-            <li>• Kontaktiere deinen Systemadministrator</li>
-            <li>• Überprüfe deine Anmeldeinformationen</li>
-            <li>• Stelle sicher, dass du das richtige System verwendest</li>
-          </ul>
+          <div className="text-center">
+            <h3 className="text-sm font-medium text-gray-700 mb-2">Brauchst du Hilfe?</h3>
+            <ul className="text-xs text-gray-500 space-y-1">
+              <li>• Wenn du noch keinen Account hast, kontaktiere deinen Administrator</li>
+              <li>• Wenn du der erste Benutzer bist, warte auf die Ersteinrichtung</li>
+              <li>• Bei technischen Problemen: Seite neu laden</li>
+            </ul>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-3 text-xs text-blue-600 hover:text-blue-800"
+            >
+              Seite neu laden
+            </button>
+          </div>
         </div>
       </div>
     </div>
