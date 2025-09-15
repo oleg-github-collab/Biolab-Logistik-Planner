@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import Calendar from '../components/Calendar';
 import ScheduleForm from '../components/ScheduleForm';
@@ -22,9 +22,35 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // Define loadData with useCallback to make it stable
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      const [weekRes, scheduleRes, teamRes, archivedRes] = await Promise.all([
+        getCurrentWeek(),
+        getMySchedule(),
+        // FIX: Replaced invalid syntax { [] } with a valid object matching the expected data structure.
+        user.role === 'admin' ? getTeamSchedule() : Promise.resolve({ data: [] }),
+        getArchivedSchedules()
+      ]);
+      
+      setCurrentWeek(weekRes.data);
+      setMySchedule(scheduleRes.data);
+      setTeamSchedule(teamRes.data || []);
+      setArchivedSchedules(archivedRes.data || []);
+    } catch (err) {
+      console.error('Error loading data:', err);
+      setError('Fehler beim Laden der Daten. Bitte versuche es später erneut.');
+    } finally {
+      setLoading(false);
+    }
+  }, [user.role]); // Add user.role as dependency since it's used in the function
+
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]); // Now loadData is a dependency, which is correct
 
   useEffect(() => {
     if (mySchedule && selectedDay) {
@@ -41,30 +67,6 @@ const Dashboard = () => {
       });
     }
   }, [selectedDay, mySchedule]);
-
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      
-      const [weekRes, scheduleRes, teamRes, archivedRes] = await Promise.all([
-        getCurrentWeek(),
-        getMySchedule(),
-        user.role === 'admin' ? getTeamSchedule() : Promise.resolve({ data: [] }),
-        getArchivedSchedules()
-      ]);
-      
-      setCurrentWeek(weekRes.data);
-      setMySchedule(scheduleRes.data);
-      setTeamSchedule(teamRes.data || []);
-      setArchivedSchedules(archivedRes.data || []);
-    } catch (err) {
-      console.error('Error loading data:', err);
-      setError('Fehler beim Laden der Daten. Bitte versuche es später erneut.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleDaySelect = (day) => {
     setSelectedDay(day);
