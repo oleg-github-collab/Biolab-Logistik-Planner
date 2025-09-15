@@ -1,0 +1,20 @@
+[phases.setup]
+nixPkgs = ["nodejs", "yarn"]
+
+[phases.install]
+cmds = [
+  "npm install",
+  "cd client && npm install"
+]
+
+[phases.build]
+cmds = [
+  "cd client && npm run build"
+]
+
+[phases.cache]
+paths = ["node_modules", "client/node_modules"]
+
+[env]
+NODE_ENV = "production"
+PORT = "8080"
