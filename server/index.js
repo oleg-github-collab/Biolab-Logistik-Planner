@@ -18,7 +18,7 @@ app.use(helmet({
       "script-src": ["'self'", "'unsafe-inline'", "https://*.railway.app"],
       "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       "font-src": ["'self'", "https://fonts.gstatic.com"],
-      "img-src": ["'self'", "data:", "https://*.railway.app", "https://*.vercel.app", "https://*.herokuapp.com"]
+      "img-src": ["'self'", "", "https://*.railway.app", "https://*.vercel.app", "https://*.herokuapp.com"]
     }
   }
 }));
@@ -49,8 +49,9 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/schedule', require('./routes/schedule'));
 app.use('/api/messages', require('./routes/messages'));
 app.use('/api/waste', require('./routes/waste'));
-app.use('/api/admin', require('./routes/admin'));
+app.use('/api/waste', require('./routes/wasteTemplates'));
 app.use('/api/tasks', require('./routes/tasks'));
+app.use('/api/admin', require('./routes/admin'));
 
 // Serve static assets if in production
 if (process.env.NODE_ENV === 'production') {
