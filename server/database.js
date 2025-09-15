@@ -1,6 +1,7 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
+const bcrypt = require('bcryptjs'); // Add this require
 
 // Ensure data directory exists
 const dataDir = path.join(__dirname, '..', 'data');
@@ -89,31 +90,42 @@ function initializeDatabase() {
   `);
 
   // Insert default users if none exist
-  db.get("SELECT COUNT(*) as count FROM users", (err, row) => {
+  db.get("SELECT COUNT(*) as count FROM users", async (err, row) => {
     if (err) {
       console.error('Error checking users:', err.message);
       return;
     }
     
     if (row.count === 0) {
-      const defaultUsers = [
-        { name: "Sebastian", email: "sebastian@example.com", password: "password123", role: "employee" },
-        { name: "Lukas", email: "lukas@example.com", password: "password123", role: "employee" },
-        { name: "Manager", email: "manager@example.com", password: "password123", role: "admin" }
-      ];
+      try {
+        // Define default users
+        const defaultUsers = [
+          { name: "Sebastian", email: "sebastian@example.com", password: "password123", role: "employee" },
+          { name: "Lukas", email: "lukas@example.com", password: "password123", role: "employee" },
+          { name: "Manager", email: "manager@example.com", password: "password123", role: "admin" }
+        ];
 
-      const insertStmt = db.prepare(`
-        INSERT INTO users (name, email, password, role) 
-        VALUES (?, ?, ?, ?)
-      `);
-
-      defaultUsers.forEach(user => {
-        // In production, you'd hash the password
-        insertStmt.run(user.name, user.email, user.password, user.role);
-      });
-
-      insertStmt.finalize();
-      console.log('Default users inserted');
+        // Hash passwords and insert users
+        for (const user of defaultUsers) {
+          const hashedPassword = await bcrypt.hash(user.password, 10);
+          
+          db.run(
+            "INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)",
+            [user.name, user.email, hashedPassword, user.role],
+            (err) => {
+              if (err) {
+                console.error(`Error inserting user ${user.name}:`, err.message);
+              } else {
+                console.log(`User ${user.name} inserted successfully`);
+              }
+            }
+          );
+        }
+        
+        console.log('Default users inserted with hashed passwords');
+      } catch (error) {
+        console.error('Error hashing passwords:', error);
+      }
     }
   });
 
