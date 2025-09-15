@@ -45,12 +45,25 @@ const Header = () => {
             >
               Abfallmanagement
             </Link>
+            {user.role === 'admin' && (
+              <Link 
+                to="/users" 
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive('/users')}`}
+              >
+                Benutzer
+              </Link>
+            )}
           </nav>
 
           <div className="flex items-center space-x-4">
-            <span className="text-sm text-gray-600 hidden sm:block">
-              Angemeldet als: <span className="font-medium">{user.name}</span>
-            </span>
+            <div className="hidden sm:block">
+              <span className="text-sm text-gray-600">
+                Angemeldet als:{' '}
+                <span className="font-medium">
+                  {user.name} ({user.role === 'admin' ? 'Admin' : 'Mitarbeiter'})
+                </span>
+              </span>
+            </div>
             <button
               onClick={handleLogout}
               className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-md text-sm font-medium transition-colors"
@@ -63,25 +76,33 @@ const Header = () => {
       
       {/* Mobile navigation */}
       <div className="md:hidden bg-white border-t border-gray-200">
-        <div className="flex justify-around py-2">
+        <div className="flex flex-wrap justify-around py-2">
           <Link 
             to="/dashboard" 
-            className={`px-3 py-2 text-xs font-medium transition-colors ${isActive('/dashboard')}`}
+            className={`px-2 py-1 text-xs font-medium transition-colors ${isActive('/dashboard')}`}
           >
             Planung
           </Link>
           <Link 
             to="/messages" 
-            className={`px-3 py-2 text-xs font-medium transition-colors ${isActive('/messages')}`}
+            className={`px-2 py-1 text-xs font-medium transition-colors ${isActive('/messages')}`}
           >
             Nachrichten
           </Link>
           <Link 
             to="/waste" 
-            className={`px-3 py-2 text-xs font-medium transition-colors ${isActive('/waste')}`}
+            className={`px-2 py-1 text-xs font-medium transition-colors ${isActive('/waste')}`}
           >
             Abfall
           </Link>
+          {user.role === 'admin' && (
+            <Link 
+              to="/users" 
+              className={`px-2 py-1 text-xs font-medium transition-colors ${isActive('/users')}`}
+            >
+              Benutzer
+            </Link>
+          )}
         </div>
       </div>
     </header>

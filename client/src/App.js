@@ -6,6 +6,8 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Messages from './pages/Messages';
 import Waste from './pages/Waste';
+import FirstSetup from './pages/FirstSetup';
+import UserManagement from './pages/UserManagement';
 
 // Protected Route component
 const ProtectedRoute = ({ children }) => {
@@ -13,6 +15,21 @@ const ProtectedRoute = ({ children }) => {
   
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+  
+  return children;
+};
+
+// Admin Route component
+const AdminRoute = ({ children }) => {
+  const { isAuthenticated, user } = useAuth();
+  
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  if (user?.role !== 'admin') {
+    return <Navigate to="/dashboard" replace />;
   }
   
   return children;
@@ -30,6 +47,7 @@ const AppContent = () => {
         <main className="flex-grow">
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/first-setup" element={<FirstSetup />} />
             <Route 
               path="/dashboard" 
               element={
@@ -52,6 +70,14 @@ const AppContent = () => {
                 <ProtectedRoute>
                   <Waste />
                 </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/users" 
+              element={
+                <AdminRoute>
+                  <UserManagement />
+                </AdminRoute>
               } 
             />
             <Route 

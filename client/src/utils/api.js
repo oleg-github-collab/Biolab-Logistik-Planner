@@ -1,6 +1,17 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+// Dynamically set API base URL based on environment
+const getApiBaseUrl = () => {
+  // If we're in development, use localhost
+  if (process.env.NODE_ENV === 'development') {
+    return 'http://localhost:5000/api';
+  }
+  
+  // If we're in production, use the current domain
+  return '/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -23,12 +34,33 @@ api.interceptors.request.use(
   }
 );
 
+// Response interceptor for error handling
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    console.error('API Error:', {
+      url: error.config?.url,
+      method: error.config?.method,
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message
+    });
+    return Promise.reject(error);
+  }
+);
+
 // Auth endpoints
 export const login = (email, password) => 
   api.post('/auth/login', { email, password });
 
+export const register = (name, email, password, role = 'employee') => 
+  api.post('/auth/register', { name, email, password, role });
+
 export const getUser = () => 
   api.get('/auth/user');
+
+export const checkFirstSetup = () => 
+  api.get('/auth/first-setup');
 
 // Schedule endpoints
 export const getCurrentWeek = () => 
@@ -71,5 +103,15 @@ export const updateWasteItem = (id, name, description, disposalInstructions, nex
 
 export const deleteWasteItem = (id) => 
   api.delete(`/waste/items/${id}`);
+
+// Admin endpoints
+export const getAllUsers = () => 
+  api.get('/admin/users');
+
+export const updateUser = (id, userData) => 
+  api.put(`/admin/users/${id}`, userData);
+
+export const deleteUser = (id) => 
+  api.delete(`/admin/users/${id}`);
 
 export default api;

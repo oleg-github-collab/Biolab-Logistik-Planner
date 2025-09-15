@@ -9,16 +9,46 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+      "connect-src": ["'self'", "http://localhost:5000", "http://localhost:3000", "https://*.railway.app", "https://*.vercel.app", "https://*.herokuapp.com"],
+      "script-src": ["'self'", "'unsafe-inline'", "https://*.railway.app"],
+      "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      "font-src": ["'self'", "https://fonts.gstatic.com"],
+      "img-src": ["'self'", "data:", "https://*.railway.app"]
+    }
+  }
+}));
 app.use(morgan('combined'));
-app.use(cors());
+
+// Configure CORS
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin || 
+        origin.includes('localhost') || 
+        origin.includes('railway.app') ||
+        origin.includes('vercel.app') ||
+        origin.includes('herokuapp.com')) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 
-// Routes
+// API routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/schedule', require('./routes/schedule'));
 app.use('/api/messages', require('./routes/messages'));
 app.use('/api/waste', require('./routes/waste'));
+app.use('/api/admin', require('./routes/admin')); // Add admin routes
 
 // Serve static assets if in production
 if (process.env.NODE_ENV === 'production') {
@@ -31,8 +61,11 @@ if (process.env.NODE_ENV === 'production') {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Something went wrong!' });
+  console.error('Server error:', err.stack);
+  res.status(500).json({ 
+    error: 'Something went wrong!',
+    message: process.env.NODE_ENV === 'development' ? err.message : undefined
+  });
 });
 
 // Schedule cleanup task (archive old weeks)
@@ -133,9 +166,20 @@ function formatDateForDB(date) {
   return date.toISOString().split('T')[0];
 }
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV
+  });
+});
+
 // Start server
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV}`);
+  console.log(`API Base URL: ${process.env.NODE_ENV === 'production' ? 'https://your-app.railway.app/api' : 'http://localhost:5000/api'}`);
 });
 
 module.exports = app;
