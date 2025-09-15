@@ -78,6 +78,32 @@ export const getTeamSchedule = () =>
 export const getArchivedSchedules = () => 
   api.get('/schedule/archived');
 
+// Event endpoints
+export const getEvents = (start, end) => 
+  api.get(`/schedule/events${start ? `?start=${start}&end=${end || ''}` : ''}`);
+
+export const createEvent = (eventData) => 
+  api.post('/schedule/events', eventData);
+
+export const updateEvent = (id, eventData) => 
+  api.put(`/schedule/events/${id}`, eventData);
+
+export const deleteEvent = (id) => 
+  api.delete(`/schedule/events/${id}`);
+
+// Task endpoints
+export const getTasks = (status) => 
+  api.get(`/tasks${status ? `?status=${status}` : ''}`);
+
+export const createTask = (taskData) => 
+  api.post('/tasks', taskData);
+
+export const updateTask = (id, taskData) => 
+  api.put(`/tasks/${id}`, taskData);
+
+export const deleteTask = (id) => 
+  api.delete(`/tasks/${id}`);
+
 // Messages endpoints
 export const getMessages = () => 
   api.get('/messages');
@@ -103,6 +129,19 @@ export const updateWasteItem = (id, name, description, disposalInstructions, nex
 
 export const deleteWasteItem = (id) => 
   api.delete(`/waste/items/${id}`);
+
+// Waste template endpoints
+export const getWasteTemplates = () => 
+  api.get('/waste/templates');
+
+export const createWasteTemplate = (templateData) => 
+  api.post('/waste/templates', templateData);
+
+export const updateWasteTemplate = (id, templateData) => 
+  api.put(`/waste/templates/${id}`, templateData);
+
+export const deleteWasteTemplate = (id) => 
+  api.delete(`/waste/templates/${id}`);
 
 // Admin endpoints
 export const getAllUsers = () => 

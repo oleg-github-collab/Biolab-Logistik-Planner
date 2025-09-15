@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import MessageList from '../components/MessageList';
-import MessageInput from '../components/MessageInput';
+import TelegramChat from '../components/TelegramChat';
 import { 
   getMessages, 
   sendMessage, 
@@ -16,6 +15,7 @@ const Messages = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [unreadCount, setUnreadCount] = useState(0);
+  const [selectedUser, setSelectedUser] = useState(null);
 
   useEffect(() => {
     loadData();
@@ -68,9 +68,9 @@ const Messages = () => {
     }
   };
 
-  const handleSendMessage = async (receiverId, message, isGroup) => {
+  const handleSendMessage = async (receiverId, message) => {
     try {
-      const messageData = await sendMessage(receiverId, message, isGroup);
+      const messageData = await sendMessage(receiverId, message);
       // Add new message to state
       setMessages(prev => [...prev, messageData]);
       // Update unread count
@@ -81,11 +81,25 @@ const Messages = () => {
     }
   };
 
+  const handleSelectUser = (user) => {
+    setSelectedUser(user);
+    // Mark messages as read when selecting user
+    if (user) {
+      setMessages(prev => 
+        prev.map(msg => 
+          msg.receiver_id === user.id && msg.read_status === 0
+            ? { ...msg, read_status: 1 }
+            : msg
+        )
+      );
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-biolab-blue mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="mt-4 text-gray-600">Nachrichten werden geladen...</p>
         </div>
       </div>
@@ -103,44 +117,28 @@ const Messages = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold text-biolab-dark mb-2">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-gray-800 mb-2">
           Nachrichten
-        </h2>
+        </h1>
         <p className="text-gray-600">
-          Kommuniziere mit deinen Kollegen
+          Kommuniziere mit deinen Kollegen in Echtzeit
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          <MessageList 
-            messages={messages} 
-            currentUserId={user.id} 
-          />
-        </div>
-        
-        <div>
-          <MessageInput 
-            onSend={handleSendMessage}
-            users={users}
-            currentUserId={user.id}
-          />
-          
-          <div className="mt-6 bg-white rounded-lg shadow-md p-4">
-            <h3 className="text-lg font-bold text-biolab-dark mb-3">
-              Ungelesene Nachrichten
-            </h3>
-            <div className="text-3xl font-bold text-biolab-blue">
-              {unreadCount}
-            </div>
-            <p className="text-sm text-gray-600 mt-1">
-              {unreadCount === 1 ? 'ungelesene Nachricht' : 'ungelesene Nachrichten'}
-            </p>
-          </div>
-        </div>
-      </div>
+      <TelegramChat
+        users={users}
+        messages={messages.filter(msg => 
+          selectedUser 
+            ? (msg.sender_id === selectedUser.id || msg.receiver_id === selectedUser.id)
+            : true
+        )}
+        currentUserId={user.id}
+        onSendMessage={handleSendMessage}
+        onSelectUser={handleSelectUser}
+        selectedUser={selectedUser}
+      />
     </div>
   );
 };

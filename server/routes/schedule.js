@@ -1,5 +1,5 @@
 const express = require('express');
-const db = require('../database'); // Import db directly
+const db = require('../database');
 const { auth } = require('../middleware/auth');
 const router = express.Router();
 
@@ -38,6 +38,10 @@ function formatDateForDB(date) {
   return date.toISOString().split('T')[0];
 }
 
+function formatDateTimeForDB(date) {
+  return date.toISOString().slice(0, 19).replace('T', ' ');
+}
+
 // @route   GET /api/schedule/current-week
 // @desc    Get current week info
 router.get('/current-week', (req, res) => {
@@ -62,7 +66,7 @@ router.get('/current-week', (req, res) => {
 });
 
 // @route   GET /api/schedule/my-schedule
-// @desc    Get current week schedule for logged in user
+// @desc    Get current week schedule for logged in user (backward compatibility)
 router.get('/my-schedule', auth, (req, res) => {
   try {
     const today = new Date();
@@ -115,7 +119,7 @@ router.get('/my-schedule', auth, (req, res) => {
 });
 
 // @route   PUT /api/schedule/update-day
-// @desc    Update a day in the current week schedule
+// @desc    Update a day in the current week schedule (backward compatibility)
 router.put('/update-day', auth, (req, res) => {
   const { dayOfWeek, startTime, endTime, status } = req.body;
   
@@ -170,6 +174,270 @@ router.put('/update-day', auth, (req, res) => {
             }
           );
         }
+      }
+    );
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   GET /api/events
+// @desc    Get events for a date range
+router.get('/events', auth, (req, res) => {
+  try {
+    const { start, end } = req.query;
+    
+    let startDate = start ? new Date(start) : new Date();
+    let endDate = end ? new Date(end) : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // Default to 1 year
+    
+    db.all(
+      `SELECT * FROM events 
+       WHERE user_id = ? AND start_date >= ? AND start_date <= ? 
+       ORDER BY start_date, start_time`,
+      [req.user.id, formatDateTimeForDB(startDate), formatDateTimeForDB(endDate)],
+      (err, rows) => {
+        if (err) {
+          return res.status(500).json({ error: 'Server error' });
+        }
+        
+        res.json(rows);
+      }
+    );
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   POST /api/events
+// @desc    Create a new event
+router.post('/events', auth, (req, res) => {
+  try {
+    const { 
+      title, 
+      description, 
+      startDate, 
+      endDate, 
+      startTime, 
+      endTime, 
+      type = 'Arbeit',
+      isAllDay = false,
+      isRecurring = false,
+      recurrencePattern = null,
+      recurrenceEndDate = null
+    } = req.body;
+    
+    // Validate inputs
+    if (!title?.trim()) {
+      return res.status(400).json({ error: 'Title is required' });
+    }
+    
+    if (!startDate) {
+      return res.status(400).json({ error: 'Start date is required' });
+    }
+    
+    const startDateTime = new Date(startDate);
+    const endDateTime = endDate ? new Date(endDate) : null;
+    
+    db.run(
+      `INSERT INTO events (
+        user_id, title, description, start_date, end_date, start_time, end_time, 
+        type, is_all_day, is_recurring, recurrence_pattern, recurrence_end_date
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        req.user.id,
+        title,
+        description || null,
+        formatDateTimeForDB(startDateTime),
+        endDateTime ? formatDateTimeForDB(endDateTime) : null,
+        startTime || null,
+        endTime || null,
+        type,
+        isAllDay ? 1 : 0,
+        isRecurring ? 1 : 0,
+        isRecurring ? recurrencePattern : null,
+        isRecurring && recurrenceEndDate ? formatDateTimeForDB(new Date(recurrenceEndDate)) : null
+      ],
+      function(err) {
+        if (err) {
+          return res.status(500).json({ error: 'Server error' });
+        }
+        
+        db.get(
+          "SELECT * FROM events WHERE id = ?",
+          [this.lastID],
+          (err, event) => {
+            if (err) {
+              return res.status(500).json({ error: 'Server error' });
+            }
+            
+            res.status(201).json(event);
+          }
+        );
+      }
+    );
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   PUT /api/events/:id
+// @desc    Update an event
+router.put('/events/:id', auth, (req, res) => {
+  try {
+    const { id } = req.params;
+    const { 
+      title, 
+      description, 
+      startDate, 
+      endDate, 
+      startTime, 
+      endTime, 
+      type,
+      isAllDay,
+      isRecurring,
+      recurrencePattern,
+      recurrenceEndDate
+    } = req.body;
+    
+    // First, verify the event belongs to the user
+    db.get(
+      "SELECT id FROM events WHERE id = ? AND user_id = ?",
+      [id, req.user.id],
+      (err, event) => {
+        if (err) {
+          return res.status(500).json({ error: 'Server error' });
+        }
+        
+        if (!event) {
+          return res.status(404).json({ error: 'Event not found or access denied' });
+        }
+        
+        // Build update query dynamically
+        const updates = [];
+        const values = [];
+        
+        if (title !== undefined) {
+          updates.push("title = ?");
+          values.push(title);
+        }
+        
+        if (description !== undefined) {
+          updates.push("description = ?");
+          values.push(description || null);
+        }
+        
+        if (startDate !== undefined) {
+          updates.push("start_date = ?");
+          values.push(formatDateTimeForDB(new Date(startDate)));
+        }
+        
+        if (endDate !== undefined) {
+          updates.push("end_date = ?");
+          values.push(endDate ? formatDateTimeForDB(new Date(endDate)) : null);
+        }
+        
+        if (startTime !== undefined) {
+          updates.push("start_time = ?");
+          values.push(startTime || null);
+        }
+        
+        if (endTime !== undefined) {
+          updates.push("end_time = ?");
+          values.push(endTime || null);
+        }
+        
+        if (type !== undefined) {
+          updates.push("type = ?");
+          values.push(type);
+        }
+        
+        if (isAllDay !== undefined) {
+          updates.push("is_all_day = ?");
+          values.push(isAllDay ? 1 : 0);
+        }
+        
+        if (isRecurring !== undefined) {
+          updates.push("is_recurring = ?");
+          values.push(isRecurring ? 1 : 0);
+        }
+        
+        if (recurrencePattern !== undefined) {
+          updates.push("recurrence_pattern = ?");
+          values.push(isRecurring ? recurrencePattern : null);
+        }
+        
+        if (recurrenceEndDate !== undefined) {
+          updates.push("recurrence_end_date = ?");
+          values.push(isRecurring && recurrenceEndDate ? formatDateTimeForDB(new Date(recurrenceEndDate)) : null);
+        }
+        
+        updates.push("updated_at = CURRENT_TIMESTAMP");
+        
+        if (updates.length === 1) { // Only updated_at was added
+          return res.status(400).json({ error: 'No fields to update' });
+        }
+        
+        const query = `UPDATE events SET ${updates.join(', ')} WHERE id = ?`;
+        values.push(id);
+        
+        db.run(query, values, function(err) {
+          if (err) {
+            return res.status(500).json({ error: 'Server error' });
+          }
+          
+          db.get(
+            "SELECT * FROM events WHERE id = ?",
+            [id],
+            (err, updatedEvent) => {
+              if (err) {
+                return res.status(500).json({ error: 'Server error' });
+              }
+              
+              res.json(updatedEvent);
+            }
+          );
+        });
+      }
+    );
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   DELETE /api/events/:id
+// @desc    Delete an event
+router.delete('/events/:id', auth, (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // First, verify the event belongs to the user
+    db.get(
+      "SELECT id FROM events WHERE id = ? AND user_id = ?",
+      [id, req.user.id],
+      (err, event) => {
+        if (err) {
+          return res.status(500).json({ error: 'Server error' });
+        }
+        
+        if (!event) {
+          return res.status(404).json({ error: 'Event not found or access denied' });
+        }
+        
+        db.run(
+          "DELETE FROM events WHERE id = ?",
+          [id],
+          function(err) {
+            if (err) {
+              return res.status(500).json({ error: 'Server error' });
+            }
+            
+            res.json({ message: 'Event deleted successfully' });
+          }
+        );
       }
     );
   } catch (error) {

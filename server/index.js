@@ -3,7 +3,8 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const path = require('path');
-const db = require('./database'); // Import db directly
+const db = require('./database');
+const schedule = require('node-schedule');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -17,7 +18,7 @@ app.use(helmet({
       "script-src": ["'self'", "'unsafe-inline'", "https://*.railway.app"],
       "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       "font-src": ["'self'", "https://fonts.gstatic.com"],
-      "img-src": ["'self'", "", "https://*.railway.app"]
+      "img-src": ["'self'", "data:", "https://*.railway.app", "https://*.vercel.app", "https://*.herokuapp.com"]
     }
   }
 }));
@@ -49,6 +50,7 @@ app.use('/api/schedule', require('./routes/schedule'));
 app.use('/api/messages', require('./routes/messages'));
 app.use('/api/waste', require('./routes/waste'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/tasks', require('./routes/tasks'));
 
 // Serve static assets if in production
 if (process.env.NODE_ENV === 'production') {
@@ -78,9 +80,6 @@ app.use((err, req, res, next) => {
 });
 
 // Schedule cleanup task (archive old weeks)
-const schedule = require('node-schedule');
-
-// Archive old weeks every Monday at 1 AM
 schedule.scheduleJob('0 1 * * 1', function() {
   const today = new Date();
   const currentWeekStart = getMonday(today);

@@ -1,0 +1,386 @@
+import React, { useState, useEffect } from 'react';
+import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+
+const KanbanBoard = ({ tasks = [], onTaskUpdate, onTaskCreate, onTaskDelete }) => {
+  const [columns, setColumns] = useState({
+    todo: {
+      id: 'todo',
+      title: 'Zu erledigen',
+      tasks: []
+    },
+    inprogress: {
+      id: 'inprogress',
+      title: 'In Arbeit',
+      tasks: []
+    },
+    review: {
+      id: 'review',
+      title: 'Zur Überprüfung',
+      tasks: []
+    },
+    done: {
+      id: 'done',
+      title: 'Erledigt',
+      tasks: []
+    }
+  });
+  
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [newTask, setNewTask] = useState({
+    title: '',
+    description: '',
+    assignee: '',
+    dueDate: '',
+    priority: 'medium',
+    tags: []
+  });
+
+  useEffect(() => {
+    // Group tasks by status
+    const groupedTasks = {
+      todo: [],
+      inprogress: [],
+      review: [],
+      done: []
+    };
+
+    tasks.forEach(task => {
+      const status = task.status || 'todo';
+      if (groupedTasks[status]) {
+        groupedTasks[status].push(task);
+      } else {
+        groupedTasks.todo.push(task);
+      }
+    });
+
+    setColumns(prev => ({
+      ...prev,
+      todo: { ...prev.todo, tasks: groupedTasks.todo },
+      inprogress: { ...prev.inprogress, tasks: groupedTasks.inprogress },
+      review: { ...prev.review, tasks: groupedTasks.review },
+      done: { ...prev.done, tasks: groupedTasks.done }
+    }));
+  }, [tasks]);
+
+  const onDragEnd = (result) => {
+    const { destination, source, draggableId } = result;
+
+    if (!destination) {
+      return;
+    }
+
+    if (
+      destination.droppableId === source.droppableId &&
+      destination.index === source.index
+    ) {
+      return;
+    }
+
+    const sourceColumn = columns[source.droppableId];
+    const destColumn = columns[destination.droppableId];
+    const sourceTasks = [...sourceColumn.tasks];
+    const destTasks = [...destColumn.tasks];
+    const [removed] = sourceTasks.splice(source.index, 1);
+    destTasks.splice(destination.index, 0, removed);
+
+    // Update task status
+    if (onTaskUpdate) {
+      onTaskUpdate(removed.id, {
+        ...removed,
+        status: destination.droppableId
+      });
+    }
+
+    setColumns({
+      ...columns,
+      [source.droppableId]: {
+        ...sourceColumn,
+        tasks: sourceTasks
+      },
+      [destination.droppableId]: {
+        ...destColumn,
+        tasks: destTasks
+      }
+    });
+  };
+
+  const handleTaskClick = (task) => {
+    setSelectedTask(task);
+    setNewTask({
+      ...task,
+      dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : ''
+    });
+    setShowTaskModal(true);
+  };
+
+  const handleTaskSubmit = (e) => {
+    e.preventDefault();
+    if (selectedTask) {
+      // Update existing task
+      if (onTaskUpdate) {
+        onTaskUpdate(selectedTask.id, {
+          ...newTask,
+          dueDate: newTask.dueDate ? new Date(newTask.dueDate) : null
+        });
+      }
+    } else {
+      // Create new task
+      if (onTaskCreate) {
+        onTaskCreate({
+          ...newTask,
+          id: Date.now(),
+          status: 'todo',
+          createdAt: new Date(),
+          dueDate: newTask.dueDate ? new Date(newTask.dueDate) : null
+        });
+      }
+    }
+    setShowTaskModal(false);
+    setSelectedTask(null);
+    setNewTask({
+      title: '',
+      description: '',
+      assignee: '',
+      dueDate: '',
+      priority: 'medium',
+      tags: []
+    });
+  };
+
+  const getPriorityColor = (priority) => {
+    switch (priority) {
+      case 'high': return 'bg-red-100 text-red-800';
+      case 'medium': return 'bg-yellow-100 text-yellow-800';
+      case 'low': return 'bg-green-100 text-green-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const formatDate = (date) => {
+    if (!date) return '';
+    return new Date(date).toLocaleDateString('de-DE', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    });
+  };
+
+  return (
+    <div className="h-full bg-gray-50 p-4 rounded-lg">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold text-gray-800">Kanban Board</h2>
+        <button
+          onClick={() => {
+            setSelectedTask(null);
+            setShowTaskModal(true);
+          }}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+          </svg>
+          <span>Neue Aufgabe</span>
+        </button>
+      </div>
+
+      <DragDropContext onDragEnd={onDragEnd}>
+        <div className="flex space-x-4 overflow-x-auto pb-4">
+          {Object.values(columns).map(column => (
+            <Droppable key={column.id} droppableId={column.id}>
+              {(provided) => (
+                <div
+                  {...provided.droppableProps}
+                  ref={provided.innerRef}
+                  className="bg-white rounded-lg shadow-sm min-w-80 max-w-80"
+                >
+                  <div className="p-4 border-b border-gray-200">
+                    <h3 className="font-bold text-gray-800 mb-1">{column.title}</h3>
+                    <p className="text-sm text-gray-500">{column.tasks.length} Aufgaben</p>
+                  </div>
+                  
+                  <div className="p-2 min-h-96">
+                    {column.tasks.map((task, index) => (
+                      <Draggable key={task.id} draggableId={String(task.id)} index={index}>
+                        {(provided) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            {...provided.dragHandleProps}
+                            className="kanban-card mb-3 p-4 cursor-pointer"
+                            onClick={() => handleTaskClick(task)}
+                          >
+                            <div className="flex justify-between items-start mb-2">
+                              <h4 className="font-medium text-gray-800">{task.title}</h4>
+                              <span className={`text-xs px-2 py-1 rounded-full ${getPriorityColor(task.priority)}`}>
+                                {task.priority === 'high' ? 'Hoch' : task.priority === 'medium' ? 'Mittel' : 'Niedrig'}
+                              </span>
+                            </div>
+                            
+                            {task.description && (
+                              <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+                                {task.description}
+                              </p>
+                            )}
+                            
+                            <div className="flex justify-between items-center text-xs text-gray-500">
+                              {task.assignee && (
+                                <span>👤 {task.assignee}</span>
+                              )}
+                              {task.dueDate && (
+                                <span>📅 {formatDate(task.dueDate)}</span>
+                              )}
+                            </div>
+                            
+                            {task.tags && task.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {task.tags.map((tag, tagIndex) => (
+                                  <span key={tagIndex} className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
+                  </div>
+                </div>
+              )}
+            </Droppable>
+          ))}
+        </div>
+      </DragDropContext>
+
+      {/* Task Modal */}
+      {showTaskModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md mx-auto slide-in">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-gray-800">
+                {selectedTask ? 'Aufgabe bearbeiten' : 'Neue Aufgabe'}
+              </h3>
+              <button
+                onClick={() => setShowTaskModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <form onSubmit={handleTaskSubmit}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Titel *
+                  </label>
+                  <input
+                    type="text"
+                    value={newTask.title}
+                    onChange={(e) => setNewTask({...newTask, title: e.target.value})}
+                    required
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Aufgaben Titel"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Beschreibung
+                  </label>
+                  <textarea
+                    value={newTask.description}
+                    onChange={(e) => setNewTask({...newTask, description: e.target.value})}
+                    rows="3"
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Beschreibung (optional)"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Verantwortlich
+                    </label>
+                    <input
+                      type="text"
+                      value={newTask.assignee}
+                      onChange={(e) => setNewTask({...newTask, assignee: e.target.value})}
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Name"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Fälligkeitsdatum
+                    </label>
+                    <input
+                      type="date"
+                      value={newTask.dueDate}
+                      onChange={(e) => setNewTask({...newTask, dueDate: e.target.value})}
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Priorität
+                  </label>
+                  <select
+                    value={newTask.priority}
+                    onChange={(e) => setNewTask({...newTask, priority: e.target.value})}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="low">Niedrig</option>
+                    <option value="medium">Mittel</option>
+                    <option value="high">Hoch</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Tags (durch Komma getrennt)
+                  </label>
+                  <input
+                    type="text"
+                    value={Array.isArray(newTask.tags) ? newTask.tags.join(', ') : ''}
+                    onChange={(e) => setNewTask({
+                      ...newTask, 
+                      tags: e.target.value.split(',').map(tag => tag.trim()).filter(tag => tag)
+                    })}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="projekt, wichtig, dringend"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex space-x-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowTaskModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Abbrechen
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  {selectedTask ? 'Aktualisieren' : 'Erstellen'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default KanbanBoard;
