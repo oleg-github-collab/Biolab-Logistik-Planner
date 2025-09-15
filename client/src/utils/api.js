@@ -79,17 +79,33 @@ export const getArchivedSchedules = () =>
   api.get('/schedule/archived');
 
 // Event endpoints
-export const getEvents = (start, end) => 
-  api.get(`/schedule/events${start ? `?start=${start}&end=${end || ''}` : ''}`);
+export const getEvents = (start, end, type, priority) => {
+  const params = new URLSearchParams();
+  if (start) params.append('start', start);
+  if (end) params.append('end', end);
+  if (type) params.append('type', type);
+  if (priority) params.append('priority', priority);
 
-export const createEvent = (eventData) => 
+  return api.get(`/schedule/events${params.toString() ? `?${params.toString()}` : ''}`);
+};
+
+export const createEvent = (eventData) =>
   api.post('/schedule/events', eventData);
 
-export const updateEvent = (id, eventData) => 
+export const updateEvent = (id, eventData) =>
   api.put(`/schedule/events/${id}`, eventData);
 
-export const deleteEvent = (id) => 
+export const deleteEvent = (id) =>
   api.delete(`/schedule/events/${id}`);
+
+export const getEventStatistics = (timeframe = 'month') =>
+  api.get(`/schedule/events/statistics?timeframe=${timeframe}`);
+
+export const createBulkEvents = (events) =>
+  api.post('/schedule/events/bulk', { events });
+
+export const duplicateEvent = (id, newDate) =>
+  api.post(`/schedule/events/${id}/duplicate`, { newDate });
 
 // Task endpoints
 export const getTasks = (status) => 

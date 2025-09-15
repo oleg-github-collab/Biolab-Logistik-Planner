@@ -186,24 +186,46 @@ router.put('/update-day', auth, (req, res) => {
 // @desc    Get events for a date range
 router.get('/events', auth, (req, res) => {
   try {
-    const { start, end } = req.query;
-    
+    const { start, end, type, priority } = req.query;
+
     let startDate = start ? new Date(start) : new Date();
     let endDate = end ? new Date(end) : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // Default to 1 year
-    
-    db.all(
-      `SELECT * FROM events 
-       WHERE user_id = ? AND start_date >= ? AND start_date <= ? 
-       ORDER BY start_date, start_time`,
-      [req.user.id, formatDateTimeForDB(startDate), formatDateTimeForDB(endDate)],
-      (err, rows) => {
-        if (err) {
-          return res.status(500).json({ error: 'Server error' });
-        }
-        
-        res.json(rows);
+
+    let query = `SELECT * FROM events WHERE user_id = ? AND start_date >= ? AND start_date <= ?`;
+    let params = [req.user.id, formatDateTimeForDB(startDate), formatDateTimeForDB(endDate)];
+
+    if (type) {
+      query += ` AND type = ?`;
+      params.push(type);
+    }
+
+    if (priority) {
+      query += ` AND priority = ?`;
+      params.push(priority);
+    }
+
+    query += ` ORDER BY start_date, start_time`;
+
+    db.all(query, params, (err, rows) => {
+      if (err) {
+        return res.status(500).json({ error: 'Server error' });
       }
-    );
+
+      // Process recurring events
+      const processedEvents = [];
+
+      rows.forEach(event => {
+        processedEvents.push(event);
+
+        // If recurring, generate additional instances
+        if (event.is_recurring) {
+          const recurringEvents = generateRecurringEvents(event, startDate, endDate);
+          processedEvents.push(...recurringEvents);
+        }
+      });
+
+      res.json(processedEvents);
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Server error' });
@@ -214,41 +236,73 @@ router.get('/events', auth, (req, res) => {
 // @desc    Create a new event
 router.post('/events', auth, (req, res) => {
   try {
-    const { 
-      title, 
-      description, 
-      startDate, 
-      endDate, 
-      startTime, 
-      endTime, 
+    const {
+      title,
+      description,
+      startDate,
+      endDate,
+      startTime,
+      endTime,
       type = 'Arbeit',
       isAllDay = false,
       isRecurring = false,
       recurrencePattern = null,
-      recurrenceEndDate = null
+      recurrenceEndDate = null,
+      priority = 'medium',
+      location = null,
+      attendees = null,
+      reminder = 15,
+      category = 'work'
     } = req.body;
-    
+
     // Validate inputs
     if (!title?.trim()) {
       return res.status(400).json({ error: 'Title is required' });
     }
-    
+
     if (!startDate) {
       return res.status(400).json({ error: 'Start date is required' });
     }
-    
+
+    // Validate time consistency
+    if (!isAllDay && startTime && endTime) {
+      const startHour = parseInt(startTime.split(':')[0]);
+      const endHour = parseInt(endTime.split(':')[0]);
+      const startMinute = parseInt(startTime.split(':')[1]);
+      const endMinute = parseInt(endTime.split(':')[1]);
+
+      const startTotal = startHour * 60 + startMinute;
+      const endTotal = endHour * 60 + endMinute;
+
+      if (startTotal >= endTotal) {
+        return res.status(400).json({ error: 'End time must be after start time' });
+      }
+    }
+
+    // Validate attendees emails
+    if (attendees) {
+      const emails = attendees.split(',').map(email => email.trim());
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+      const invalidEmails = emails.filter(email => email && !emailRegex.test(email));
+      if (invalidEmails.length > 0) {
+        return res.status(400).json({ error: `Invalid email addresses: ${invalidEmails.join(', ')}` });
+      }
+    }
+
     const startDateTime = new Date(startDate);
     const endDateTime = endDate ? new Date(endDate) : null;
-    
+
     db.run(
       `INSERT INTO events (
-        user_id, title, description, start_date, end_date, start_time, end_time, 
-        type, is_all_day, is_recurring, recurrence_pattern, recurrence_end_date
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        user_id, title, description, start_date, end_date, start_time, end_time,
+        type, is_all_day, is_recurring, recurrence_pattern, recurrence_end_date,
+        priority, location, attendees, reminder, category
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         req.user.id,
-        title,
-        description || null,
+        title.trim(),
+        description?.trim() || null,
         formatDateTimeForDB(startDateTime),
         endDateTime ? formatDateTimeForDB(endDateTime) : null,
         startTime || null,
@@ -257,13 +311,19 @@ router.post('/events', auth, (req, res) => {
         isAllDay ? 1 : 0,
         isRecurring ? 1 : 0,
         isRecurring ? recurrencePattern : null,
-        isRecurring && recurrenceEndDate ? formatDateTimeForDB(new Date(recurrenceEndDate)) : null
+        isRecurring && recurrenceEndDate ? formatDateTimeForDB(new Date(recurrenceEndDate)) : null,
+        priority,
+        location?.trim() || null,
+        attendees?.trim() || null,
+        parseInt(reminder) || 15,
+        category
       ],
       function(err) {
         if (err) {
+          console.error('Database error:', err);
           return res.status(500).json({ error: 'Server error' });
         }
-        
+
         db.get(
           "SELECT * FROM events WHERE id = ?",
           [this.lastID],
@@ -271,7 +331,7 @@ router.post('/events', auth, (req, res) => {
             if (err) {
               return res.status(500).json({ error: 'Server error' });
             }
-            
+
             res.status(201).json(event);
           }
         );
@@ -554,6 +614,218 @@ router.get('/archived', auth, (req, res) => {
         res.json(archivedSchedules);
       }
     );
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Helper function to generate recurring events
+function generateRecurringEvents(baseEvent, startDate, endDate) {
+  const events = [];
+  const eventStartDate = new Date(baseEvent.start_date);
+  const recurrenceEndDate = baseEvent.recurrence_end_date ? new Date(baseEvent.recurrence_end_date) : endDate;
+
+  let currentDate = new Date(eventStartDate);
+  let instanceCount = 0;
+  const maxInstances = 100; // Prevent infinite loops
+
+  while (currentDate <= recurrenceEndDate && currentDate <= endDate && instanceCount < maxInstances) {
+    // Skip the original event date
+    if (currentDate.getTime() !== eventStartDate.getTime() && currentDate >= startDate) {
+      events.push({
+        ...baseEvent,
+        id: `${baseEvent.id}_${instanceCount}`,
+        start_date: formatDateTimeForDB(currentDate),
+        is_recurring_instance: true,
+        parent_event_id: baseEvent.id
+      });
+    }
+
+    // Calculate next occurrence
+    switch (baseEvent.recurrence_pattern) {
+      case 'daily':
+        currentDate.setDate(currentDate.getDate() + 1);
+        break;
+      case 'weekly':
+        currentDate.setDate(currentDate.getDate() + 7);
+        break;
+      case 'biweekly':
+        currentDate.setDate(currentDate.getDate() + 14);
+        break;
+      case 'monthly':
+        currentDate.setMonth(currentDate.getMonth() + 1);
+        break;
+      case 'yearly':
+        currentDate.setFullYear(currentDate.getFullYear() + 1);
+        break;
+      default:
+        break;
+    }
+
+    instanceCount++;
+  }
+
+  return events;
+}
+
+// @route   GET /api/events/statistics
+// @desc    Get event statistics for dashboard
+router.get('/events/statistics', auth, (req, res) => {
+  try {
+    const { timeframe = 'month' } = req.query;
+
+    let startDate = new Date();
+    let endDate = new Date();
+
+    switch (timeframe) {
+      case 'week':
+        startDate.setDate(startDate.getDate() - 7);
+        break;
+      case 'month':
+        startDate.setMonth(startDate.getMonth() - 1);
+        break;
+      case 'quarter':
+        startDate.setMonth(startDate.getMonth() - 3);
+        break;
+      case 'year':
+        startDate.setFullYear(startDate.getFullYear() - 1);
+        break;
+    }
+
+    db.all(
+      `SELECT
+        type,
+        priority,
+        COUNT(*) as count,
+        COUNT(CASE WHEN is_all_day = 1 THEN 1 END) as all_day_count
+       FROM events
+       WHERE user_id = ? AND start_date >= ? AND start_date <= ?
+       GROUP BY type, priority`,
+      [req.user.id, formatDateTimeForDB(startDate), formatDateTimeForDB(endDate)],
+      (err, rows) => {
+        if (err) {
+          return res.status(500).json({ error: 'Server error' });
+        }
+
+        // Process statistics
+        const statistics = {
+          totalEvents: rows.reduce((sum, row) => sum + row.count, 0),
+          byType: {},
+          byPriority: {},
+          allDayEvents: rows.reduce((sum, row) => sum + row.all_day_count, 0)
+        };
+
+        rows.forEach(row => {
+          if (!statistics.byType[row.type]) {
+            statistics.byType[row.type] = 0;
+          }
+          statistics.byType[row.type] += row.count;
+
+          if (!statistics.byPriority[row.priority]) {
+            statistics.byPriority[row.priority] = 0;
+          }
+          statistics.byPriority[row.priority] += row.count;
+        });
+
+        res.json(statistics);
+      }
+    );
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   POST /api/events/bulk
+// @desc    Create multiple events at once
+router.post('/events/bulk', auth, (req, res) => {
+  try {
+    const { events } = req.body;
+
+    if (!Array.isArray(events) || events.length === 0) {
+      return res.status(400).json({ error: 'Events array is required' });
+    }
+
+    if (events.length > 50) {
+      return res.status(400).json({ error: 'Maximum 50 events can be created at once' });
+    }
+
+    const createdEvents = [];
+    let processedCount = 0;
+
+    events.forEach((eventData, index) => {
+      const {
+        title,
+        description,
+        startDate,
+        endDate,
+        startTime,
+        endTime,
+        type = 'Arbeit',
+        isAllDay = false,
+        priority = 'medium',
+        location = null,
+        category = 'work'
+      } = eventData;
+
+      // Validate required fields
+      if (!title?.trim() || !startDate) {
+        return res.status(400).json({
+          error: `Event ${index + 1}: Title and start date are required`
+        });
+      }
+
+      const startDateTime = new Date(startDate);
+      const endDateTime = endDate ? new Date(endDate) : null;
+
+      db.run(
+        `INSERT INTO events (
+          user_id, title, description, start_date, end_date, start_time, end_time,
+          type, is_all_day, priority, location, category
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          req.user.id,
+          title.trim(),
+          description?.trim() || null,
+          formatDateTimeForDB(startDateTime),
+          endDateTime ? formatDateTimeForDB(endDateTime) : null,
+          startTime || null,
+          endTime || null,
+          type,
+          isAllDay ? 1 : 0,
+          priority,
+          location?.trim() || null,
+          category
+        ],
+        function(err) {
+          if (err) {
+            console.error('Database error:', err);
+            return res.status(500).json({ error: 'Server error creating events' });
+          }
+
+          db.get(
+            "SELECT * FROM events WHERE id = ?",
+            [this.lastID],
+            (err, event) => {
+              if (err) {
+                return res.status(500).json({ error: 'Server error' });
+              }
+
+              createdEvents.push(event);
+              processedCount++;
+
+              if (processedCount === events.length) {
+                res.status(201).json({
+                  message: `${createdEvents.length} events created successfully`,
+                  events: createdEvents
+                });
+              }
+            }
+          );
+        }
+      );
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Server error' });

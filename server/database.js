@@ -50,7 +50,7 @@ function initializeDatabase() {
     )
   `);
 
-  // Create events table for calendar (new)
+  // Create events table for calendar (enhanced)
   db.run(`
     CREATE TABLE IF NOT EXISTS events (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -66,11 +66,22 @@ function initializeDatabase() {
       is_recurring BOOLEAN DEFAULT 0,
       recurrence_pattern TEXT, -- 'daily', 'weekly', 'biweekly', 'monthly', 'yearly'
       recurrence_end_date DATETIME,
+      priority TEXT DEFAULT 'medium', -- 'low', 'medium', 'high'
+      location TEXT,
+      attendees TEXT, -- comma-separated email addresses
+      reminder INTEGER DEFAULT 15, -- minutes before event
+      category TEXT DEFAULT 'work',
+      color TEXT DEFAULT '#3B82F6',
+      tags TEXT, -- JSON array of tags
+      notes TEXT,
+      status TEXT DEFAULT 'confirmed', -- 'confirmed', 'tentative', 'cancelled'
+      visibility TEXT DEFAULT 'private', -- 'private', 'public', 'shared'
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
     )
   `);
+
 
   // Create tasks table for Kanban board (new)
   db.run(`
@@ -148,6 +159,77 @@ function initializeDatabase() {
       default_next_date DATE,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Create event_templates table for quick event creation
+  db.run(`
+    CREATE TABLE IF NOT EXISTS event_templates (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      title_template TEXT NOT NULL,
+      description_template TEXT,
+      type TEXT DEFAULT 'Arbeit',
+      default_duration INTEGER DEFAULT 60, -- minutes
+      default_start_time TEXT DEFAULT '09:00',
+      is_all_day BOOLEAN DEFAULT 0,
+      priority TEXT DEFAULT 'medium',
+      location_template TEXT,
+      category TEXT DEFAULT 'work',
+      color TEXT DEFAULT '#3B82F6',
+      tags TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+    )
+  `);
+
+  // Create event_reminders table for advanced reminder system
+  db.run(`
+    CREATE TABLE IF NOT EXISTS event_reminders (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      event_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      reminder_time DATETIME NOT NULL,
+      reminder_type TEXT DEFAULT 'notification', -- 'notification', 'email', 'sms'
+      message TEXT,
+      is_sent BOOLEAN DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (event_id) REFERENCES events (id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+    )
+  `);
+
+  // Create calendar_views table for saving custom calendar configurations
+  db.run(`
+    CREATE TABLE IF NOT EXISTS calendar_views (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      view_type TEXT DEFAULT 'month', -- 'month', 'week', 'day', 'agenda'
+      filters TEXT, -- JSON object with filter settings
+      display_settings TEXT, -- JSON object with display preferences
+      is_default BOOLEAN DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+    )
+  `);
+
+  // Create event_sharing table for shared events
+  db.run(`
+    CREATE TABLE IF NOT EXISTS event_sharing (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      event_id INTEGER NOT NULL,
+      owner_id INTEGER NOT NULL,
+      shared_with_id INTEGER NOT NULL,
+      permission TEXT DEFAULT 'view', -- 'view', 'edit', 'admin'
+      status TEXT DEFAULT 'pending', -- 'pending', 'accepted', 'declined'
+      shared_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      responded_at DATETIME,
+      FOREIGN KEY (event_id) REFERENCES events (id) ON DELETE CASCADE,
+      FOREIGN KEY (owner_id) REFERENCES users (id) ON DELETE CASCADE,
+      FOREIGN KEY (shared_with_id) REFERENCES users (id) ON DELETE CASCADE
     )
   `);
 
