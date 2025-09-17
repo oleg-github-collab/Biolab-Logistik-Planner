@@ -1,103 +1,139 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const db = require('../database'); // Import db directly
+const db = require('../database');
 const { auth, adminAuth } = require('../middleware/auth');
+const { asyncHandler, createError } = require('../middleware/errorHandler');
+const validate = require('../middleware/validation');
+const { limiters } = require('../middleware/rateLimiter');
+const ApiController = require('../controllers/apiController');
+const logger = require('../utils/logger');
+
 const router = express.Router();
+const apiController = new ApiController();
 
 // @route   GET /api/auth/first-setup
 // @desc    Check if this is the first setup
-router.get('/first-setup', (req, res) => {
-  db.get("SELECT COUNT(*) as userCount FROM users", (err, userRow) => {
-    if (err) {
-      return res.status(500).json({ error: 'Server error' });
+router.get('/first-setup', asyncHandler(async (req, res) => {
+  logger.info('Checking first setup status', { ip: req.ip });
+
+  try {
+    const userCount = await apiController.executeQuery(
+      db,
+      "SELECT COUNT(*) as userCount FROM users",
+      [],
+      'get'
+    );
+
+    if (userCount.userCount === 0) {
+      return apiController.sendResponse(res, {
+        isFirstSetup: true
+      }, 'First setup required');
     }
-    
-    if (userRow.userCount === 0) {
-      return res.json({ 
-        isFirstSetup: true,
-        message: 'First setup required'
-      });
-    }
-    
-    // Check system flag
-    db.get("SELECT value FROM system_flags WHERE name = 'first_setup_completed'", (err, flagRow) => {
-      if (err || !flagRow || flagRow.value !== 'true') {
-        return res.json({ 
-          isFirstSetup: true,
-          message: 'First setup required'
-        });
-      }
-      
-      res.json({ 
-        isFirstSetup: false,
-        message: 'System already configured'
-      });
-    });
-  });
-});
+
+    const systemFlag = await apiController.executeQuery(
+      db,
+      "SELECT value FROM system_flags WHERE name = 'first_setup_completed'",
+      [],
+      'get'
+    );
+
+    const isFirstSetup = !systemFlag || systemFlag.value !== 'true';
+
+    return apiController.sendResponse(res, {
+      isFirstSetup
+    }, isFirstSetup ? 'First setup required' : 'System already configured');
+
+  } catch (error) {
+    logger.error('Error checking first setup status', error, { ip: req.ip });
+    throw createError.internal('Failed to check setup status');
+  }
+}));
 
 // @route   POST /api/auth/register
 // @desc    Register a new user
-router.post('/register', async (req, res) => {
-  const { name, email, password, role = 'employee' } = req.body;
-  
-  try {
-    // Always check if first setup is required
-    db.get("SELECT COUNT(*) as userCount FROM users", async (err, userRow) => {
-      if (err) {
-        return res.status(500).json({ error: 'Server error' });
-      }
-      
-      const isFirstSetup = userRow.userCount === 0;
-      
-      // For first setup, allow registration without authentication
-      // For subsequent registrations, require admin authentication
-      if (!isFirstSetup) {
-        const token = req.header('Authorization')?.replace('Bearer ', '');
-        
-        if (!token) {
-          return res.status(401).json({ error: 'Access denied. No token provided.' });
-        }
-        
-        try {
-          const decoded = jwt.verify(token, process.env.JWT_SECRET || 'biolab-logistik-secret-key');
-          
-          if (decoded.user.role !== 'admin') {
-            return res.status(403).json({ error: 'Access denied. Admin privileges required.' });
-          }
-        } catch (error) {
-          return res.status(400).json({ error: 'Invalid token.' });
-        }
-      }
-      
-      // Validate inputs
-      if (!name?.trim()) {
-        return res.status(400).json({ error: 'Name is required' });
-      }
-      
-      if (!email?.trim()) {
-        return res.status(400).json({ error: 'Email is required' });
-      }
-      
-      if (!password || password.length < 6) {
-        return res.status(400).json({ error: 'Password must be at least 6 characters' });
-      }
-      
-      // Check if user already exists
-      db.get("SELECT id FROM users WHERE email = ? OR name = ?", [email, name], (err, existingUser) => {
-        if (err) {
-          return res.status(500).json({ error: 'Server error' });
-        }
-        
-        if (existingUser) {
-          return res.status(400).json({ 
-            error: 'User with this email or name already exists' 
-          });
-        }
-        
-        // Hash password
-        bcrypt.hash(password, 10, (err, hashedPassword) => {
+router.post('/register', limiters.auth, validate.registerUser, asyncHandler(async (req, res) => {
+  const { name, email, password, role = 'user' } = req.body;
+
+  logger.info('User registration attempt', {
+    email,
+    role,
+    ip: req.ip
+  });
+
+  // Check if first setup
+  const userCount = await apiController.executeQuery(
+    db,
+    "SELECT COUNT(*) as userCount FROM users",
+    [],
+    'get'
+  );
+
+  const isFirstSetup = userCount.userCount === 0;
+
+  // For non-first setup, require admin authentication
+  if (!isFirstSetup) {
+    apiController.checkPermissions(req.user, 'admin');
+  }
+
+  // Check if user exists
+  const existingUser = await apiController.executeQuery(
+    db,
+    "SELECT id FROM users WHERE email = ? OR name = ?",
+    [email, name],
+    'get'
+  );
+
+  if (existingUser) {
+    logger.warn('Registration failed - user exists', { email, ip: req.ip });
+    throw createError.conflict('User with this email or name already exists');
+  }
+
+  // Hash password
+  const hashedPassword = await bcrypt.hash(password, 12);
+
+  // Set role for first user
+  const userRole = isFirstSetup ? 'admin' : role;
+
+  // Create user
+  const result = await apiController.executeQuery(
+    db,
+    "INSERT INTO users (name, email, password, role, created_at) VALUES (?, ?, ?, ?, datetime('now'))",
+    [name, email, hashedPassword, userRole],
+    'run'
+  );
+
+  // Mark first setup as completed if this is the first user
+  if (isFirstSetup) {
+    await apiController.executeQuery(
+      db,
+      "INSERT OR REPLACE INTO system_flags (name, value) VALUES ('first_setup_completed', 'true')",
+      [],
+      'run'
+    );
+
+    logger.info('First setup completed', { userId: result.id, email });
+  }
+
+  // Get created user (without password)
+  const newUser = await apiController.executeQuery(
+    db,
+    "SELECT id, name, email, role, created_at FROM users WHERE id = ?",
+    [result.id],
+    'get'
+  );
+
+  logger.info('User registered successfully', {
+    userId: result.id,
+    email,
+    role: userRole,
+    isFirstSetup
+  });
+
+  return apiController.sendResponse(res, {
+    user: apiController.sanitizeUserData(newUser),
+    isFirstSetup
+  }, 'User registered successfully', 201);
           if (err) {
             return res.status(500).json({ error: 'Server error' });
           }

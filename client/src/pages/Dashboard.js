@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
+import AdvancedCalendar from '../components/AdvancedCalendar';
+import EventDetailsPanel from '../components/EventDetailsPanel';
 import CalendarView from '../components/CalendarView';
 import KanbanBoard from '../components/KanbanBoard';
-import WasteTemplateManager from '../components/WasteTemplateManager'; // FIX: Added missing import
+import WasteTemplateManager from '../components/WasteTemplateManager';
 import { 
   getCurrentWeek, 
   getMySchedule, 
@@ -27,6 +29,10 @@ const Dashboard = () => {
   const [calendarView, setCalendarView] = useState('month');
   const [tasks, setTasks] = useState([]);
   const [wasteTemplates, setWasteTemplates] = useState([]);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [eventPanelMode, setEventPanelMode] = useState('view');
+  const [showEventPanel, setShowEventPanel] = useState(false);
+  const [events, setEvents] = useState([]);
 
   const loadData = useCallback(async () => {
     try {
@@ -46,8 +52,21 @@ const Dashboard = () => {
       setTeamSchedule(teamRes.data || []);
       setArchivedSchedules(archivedRes.data || []);
       
-      // FIX: The 'events' variable was declared here but never used. It has been removed.
-      // The CalendarView component below already creates the event list from the 'mySchedule' prop.
+      // Transform schedule data to events
+      const scheduleEvents = (scheduleRes.data || []).map(day => ({
+        id: day.id || `schedule-${day.dayOfWeek}-${Date.now()}`,
+        title: day.status || 'Arbeit',
+        description: day.notes || '',
+        date: currentWeek ? format(addDays(parseISO(currentWeek.weekStart), day.dayOfWeek), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
+        start_time: day.startTime || '09:00',
+        end_time: day.endTime || '17:00',
+        type: day.status || 'Arbeit',
+        all_day: !day.startTime && !day.endTime,
+        priority: 'medium',
+        status: 'confirmed'
+      }));
+
+      setEvents(scheduleEvents);
       
       setTasks([
         {
@@ -120,8 +139,35 @@ const Dashboard = () => {
     setSelectedDate(date);
   };
 
-  const handleEventClick = (event) => {
-    console.log('Event clicked:', event);
+  const handleEventClick = (event, mode = 'view') => {
+    setSelectedEvent(event);
+    setEventPanelMode(mode);
+    setShowEventPanel(true);
+  };
+
+  const handleEventSave = (eventData) => {
+    if (eventPanelMode === 'create') {
+      setEvents(prev => [...prev, { ...eventData, id: Date.now() }]);
+    } else {
+      setEvents(prev => prev.map(e => e.id === eventData.id ? eventData : e));
+    }
+    setShowEventPanel(false);
+  };
+
+  const handleEventDelete = (eventId) => {
+    setEvents(prev => prev.filter(e => e.id !== eventId));
+    setShowEventPanel(false);
+  };
+
+  const handleEventDuplicate = (eventData) => {
+    setEvents(prev => [...prev, { ...eventData, id: Date.now() }]);
+    setShowEventPanel(false);
+  };
+
+  const handleCreateNewEvent = () => {
+    setSelectedEvent(null);
+    setEventPanelMode('create');
+    setShowEventPanel(true);
   };
 
   const handleEventCreate = async (newEvent) => {
@@ -260,46 +306,54 @@ const Dashboard = () => {
       {activeTab === 'calendar' && (
         <div className="bg-white rounded-xl shadow-sm p-6">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold text-gray-800">Arbeitszeiten-Kalender</h2>
+            <h2 className="text-xl font-bold text-gray-800">Fortgeschrittener Kalender</h2>
             <div className="flex space-x-2">
               <button
-                onClick={() => setCalendarView('month')}
+                onClick={handleCreateNewEvent}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+              >
+                + Neuer Termin
+              </button>
+              <button
+                onClick={() => setCalendarView('day')}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  calendarView === 'month' 
-                    ? 'bg-blue-100 text-blue-700' 
+                  calendarView === 'day'
+                    ? 'bg-blue-100 text-blue-700'
                     : 'text-gray-600 hover:bg-gray-100'
                 }`}
               >
-                Monat
+                Tag
               </button>
               <button
                 onClick={() => setCalendarView('week')}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  calendarView === 'week' 
-                    ? 'bg-blue-100 text-blue-700' 
+                  calendarView === 'week'
+                    ? 'bg-blue-100 text-blue-700'
                     : 'text-gray-600 hover:bg-gray-100'
                 }`}
               >
                 Woche
               </button>
+              <button
+                onClick={() => setCalendarView('month')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  calendarView === 'month'
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                Monat
+              </button>
             </div>
           </div>
           
           <div className="h-[700px]">
-            <CalendarView
-              events={mySchedule && currentWeek ? mySchedule.map(day => ({
-                id: day.id || `${day.dayOfWeek}-${day.status}`,
-                title: day.status,
-                date: addDays(new Date(currentWeek.weekStart), day.dayOfWeek),
-                startTime: day.startTime,
-                endTime: day.endTime,
-                type: day.status,
-                allDay: !day.startTime && !day.endTime
-              })) : []}
+            <AdvancedCalendar
+              events={events}
+              view={calendarView}
+              selectedDate={selectedDate}
               onDateSelect={handleDateSelect}
               onEventClick={handleEventClick}
-              selectedDate={selectedDate}
-              viewType={calendarView}
               onEventCreate={handleEventCreate}
             />
           </div>
@@ -326,6 +380,17 @@ const Dashboard = () => {
           onTemplateApply={handleTemplateApply}
         />
       )}
+
+      {/* Event Details Panel */}
+      <EventDetailsPanel
+        event={selectedEvent}
+        isOpen={showEventPanel}
+        onClose={() => setShowEventPanel(false)}
+        onSave={handleEventSave}
+        onDelete={handleEventDelete}
+        onDuplicate={handleEventDuplicate}
+        mode={eventPanelMode}
+      />
     </div>
   );
 };
