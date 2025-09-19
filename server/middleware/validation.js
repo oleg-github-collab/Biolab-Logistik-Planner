@@ -109,28 +109,51 @@ const validate = {
 
   // Message validation
   sendMessage: (req, res, next) => {
-    const { content, recipient_id } = req.body;
     const errors = [];
 
-    if (!content || content.trim().length < 1) {
+    const rawMessage = typeof req.body.message === 'string'
+      ? req.body.message
+      : typeof req.body.content === 'string'
+        ? req.body.content
+        : '';
+    const trimmedMessage = rawMessage.trim();
+
+    if (!trimmedMessage) {
       errors.push('Message content is required');
+    } else if (trimmedMessage.length > 5000) {
+      errors.push('Message content cannot exceed 5000 characters');
     }
 
-    if (content && content.length > 1000) {
-      errors.push('Message content cannot exceed 1000 characters');
-    }
+    const normalizedIsGroup = Boolean(req.body.isGroup ?? req.body.is_group ?? false);
+    const rawReceiver = req.body.receiverId ?? req.body.receiver_id ?? req.body.recipient_id;
+    let receiverId = null;
 
-    if (!recipient_id) {
-      errors.push('Recipient ID is required');
+    if (!normalizedIsGroup) {
+      const numericReceiver = Number(rawReceiver);
+      if (!Number.isInteger(numericReceiver) || numericReceiver <= 0) {
+        errors.push('Valid receiver ID is required');
+      } else {
+        receiverId = numericReceiver;
+      }
     }
 
     if (errors.length > 0) {
       logger.warn('Message validation failed', {
         errors,
         userId: req.user?.id,
-        recipientId: recipient_id
+        receiverId: rawReceiver,
+        isGroup: normalizedIsGroup
       });
       throw createError.validation(errors.join(', '));
+    }
+
+    req.body.message = trimmedMessage;
+    req.body.isGroup = normalizedIsGroup;
+
+    if (!normalizedIsGroup) {
+      req.body.receiverId = receiverId;
+    } else {
+      req.body.receiverId = null;
     }
 
     next();

@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../database');
 const { auth } = require('../middleware/auth');
+const validate = require('../middleware/validation');
 const ApiController = require('../controllers/apiController');
 
 const router = express.Router();
@@ -172,7 +173,9 @@ router.get('/', auth, async (req, res) => {
         m.delivered_status,
         m.created_at,
         sender.name AS sender_name,
-        receiver.name AS receiver_name
+        sender.email AS sender_email,
+        receiver.name AS receiver_name,
+        receiver.email AS receiver_email
       FROM messages m
       JOIN users sender ON m.sender_id = sender.id
       LEFT JOIN users receiver ON m.receiver_id = receiver.id
@@ -261,7 +264,7 @@ router.get('/unread-count', auth, async (req, res) => {
   }
 });
 
-router.post('/', auth, async (req, res) => {
+router.post('/', auth, validate.sendMessage, async (req, res) => {
   const { receiverId, message, isGroup } = req.body;
 
   try {
@@ -330,7 +333,9 @@ router.post('/', auth, async (req, res) => {
         m.delivered_status,
         m.created_at,
         sender.name AS sender_name,
-        receiver.name AS receiver_name
+        sender.email AS sender_email,
+        receiver.name AS receiver_name,
+        receiver.email AS receiver_email
       FROM messages m
       JOIN users sender ON m.sender_id = sender.id
       LEFT JOIN users receiver ON m.receiver_id = receiver.id

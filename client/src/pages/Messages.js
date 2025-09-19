@@ -139,7 +139,7 @@ const Messages = () => {
   const [conversationError, setConversationError] = useState('');
   const [unreadCount, setUnreadCount] = useState(0);
   const [selectedUserId, setSelectedUserId] = useState(null);
-  const [isSending, setIsSending] = useState(false);
+  const [pendingSendCount, setPendingSendCount] = useState(0);
   const latestCursorRef = useRef(null);
   const activeConversationRef = useRef(null);
   const isMountedRef = useRef(true);
@@ -156,6 +156,8 @@ const Messages = () => {
     () => users.find((item) => item.id === selectedUserId) || null,
     [users, selectedUserId]
   );
+
+  const isSending = useMemo(() => pendingSendCount > 0, [pendingSendCount]);
 
   const updateLatestCursorRef = useCallback((cursor) => {
     latestCursorRef.current = cursor;
@@ -430,13 +432,40 @@ const Messages = () => {
   }, [selectedUserId, fetchConversation, getUnreadCountData, user]);
 
   const handleSendMessage = useCallback(async (receiverId, content) => {
-    if (!user?.id || !receiverId || !content || isSending || !isMountedRef.current) {
+    if (!user?.id || !receiverId || !content || !isMountedRef.current) {
       return;
     }
 
+    const trimmedContent = typeof content === 'string' ? content.trim() : '';
+
+    if (!trimmedContent) {
+      return;
+    }
+
+    const isActiveConversation = () => activeConversationRef.current === receiverId;
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const optimisticCreatedAt = new Date().toISOString();
+
+    if (isMountedRef.current && isActiveConversation()) {
+      const optimisticMessage = {
+        id: tempId,
+        message: trimmedContent,
+        created_at: optimisticCreatedAt,
+        sender_id: user.id,
+        receiver_id: receiverId,
+        delivered_status: false,
+        read_status: true,
+        optimistic: true
+      };
+
+      setConversationMessages((prev) => mergeMessages(prev, [optimisticMessage], 'append'));
+      setConversationError('');
+    }
+
+    setPendingSendCount((count) => count + 1);
+
     try {
-      setIsSending(true);
-      const response = await sendMessage(receiverId, content);
+      const response = await sendMessage(receiverId, trimmedContent);
 
       if (!isMountedRef.current) {
         return;
@@ -446,12 +475,20 @@ const Messages = () => {
       const newMessage = normalizeMessage(payload);
 
       if (!newMessage || !newMessage.id) {
+        if (isActiveConversation()) {
+          setConversationMessages((prev) => prev.filter((msg) => msg.id !== tempId));
+        }
         return;
       }
 
-      if (activeConversationRef.current === receiverId) {
-        setConversationMessages((prev) => mergeMessages(prev, [newMessage], 'append'));
+      if (isActiveConversation()) {
         let latestCursorValue = null;
+
+        setConversationMessages((prev) => {
+          const withoutTemp = prev.filter((msg) => msg.id !== tempId);
+          return mergeMessages(withoutTemp, [newMessage], 'append');
+        });
+
         setMessageMeta((prev) => {
           const resolvedLatest = newMessage.created_at ?? prev.latestCursor ?? null;
           latestCursorValue = resolvedLatest;
@@ -460,13 +497,31 @@ const Messages = () => {
             latestCursor: resolvedLatest
           };
         });
+
         updateLatestCursorRef(latestCursorValue ?? null);
         setConversationError('');
+      } else {
+        setConversationMessages((prev) => prev.filter((msg) => msg.id !== tempId));
       }
 
       setUsers((prevUsers) => {
-        const exists = prevUsers.some((item) => item.id === receiverId);
-        const updatedUsers = exists
+        if (!receiverId) {
+          return prevUsers;
+        }
+
+        const existingUser = prevUsers.find((item) => item.id === receiverId);
+        const fallbackSelected = selectedUserId === receiverId ? selectedUser : null;
+
+        const fallbackName = existingUser?.name
+          || newMessage.receiver_name
+          || fallbackSelected?.name
+          || 'Unbekannter Benutzer';
+        const fallbackEmail = existingUser?.email
+          || newMessage.receiver_email
+          || fallbackSelected?.email
+          || '';
+
+        const updatedUsers = existingUser
           ? prevUsers.map((item) =>
               item.id === receiverId
                 ? {
@@ -481,8 +536,8 @@ const Messages = () => {
               ...prevUsers,
               {
                 id: receiverId,
-                name: selectedUser?.name || 'Unbekannter Benutzer',
-                email: selectedUser?.email || '',
+                name: fallbackName,
+                email: fallbackEmail,
                 unread_count: 0,
                 last_message: newMessage.message,
                 last_message_at: newMessage.created_at
@@ -496,15 +551,16 @@ const Messages = () => {
         return;
       }
       console.error('Error sending message:', err);
-      if (activeConversationRef.current === receiverId) {
+      if (isActiveConversation()) {
+        setConversationMessages((prev) => prev.filter((msg) => msg.id !== tempId));
         setConversationError('Fehler beim Senden der Nachricht. Bitte versuche es erneut.');
       }
     } finally {
       if (isMountedRef.current) {
-        setIsSending(false);
+        setPendingSendCount((count) => Math.max(0, count - 1));
       }
     }
-  }, [isSending, selectedUser, sortUsers, updateLatestCursorRef, user]);
+  }, [selectedUser, selectedUserId, sortUsers, updateLatestCursorRef, user]);
 
   const handleSelectUser = useCallback((item) => {
     if (!isMountedRef.current) {

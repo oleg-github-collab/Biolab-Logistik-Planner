@@ -206,6 +206,28 @@ const TelegramChat = ({
       return null;
     }
 
+    if (message.optimistic) {
+      return (
+        <span
+          className="inline-flex items-center ml-2 text-blue-100"
+          title="Wird gesendet"
+        >
+          <svg
+            className="w-4 h-4 animate-spin"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <circle className="opacity-25" cx="12" cy="12" r="10" fill="none" />
+            <path className="opacity-75" d="M4 12a8 8 0 018-8v2a6 6 0 00-6 6H4z" fill="currentColor" />
+          </svg>
+        </span>
+      );
+    }
+
     const delivered = Boolean(message.delivered_status);
     const read = Boolean(message.read_status);
 
@@ -366,9 +388,9 @@ const TelegramChat = ({
                         <div
                           className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl ${
                             isCurrentUser(message)
-                              ? 'bg-blue-500 text-white'
+                              ? `bg-blue-500 text-white ${message.optimistic ? 'opacity-80' : ''}`
                               : 'bg-white text-gray-800 shadow-sm'
-                          }`}
+                          } ${message.optimistic ? 'border border-blue-100' : ''}`}
                         >
                           <p className="text-sm whitespace-pre-line break-words">{message.message}</p>
                           <p
@@ -379,12 +401,14 @@ const TelegramChat = ({
                             }`}
                           >
                             <span>
-                              {message.createdAt
-                                ? formatDistanceToNow(message.createdAt, {
-                                    addSuffix: true,
-                                    locale: de
-                                  })
-                                : 'Gerade eben'}
+                              {message.optimistic
+                                ? 'Wird gesendet...'
+                                : message.createdAt
+                                  ? formatDistanceToNow(message.createdAt, {
+                                      addSuffix: true,
+                                      locale: de
+                                    })
+                                  : 'Gerade eben'}
                             </span>
                             {renderStatusIcon(message)}
                           </p>
