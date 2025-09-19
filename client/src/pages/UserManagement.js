@@ -93,7 +93,12 @@ const UserManagement = () => {
       loadUsers();
     } catch (err) {
       console.error('Error saving user:', err);
-      setError(err.response?.data?.error || 'Fehler beim Speichern des Benutzers.');
+      const apiError = err.response?.data?.error?.message
+        ?? err.response?.data?.error
+        ?? err.message
+        ?? 'Fehler beim Speichern des Benutzers.';
+
+      setError(typeof apiError === 'string' ? apiError : 'Fehler beim Speichern des Benutzers.');
     }
   };
 

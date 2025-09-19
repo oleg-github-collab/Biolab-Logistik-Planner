@@ -51,7 +51,11 @@ export const AuthProvider = ({ children }) => {
       if (state.token) {
         try {
           const res = await getUser();
-          dispatch({ type: 'LOAD_USER', payload: res.data });
+          const userData = res?.data?.data ?? res?.data ?? null;
+
+          if (userData) {
+            dispatch({ type: 'LOAD_USER', payload: userData });
+          }
         } catch (err) {
           console.error('Error loading user:', err);
           // Only logout if it's an auth error (401 or 403)
