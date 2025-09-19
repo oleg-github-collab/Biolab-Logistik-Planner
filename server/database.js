@@ -21,6 +21,22 @@ const db = new sqlite3.Database(dbPath, (err) => {
 });
 
 function initializeDatabase() {
+  db.serialize(() => {
+    enableForeignKeys();
+    createCoreTables();
+    createIndexes();
+    seedWasteTemplates();
+    handleForceFirstSetup();
+    ensureFirstSetupState();
+    seedDefaultTasks();
+  });
+}
+
+function enableForeignKeys() {
+  db.run('PRAGMA foreign_keys = ON');
+}
+
+function createCoreTables() {
   // Create users table
   db.run(`
     CREATE TABLE IF NOT EXISTS users (
@@ -82,7 +98,6 @@ function initializeDatabase() {
     )
   `);
 
-
   // Create tasks table for Kanban board (new)
   db.run(`
     CREATE TABLE IF NOT EXISTS tasks (
@@ -129,6 +144,22 @@ function initializeDatabase() {
     )
   `);
 
+  // Create waste_templates table (new)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS waste_templates (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      description TEXT,
+      disposal_instructions TEXT NOT NULL,
+      color TEXT DEFAULT '#A9D08E',
+      icon TEXT DEFAULT 'trash',
+      default_frequency TEXT DEFAULT 'weekly', -- 'daily', 'weekly', 'biweekly', 'monthly', 'quarterly', 'yearly'
+      default_next_date DATE,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   // Create waste_items table (enhanced)
   db.run(`
     CREATE TABLE IF NOT EXISTS waste_items (
@@ -143,22 +174,6 @@ function initializeDatabase() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (template_id) REFERENCES waste_templates (id) ON DELETE SET NULL
-    )
-  `);
-
-  // Create waste_templates table (new)
-  db.run(`
-    CREATE TABLE IF NOT EXISTS waste_templates (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      description TEXT,
-      disposal_instructions TEXT NOT NULL,
-      color TEXT DEFAULT '#A9D08E',
-      icon TEXT DEFAULT 'trash',
-      default_frequency TEXT DEFAULT 'weekly', -- 'daily', 'weekly', 'biweekly', 'monthly', 'quarterly', 'yearly'
-      default_next_date DATE,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
@@ -240,14 +255,39 @@ function initializeDatabase() {
       value TEXT
     )
   `);
+}
 
-  // Insert default waste templates if none exist
-  db.get("SELECT COUNT(*) as count FROM waste_templates", (err, row) => {
+function createIndexes() {
+  // Add indexes to improve message queries
+  db.run(`
+    CREATE INDEX IF NOT EXISTS idx_messages_participants
+    ON messages (sender_id, receiver_id, created_at DESC)
+  `);
+  db.run(`
+    CREATE INDEX IF NOT EXISTS idx_messages_receiver_read
+    ON messages (receiver_id, read_status, created_at DESC)
+  `);
+
+  db.run('CREATE INDEX IF NOT EXISTS idx_weekly_schedules_user_week ON weekly_schedules(user_id, week_start)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_events_user ON events(user_id)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_events_date ON events(start_date)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_tasks_assignee ON tasks(assignee_id)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(due_date)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender_id)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_messages_receiver ON messages(receiver_id)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_waste_next_disposal ON waste_items(next_disposal_date)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_waste_template ON waste_items(template_id)');
+}
+
+function seedWasteTemplates() {
+  db.get('SELECT COUNT(*) as count FROM waste_templates', (err, row) => {
     if (err) {
       console.error('Error checking waste templates:', err.message);
       return;
     }
-    
+
     if (row.count === 0) {
       const defaultTemplates = [
         {
@@ -288,10 +328,10 @@ function initializeDatabase() {
         }
       ];
 
-      defaultTemplates.forEach(template => {
+      defaultTemplates.forEach((template) => {
         db.run(
           `INSERT INTO waste_templates (
-            name, description, disposal_instructions, color, icon, 
+            name, description, disposal_instructions, color, icon,
             default_frequency, default_next_date
           ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
           [
@@ -305,75 +345,18 @@ function initializeDatabase() {
           ]
         );
       });
-      
+
       console.log('Default waste templates inserted');
     }
   });
+}
 
-  // Insert default tasks if none exist
-  db.get("SELECT COUNT(*) as count FROM tasks", (err, row) => {
-    if (err) {
-      console.error('Error checking tasks:', err.message);
-      return;
-    }
-    
-    if (row.count === 0) {
-      // Get first user as assignee
-      db.get("SELECT id FROM users LIMIT 1", (err, user) => {
-        if (err || !user) {
-          console.error('Error getting user for default tasks:', err?.message);
-          return;
-        }
-        
-        const defaultTasks = [
-          {
-            title: 'Wochenplanung abschließen',
-            description: 'Stelle sicher, dass alle Arbeitszeiten für die kommende Woche eingetragen sind',
-            status: 'todo',
-            priority: 'high',
-            assignee_id: user.id,
-            due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-            tags: JSON.stringify(['planung', 'dringend'])
-          },
-          {
-            title: 'Abfallentsorgung planen',
-            description: 'Überprüfe die nächsten Entsorgungstermine für alle Abfallarten',
-            status: 'inprogress',
-            priority: 'medium',
-            assignee_id: user.id,
-            due_date: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),
-            tags: JSON.stringify(['abfall', 'logistik'])
-          }
-        ];
-
-        defaultTasks.forEach(task => {
-          db.run(
-            `INSERT INTO tasks (
-              title, description, status, priority, assignee_id, due_date, tags
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [
-              task.title,
-              task.description,
-              task.status,
-              task.priority,
-              task.assignee_id,
-              task.due_date,
-              task.tags
-            ]
-          );
-        });
-        
-        console.log('Default tasks inserted');
-      });
-    }
-  });
-
-  // Check if FORCE_FIRST_SETUP environment variable is set
+function handleForceFirstSetup() {
   const forceFirstSetup = process.env.FORCE_FIRST_SETUP === 'true';
-  
+
   if (forceFirstSetup) {
     console.log('FORCE_FIRST_SETUP enabled - clearing all users');
-    db.run("DELETE FROM users", (err) => {
+    db.run('DELETE FROM users', (err) => {
       if (err) {
         console.error('Error clearing users:', err.message);
       } else {
@@ -381,60 +364,115 @@ function initializeDatabase() {
       }
     });
   }
+}
 
-  // Insert default users if none exist
-  db.get("SELECT COUNT(*) as count FROM users", async (err, row) => {
+function ensureFirstSetupState() {
+  db.get('SELECT COUNT(*) as count FROM users', (err, row) => {
     if (err) {
       console.error('Error checking users:', err.message);
       return;
     }
-    
+
     if (row.count === 0) {
       console.log('No users found - initializing first setup');
-      
-      // Create a special flag to indicate first setup
       db.run("INSERT OR REPLACE INTO system_flags (name, value) VALUES ('first_setup_completed', 'false')");
-      
       console.log('First setup initialized - waiting for admin registration');
-    } else {
-      // Check if first setup was completed
-      db.get("SELECT value FROM system_flags WHERE name = 'first_setup_completed'", (err, row) => {
-        if (err || !row) {
-          console.log('Marking first setup as completed');
-          db.run("INSERT OR REPLACE INTO system_flags (name, value) VALUES ('first_setup_completed', 'true')");
-        }
-      });
+      return;
     }
-  });
 
-  // Create indexes for better performance
-  db.run("CREATE INDEX IF NOT EXISTS idx_weekly_schedules_user_week ON weekly_schedules(user_id, week_start)");
-  db.run("CREATE INDEX IF NOT EXISTS idx_events_user ON events(user_id)");
-  db.run("CREATE INDEX IF NOT EXISTS idx_events_date ON events(start_date)");
-  db.run("CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)");
-  db.run("CREATE INDEX IF NOT EXISTS idx_tasks_assignee ON tasks(assignee_id)");
-  db.run("CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(due_date)");
-  db.run("CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender_id)");
-  db.run("CREATE INDEX IF NOT EXISTS idx_messages_receiver ON messages(receiver_id)");
-  db.run("CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at)");
-  db.run("CREATE INDEX IF NOT EXISTS idx_waste_next_disposal ON waste_items(next_disposal_date)");
-  db.run("CREATE INDEX IF NOT EXISTS idx_waste_template ON waste_items(template_id)");
+    db.get("SELECT value FROM system_flags WHERE name = 'first_setup_completed'", (flagErr, flagRow) => {
+      if (flagErr) {
+        console.error('Error checking first setup flag:', flagErr.message);
+        return;
+      }
+
+      if (!flagRow || flagRow.value !== 'true') {
+        console.log('Marking first setup as completed');
+        db.run("INSERT OR REPLACE INTO system_flags (name, value) VALUES ('first_setup_completed', 'true')");
+      }
+    });
+  });
+}
+
+function seedDefaultTasks() {
+  db.get('SELECT COUNT(*) as count FROM tasks', (err, row) => {
+    if (err) {
+      console.error('Error checking tasks:', err.message);
+      return;
+    }
+
+    if (row.count !== 0) {
+      return;
+    }
+
+    db.get('SELECT id FROM users LIMIT 1', (userErr, user) => {
+      if (userErr) {
+        console.error('Error retrieving user for default tasks:', userErr.message);
+        return;
+      }
+
+      if (!user) {
+        console.log('No users available yet - skipping default task seeding');
+        return;
+      }
+
+      const defaultTasks = [
+        {
+          title: 'Wochenplanung abschließen',
+          description: 'Stelle sicher, dass alle Arbeitszeiten für die kommende Woche eingetragen sind',
+          status: 'todo',
+          priority: 'high',
+          assignee_id: user.id,
+          due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          tags: JSON.stringify(['planung', 'dringend'])
+        },
+        {
+          title: 'Abfallentsorgung planen',
+          description: 'Überprüfe die nächsten Entsorgungstermine für alle Abfallarten',
+          status: 'inprogress',
+          priority: 'medium',
+          assignee_id: user.id,
+          due_date: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),
+          tags: JSON.stringify(['abfall', 'logistik'])
+        }
+      ];
+
+      defaultTasks.forEach((task) => {
+        db.run(
+          `INSERT INTO tasks (
+            title, description, status, priority, assignee_id, due_date, tags
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            task.title,
+            task.description,
+            task.status,
+            task.priority,
+            task.assignee_id,
+            task.due_date,
+            task.tags
+          ]
+        );
+      });
+
+      console.log('Default tasks inserted');
+    });
+  });
 }
 
 // Add function to check if first setup is required
 function isFirstSetupRequired(callback) {
-  db.get("SELECT COUNT(*) as userCount FROM users", (err, userRow) => {
+  db.get('SELECT COUNT(*) as userCount FROM users', (err, userRow) => {
     if (err) {
       return callback(err, false);
     }
-    
+
     if (userRow.userCount === 0) {
       return callback(null, true);
     }
-    
+
     // Check system flag
-    db.get("SELECT value FROM system_flags WHERE name = 'first_setup_completed'", (err, flagRow) => {
-      if (err || !flagRow || flagRow.value !== 'true') {
+    db.get("SELECT value FROM system_flags WHERE name = 'first_setup_completed'", (flagErr, flagRow) => {
+      if (flagErr || !flagRow || flagRow.value !== 'true') {
         return callback(null, true);
       }
       callback(null, false);
