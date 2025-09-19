@@ -10,6 +10,12 @@ import {
 
 const DEFAULT_PAGE_SIZE = 50;
 
+const createDefaultMeta = () => ({
+  hasMore: false,
+  nextCursor: null,
+  latestCursor: null
+});
+
 const hasTimezone = (value = '') => /Z|[+-]\d{2}:?\d{2}$/.test(value);
 
 const ensureIsoString = (value) => {
@@ -109,11 +115,7 @@ const Messages = () => {
   const { user } = useAuth();
   const [users, setUsers] = useState([]);
   const [conversationMessages, setConversationMessages] = useState([]);
-  const [messageMeta, setMessageMeta] = useState({
-    hasMore: false,
-    nextCursor: null,
-    latestCursor: null
-  });
+  const [messageMeta, setMessageMeta] = useState(createDefaultMeta);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [loadingConversation, setLoadingConversation] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -221,7 +223,8 @@ const Messages = () => {
     const {
       mode = 'initial',
       cursor,
-      limit = DEFAULT_PAGE_SIZE
+      limit = DEFAULT_PAGE_SIZE,
+      resetState = false
     } = options;
 
     const params = {
@@ -238,6 +241,12 @@ const Messages = () => {
     const isActiveConversation = () => activeConversationRef.current === userId;
 
     try {
+      if (mode === 'initial' && resetState && isMountedRef.current && isActiveConversation()) {
+        setConversationMessages([]);
+        setMessageMeta(createDefaultMeta());
+        updateLatestCursorRef(null);
+      }
+
       if (mode === 'initial' && isMountedRef.current && isActiveConversation()) {
         setLoadingConversation(true);
       } else if (mode === 'older' && isMountedRef.current && isActiveConversation()) {
@@ -271,26 +280,32 @@ const Messages = () => {
         return mergeMessages(prev, normalizedMessages, 'append');
       });
 
+      let latestCursorValue = null;
+
       setMessageMeta((prev) => {
         const normalizedNextCursor = ensureIsoString(meta.nextCursor);
         const normalizedLatestCursor = ensureIsoString(meta.latestCursor);
+        const baseState = mode === 'initial' ? createDefaultMeta() : prev;
+        const hasMoreValue = typeof meta.hasMore === 'boolean'
+          ? meta.hasMore
+          : baseState.hasMore;
+        const nextCursorValue = mode === 'initial'
+          ? normalizedNextCursor ?? null
+          : normalizedNextCursor ?? baseState.nextCursor;
+        const resolvedLatestCursor = normalizedLatestCursor
+          ?? newestMessage?.created_at
+          ?? (mode === 'initial' ? null : baseState.latestCursor);
+
+        latestCursorValue = resolvedLatestCursor;
 
         return {
-          hasMore: typeof meta.hasMore === 'boolean' ? meta.hasMore : prev.hasMore,
-          nextCursor: normalizedNextCursor ?? prev.nextCursor,
-          latestCursor: normalizedLatestCursor
-            ?? newestMessage?.created_at
-            ?? prev.latestCursor
+          hasMore: hasMoreValue,
+          nextCursor: nextCursorValue,
+          latestCursor: resolvedLatestCursor
         };
       });
 
-      const latestCursorValue = newestMessage?.created_at
-        ?? ensureIsoString(meta.latestCursor)
-        ?? null;
-
-      if (latestCursorValue) {
-        updateLatestCursorRef(latestCursorValue);
-      }
+      updateLatestCursorRef(latestCursorValue ?? null);
 
       setUsers((prevUsers) =>
         prevUsers.map((item) =>
@@ -364,18 +379,18 @@ const Messages = () => {
     if (!selectedUserId) {
       setConversationMessages([]);
       setConversationError('');
-      setMessageMeta({ hasMore: false, nextCursor: null, latestCursor: null });
+      setMessageMeta(createDefaultMeta());
       setLoadingConversation(false);
       updateLatestCursorRef(null);
       return;
     }
 
     setConversationError('');
-    fetchConversation(selectedUserId, { mode: 'initial', limit: DEFAULT_PAGE_SIZE });
+    fetchConversation(selectedUserId, { mode: 'initial', limit: DEFAULT_PAGE_SIZE, resetState: true });
   }, [selectedUserId, fetchConversation, updateLatestCursorRef, user]);
 
   useEffect(() => {
-    updateLatestCursorRef(messageMeta.latestCursor || null);
+    updateLatestCursorRef(messageMeta.latestCursor ?? null);
   }, [messageMeta.latestCursor, updateLatestCursorRef]);
 
   useEffect(() => {
@@ -431,11 +446,16 @@ const Messages = () => {
 
       if (activeConversationRef.current === receiverId) {
         setConversationMessages((prev) => mergeMessages(prev, [newMessage], 'append'));
-        setMessageMeta((prev) => ({
-          ...prev,
-          latestCursor: newMessage.created_at || prev.latestCursor
-        }));
-        updateLatestCursorRef(newMessage.created_at || null);
+        let latestCursorValue = null;
+        setMessageMeta((prev) => {
+          const resolvedLatest = newMessage.created_at ?? prev.latestCursor ?? null;
+          latestCursorValue = resolvedLatest;
+          return {
+            ...prev,
+            latestCursor: resolvedLatest
+          };
+        });
+        updateLatestCursorRef(latestCursorValue ?? null);
         setConversationError('');
       }
 
@@ -473,11 +493,24 @@ const Messages = () => {
 
     if (!item) {
       setSelectedUserId(null);
+      setConversationMessages([]);
+      setConversationError('');
+      setMessageMeta(createDefaultMeta());
+      updateLatestCursorRef(null);
       return;
     }
 
+    const isNewSelection = item.id !== selectedUserId;
+
     setSelectedUserId(item.id);
     setConversationError('');
+
+    if (isNewSelection) {
+      setConversationMessages([]);
+      setMessageMeta(createDefaultMeta());
+      updateLatestCursorRef(null);
+    }
+
     setUsers((prevUsers) =>
       prevUsers.map((userItem) =>
         userItem.id === item.id
@@ -485,7 +518,7 @@ const Messages = () => {
           : userItem
       )
     );
-  }, []);
+  }, [selectedUserId, updateLatestCursorRef]);
 
   const handleLoadMore = useCallback(() => {
     if (!user?.id || !selectedUserId || !messageMeta.nextCursor || loadingMore || !isMountedRef.current) {
@@ -506,7 +539,11 @@ const Messages = () => {
 
     setConversationError('');
     if (selectedUserId) {
-      fetchConversation(selectedUserId, { mode: 'initial', limit: DEFAULT_PAGE_SIZE });
+      fetchConversation(selectedUserId, {
+        mode: 'initial',
+        limit: DEFAULT_PAGE_SIZE,
+        resetState: true
+      });
     }
   }, [selectedUserId, fetchConversation, user]);
 

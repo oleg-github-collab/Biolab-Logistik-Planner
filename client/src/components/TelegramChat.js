@@ -20,27 +20,82 @@ const TelegramChat = ({
   const [messageText, setMessageText] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const messagesEndRef = useRef(null);
+  const lastMessageSnapshotRef = useRef({ id: null, createdAt: 0 });
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   useEffect(() => {
-    if (!isLoadingMore) {
-      scrollToBottom();
-    }
-  }, [messages, selectedUser, isLoadingMore]);
-
-  useEffect(() => {
     setShowEmojiPicker(false);
   }, [selectedUser]);
 
-  const handleSendMessage = (e) => {
+  useEffect(() => {
+    lastMessageSnapshotRef.current = { id: null, createdAt: 0 };
+  }, [selectedUser?.id]);
+
+  useEffect(() => {
+    if (!Array.isArray(messages)) {
+      lastMessageSnapshotRef.current = { id: null, createdAt: 0 };
+      return;
+    }
+
+    if (messages.length === 0) {
+      lastMessageSnapshotRef.current = { id: null, createdAt: 0 };
+      if (!isLoadingMore) {
+        scrollToBottom();
+      }
+      return;
+    }
+
+    const lastMessage = messages[messages.length - 1];
+    const parsedDate =
+      safeParseDate(lastMessage?.created_at) ??
+      safeParseDate(lastMessage?.createdAt);
+    const fallbackDate = parsedDate ?? new Date();
+    const timestamp = Number.isNaN(fallbackDate.getTime())
+      ? Date.now()
+      : fallbackDate.getTime();
+
+    const previousSnapshot = lastMessageSnapshotRef.current;
+    const shouldScroll =
+      !isLoadingMore &&
+      (!previousSnapshot ||
+        previousSnapshot.id === null ||
+        lastMessage?.id !== previousSnapshot.id ||
+        timestamp > previousSnapshot.createdAt);
+
+    lastMessageSnapshotRef.current = {
+      id: lastMessage?.id ?? null,
+      createdAt: timestamp
+    };
+
+    if (shouldScroll) {
+      scrollToBottom();
+    }
+  }, [messages, isLoadingMore]);
+
+  const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (messageText.trim() && selectedUser && !isSending) {
-      onSendMessage(selectedUser.id, messageText.trim());
+
+    if (!selectedUser || isSending) {
+      return;
+    }
+
+    const trimmedMessage = messageText.trim();
+
+    if (!trimmedMessage) {
+      return;
+    }
+
+    try {
+      if (typeof onSendMessage === 'function') {
+        await onSendMessage(selectedUser.id, trimmedMessage);
+      }
       setMessageText('');
       setShowEmojiPicker(false);
+    } catch (err) {
+      console.error('Failed to send message:', err);
     }
   };
 
@@ -52,16 +107,35 @@ const TelegramChat = ({
   const isCurrentUser = (message) => message.sender_id === currentUserId;
 
   const groupedMessages = useMemo(() => {
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return [];
+    }
+
     const map = new Map();
 
     messages.forEach((message) => {
-      const parsedDate = safeParseDate(message?.created_at);
-
-      if (!parsedDate) {
+      if (!message || (message.id === undefined && message.id !== 0)) {
         return;
       }
 
-      const dateKey = format(parsedDate, 'yyyy-MM-dd');
+      const parsedDate =
+        safeParseDate(message?.created_at) ??
+        safeParseDate(message?.createdAt);
+
+      let resolvedDate = parsedDate;
+
+      if (!resolvedDate) {
+        if (message?.created_at || message?.createdAt) {
+          const fallback = new Date(message.created_at ?? message.createdAt);
+          resolvedDate = Number.isNaN(fallback.getTime()) ? null : fallback;
+        }
+      }
+
+      if (!resolvedDate || Number.isNaN(resolvedDate.getTime())) {
+        resolvedDate = new Date();
+      }
+
+      const dateKey = format(resolvedDate, 'yyyy-MM-dd');
 
       if (!map.has(dateKey)) {
         map.set(dateKey, []);
@@ -69,16 +143,28 @@ const TelegramChat = ({
 
       map.get(dateKey).push({
         ...message,
-        createdAt: parsedDate
+        createdAt: resolvedDate
       });
     });
 
     return Array.from(map.entries())
-      .map(([date, items]) => ({
-        date,
-        items: items.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
-      }))
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      .map(([date, items]) => {
+        const sortedItems = items.sort((a, b) => {
+          const aTime = a.createdAt?.getTime?.() ?? 0;
+          const bTime = b.createdAt?.getTime?.() ?? 0;
+          return aTime - bTime;
+        });
+
+        const anchorTime = sortedItems[0]?.createdAt?.getTime?.() ?? 0;
+
+        return {
+          date,
+          anchorTime,
+          items: sortedItems
+        };
+      })
+      .sort((a, b) => a.anchorTime - b.anchorTime)
+      .map(({ date, items }) => ({ date, items }));
   }, [messages]);
 
   const sortedUsers = useMemo(() => users, [users]);
@@ -428,7 +514,7 @@ const TelegramChat = ({
 const hasTimezone = (value = '') => /Z|[+-]\d{2}:?\d{2}$/.test(value);
 
 const safeParseDate = (value) => {
-  if (!value) {
+  if (value === null || value === undefined) {
     return null;
   }
 
@@ -436,14 +522,26 @@ const safeParseDate = (value) => {
     return value;
   }
 
-  const direct = new Date(value);
-
-  if (!Number.isNaN(direct.getTime())) {
-    return direct;
+  if (typeof value === 'number') {
+    const numericDate = new Date(value);
+    return Number.isNaN(numericDate.getTime()) ? null : numericDate;
   }
 
   if (typeof value === 'string') {
     const trimmed = value.trim();
+
+    if (!trimmed) {
+      return null;
+    }
+
+    const numeric = Number(trimmed);
+    if (!Number.isNaN(numeric)) {
+      const fromNumeric = new Date(numeric);
+      if (!Number.isNaN(fromNumeric.getTime())) {
+        return fromNumeric;
+      }
+    }
+
     const normalized = trimmed.includes('T') ? trimmed : trimmed.replace(' ', 'T');
     const withZone = hasTimezone(normalized) ? normalized : `${normalized}Z`;
     const fallback = new Date(withZone);
@@ -451,9 +549,15 @@ const safeParseDate = (value) => {
     if (!Number.isNaN(fallback.getTime())) {
       return fallback;
     }
+
+    const directFromString = new Date(trimmed);
+    if (!Number.isNaN(directFromString.getTime())) {
+      return directFromString;
+    }
   }
 
-  return null;
+  const direct = new Date(value);
+  return Number.isNaN(direct.getTime()) ? null : direct;
 };
 
 const formatDateHeader = (date) => {
