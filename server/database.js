@@ -2,14 +2,10 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
-
-// Ensure data directory exists
 const dataDir = path.join(__dirname, '..', 'data');
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir);
 }
-
-// Initialize database
 const dbPath = path.join(dataDir, 'biolab.db');
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
@@ -37,7 +33,6 @@ function enableForeignKeys() {
 }
 
 function createCoreTables() {
-  // Create users table
   db.run(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -49,14 +44,12 @@ function createCoreTables() {
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
-
-  // Create weekly_schedules table (keep for backward compatibility)
   db.run(`
     CREATE TABLE IF NOT EXISTS weekly_schedules (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
       week_start DATE NOT NULL,
-      day_of_week INTEGER NOT NULL, -- 0=Sunday, 1=Monday, etc.
+      day_of_week INTEGER NOT NULL,
       start_time TEXT,
       end_time TEXT,
       status TEXT DEFAULT 'Arbeit',
@@ -65,8 +58,6 @@ function createCoreTables() {
       FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
     )
   `);
-
-  // Create events table for calendar (enhanced)
   db.run(`
     CREATE TABLE IF NOT EXISTS events (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -80,54 +71,48 @@ function createCoreTables() {
       type TEXT DEFAULT 'Arbeit',
       is_all_day BOOLEAN DEFAULT 0,
       is_recurring BOOLEAN DEFAULT 0,
-      recurrence_pattern TEXT, -- 'daily', 'weekly', 'biweekly', 'monthly', 'yearly'
+      recurrence_pattern TEXT,
       recurrence_end_date DATETIME,
-      priority TEXT DEFAULT 'medium', -- 'low', 'medium', 'high'
+      priority TEXT DEFAULT 'medium',
       location TEXT,
-      attendees TEXT, -- comma-separated email addresses
-      reminder INTEGER DEFAULT 15, -- minutes before event
+      attendees TEXT,
+      reminder INTEGER DEFAULT 15,
       category TEXT DEFAULT 'work',
       color TEXT DEFAULT '#3B82F6',
-      tags TEXT, -- JSON array of tags
+      tags TEXT,
       notes TEXT,
-      status TEXT DEFAULT 'confirmed', -- 'confirmed', 'tentative', 'cancelled'
-      visibility TEXT DEFAULT 'private', -- 'private', 'public', 'shared'
+      status TEXT DEFAULT 'confirmed',
+      visibility TEXT DEFAULT 'private',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
     )
   `);
-
-  // Create tasks table for Kanban board (new)
   db.run(`
     CREATE TABLE IF NOT EXISTS tasks (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,
       description TEXT,
-      status TEXT DEFAULT 'todo', -- 'todo', 'inprogress', 'review', 'done'
-      priority TEXT DEFAULT 'medium', -- 'low', 'medium', 'high'
+      status TEXT DEFAULT 'todo',
+      priority TEXT DEFAULT 'medium',
       assignee_id INTEGER,
       due_date DATETIME,
-      tags TEXT, -- JSON array of tags
+      tags TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (assignee_id) REFERENCES users (id) ON DELETE SET NULL
     )
   `);
-
-  // Create archived_schedules table
   db.run(`
     CREATE TABLE IF NOT EXISTS archived_schedules (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
       week_start DATE NOT NULL,
-      data TEXT NOT NULL, -- JSON string of the schedule
+      data TEXT NOT NULL,
       archived_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
     )
   `);
-
-  // Create messages table (enhanced)
   db.run(`
     CREATE TABLE IF NOT EXISTS messages (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -137,14 +122,12 @@ function createCoreTables() {
       is_group BOOLEAN DEFAULT 0,
       read_status BOOLEAN DEFAULT 0,
       delivered_status BOOLEAN DEFAULT 1,
-      message_type TEXT DEFAULT 'text', -- 'text', 'image', 'file', 'location'
+      message_type TEXT DEFAULT 'text',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (sender_id) REFERENCES users (id) ON DELETE CASCADE,
       FOREIGN KEY (receiver_id) REFERENCES users (id) ON DELETE CASCADE
     )
   `);
-
-  // Create waste_templates table (new)
   db.run(`
     CREATE TABLE IF NOT EXISTS waste_templates (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -153,14 +136,12 @@ function createCoreTables() {
       disposal_instructions TEXT NOT NULL,
       color TEXT DEFAULT '#A9D08E',
       icon TEXT DEFAULT 'trash',
-      default_frequency TEXT DEFAULT 'weekly', -- 'daily', 'weekly', 'biweekly', 'monthly', 'quarterly', 'yearly'
+      default_frequency TEXT DEFAULT 'weekly',
       default_next_date DATE,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
-
-  // Create waste_items table (enhanced)
   db.run(`
     CREATE TABLE IF NOT EXISTS waste_items (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -176,8 +157,6 @@ function createCoreTables() {
       FOREIGN KEY (template_id) REFERENCES waste_templates (id) ON DELETE SET NULL
     )
   `);
-
-  // Create event_templates table for quick event creation
   db.run(`
     CREATE TABLE IF NOT EXISTS event_templates (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -186,7 +165,7 @@ function createCoreTables() {
       title_template TEXT NOT NULL,
       description_template TEXT,
       type TEXT DEFAULT 'Arbeit',
-      default_duration INTEGER DEFAULT 60, -- minutes
+      default_duration INTEGER DEFAULT 60,
       default_start_time TEXT DEFAULT '09:00',
       is_all_day BOOLEAN DEFAULT 0,
       priority TEXT DEFAULT 'medium',
@@ -198,15 +177,13 @@ function createCoreTables() {
       FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
     )
   `);
-
-  // Create event_reminders table for advanced reminder system
   db.run(`
     CREATE TABLE IF NOT EXISTS event_reminders (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       event_id INTEGER NOT NULL,
       user_id INTEGER NOT NULL,
       reminder_time DATETIME NOT NULL,
-      reminder_type TEXT DEFAULT 'notification', -- 'notification', 'email', 'sms'
+      reminder_type TEXT DEFAULT 'notification',
       message TEXT,
       is_sent BOOLEAN DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -214,32 +191,28 @@ function createCoreTables() {
       FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
     )
   `);
-
-  // Create calendar_views table for saving custom calendar configurations
   db.run(`
     CREATE TABLE IF NOT EXISTS calendar_views (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
       name TEXT NOT NULL,
-      view_type TEXT DEFAULT 'month', -- 'month', 'week', 'day', 'agenda'
-      filters TEXT, -- JSON object with filter settings
-      display_settings TEXT, -- JSON object with display preferences
+      view_type TEXT DEFAULT 'month',
+      filters TEXT,
+      display_settings TEXT,
       is_default BOOLEAN DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
     )
   `);
-
-  // Create event_sharing table for shared events
   db.run(`
     CREATE TABLE IF NOT EXISTS event_sharing (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       event_id INTEGER NOT NULL,
       owner_id INTEGER NOT NULL,
       shared_with_id INTEGER NOT NULL,
-      permission TEXT DEFAULT 'view', -- 'view', 'edit', 'admin'
-      status TEXT DEFAULT 'pending', -- 'pending', 'accepted', 'declined'
+      permission TEXT DEFAULT 'view',
+      status TEXT DEFAULT 'pending',
       shared_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       responded_at DATETIME,
       FOREIGN KEY (event_id) REFERENCES events (id) ON DELETE CASCADE,
@@ -247,8 +220,6 @@ function createCoreTables() {
       FOREIGN KEY (shared_with_id) REFERENCES users (id) ON DELETE CASCADE
     )
   `);
-
-  // Create system_flags table
   db.run(`
     CREATE TABLE IF NOT EXISTS system_flags (
       name TEXT PRIMARY KEY,
@@ -258,7 +229,6 @@ function createCoreTables() {
 }
 
 function createIndexes() {
-  // Add indexes to improve message queries
   db.run(`
     CREATE INDEX IF NOT EXISTS idx_messages_participants
     ON messages (sender_id, receiver_id, created_at DESC)
@@ -458,8 +428,6 @@ function seedDefaultTasks() {
     });
   });
 }
-
-// Add function to check if first setup is required
 function isFirstSetupRequired(callback) {
   db.get('SELECT COUNT(*) as userCount FROM users', (err, userRow) => {
     if (err) {
@@ -469,8 +437,6 @@ function isFirstSetupRequired(callback) {
     if (userRow.userCount === 0) {
       return callback(null, true);
     }
-
-    // Check system flag
     db.get("SELECT value FROM system_flags WHERE name = 'first_setup_completed'", (flagErr, flagRow) => {
       if (flagErr || !flagRow || flagRow.value !== 'true') {
         return callback(null, true);
@@ -479,6 +445,4 @@ function isFirstSetupRequired(callback) {
     });
   });
 }
-
-// Export the database instance directly
 module.exports = db;

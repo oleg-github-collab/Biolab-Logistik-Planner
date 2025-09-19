@@ -111,6 +111,22 @@ const normalizeUsers = (rawUsers = []) =>
     last_message_at: ensureIsoString(user.last_message_at) ?? user.last_message_at ?? null
   }));
 
+const sortUsersList = (list = []) =>
+  [...list].sort((a, b) => {
+    if (b.unread_count !== a.unread_count) {
+      return b.unread_count - a.unread_count;
+    }
+
+    const dateA = getMessageTimestamp({ created_at: a.last_message_at });
+    const dateB = getMessageTimestamp({ created_at: b.last_message_at });
+
+    if (dateA !== dateB) {
+      return dateB - dateA;
+    }
+
+    return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+  });
+
 const Messages = () => {
   const { user } = useAuth();
   const [users, setUsers] = useState([]);
@@ -145,6 +161,8 @@ const Messages = () => {
     latestCursorRef.current = cursor;
   }, []);
 
+  const sortUsers = useCallback((list) => sortUsersList(list), []);
+
   const loadUsers = useCallback(async () => {
     if (!isMountedRef.current || !user?.id) {
       return;
@@ -168,22 +186,7 @@ const Messages = () => {
         : Array.isArray(usersRes?.data)
           ? usersRes.data
           : [];
-      const fetchedUsers = normalizeUsers(usersPayload);
-
-      fetchedUsers.sort((a, b) => {
-        if (b.unread_count !== a.unread_count) {
-          return b.unread_count - a.unread_count;
-        }
-
-        const dateA = getMessageTimestamp({ created_at: a.last_message_at });
-        const dateB = getMessageTimestamp({ created_at: b.last_message_at });
-
-        if (dateA !== dateB) {
-          return dateB - dateA;
-        }
-
-        return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
-      });
+      const fetchedUsers = sortUsers(normalizeUsers(usersPayload));
 
       setUsers(fetchedUsers);
 
@@ -213,7 +216,7 @@ const Messages = () => {
         setLoadingUsers(false);
       }
     }
-  }, [selectedUserId, user]);
+  }, [selectedUserId, sortUsers, user]);
 
   const fetchConversation = useCallback(async (userId, options = {}) => {
     if (!user?.id || !userId || !isMountedRef.current) {
@@ -308,15 +311,17 @@ const Messages = () => {
       updateLatestCursorRef(latestCursorValue ?? null);
 
       setUsers((prevUsers) =>
-        prevUsers.map((item) =>
-          item.id === userId
-            ? {
-                ...item,
-                unread_count: 0,
-                last_message: newestMessage?.message ?? item.last_message,
-                last_message_at: newestMessage?.created_at ?? item.last_message_at
-              }
-            : item
+        sortUsers(
+          prevUsers.map((item) =>
+            item.id === userId
+              ? {
+                  ...item,
+                  unread_count: 0,
+                  last_message: newestMessage?.message ?? item.last_message,
+                  last_message_at: newestMessage?.created_at ?? item.last_message_at
+                }
+              : item
+          )
         )
       );
 
@@ -341,7 +346,7 @@ const Messages = () => {
         setLoadingMore(false);
       }
     }
-  }, [updateLatestCursorRef, user]);
+  }, [sortUsers, updateLatestCursorRef, user]);
 
   const getUnreadCountData = useCallback(async () => {
     if (!user?.id || !isMountedRef.current) {
@@ -459,18 +464,33 @@ const Messages = () => {
         setConversationError('');
       }
 
-      setUsers((prevUsers) =>
-        prevUsers.map((item) =>
-          item.id === receiverId
-            ? {
-                ...item,
+      setUsers((prevUsers) => {
+        const exists = prevUsers.some((item) => item.id === receiverId);
+        const updatedUsers = exists
+          ? prevUsers.map((item) =>
+              item.id === receiverId
+                ? {
+                    ...item,
+                    last_message: newMessage.message,
+                    last_message_at: newMessage.created_at,
+                    unread_count: 0
+                  }
+                : item
+            )
+          : [
+              ...prevUsers,
+              {
+                id: receiverId,
+                name: selectedUser?.name || 'Unbekannter Benutzer',
+                email: selectedUser?.email || '',
+                unread_count: 0,
                 last_message: newMessage.message,
-                last_message_at: newMessage.created_at,
-                unread_count: 0
+                last_message_at: newMessage.created_at
               }
-            : item
-        )
-      );
+            ];
+
+        return sortUsers(updatedUsers);
+      });
     } catch (err) {
       if (!isMountedRef.current) {
         return;
@@ -484,7 +504,7 @@ const Messages = () => {
         setIsSending(false);
       }
     }
-  }, [isSending, updateLatestCursorRef, user]);
+  }, [isSending, selectedUser, sortUsers, updateLatestCursorRef, user]);
 
   const handleSelectUser = useCallback((item) => {
     if (!isMountedRef.current) {
@@ -512,13 +532,15 @@ const Messages = () => {
     }
 
     setUsers((prevUsers) =>
-      prevUsers.map((userItem) =>
-        userItem.id === item.id
-          ? { ...userItem, unread_count: 0 }
-          : userItem
+      sortUsers(
+        prevUsers.map((userItem) =>
+          userItem.id === item.id
+            ? { ...userItem, unread_count: 0 }
+            : userItem
+        )
       )
     );
-  }, [selectedUserId, updateLatestCursorRef]);
+  }, [selectedUserId, sortUsers, updateLatestCursorRef]);
 
   const handleLoadMore = useCallback(() => {
     if (!user?.id || !selectedUserId || !messageMeta.nextCursor || loadingMore || !isMountedRef.current) {

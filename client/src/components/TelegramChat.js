@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
 
@@ -22,9 +22,17 @@ const TelegramChat = ({
   const messagesEndRef = useRef(null);
   const lastMessageSnapshotRef = useRef({ id: null, createdAt: 0 });
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  const scrollToBottom = useCallback(() => {
+    const node = messagesEndRef.current;
+
+    if (!node) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      node.scrollIntoView({ behavior: 'smooth' });
+    });
+  }, []);
 
   useEffect(() => {
     setShowEmojiPicker(false);
@@ -73,7 +81,7 @@ const TelegramChat = ({
     if (shouldScroll) {
       scrollToBottom();
     }
-  }, [messages, isLoadingMore]);
+  }, [messages, isLoadingMore, scrollToBottom]);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
@@ -224,7 +232,6 @@ const TelegramChat = ({
 
   return (
     <div className="h-full flex bg-[#f5f5f5] rounded-lg overflow-hidden">
-      {/* User List - Desktop */}
       <div className="hidden lg:block w-80 bg-white border-r border-gray-200 overflow-y-auto">
         <div className="p-4 border-b border-gray-200">
           <h2 className="text-lg font-bold text-gray-800">Nachrichten</h2>
@@ -267,9 +274,7 @@ const TelegramChat = ({
         </div>
       </div>
 
-      {/* Chat Area */}
       <div className="flex-1 flex flex-col">
-        {/* Chat Header */}
         {selectedUser ? (
           <div className="bg-white border-b border-gray-200 p-4 flex items-center space-x-3">
             <div className="lg:hidden">
@@ -296,7 +301,6 @@ const TelegramChat = ({
           </div>
         )}
 
-        {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-6 relative">
           {isLoadingMessages && (
             <div className="absolute inset-0 bg-white/80 flex flex-col items-center justify-center z-20">
@@ -406,7 +410,6 @@ const TelegramChat = ({
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Message Input */}
         {selectedUser && (
           <div className="bg-white border-t border-gray-200 p-4 relative">
             {showEmojiPicker && (
@@ -467,7 +470,6 @@ const TelegramChat = ({
         )}
       </div>
 
-      {/* User List - Mobile */}
       {!selectedUser && (
         <div className="lg:hidden fixed inset-0 bg-white z-20 overflow-y-auto">
           <div className="p-4 border-b border-gray-200">
@@ -579,7 +581,6 @@ const formatDateHeader = (date) => {
   return format(messageDate, 'dd. MMMM yyyy', { locale: de });
 };
 
-// Helper function to add days
 const addDays = (date, days) => {
   const result = new Date(date);
   result.setDate(result.getDate() + days);

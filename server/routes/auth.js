@@ -26,8 +26,6 @@ const resolveRole = (role, isFirstSetup) => {
   return normalized === 'admin' ? 'admin' : 'employee';
 };
 
-// @route   GET /api/auth/first-setup
-// @desc    Check if this is the first setup
 router.get('/first-setup', asyncHandler(async (req, res) => {
   logger.info('Checking first setup status', { ip: req.ip });
 
@@ -63,8 +61,6 @@ router.get('/first-setup', asyncHandler(async (req, res) => {
   }
 }));
 
-// @route   POST /api/auth/register
-// @desc    Register a new user
 router.post('/register', limiters.auth, validate.registerUser, asyncHandler(async (req, res) => {
   const { name, email, password, role } = req.body;
 
@@ -202,8 +198,6 @@ router.post('/register', limiters.auth, validate.registerUser, asyncHandler(asyn
   );
 }));
 
-// @route   POST /api/auth/login
-// @desc    Authenticate user & get token
 router.post('/login', limiters.auth, validate.loginUser, asyncHandler(async (req, res) => {
   const { email, password } = req.body;
   const sanitizedEmail = normalizeEmail(email);
@@ -279,8 +273,6 @@ router.post('/login', limiters.auth, validate.loginUser, asyncHandler(async (req
   );
 }));
 
-// @route   GET /api/auth/user
-// @desc    Get user data
 router.get('/user', auth, asyncHandler(async (req, res) => {
   const user = await apiController.executeQuery(
     db,

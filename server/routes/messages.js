@@ -124,8 +124,6 @@ const normalizeMessage = (message, currentUserId) => {
   };
 };
 
-// @route   GET /api/messages
-// @desc    Get message history for user or a specific conversation
 router.get('/', auth, async (req, res) => {
   const { with: conversationWith, limit, before, after } = req.query;
 
@@ -232,8 +230,6 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
-// @route   GET /api/messages/unread-count
-// @desc    Get count of unread messages (optionally from a specific user)
 router.get('/unread-count', auth, async (req, res) => {
   const { from } = req.query;
 
@@ -265,8 +261,6 @@ router.get('/unread-count', auth, async (req, res) => {
   }
 });
 
-// @route   POST /api/messages
-// @desc    Send a message
 router.post('/', auth, async (req, res) => {
   const { receiverId, message, isGroup } = req.body;
 
@@ -357,8 +351,6 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
-// @route   GET /api/messages/users
-// @desc    Get all users for messaging with conversation metadata
 router.get('/users', auth, async (req, res) => {
   try {
     const query = `

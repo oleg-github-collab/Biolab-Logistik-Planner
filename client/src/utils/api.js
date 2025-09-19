@@ -1,13 +1,10 @@
 import axios from 'axios';
 
-// Dynamically set API base URL based on environment
 const getApiBaseUrl = () => {
-  // If we're in development, use localhost
   if (process.env.NODE_ENV === 'development') {
     return 'http://localhost:5000/api';
   }
-  
-  // If we're in production, use the current domain
+
   return '/api';
 };
 
@@ -20,7 +17,6 @@ const api = axios.create({
   },
 });
 
-// Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -34,7 +30,6 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor for error handling
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -49,8 +44,7 @@ api.interceptors.response.use(
   }
 );
 
-// Auth endpoints
-export const login = (email, password) => 
+export const login = (email, password) =>
   api.post('/auth/login', { email, password });
 
 export const register = (name, email, password, role = 'employee') => 
@@ -62,8 +56,7 @@ export const getUser = () =>
 export const checkFirstSetup = () => 
   api.get('/auth/first-setup');
 
-// Schedule endpoints
-export const getCurrentWeek = () => 
+export const getCurrentWeek = () =>
   api.get('/schedule/current-week');
 
 export const getMySchedule = () => 
@@ -78,7 +71,6 @@ export const getTeamSchedule = () =>
 export const getArchivedSchedules = () => 
   api.get('/schedule/archived');
 
-// Event endpoints
 export const getEvents = (start, end, type, priority) => {
   const params = new URLSearchParams();
   if (start) params.append('start', start);
@@ -107,8 +99,7 @@ export const createBulkEvents = (events) =>
 export const duplicateEvent = (id, newDate) =>
   api.post(`/schedule/events/${id}/duplicate`, { newDate });
 
-// Task endpoints
-export const getTasks = (status) => 
+export const getTasks = (status) =>
   api.get(`/tasks${status ? `?status=${status}` : ''}`);
 
 export const createTask = (taskData) => 
@@ -120,7 +111,6 @@ export const updateTask = (id, taskData) =>
 export const deleteTask = (id) => 
   api.delete(`/tasks/${id}`);
 
-// Messages endpoints
 export const getMessages = (params = {}) =>
   api.get('/messages', { params });
 
@@ -133,8 +123,7 @@ export const sendMessage = (receiverId, message, isGroup = false) =>
 export const getUsersForMessaging = () => 
   api.get('/messages/users');
 
-// Waste endpoints
-export const getWasteItems = () => 
+export const getWasteItems = () =>
   api.get('/waste/items');
 
 export const createWasteItem = (name, description, disposalInstructions, nextDisposalDate) => 
@@ -146,8 +135,7 @@ export const updateWasteItem = (id, name, description, disposalInstructions, nex
 export const deleteWasteItem = (id) => 
   api.delete(`/waste/items/${id}`);
 
-// Waste template endpoints
-export const getWasteTemplates = () => 
+export const getWasteTemplates = () =>
   api.get('/waste/templates');
 
 export const createWasteTemplate = (templateData) => 
@@ -159,8 +147,7 @@ export const updateWasteTemplate = (id, templateData) =>
 export const deleteWasteTemplate = (id) => 
   api.delete(`/waste/templates/${id}`);
 
-// Admin endpoints
-export const getAllUsers = () => 
+export const getAllUsers = () =>
   api.get('/admin/users');
 
 export const updateUser = (id, userData) => 
