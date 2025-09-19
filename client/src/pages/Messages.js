@@ -10,11 +10,66 @@ import {
 
 const DEFAULT_PAGE_SIZE = 50;
 
-const normalizeMessage = (message) => ({
-  ...message,
-  read_status: Boolean(message?.read_status),
-  delivered_status: Boolean(message?.delivered_status)
-});
+const hasTimezone = (value = '') => /Z|[+-]\d{2}:?\d{2}$/.test(value);
+
+const ensureIsoString = (value) => {
+  if (!value) {
+    return null;
+  }
+
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString();
+  }
+
+  const direct = new Date(value);
+
+  if (!Number.isNaN(direct.getTime())) {
+    return direct.toISOString();
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    const normalized = trimmed.includes('T') ? trimmed : trimmed.replace(' ', 'T');
+    const withZone = hasTimezone(normalized) ? normalized : `${normalized}Z`;
+    const fallback = new Date(withZone);
+
+    if (!Number.isNaN(fallback.getTime())) {
+      return fallback.toISOString();
+    }
+  }
+
+  return null;
+};
+
+const getMessageTimestamp = (message) => {
+  if (!message) {
+    return 0;
+  }
+
+  const iso = ensureIsoString(message.created_at);
+
+  if (!iso) {
+    return 0;
+  }
+
+  const parsed = new Date(iso);
+  return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+};
+
+const normalizeMessage = (message) => {
+  if (!message) {
+    return null;
+  }
+
+  const createdAt = ensureIsoString(message.created_at);
+
+  return {
+    ...message,
+    read_status: Boolean(message?.read_status),
+    delivered_status: Boolean(message?.delivered_status),
+    created_at: createdAt ?? message.created_at ?? null
+  };
+};
 
 const mergeMessages = (existing, incoming, direction = 'append') => {
   const combined = direction === 'prepend'
@@ -22,26 +77,32 @@ const mergeMessages = (existing, incoming, direction = 'append') => {
     : [...existing, ...incoming];
 
   const map = new Map();
+
   combined.forEach((msg) => {
-    if (!msg || typeof msg !== 'object' || !msg.id) {
+    if (!msg || typeof msg !== 'object' || (!msg.id && msg.id !== 0)) {
       return;
     }
+
     const current = map.get(msg.id) || {};
+    const normalizedCreatedAt = ensureIsoString(msg.created_at) ?? current.created_at ?? null;
+
     map.set(msg.id, {
       ...current,
-      ...msg
+      ...msg,
+      created_at: normalizedCreatedAt
     });
   });
 
-  return Array.from(map.values()).sort((a, b) =>
-    new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-  );
+  return Array.from(map.values())
+    .filter((item) => item && (item.id || item.id === 0))
+    .sort((a, b) => getMessageTimestamp(a) - getMessageTimestamp(b));
 };
 
 const normalizeUsers = (rawUsers = []) =>
   rawUsers.map((user) => ({
     ...user,
-    unread_count: Number(user.unread_count) || 0
+    unread_count: Number(user.unread_count) || 0,
+    last_message_at: ensureIsoString(user.last_message_at) ?? user.last_message_at ?? null
   }));
 
 const Messages = () => {
@@ -62,6 +123,16 @@ const Messages = () => {
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [isSending, setIsSending] = useState(false);
   const latestCursorRef = useRef(null);
+  const activeConversationRef = useRef(null);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    activeConversationRef.current = selectedUserId;
+  }, [selectedUserId]);
+
+  useEffect(() => () => {
+    isMountedRef.current = false;
+  }, []);
 
   const selectedUser = useMemo(
     () => users.find((item) => item.id === selectedUserId) || null,
@@ -73,14 +144,22 @@ const Messages = () => {
   }, []);
 
   const loadUsers = useCallback(async () => {
-    try {
-      setLoadingUsers(true);
-      setError('');
+    if (!isMountedRef.current || !user?.id) {
+      return;
+    }
 
+    setLoadingUsers(true);
+    setError('');
+
+    try {
       const [usersRes, unreadRes] = await Promise.all([
         getUsersForMessaging(),
         getUnreadCount()
       ]);
+
+      if (!isMountedRef.current) {
+        return;
+      }
 
       const usersPayload = Array.isArray(usersRes?.data?.data)
         ? usersRes.data.data
@@ -94,8 +173,8 @@ const Messages = () => {
           return b.unread_count - a.unread_count;
         }
 
-        const dateA = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
-        const dateB = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
+        const dateA = getMessageTimestamp({ created_at: a.last_message_at });
+        const dateB = getMessageTimestamp({ created_at: b.last_message_at });
 
         if (dateA !== dateB) {
           return dateB - dateA;
@@ -122,15 +201,20 @@ const Messages = () => {
         setSelectedUserId(preferredUser.id);
       }
     } catch (err) {
+      if (!isMountedRef.current) {
+        return;
+      }
       console.error('Error loading messaging users:', err);
       setError('Fehler beim Laden der Nachrichten. Bitte versuche es später erneut.');
     } finally {
-      setLoadingUsers(false);
+      if (isMountedRef.current) {
+        setLoadingUsers(false);
+      }
     }
-  }, [selectedUserId]);
+  }, [selectedUserId, user]);
 
   const fetchConversation = useCallback(async (userId, options = {}) => {
-    if (!userId) {
+    if (!user?.id || !userId || !isMountedRef.current) {
       return;
     }
 
@@ -151,19 +235,26 @@ const Messages = () => {
       params.after = cursor;
     }
 
+    const isActiveConversation = () => activeConversationRef.current === userId;
+
     try {
-      if (mode === 'initial') {
+      if (mode === 'initial' && isMountedRef.current && isActiveConversation()) {
         setLoadingConversation(true);
-      } else if (mode === 'older') {
+      } else if (mode === 'older' && isMountedRef.current && isActiveConversation()) {
         setLoadingMore(true);
       }
 
       const response = await getMessages(params);
+
+      if (!isMountedRef.current || !isActiveConversation()) {
+        return;
+      }
+
       const payload = Array.isArray(response?.data?.data)
         ? response.data.data
         : [];
       const meta = response?.data?.meta || {};
-      const normalizedMessages = payload.map(normalizeMessage);
+      const normalizedMessages = payload.map(normalizeMessage).filter(Boolean);
       const newestMessage = normalizedMessages.length > 0
         ? normalizedMessages[normalizedMessages.length - 1]
         : null;
@@ -180,14 +271,25 @@ const Messages = () => {
         return mergeMessages(prev, normalizedMessages, 'append');
       });
 
-      setMessageMeta((prev) => ({
-        hasMore: typeof meta.hasMore === 'boolean' ? meta.hasMore : prev.hasMore,
-        nextCursor: meta.nextCursor ?? prev.nextCursor,
-        latestCursor: meta.latestCursor ?? newestMessage?.created_at ?? prev.latestCursor
-      }));
+      setMessageMeta((prev) => {
+        const normalizedNextCursor = ensureIsoString(meta.nextCursor);
+        const normalizedLatestCursor = ensureIsoString(meta.latestCursor);
 
-      if (newestMessage) {
-        updateLatestCursorRef(newestMessage.created_at);
+        return {
+          hasMore: typeof meta.hasMore === 'boolean' ? meta.hasMore : prev.hasMore,
+          nextCursor: normalizedNextCursor ?? prev.nextCursor,
+          latestCursor: normalizedLatestCursor
+            ?? newestMessage?.created_at
+            ?? prev.latestCursor
+        };
+      });
+
+      const latestCursorValue = newestMessage?.created_at
+        ?? ensureIsoString(meta.latestCursor)
+        ?? null;
+
+      if (latestCursorValue) {
+        updateLatestCursorRef(latestCursorValue);
       }
 
       setUsers((prevUsers) =>
@@ -205,62 +307,92 @@ const Messages = () => {
 
       setConversationError('');
     } catch (err) {
+      if (!isMountedRef.current || !isActiveConversation()) {
+        return;
+      }
       console.error('Error loading conversation:', err);
       if (mode === 'initial') {
         setConversationMessages([]);
       }
       setConversationError('Fehler beim Laden der Unterhaltung. Bitte versuche es erneut.');
     } finally {
+      if (!isMountedRef.current || !isActiveConversation()) {
+        return;
+      }
+
       if (mode === 'initial') {
         setLoadingConversation(false);
       } else if (mode === 'older') {
         setLoadingMore(false);
       }
     }
-  }, [updateLatestCursorRef]);
+  }, [updateLatestCursorRef, user]);
 
   const getUnreadCountData = useCallback(async () => {
+    if (!user?.id || !isMountedRef.current) {
+      return;
+    }
+
     try {
       const unreadRes = await getUnreadCount();
+
+      if (!isMountedRef.current) {
+        return;
+      }
+
       const totalUnread = unreadRes?.data?.data?.unreadCount ?? unreadRes?.data?.unreadCount ?? 0;
       setUnreadCount(Number(totalUnread) || 0);
     } catch (err) {
+      if (!isMountedRef.current) {
+        return;
+      }
       console.error('Error loading unread count:', err);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     loadUsers();
   }, [loadUsers]);
 
   useEffect(() => {
+    if (!user?.id) {
+      return;
+    }
+
+    setLoadingMore(false);
+
     if (!selectedUserId) {
       setConversationMessages([]);
       setConversationError('');
       setMessageMeta({ hasMore: false, nextCursor: null, latestCursor: null });
+      setLoadingConversation(false);
       updateLatestCursorRef(null);
       return;
     }
 
     setConversationError('');
     fetchConversation(selectedUserId, { mode: 'initial', limit: DEFAULT_PAGE_SIZE });
-  }, [selectedUserId, fetchConversation, updateLatestCursorRef]);
+  }, [selectedUserId, fetchConversation, updateLatestCursorRef, user]);
 
   useEffect(() => {
     updateLatestCursorRef(messageMeta.latestCursor || null);
   }, [messageMeta.latestCursor, updateLatestCursorRef]);
 
   useEffect(() => {
+    if (!user?.id) {
+      return undefined;
+    }
+
     const refreshInterval = setInterval(() => {
       loadUsers();
       getUnreadCountData();
     }, 60000);
 
     return () => clearInterval(refreshInterval);
-  }, [loadUsers, getUnreadCountData]);
+  }, [loadUsers, getUnreadCountData, user]);
 
   useEffect(() => {
-    if (!selectedUserId) {
+    if (!user?.id || !selectedUserId) {
       return undefined;
     }
 
@@ -275,16 +407,21 @@ const Messages = () => {
     }, 20000);
 
     return () => clearInterval(interval);
-  }, [selectedUserId, fetchConversation, getUnreadCountData]);
+  }, [selectedUserId, fetchConversation, getUnreadCountData, user]);
 
   const handleSendMessage = useCallback(async (receiverId, content) => {
-    if (!receiverId || !content || isSending) {
+    if (!user?.id || !receiverId || !content || isSending || !isMountedRef.current) {
       return;
     }
 
     try {
       setIsSending(true);
       const response = await sendMessage(receiverId, content);
+
+      if (!isMountedRef.current) {
+        return;
+      }
+
       const payload = response?.data?.data || response?.data;
       const newMessage = normalizeMessage(payload);
 
@@ -292,12 +429,15 @@ const Messages = () => {
         return;
       }
 
-      setConversationMessages((prev) => mergeMessages(prev, [newMessage], 'append'));
-      setMessageMeta((prev) => ({
-        ...prev,
-        latestCursor: newMessage.created_at || prev.latestCursor
-      }));
-      updateLatestCursorRef(newMessage.created_at || null);
+      if (activeConversationRef.current === receiverId) {
+        setConversationMessages((prev) => mergeMessages(prev, [newMessage], 'append'));
+        setMessageMeta((prev) => ({
+          ...prev,
+          latestCursor: newMessage.created_at || prev.latestCursor
+        }));
+        updateLatestCursorRef(newMessage.created_at || null);
+        setConversationError('');
+      }
 
       setUsers((prevUsers) =>
         prevUsers.map((item) =>
@@ -312,20 +452,32 @@ const Messages = () => {
         )
       );
     } catch (err) {
+      if (!isMountedRef.current) {
+        return;
+      }
       console.error('Error sending message:', err);
-      setConversationError('Fehler beim Senden der Nachricht. Bitte versuche es erneut.');
+      if (activeConversationRef.current === receiverId) {
+        setConversationError('Fehler beim Senden der Nachricht. Bitte versuche es erneut.');
+      }
     } finally {
-      setIsSending(false);
+      if (isMountedRef.current) {
+        setIsSending(false);
+      }
     }
-  }, [isSending, updateLatestCursorRef]);
+  }, [isSending, updateLatestCursorRef, user]);
 
   const handleSelectUser = useCallback((item) => {
+    if (!isMountedRef.current) {
+      return;
+    }
+
     if (!item) {
       setSelectedUserId(null);
       return;
     }
 
     setSelectedUserId(item.id);
+    setConversationError('');
     setUsers((prevUsers) =>
       prevUsers.map((userItem) =>
         userItem.id === item.id
@@ -336,7 +488,7 @@ const Messages = () => {
   }, []);
 
   const handleLoadMore = useCallback(() => {
-    if (!selectedUserId || !messageMeta.nextCursor || loadingMore) {
+    if (!user?.id || !selectedUserId || !messageMeta.nextCursor || loadingMore || !isMountedRef.current) {
       return;
     }
 
@@ -345,13 +497,29 @@ const Messages = () => {
       cursor: messageMeta.nextCursor,
       limit: DEFAULT_PAGE_SIZE
     });
-  }, [selectedUserId, messageMeta.nextCursor, loadingMore, fetchConversation]);
+  }, [selectedUserId, messageMeta.nextCursor, loadingMore, fetchConversation, user]);
 
   const handleRetryConversation = useCallback(() => {
+    if (!user?.id || !selectedUserId) {
+      return;
+    }
+
+    setConversationError('');
     if (selectedUserId) {
       fetchConversation(selectedUserId, { mode: 'initial', limit: DEFAULT_PAGE_SIZE });
     }
-  }, [selectedUserId, fetchConversation]);
+  }, [selectedUserId, fetchConversation, user]);
+
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="mt-4 text-gray-600">Profil wird geladen...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (loadingUsers) {
     return (
@@ -393,7 +561,7 @@ const Messages = () => {
       <TelegramChat
         users={users}
         messages={conversationMessages}
-        currentUserId={user.id}
+        currentUserId={user?.id ?? null}
         onSendMessage={handleSendMessage}
         onSelectUser={handleSelectUser}
         selectedUser={selectedUser}

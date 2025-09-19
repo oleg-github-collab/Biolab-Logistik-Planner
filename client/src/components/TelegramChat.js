@@ -45,7 +45,7 @@ const TelegramChat = ({
   };
 
   const addEmoji = (emoji) => {
-    setMessageText(prev => prev + emoji);
+    setMessageText((prev = '') => `${prev}${emoji}`);
     setShowEmojiPicker(false);
   };
 
@@ -53,17 +53,32 @@ const TelegramChat = ({
 
   const groupedMessages = useMemo(() => {
     const map = new Map();
-    [...messages]
-      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
-      .forEach((message) => {
-        const date = format(new Date(message.created_at), 'yyyy-MM-dd');
-        if (!map.has(date)) {
-          map.set(date, []);
-        }
-        map.get(date).push(message);
-      });
 
-    return Array.from(map.entries()).map(([date, items]) => ({ date, items }));
+    messages.forEach((message) => {
+      const parsedDate = safeParseDate(message?.created_at);
+
+      if (!parsedDate) {
+        return;
+      }
+
+      const dateKey = format(parsedDate, 'yyyy-MM-dd');
+
+      if (!map.has(dateKey)) {
+        map.set(dateKey, []);
+      }
+
+      map.get(dateKey).push({
+        ...message,
+        createdAt: parsedDate
+      });
+    });
+
+    return Array.from(map.entries())
+      .map(([date, items]) => ({
+        date,
+        items: items.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+      }))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [messages]);
 
   const sortedUsers = useMemo(() => users, [users]);
@@ -76,11 +91,12 @@ const TelegramChat = ({
   ];
 
   const formatListTimestamp = (timestamp) => {
-    if (!timestamp) {
+    const date = safeParseDate(timestamp);
+
+    if (!date) {
       return '';
     }
 
-    const date = new Date(timestamp);
     const today = new Date();
     const isSameDay = format(today, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd');
 
@@ -272,10 +288,14 @@ const TelegramChat = ({
                                 : 'text-gray-500 justify-start'
                             }`}
                           >
-                            <span>{formatDistanceToNow(new Date(message.created_at), {
-                              addSuffix: true,
-                              locale: de
-                            })}</span>
+                            <span>
+                              {message.createdAt
+                                ? formatDistanceToNow(message.createdAt, {
+                                    addSuffix: true,
+                                    locale: de
+                                  })
+                                : 'Gerade eben'}
+                            </span>
                             {renderStatusIcon(message)}
                           </p>
                         </div>
@@ -405,9 +425,44 @@ const TelegramChat = ({
   );
 };
 
+const hasTimezone = (value = '') => /Z|[+-]\d{2}:?\d{2}$/.test(value);
+
+const safeParseDate = (value) => {
+  if (!value) {
+    return null;
+  }
+
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value;
+  }
+
+  const direct = new Date(value);
+
+  if (!Number.isNaN(direct.getTime())) {
+    return direct;
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    const normalized = trimmed.includes('T') ? trimmed : trimmed.replace(' ', 'T');
+    const withZone = hasTimezone(normalized) ? normalized : `${normalized}Z`;
+    const fallback = new Date(withZone);
+
+    if (!Number.isNaN(fallback.getTime())) {
+      return fallback;
+    }
+  }
+
+  return null;
+};
+
 const formatDateHeader = (date) => {
   const today = new Date();
-  const messageDate = new Date(date);
+  const messageDate = safeParseDate(date);
+
+  if (!messageDate) {
+    return '';
+  }
 
   if (format(today, 'yyyy-MM-dd') === format(messageDate, 'yyyy-MM-dd')) {
     return 'Heute';

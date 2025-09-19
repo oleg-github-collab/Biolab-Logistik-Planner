@@ -32,17 +32,95 @@ const parseDate = (value, fieldName) => {
   return parsed.toISOString();
 };
 
+const hasTimezone = (value) => /Z|[+-]\d{2}:?\d{2}$/.test(value);
+
+const toIsoString = (value) => {
+  if (!value) {
+    return new Date().toISOString();
+  }
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? new Date().toISOString() : value.toISOString();
+  }
+
+  if (typeof value !== 'string') {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
+  }
+
+  const trimmedValue = value.trim();
+  const normalized = trimmedValue.includes('T') ? trimmedValue : trimmedValue.replace(' ', 'T');
+  const withZone = hasTimezone(normalized) ? normalized : `${normalized}Z`;
+  const parsedDate = new Date(withZone);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    const fallback = new Date(value);
+    return Number.isNaN(fallback.getTime()) ? new Date().toISOString() : fallback.toISOString();
+  }
+
+  return parsedDate.toISOString();
+};
+
+const toNumber = (value) => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
+const toBoolean = (value, fallback = false) => {
+  if (value === null || value === undefined) {
+    return Boolean(fallback);
+  }
+
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'number') {
+    return value > 0;
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'true') {
+      return true;
+    }
+    if (normalized === 'false') {
+      return false;
+    }
+    const numeric = Number(normalized);
+    if (!Number.isNaN(numeric)) {
+      return numeric > 0;
+    }
+  }
+
+  return Boolean(fallback);
+};
+
 const normalizeMessage = (message, currentUserId) => {
   if (!message) {
     return null;
   }
 
-  const isReceiver = message.receiver_id === currentUserId;
+  const senderId = toNumber(message.sender_id);
+  const receiverId = toNumber(message.receiver_id);
+  const isReceiver = receiverId !== null && receiverId === toNumber(currentUserId);
 
   return {
-    ...message,
-    read_status: Boolean(message.read_status || (isReceiver ? 1 : 0)),
-    delivered_status: Boolean(message.delivered_status ?? (isReceiver ? 1 : 0))
+    id: toNumber(message.id),
+    sender_id: senderId,
+    receiver_id: receiverId,
+    message: message.message,
+    is_group: toBoolean(message.is_group),
+    read_status: toBoolean(message.read_status, isReceiver),
+    delivered_status: toBoolean(message.delivered_status, isReceiver),
+    message_type: message.message_type || 'text',
+    created_at: toIsoString(message.created_at),
+    sender_name: message.sender_name || null,
+    receiver_name: message.receiver_name || null
   };
 };
 
