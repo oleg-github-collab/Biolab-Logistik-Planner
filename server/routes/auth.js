@@ -2,7 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../database');
-const { auth, adminAuth } = require('../middleware/auth');
+const { auth } = require('../middleware/auth');
 const { asyncHandler, createError } = require('../middleware/errorHandler');
 const validate = require('../middleware/validation');
 const { limiters } = require('../middleware/rateLimiter');
@@ -11,6 +11,20 @@ const logger = require('../utils/logger');
 
 const router = express.Router();
 const apiController = new ApiController();
+
+const JWT_SECRET = process.env.JWT_SECRET || 'biolab-logistik-secret-key';
+const TOKEN_EXPIRY = '7d';
+
+const normalizeEmail = (email) => (typeof email === 'string' ? email.trim().toLowerCase() : '');
+const normalizeName = (name) => (typeof name === 'string' ? name.trim() : '');
+const resolveRole = (role, isFirstSetup) => {
+  if (isFirstSetup) {
+    return 'admin';
+  }
+
+  const normalized = typeof role === 'string' ? role.toLowerCase() : 'employee';
+  return normalized === 'admin' ? 'admin' : 'employee';
+};
 
 // @route   GET /api/auth/first-setup
 // @desc    Check if this is the first setup
@@ -43,7 +57,6 @@ router.get('/first-setup', asyncHandler(async (req, res) => {
     return apiController.sendResponse(res, {
       isFirstSetup
     }, isFirstSetup ? 'First setup required' : 'System already configured');
-
   } catch (error) {
     logger.error('Error checking first setup status', error, { ip: req.ip });
     throw createError.internal('Failed to check setup status');
@@ -53,15 +66,18 @@ router.get('/first-setup', asyncHandler(async (req, res) => {
 // @route   POST /api/auth/register
 // @desc    Register a new user
 router.post('/register', limiters.auth, validate.registerUser, asyncHandler(async (req, res) => {
-  const { name, email, password, role = 'user' } = req.body;
+  const { name, email, password, role } = req.body;
+
+  const sanitizedName = normalizeName(name);
+  const sanitizedEmail = normalizeEmail(email);
+  const requestedRole = role || 'employee';
 
   logger.info('User registration attempt', {
-    email,
-    role,
+    email: sanitizedEmail,
+    requestedRole,
     ip: req.ip
   });
 
-  // Check if first setup
   const userCount = await apiController.executeQuery(
     db,
     "SELECT COUNT(*) as userCount FROM users",
@@ -69,41 +85,74 @@ router.post('/register', limiters.auth, validate.registerUser, asyncHandler(asyn
     'get'
   );
 
-  const isFirstSetup = userCount.userCount === 0;
+  const isFirstSetup = (userCount?.userCount || 0) === 0;
+  let actingUser = null;
 
-  // For non-first setup, require admin authentication
   if (!isFirstSetup) {
-    apiController.checkPermissions(req.user, 'admin');
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+
+    if (!token) {
+      logger.warn('Registration denied - missing token', {
+        email: sanitizedEmail,
+        ip: req.ip
+      });
+      throw createError.unauthorized('Access denied. No token provided.');
+    }
+
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      actingUser = decoded.user;
+
+      if (!actingUser || actingUser.role !== 'admin') {
+        logger.warn('Registration denied - insufficient privileges', {
+          email: sanitizedEmail,
+          actorId: actingUser?.id || null,
+          actorRole: actingUser?.role || null,
+          ip: req.ip
+        });
+        throw createError.forbidden('Access denied. Admin privileges required.');
+      }
+    } catch (error) {
+      if (error.statusCode) {
+        throw error;
+      }
+
+      logger.warn('Registration denied - invalid token', {
+        email: sanitizedEmail,
+        ip: req.ip,
+        error: error.message
+      });
+
+      throw createError.unauthorized('Invalid token.');
+    }
   }
 
-  // Check if user exists
   const existingUser = await apiController.executeQuery(
     db,
-    "SELECT id FROM users WHERE email = ? OR name = ?",
-    [email, name],
+    'SELECT id FROM users WHERE LOWER(email) = ? OR LOWER(name) = ?',
+    [sanitizedEmail, sanitizedName.toLowerCase()],
     'get'
   );
 
   if (existingUser) {
-    logger.warn('Registration failed - user exists', { email, ip: req.ip });
+    logger.warn('Registration failed - user already exists', {
+      email: sanitizedEmail,
+      name: sanitizedName,
+      ip: req.ip
+    });
     throw createError.conflict('User with this email or name already exists');
   }
 
-  // Hash password
   const hashedPassword = await bcrypt.hash(password, 12);
+  const userRole = resolveRole(requestedRole, isFirstSetup);
 
-  // Set role for first user
-  const userRole = isFirstSetup ? 'admin' : role;
-
-  // Create user
   const result = await apiController.executeQuery(
     db,
     "INSERT INTO users (name, email, password, role, created_at) VALUES (?, ?, ?, ?, datetime('now'))",
-    [name, email, hashedPassword, userRole],
+    [sanitizedName, sanitizedEmail, hashedPassword, userRole],
     'run'
   );
 
-  // Mark first setup as completed if this is the first user
   if (isFirstSetup) {
     await apiController.executeQuery(
       db,
@@ -112,192 +161,147 @@ router.post('/register', limiters.auth, validate.registerUser, asyncHandler(asyn
       'run'
     );
 
-    logger.info('First setup completed', { userId: result.id, email });
+    logger.info('First setup completed', {
+      userId: result.id,
+      email: sanitizedEmail
+    });
   }
 
-  // Get created user (without password)
   const newUser = await apiController.executeQuery(
     db,
-    "SELECT id, name, email, role, created_at FROM users WHERE id = ?",
+    'SELECT id, name, email, role, created_at FROM users WHERE id = ?',
     [result.id],
     'get'
   );
 
+  const safeUser = apiController.sanitizeUserData(newUser);
+  const payload = { user: safeUser };
+
+  let tokenResponse = null;
+  if (isFirstSetup) {
+    tokenResponse = jwt.sign(payload, JWT_SECRET, { expiresIn: TOKEN_EXPIRY });
+  }
+
   logger.info('User registered successfully', {
-    userId: result.id,
-    email,
-    role: userRole,
-    isFirstSetup
+    userId: safeUser.id,
+    email: safeUser.email,
+    role: safeUser.role,
+    isFirstSetup,
+    actorId: actingUser?.id || null
   });
 
-  return apiController.sendResponse(res, {
-    user: apiController.sanitizeUserData(newUser),
-    isFirstSetup
-  }, 'User registered successfully', 201);
-          if (err) {
-            return res.status(500).json({ error: 'Server error' });
-          }
-          
-          // Determine role for first user
-          const userRole = isFirstSetup ? 'admin' : (role === 'admin' ? 'admin' : 'employee');
-          
-          // Insert user
-          db.run(
-            "INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)",
-            [name, email, hashedPassword, userRole],
-            function(err) {
-              if (err) {
-                return res.status(500).json({ error: 'Server error' });
-              }
-              
-              // Get the created user
-              db.get(
-                "SELECT id, name, email, role FROM users WHERE id = ?", 
-                [this.lastID], 
-                (err, user) => {
-                  if (err) {
-                    return res.status(500).json({ error: 'Server error' });
-                  }
-                  
-                  // If this was the first setup, mark it as completed
-                  if (isFirstSetup) {
-                    db.run(
-                      "INSERT OR REPLACE INTO system_flags (name, value) VALUES ('first_setup_completed', 'true')",
-                      (err) => {
-                        if (err) {
-                          console.error('Error marking first setup as completed:', err);
-                        } else {
-                          console.log('First setup completed successfully');
-                        }
-                      }
-                    );
-                  }
-                  
-                  // Create JWT payload
-                  const payload = {
-                    user: {
-                      id: user.id,
-                      name: user.name,
-                      email: user.email,
-                      role: user.role
-                    }
-                  };
-                  
-                  // Sign token
-                  jwt.sign(
-                    payload,
-                    process.env.JWT_SECRET || 'biolab-logistik-secret-key',
-                    { expiresIn: '7d' },
-                    (err, token) => {
-                      if (err) {
-                        return res.status(500).json({ error: 'Server error' });
-                      }
-                      
-                      res.status(201).json({ 
-                        token, 
-                        user: payload.user,
-                        message: isFirstSetup ? 'Admin account created successfully' : 'User registered successfully'
-                      });
-                    }
-                  );
-                }
-              );
-            }
-          );
-        });
-      });
-    });
-  } catch (err) {
-    console.error('Registration error:', err.message);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
+  return apiController.sendResponse(
+    res,
+    {
+      user: safeUser,
+      isFirstSetup,
+      ...(tokenResponse && { token: tokenResponse })
+    },
+    isFirstSetup ? 'Admin account created successfully' : 'User registered successfully',
+    201
+  );
+}));
 
 // @route   POST /api/auth/login
 // @desc    Authenticate user & get token
-router.post('/login', async (req, res) => {
+router.post('/login', limiters.auth, validate.loginUser, asyncHandler(async (req, res) => {
   const { email, password } = req.body;
-  
-  try {
-    // First, check if first setup is required
-    db.get("SELECT COUNT(*) as userCount FROM users", (err, userRow) => {
-      if (err) {
-        return res.status(500).json({ error: 'Server error' });
-      }
-      
-      if (userRow.userCount === 0) {
-        return res.status(403).json({ 
-          error: 'First setup required', 
-          firstSetupRequired: true 
-        });
-      }
-      
-      // Check if user exists
-      db.get("SELECT * FROM users WHERE email = ?", [email], async (err, user) => {
-        if (err) {
-          return res.status(500).json({ error: 'Server error' });
-        }
-        
-        if (!user) {
-          return res.status(400).json({ error: 'Invalid credentials' });
-        }
-        
-        // Compare hashed password
-        const isMatch = await bcrypt.compare(password, user.password);
-        
-        if (!isMatch) {
-          return res.status(400).json({ error: 'Invalid credentials' });
-        }
-        
-        // Create JWT payload
-        const payload = {
-          user: {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            role: user.role
-          }
-        };
-        
-        // Sign token
-        jwt.sign(
-          payload,
-          process.env.JWT_SECRET || 'biolab-logistik-secret-key',
-          { expiresIn: '7d' },
-          (err, token) => {
-            if (err) {
-              return res.status(500).json({ error: 'Server error' });
-            }
-            
-            res.json({ 
-              token, 
-              user: payload.user,
-              message: 'Login successful'
-            });
-          }
-        );
-      });
+  const sanitizedEmail = normalizeEmail(email);
+
+  logger.info('User login attempt', {
+    email: sanitizedEmail,
+    ip: req.ip
+  });
+
+  const userCount = await apiController.executeQuery(
+    db,
+    "SELECT COUNT(*) as userCount FROM users",
+    [],
+    'get'
+  );
+
+  if ((userCount?.userCount || 0) === 0) {
+    logger.warn('Login blocked - first setup required', {
+      email: sanitizedEmail,
+      ip: req.ip
     });
-  } catch (err) {
-    console.error('Login error:', err.message);
-    res.status(500).json({ error: 'Server error' });
+
+    return res.status(403).json({
+      success: false,
+      error: 'First setup required',
+      firstSetupRequired: true
+    });
   }
-});
+
+  const user = await apiController.executeQuery(
+    db,
+    'SELECT * FROM users WHERE LOWER(email) = ?',
+    [sanitizedEmail],
+    'get'
+  );
+
+  if (!user) {
+    logger.warn('Login failed - user not found', {
+      email: sanitizedEmail,
+      ip: req.ip
+    });
+    throw createError.unauthorized('Invalid credentials');
+  }
+
+  const passwordMatches = await bcrypt.compare(password, user.password);
+
+  if (!passwordMatches) {
+    logger.warn('Login failed - invalid password', {
+      userId: user.id,
+      email: sanitizedEmail,
+      ip: req.ip
+    });
+    throw createError.unauthorized('Invalid credentials');
+  }
+
+  const safeUser = apiController.sanitizeUserData(user);
+  const token = jwt.sign({ user: safeUser }, JWT_SECRET, { expiresIn: TOKEN_EXPIRY });
+
+  logger.info('User login successful', {
+    userId: safeUser.id,
+    email: safeUser.email,
+    role: safeUser.role,
+    ip: req.ip
+  });
+
+  return apiController.sendResponse(
+    res,
+    {
+      token,
+      user: safeUser
+    },
+    'Login successful'
+  );
+}));
 
 // @route   GET /api/auth/user
 // @desc    Get user data
-router.get('/user', auth, (req, res) => {
-  db.get("SELECT id, name, email, role FROM users WHERE id = ?", [req.user.id], (err, user) => {
-    if (err) {
-      return res.status(500).json({ error: 'Server error' });
-    }
-    
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    
-    res.json(user);
-  });
-});
+router.get('/user', auth, asyncHandler(async (req, res) => {
+  const user = await apiController.executeQuery(
+    db,
+    'SELECT id, name, email, role, created_at, updated_at FROM users WHERE id = ?',
+    [req.user.id],
+    'get'
+  );
+
+  if (!user) {
+    logger.warn('User profile requested but not found', {
+      userId: req.user.id,
+      ip: req.ip
+    });
+    throw createError.notFound('User not found');
+  }
+
+  return apiController.sendResponse(
+    res,
+    apiController.sanitizeUserData(user),
+    'User profile retrieved successfully'
+  );
+}));
 
 module.exports = router;

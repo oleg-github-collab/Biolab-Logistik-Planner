@@ -19,9 +19,11 @@ const Login = () => {
     const verifyFirstSetup = async () => {
       try {
         const response = await checkFirstSetup();
+        const payload = response?.data?.data ?? response?.data ?? {};
+
         setCheckingSetup(false);
-        
-        if (response.data.isFirstSetup) {
+
+        if (payload.isFirstSetup) {
           navigate('/first-setup');
         }
       } catch (err) {
@@ -48,18 +50,31 @@ const Login = () => {
 
     try {
       const response = await login(formData.email, formData.password);
-      const { token, user } = response.data;
-      
-      authLogin(token, user);
-      navigate('/dashboard');
+      const payload = response?.data?.data ?? response?.data ?? {};
+      const { token, user } = payload;
+
+      if (token && user) {
+        authLogin(token, user);
+        navigate('/dashboard');
+      } else {
+        setError('Login erfolgreich, aber keine gültigen Anmeldedaten erhalten. Bitte versuche es erneut.');
+      }
     } catch (err) {
       console.error('Login error:', err.response?.data || err.message);
-      
-      if (err.response?.data?.firstSetupRequired) {
+
+      const firstSetupRequired = err.response?.data?.firstSetupRequired
+        ?? err.response?.data?.error?.details?.firstSetupRequired;
+
+      if (firstSetupRequired) {
         // Redirect to first setup if required
         navigate('/first-setup');
       } else {
-        setError('Ungültige Anmeldeinformationen. Bitte versuche es erneut.');
+        const apiError = err.response?.data?.error?.message
+          ?? err.response?.data?.error
+          ?? err.message
+          ?? 'Ungültige Anmeldeinformationen. Bitte versuche es erneut.';
+
+        setError(typeof apiError === 'string' ? apiError : 'Ungültige Anmeldeinformationen. Bitte versuche es erneut.');
       }
     } finally {
       setLoading(false);

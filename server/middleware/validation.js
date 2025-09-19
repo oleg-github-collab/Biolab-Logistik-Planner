@@ -11,16 +11,28 @@ const validate = {
       errors.push('Name must be at least 2 characters long');
     }
 
+    req.body.name = name?.trim() || '';
+
     if (!email || !isValidEmail(email)) {
       errors.push('Valid email address is required');
     }
+
+    req.body.email = email?.trim() || '';
 
     if (!password || password.length < 6) {
       errors.push('Password must be at least 6 characters long');
     }
 
-    if (role && !['admin', 'user'].includes(role)) {
-      errors.push('Role must be either admin or user');
+    if (role) {
+      const normalizedRole = String(role).toLowerCase();
+
+      if (!['admin', 'user', 'employee'].includes(normalizedRole)) {
+        errors.push('Role must be either admin or employee');
+      } else {
+        req.body.role = normalizedRole === 'user' ? 'employee' : normalizedRole;
+      }
+    } else {
+      req.body.role = 'employee';
     }
 
     if (errors.length > 0) {

@@ -22,8 +22,9 @@ const FirstSetup = () => {
     const verifyFirstSetup = async () => {
       try {
         const response = await checkFirstSetup();
-        if (!response.data.isFirstSetup) {
-          // Redirect to login if first setup is not required
+        const payload = response?.data?.data ?? response?.data ?? {};
+
+        if (!payload.isFirstSetup) {
           navigate('/login');
         } else {
           setSetupStatus('ready');
@@ -84,29 +85,40 @@ const FirstSetup = () => {
     try {
       // Register the first admin user
       const response = await register(
-        formData.name, 
-        formData.email, 
+        formData.name,
+        formData.email,
         formData.password
       );
-      
-      if (response.data.token) {
-        // Save token and user data to localStorage
-        localStorage.setItem('token', response.data.token);
-        authLogin(response.data.token, response.data.user);
+
+      const payload = response?.data?.data ?? response?.data ?? {};
+      const { token, user } = payload;
+
+      if (token && user) {
+        localStorage.setItem('token', token);
+        authLogin(token, user);
         setSuccess(true);
-        
+
         // Redirect to dashboard after 2 seconds
         setTimeout(() => {
           navigate('/dashboard');
         }, 2000);
+      } else {
+        setError('Registrierung abgeschlossen, aber keine gültigen Anmeldedaten erhalten. Bitte melde dich manuell an.');
       }
     } catch (err) {
       console.error('Registration error:', err);
-      if (err.response?.data?.firstSetupRequired) {
-        // This means we need to force refresh
+      const firstSetupRequired = err.response?.data?.firstSetupRequired
+        ?? err.response?.data?.error?.details?.firstSetupRequired;
+
+      if (firstSetupRequired) {
         setSetupStatus('ready');
       } else {
-        setError(err.response?.data?.error || 'Registration failed. Please try again.');
+        const apiError = err.response?.data?.error?.message
+          ?? err.response?.data?.error
+          ?? err.message
+          ?? 'Registration failed. Please try again.';
+
+        setError(typeof apiError === 'string' ? apiError : 'Registration failed. Please try again.');
       }
     } finally {
       setLoading(false);
