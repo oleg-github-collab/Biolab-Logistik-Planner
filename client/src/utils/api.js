@@ -121,13 +121,13 @@ export const deleteTask = (id) =>
   api.delete(`/tasks/${id}`);
 
 // Messages endpoints
-export const getMessages = () => 
-  api.get('/messages');
+export const getMessages = (params = {}) =>
+  api.get('/messages', { params });
 
-export const getUnreadCount = () => 
+export const getUnreadCount = () =>
   api.get('/messages/unread-count');
 
-export const sendMessage = (receiverId, message, isGroup = false) => 
+export const sendMessage = (receiverId, message, isGroup = false) =>
   api.post('/messages', { receiverId, message, isGroup });
 
 export const getUsersForMessaging = () => 

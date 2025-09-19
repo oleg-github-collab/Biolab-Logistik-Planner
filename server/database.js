@@ -129,6 +129,16 @@ function initializeDatabase() {
     )
   `);
 
+  // Add indexes to improve message queries
+  db.run(`
+    CREATE INDEX IF NOT EXISTS idx_messages_participants
+    ON messages (sender_id, receiver_id, created_at DESC)
+  `);
+  db.run(`
+    CREATE INDEX IF NOT EXISTS idx_messages_receiver_read
+    ON messages (receiver_id, read_status, created_at DESC)
+  `);
+
   // Create waste_items table (enhanced)
   db.run(`
     CREATE TABLE IF NOT EXISTS waste_items (
