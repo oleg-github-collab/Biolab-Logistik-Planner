@@ -17,7 +17,7 @@ app.use(helmet({
       "connect-src": ["'self'", "http://localhost:5000", "http://localhost:3000", "https://*.railway.app", "https://*.vercel.app", "https://*.herokuapp.com"],
       "script-src": ["'self'", "'unsafe-inline'", "https://*.railway.app"],
       "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      "font-src": ["'self'", "https://fonts.gstatic.com"],
+      "font-src": ["'self'", "https://fonts.gstatic.com", "data:"],
       "img-src": ["'self'", "", "https://*.railway.app", "https://*.vercel.app", "https://*.herokuapp.com"]
     }
   }

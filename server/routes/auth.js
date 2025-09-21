@@ -18,17 +18,29 @@ router.get('/first-setup', asyncHandler(async (req, res) => {
   logger.info('Checking first setup status', { ip: req.ip });
 
   try {
-    const userCount = await apiController.executeQuery(
+    const userStats = await apiController.executeQuery(
       db,
-      "SELECT COUNT(*) as userCount FROM users",
+      "SELECT COUNT(*) as userCount, SUM(CASE WHEN role = 'superadmin' THEN 1 ELSE 0 END) as superAdminCount FROM users",
       [],
       'get'
     );
 
-    if (userCount.userCount === 0) {
+    const totalUsers = userStats?.userCount || 0;
+    const superAdminCount = userStats?.superAdminCount || 0;
+    const hasSuperAdmin = superAdminCount > 0;
+
+    if (totalUsers === 0) {
       return apiController.sendResponse(res, {
-        isFirstSetup: true
+        isFirstSetup: true,
+        reason: 'no_users'
       }, 'First setup required');
+    }
+
+    if (!hasSuperAdmin) {
+      return apiController.sendResponse(res, {
+        isFirstSetup: true,
+        reason: 'no_superadmin'
+      }, 'Superadmin setup required');
     }
 
     const systemFlag = await apiController.executeQuery(
@@ -41,7 +53,8 @@ router.get('/first-setup', asyncHandler(async (req, res) => {
     const isFirstSetup = !systemFlag || systemFlag.value !== 'true';
 
     return apiController.sendResponse(res, {
-      isFirstSetup
+      isFirstSetup,
+      reason: isFirstSetup ? 'flag_not_completed' : 'ready'
     }, isFirstSetup ? 'First setup required' : 'System already configured');
 
   } catch (error) {
@@ -61,18 +74,22 @@ router.post('/register', limiters.auth, validate.registerUser, asyncHandler(asyn
     ip: req.ip
   });
 
-  // Check if first setup
-  const userCount = await apiController.executeQuery(
+  const userStats = await apiController.executeQuery(
     db,
-    "SELECT COUNT(*) as userCount FROM users",
+    "SELECT COUNT(*) as userCount, SUM(CASE WHEN role = 'superadmin' THEN 1 ELSE 0 END) as superAdminCount FROM users",
     [],
     'get'
   );
 
-  const isFirstSetup = userCount.userCount === 0;
+  const totalUsers = userStats?.userCount || 0;
+  const superAdminCount = userStats?.superAdminCount || 0;
+  const hasSuperAdmin = superAdminCount > 0;
+  const isInitialSetup = totalUsers === 0;
+  const isSuperAdminMissing = !hasSuperAdmin;
+  const allowOpenRegistration = isInitialSetup || isSuperAdminMissing;
 
-  // For non-first setup, require superadmin authentication
-  if (!isFirstSetup) {
+  // For environments with an existing superadmin, require authentication
+  if (!allowOpenRegistration) {
     const authHeader = req.header('Authorization');
     if (!authHeader) {
       throw createError.unauthorized('Superadmin authentication required');
@@ -123,7 +140,7 @@ router.post('/register', limiters.auth, validate.registerUser, asyncHandler(asyn
   const allowedRoles = ['employee', 'admin', 'superadmin'];
   const requestedRole = allowedRoles.includes(normalizedRole) ? normalizedRole : 'employee';
 
-  const userRole = isFirstSetup ? 'superadmin' : requestedRole;
+  const userRole = allowOpenRegistration ? 'superadmin' : requestedRole;
 
   // Create user
   const result = await apiController.executeQuery(
@@ -134,7 +151,7 @@ router.post('/register', limiters.auth, validate.registerUser, asyncHandler(asyn
   );
 
   // Mark first setup as completed if this is the first user
-  if (isFirstSetup) {
+  if (allowOpenRegistration) {
     await apiController.executeQuery(
       db,
       "INSERT OR REPLACE INTO system_flags (name, value) VALUES ('first_setup_completed', 'true')",
@@ -156,7 +173,7 @@ router.post('/register', limiters.auth, validate.registerUser, asyncHandler(asyn
   const sanitizedUser = apiController.sanitizeUserData(newUser);
 
   let token = null;
-  if (isFirstSetup) {
+  if (allowOpenRegistration) {
     const payload = {
       user: sanitizedUser
     };
@@ -172,13 +189,13 @@ router.post('/register', limiters.auth, validate.registerUser, asyncHandler(asyn
     userId: result.id,
     email,
     role: userRole,
-    isFirstSetup
+    isFirstSetup: allowOpenRegistration
   });
 
   return apiController.sendResponse(res, {
     user: sanitizedUser,
     token,
-    isFirstSetup
+    isFirstSetup: allowOpenRegistration
   }, 'User registered successfully', 201);
 }));
 
