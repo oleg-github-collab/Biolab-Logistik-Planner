@@ -153,6 +153,21 @@ router.post('/register', limiters.auth, validate.registerUser, asyncHandler(asyn
     'get'
   );
 
+  const sanitizedUser = apiController.sanitizeUserData(newUser);
+
+  let token = null;
+  if (isFirstSetup) {
+    const payload = {
+      user: sanitizedUser
+    };
+
+    token = jwt.sign(
+      payload,
+      process.env.JWT_SECRET || 'biolab-logistik-secret-key',
+      { expiresIn: '7d' }
+    );
+  }
+
   logger.info('User registered successfully', {
     userId: result.id,
     email,
@@ -161,7 +176,8 @@ router.post('/register', limiters.auth, validate.registerUser, asyncHandler(asyn
   });
 
   return apiController.sendResponse(res, {
-    user: apiController.sanitizeUserData(newUser),
+    user: sanitizedUser,
+    token,
     isFirstSetup
   }, 'User registered successfully', 201);
 }));
