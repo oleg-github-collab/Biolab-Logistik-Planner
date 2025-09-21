@@ -28,7 +28,7 @@ const AdminRoute = ({ children }) => {
     return <Navigate to="/login" replace />;
   }
   
-  if (user?.role !== 'admin') {
+  if (!['admin', 'superadmin'].includes(user?.role)) {
     return <Navigate to="/dashboard" replace />;
   }
   

@@ -226,7 +226,7 @@ const Waste = () => {
                   <h3 className="text-lg font-bold text-gray-800">
                     {item.name}
                   </h3>
-                  {user.role === 'admin' && (
+                  {['admin', 'superadmin'].includes(user.role) && (
                     <div className="flex space-x-1">
                       <button
                         onClick={() => handleUpdateWasteItem(
@@ -296,11 +296,11 @@ const Waste = () => {
               </div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">Keine Abfallarten vorhanden</h3>
               <p className="text-gray-500 mb-4">
-                {user.role === 'admin' 
+                {['admin', 'superadmin'].includes(user.role)
                   ? 'Erstelle neue Abfallarten oder wende Vorlagen an' 
                   : 'Derzeit sind keine Abfallarten definiert'}
               </p>
-              {user.role === 'admin' && (
+              {['admin', 'superadmin'].includes(user.role) && (
                 <button
                   onClick={() => setActiveTab('templates')}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"

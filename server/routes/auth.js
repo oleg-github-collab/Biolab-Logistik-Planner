@@ -71,9 +71,35 @@ router.post('/register', limiters.auth, validate.registerUser, asyncHandler(asyn
 
   const isFirstSetup = userCount.userCount === 0;
 
-  // For non-first setup, require admin authentication
+  // For non-first setup, require superadmin authentication
   if (!isFirstSetup) {
-    apiController.checkPermissions(req.user, 'admin');
+    const authHeader = req.header('Authorization');
+    if (!authHeader) {
+      throw createError.unauthorized('Superadmin authentication required');
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    let decoded;
+
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET || 'biolab-logistik-secret-key');
+    } catch (error) {
+      throw createError.unauthorized('Invalid or expired token');
+    }
+
+    const actingUser = await apiController.executeQuery(
+      db,
+      "SELECT id, name, email, role FROM users WHERE id = ?",
+      [decoded.user.id],
+      'get'
+    );
+
+    if (!actingUser) {
+      throw createError.unauthorized('User not found. Please login again.');
+    }
+
+    req.user = actingUser;
+    apiController.checkPermissions(req.user, 'superadmin');
   }
 
   // Check if user exists
@@ -93,7 +119,11 @@ router.post('/register', limiters.auth, validate.registerUser, asyncHandler(asyn
   const hashedPassword = await bcrypt.hash(password, 12);
 
   // Set role for first user
-  const userRole = isFirstSetup ? 'admin' : role;
+  const normalizedRole = role === 'user' ? 'employee' : role;
+  const allowedRoles = ['employee', 'admin', 'superadmin'];
+  const requestedRole = allowedRoles.includes(normalizedRole) ? normalizedRole : 'employee';
+
+  const userRole = isFirstSetup ? 'superadmin' : requestedRole;
 
   // Create user
   const result = await apiController.executeQuery(

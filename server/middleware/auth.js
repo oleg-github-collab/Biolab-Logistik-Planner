@@ -38,10 +38,17 @@ const auth = (req, res, next) => {
 };
 
 const adminAuth = (req, res, next) => {
-  if (req.user.role !== 'admin') {
+  if (!['admin', 'superadmin'].includes(req.user.role)) {
     return res.status(403).json({ error: 'Access denied. Admin privileges required.' });
   }
   next();
 };
 
-module.exports = { auth, adminAuth };
+const superAdminAuth = (req, res, next) => {
+  if (req.user.role !== 'superadmin') {
+    return res.status(403).json({ error: 'Access denied. Superadmin privileges required.' });
+  }
+  next();
+};
+
+module.exports = { auth, adminAuth, superAdminAuth };

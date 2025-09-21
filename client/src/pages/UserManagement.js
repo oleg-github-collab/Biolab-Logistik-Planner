@@ -19,7 +19,7 @@ const UserManagement = () => {
   });
 
   useEffect(() => {
-    if (user.role === 'admin') {
+    if (['admin', 'superadmin'].includes(user.role)) {
       loadUsers();
     }
   }, [user.role]);
@@ -136,7 +136,7 @@ const UserManagement = () => {
     setError('');
   };
 
-  if (user.role !== 'admin') {
+  if (!['admin', 'superadmin'].includes(user.role)) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md">
@@ -242,6 +242,9 @@ const UserManagement = () => {
               >
                 <option value="employee">Mitarbeiter</option>
                 <option value="admin">Administrator</option>
+                {user.role === 'superadmin' && (
+                  <option value="superadmin">Superadministrator</option>
+                )}
               </select>
             </div>
             
@@ -332,11 +335,17 @@ const UserManagement = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      userItem.role === 'admin' 
-                        ? 'bg-purple-100 text-purple-800' 
-                        : 'bg-green-100 text-green-800'
+                      userItem.role === 'superadmin'
+                        ? 'bg-indigo-100 text-indigo-700'
+                        : userItem.role === 'admin'
+                          ? 'bg-purple-100 text-purple-800'
+                          : 'bg-green-100 text-green-800'
                     }`}>
-                      {userItem.role === 'admin' ? 'Administrator' : 'Mitarbeiter'}
+                      {userItem.role === 'superadmin'
+                        ? 'Superadministrator'
+                        : userItem.role === 'admin'
+                          ? 'Administrator'
+                          : 'Mitarbeiter'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

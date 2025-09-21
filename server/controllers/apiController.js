@@ -218,11 +218,15 @@ class ApiController {
       throw createError.unauthorized('Authentication required');
     }
 
-    if (requiredRole === 'admin' && user.role !== 'admin') {
+    if (requiredRole === 'superadmin' && user.role !== 'superadmin') {
+      throw createError.forbidden('Superadmin access required');
+    }
+
+    if (requiredRole === 'admin' && !['admin', 'superadmin'].includes(user.role)) {
       throw createError.forbidden('Admin access required');
     }
 
-    if (resourceOwnerId && user.id !== resourceOwnerId && user.role !== 'admin') {
+    if (resourceOwnerId && user.id !== resourceOwnerId && !['admin', 'superadmin'].includes(user.role)) {
       throw createError.forbidden('Access denied to this resource');
     }
 

@@ -223,7 +223,7 @@ const Dashboard = () => {
         getCurrentWeek(),
         getMySchedule(),
         // FIX: Replaced invalid JavaScript syntax { [] } with a valid object { data: [] }
-        user.role === 'admin' ? getTeamSchedule() : Promise.resolve({ data: [] }),
+        ['admin', 'superadmin'].includes(user.role) ? getTeamSchedule() : Promise.resolve({ data: [] }),
         getArchivedSchedules()
       ]);
       

@@ -80,7 +80,7 @@ const NAV_ITEMS = [
         <path d="M16 3.13a4 4 0 010 7.75" />
       </svg>
     ),
-    roles: ['admin']
+    roles: ['admin', 'superadmin']
   }
 ];
 
@@ -140,7 +140,7 @@ const Header = () => {
               <span className="text-sm font-medium text-slate-800">
                 {user.name}
                 <span className="ml-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-600">
-                  {user.role === 'admin' ? 'Admin' : 'Team'}
+                  {user.role === 'superadmin' ? 'Superadmin' : user.role === 'admin' ? 'Admin' : 'Team'}
                 </span>
               </span>
             </div>
