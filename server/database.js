@@ -21,6 +21,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 });
 
 function initializeDatabase() {
+  db.serialize(() => {
   // Create users table
   db.run(`
     CREATE TABLE IF NOT EXISTS users (
@@ -320,8 +321,13 @@ function initializeDatabase() {
     if (row.count === 0) {
       // Get first user as assignee
       db.get("SELECT id FROM users LIMIT 1", (err, user) => {
-        if (err || !user) {
-          console.error('Error getting user for default tasks:', err?.message);
+        if (err) {
+          console.error('Error getting user for default tasks:', err.message);
+          return;
+        }
+
+        if (!user) {
+          console.log('Skipping default task seeding - no users available yet.');
           return;
         }
         
@@ -419,6 +425,7 @@ function initializeDatabase() {
   db.run("CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at)");
   db.run("CREATE INDEX IF NOT EXISTS idx_waste_next_disposal ON waste_items(next_disposal_date)");
   db.run("CREATE INDEX IF NOT EXISTS idx_waste_template ON waste_items(template_id)");
+  });
 }
 
 // Add function to check if first setup is required
