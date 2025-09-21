@@ -44,7 +44,7 @@ const AppContent = () => {
       <div className="min-h-screen flex flex-col">
         {isAuthenticated && <Header />}
         
-        <main className="flex-grow">
+        <main className="flex-grow pb-24 md:pb-0">
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/first-setup" element={<FirstSetup />} />

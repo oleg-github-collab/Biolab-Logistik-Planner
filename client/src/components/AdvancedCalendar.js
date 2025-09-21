@@ -1,432 +1,496 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  format,
-  startOfWeek,
   addDays,
-  addWeeks,
-  subWeeks,
+  addMinutes,
   addMonths,
-  subMonths,
-  startOfMonth,
+  addWeeks,
+  differenceInMinutes,
+  endOfDay,
   endOfMonth,
-  eachDayOfInterval,
-  isToday,
+  endOfWeek,
+  format,
+  isAfter,
+  isBefore,
   isSameDay,
   isSameMonth,
-  isWithinInterval,
+  isToday,
   parseISO,
-  setHours,
-  setMinutes
+  startOfDay,
+  startOfMonth,
+  startOfWeek,
+  subMonths,
+  subWeeks
 } from 'date-fns';
 import { de } from 'date-fns/locale';
 
+const VIEW_OPTIONS = [
+  { id: 'day', label: 'Tag' },
+  { id: 'week', label: 'Woche' },
+  { id: 'month', label: 'Monat' },
+  { id: 'agenda', label: 'Agenda' }
+];
+
+const SLOT_INTERVAL = 30; // minutes
+const BASE_SLOT_HEIGHT = 44; // px per slot
+const START_HOUR = 6;
+const END_HOUR = 22;
+
 const AdvancedCalendar = ({
   events = [],
-  onEventClick,
-  onDateSelect,
-  onEventCreate,
+  view = 'week',
   selectedDate = new Date(),
-  view = 'week' // 'day', 'week', 'month', 'year'
+  onViewChange,
+  onRangeChange,
+  onEventClick,
+  onEventCreate,
+  onEventMove,
+  onEventResize,
+  onDateSelect
 }) => {
-  const [currentDate, setCurrentDate] = useState(selectedDate);
-  const [draggedEvent, setDraggedEvent] = useState(null);
-  const [isCreating, setIsCreating] = useState(false);
-  const [newEventStart, setNewEventStart] = useState(null);
+  const [currentDate, setCurrentDate] = useState(selectedDate ?? new Date());
+  const [internalView, setInternalView] = useState(view);
+  const [isMobile, setIsMobile] = useState(false);
   const [hoveredSlot, setHoveredSlot] = useState(null);
-  const [selectedEvents, setSelectedEvents] = useState([]);
-  const [quickAddVisible, setQuickAddVisible] = useState(false);
-  const [quickAddPosition, setQuickAddPosition] = useState({ x: 0, y: 0 });
+  const [quickCreateState, setQuickCreateState] = useState({ visible: false, date: null, time: null, anchor: { x: 0, y: 0 } });
 
-  // Time slots for day/week view (30-minute intervals)
+  // Determine active view (controlled vs uncontrolled mode)
+  const activeView = view ?? internalView;
+
+  useEffect(() => {
+    setInternalView(view);
+  }, [view]);
+
+  useEffect(() => {
+    if (selectedDate) {
+      setCurrentDate(selectedDate instanceof Date ? selectedDate : parseISO(selectedDate));
+    }
+  }, [selectedDate]);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (!view && isMobile && activeView === 'month') {
+      setInternalView('agenda');
+      onViewChange?.('agenda');
+    }
+  }, [isMobile, view, activeView, onViewChange]);
+
+  // Build list of time slots
+  const slotHeight = isMobile ? BASE_SLOT_HEIGHT + 8 : BASE_SLOT_HEIGHT;
+
   const timeSlots = useMemo(() => {
     const slots = [];
-    for (let hour = 0; hour < 24; hour++) {
-      for (let minute = 0; minute < 60; minute += 30) {
+    for (let hour = START_HOUR; hour <= END_HOUR; hour++) {
+      for (let minute = 0; minute < 60; minute += SLOT_INTERVAL) {
         slots.push({
-          time: `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`,
           hour,
           minute,
-          label: format(setMinutes(setHours(new Date(), hour), minute), 'HH:mm')
+          label: format(setMinutesAndHours(hour, minute), 'HH:mm')
         });
       }
     }
     return slots;
   }, []);
 
-  // Generate calendar dates based on view
-  const calendarDates = useMemo(() => {
-    switch (view) {
-      case 'day':
-        return [currentDate];
-      case 'week':
-        const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
-        return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-      case 'month':
-        const monthStart = startOfMonth(currentDate);
-        const monthEnd = endOfMonth(currentDate);
-        const start = startOfWeek(monthStart, { weekStartsOn: 1 });
-        const end = addDays(start, 41); // 6 weeks
-        return eachDayOfInterval({ start, end });
-      case 'year':
-        return Array.from({ length: 12 }, (_, i) => addMonths(startOfMonth(currentDate), i));
-      default:
-        return [currentDate];
-    }
-  }, [currentDate, view]);
-
-  // Filter and position events for current view
-  const processedEvents = useMemo(() => {
+  // Normalise incoming events once per render
+  const normalisedEvents = useMemo(() => {
     return events
-      .filter(event => {
-        const eventDate = parseISO(event.date || event.start_date);
-        if (view === 'month' || view === 'year') {
-          return calendarDates.some(date =>
-            isSameDay(eventDate, date) ||
-            (view === 'year' && isSameMonth(eventDate, date))
-          );
+      .map((event) => normaliseEvent(event))
+      .sort((a, b) => a.start.getTime() - b.start.getTime());
+  }, [events]);
+
+  const allDayEvents = useMemo(
+    () => normalisedEvents.filter((event) => event.allDay || !isSameDay(event.start, event.end)),
+    [normalisedEvents]
+  );
+
+  const timedEvents = useMemo(
+    () => normalisedEvents.filter((event) => !event.allDay && isSameDay(event.start, event.end)),
+    [normalisedEvents]
+  );
+
+  // Compute calendar dates for current view
+  const calendarDates = useMemo(() => {
+    const baseDate = currentDate instanceof Date ? currentDate : parseISO(currentDate);
+
+    switch (activeView) {
+      case 'day':
+        return [baseDate];
+      case 'week': {
+        const weekStart = startOfWeek(baseDate, { weekStartsOn: 1 });
+        return Array.from({ length: 7 }, (_, idx) => addDays(weekStart, idx));
+      }
+      case 'month': {
+        const start = startOfWeek(startOfMonth(baseDate), { weekStartsOn: 1 });
+        const end = endOfWeek(endOfMonth(baseDate), { weekStartsOn: 1 });
+        const days = [];
+        let cursor = start;
+        while (cursor <= end) {
+          days.push(cursor);
+          cursor = addDays(cursor, 1);
         }
-        return calendarDates.some(date => isSameDay(eventDate, date));
-      })
-      .map(event => ({
-        ...event,
-        startTime: event.start_time || '09:00',
-        endTime: event.end_time || '10:00',
-        color: getEventColor(event),
-        textColor: getTextColor(event),
-        isAllDay: event.all_day || !event.start_time
-      }));
-  }, [events, calendarDates, view]);
-
-  // Event color mapping
-  const getEventColor = (event) => {
-    const colorMap = {
-      'Arbeit': '#10b981', // green
-      'Meeting': '#3b82f6', // blue
-      'Urlaub': '#8b5cf6', // purple
-      'Krankheit': '#ef4444', // red
-      'Training': '#f59e0b', // amber
-      'Projekt': '#f97316', // orange
-      'Termin': '#06b6d4', // cyan
-      'Deadline': '#dc2626', // red-600
-      'Personal': '#84cc16', // lime
-      'default': '#6b7280' // gray
-    };
-    return colorMap[event.type] || colorMap[event.category] || colorMap.default;
-  };
-
-  const getTextColor = (event) => {
-    const lightColors = ['#10b981', '#f59e0b', '#84cc16'];
-    const bgColor = getEventColor(event);
-    return lightColors.includes(bgColor) ? '#000000' : '#ffffff';
-  };
-
-  // Navigation functions
-  const navigatePrevious = () => {
-    switch (view) {
-      case 'day':
-        setCurrentDate(prev => addDays(prev, -1));
-        break;
-      case 'week':
-        setCurrentDate(prev => subWeeks(prev, 1));
-        break;
-      case 'month':
-        setCurrentDate(prev => subMonths(prev, 1));
-        break;
-      case 'year':
-        setCurrentDate(prev => subMonths(prev, 12));
-        break;
+        return days;
+      }
+      case 'agenda': {
+        const start = startOfWeek(baseDate, { weekStartsOn: 1 });
+        return Array.from({ length: 14 }, (_, idx) => addDays(start, idx));
+      }
+      default:
+        return [baseDate];
     }
+  }, [currentDate, activeView]);
+
+  // Notify consumers whenever visible range changes
+  useEffect(() => {
+    if (!onRangeChange) return;
+
+    if (calendarDates.length) {
+      const rangeStart = startOfDay(calendarDates[0]);
+      const rangeEnd = endOfDay(calendarDates[calendarDates.length - 1]);
+      onRangeChange({ start: rangeStart, end: rangeEnd, view: activeView });
+    }
+  }, [calendarDates, onRangeChange, activeView]);
+
+  const handleViewChange = (nextView) => {
+    if (activeView === nextView) return;
+    setInternalView(nextView);
+    onViewChange?.(nextView);
   };
 
-  const navigateNext = () => {
-    switch (view) {
+  const navigate = (direction) => {
+    const step = direction === 'next' ? 1 : -1;
+    switch (activeView) {
       case 'day':
-        setCurrentDate(prev => addDays(prev, 1));
+        setCurrentDate((prev) => addDays(prev, step));
         break;
       case 'week':
-        setCurrentDate(prev => addWeeks(prev, 1));
+        setCurrentDate((prev) => addWeeks(prev, step));
         break;
       case 'month':
-        setCurrentDate(prev => addMonths(prev, 1));
+        setCurrentDate((prev) => (step > 0 ? addMonths(prev, 1) : subMonths(prev, 1)));
         break;
-      case 'year':
-        setCurrentDate(prev => addMonths(prev, 12));
+      case 'agenda':
+        setCurrentDate((prev) => addWeeks(prev, step));
+        break;
+      default:
         break;
     }
   };
 
   const goToToday = () => {
-    setCurrentDate(new Date());
+    const today = new Date();
+    setCurrentDate(today);
+    onDateSelect?.(today);
   };
 
-  // Drag and drop handlers
-  const handleDragStart = (event, e) => {
-    setDraggedEvent(event);
-    e.dataTransfer.effectAllowed = 'move';
+  const openQuickCreate = (date, slot, clientX, clientY) => {
+    setQuickCreateState({
+      visible: true,
+      date,
+      time: slot,
+      anchor: { x: clientX, y: clientY }
+    });
   };
 
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+  const closeQuickCreate = () => {
+    setQuickCreateState({ visible: false, date: null, time: null, anchor: { x: 0, y: 0 } });
   };
 
-  const handleDrop = (date, timeSlot, e) => {
-    e.preventDefault();
-    if (draggedEvent) {
-      const updatedEvent = {
-        ...draggedEvent,
-        date: format(date, 'yyyy-MM-dd'),
-        start_time: timeSlot?.time || draggedEvent.start_time
-      };
-      onEventClick?.(updatedEvent, 'update');
-      setDraggedEvent(null);
-    }
+  const handleQuickCreate = (data) => {
+    onEventCreate?.(data);
+    closeQuickCreate();
   };
 
-  // Quick add functionality
-  const handleSlotClick = (date, timeSlot, e) => {
-    if (e.detail === 2) { // Double click
-      setQuickAddPosition({ x: e.clientX, y: e.clientY });
-      setQuickAddVisible(true);
-      setNewEventStart({ date, timeSlot });
-    }
-  };
+  const renderToolbar = () => {
+    const firstDay = calendarDates[0];
+    const lastDay = calendarDates[calendarDates.length - 1];
+    const availableViews = isMobile
+      ? VIEW_OPTIONS.filter((option) => option.id !== 'month')
+      : VIEW_OPTIONS;
 
-  const createQuickEvent = (title) => {
-    if (newEventStart && title.trim()) {
-      const newEvent = {
-        title: title.trim(),
-        date: format(newEventStart.date, 'yyyy-MM-dd'),
-        start_time: newEventStart.timeSlot?.time || '09:00',
-        end_time: newEventStart.timeSlot?.time ?
-          format(addDays(parseISO(`2000-01-01T${newEventStart.timeSlot.time}:00`), 0), 'HH:mm') :
-          '10:00',
-        type: 'Termin',
-        all_day: !newEventStart.timeSlot
-      };
-      onEventCreate?.(newEvent);
-    }
-    setQuickAddVisible(false);
-    setNewEventStart(null);
-  };
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.ctrlKey || e.metaKey) {
-        switch (e.key) {
-          case 'ArrowLeft':
-            e.preventDefault();
-            navigatePrevious();
-            break;
-          case 'ArrowRight':
-            e.preventDefault();
-            navigateNext();
-            break;
-          case 't':
-            e.preventDefault();
-            goToToday();
-            break;
-          case 'n':
-            e.preventDefault();
-            setQuickAddVisible(true);
-            break;
-        }
+    const rangeLabel = (() => {
+      switch (activeView) {
+        case 'day':
+          return format(currentDate, 'EEEE, d. MMMM yyyy', { locale: de });
+        case 'week':
+          return `${format(firstDay, 'd. MMM', { locale: de })} – ${format(lastDay, 'd. MMM yyyy', { locale: de })}`;
+        case 'month':
+          return format(currentDate, 'MMMM yyyy', { locale: de });
+        case 'agenda':
+          return `${format(firstDay, 'd. MMM', { locale: de })} – ${format(lastDay, 'd. MMM yyyy', { locale: de })}`;
+        default:
+          return format(currentDate, 'MMMM yyyy', { locale: de });
       }
-      if (e.key === 'Escape') {
-        setQuickAddVisible(false);
-        setSelectedEvents([]);
-      }
-    };
+    })();
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+    return (
+        <div className="flex flex-wrap gap-3 items-center justify-between rounded-2xl bg-gradient-to-r from-blue-50 via-white to-purple-50 border border-blue-100 px-4 py-3 shadow-sm">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => navigate('prev')}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white shadow hover:-translate-x-[1px] hover:shadow-md transition"
+            aria-label="Vorheriger Zeitraum"
+          >
+            <span className="text-lg">‹</span>
+          </button>
+          <button
+            onClick={goToToday}
+            className="rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-blue-500"
+          >
+            Heute
+          </button>
+          <button
+            onClick={() => navigate('next')}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-white shadow hover:translate-x-[1px] hover:shadow-md transition"
+            aria-label="Nächster Zeitraum"
+          >
+            <span className="text-lg">›</span>
+          </button>
+        </div>
 
-  // Render functions for different views
-  const renderHeader = () => (
-    <div className="flex items-center justify-between p-4 bg-white border-b border-gray-200">
-      <div className="flex items-center space-x-4">
-        <button
-          onClick={navigatePrevious}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          title="Vorheriger Zeitraum"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
+        <div className="text-lg font-semibold text-slate-900">
+          {rangeLabel}
+        </div>
 
-        <button
-          onClick={goToToday}
-          className="px-3 py-1 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
-        >
-          Heute
-        </button>
+        <div className="flex items-center gap-2 rounded-full bg-white p-1 shadow-inner overflow-x-auto">
+          {availableViews.map((option) => (
+            <button
+              key={option.id}
+              onClick={() => handleViewChange(option.id)}
+              className={`rounded-full px-3 py-1 text-sm font-medium transition ${
+                activeView === option.id
+                  ? 'bg-blue-600 text-white shadow'
+                  : 'text-slate-600 hover:bg-blue-50'
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  };
 
-        <button
-          onClick={navigateNext}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          title="Nächster Zeitraum"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
+  const renderAllDayRow = () => {
+    if (!['day', 'week'].includes(activeView)) return null;
+
+    return (
+      <div className="flex border-b border-slate-200 bg-slate-50">
+        <div className="hidden w-20 border-r border-slate-200 px-2 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 md:block">
+          Ganztägig
+        </div>
+        <div className="flex flex-1">
+          {calendarDates.map((date) => {
+            const dayEvents = allDayEvents.filter((event) => isSameDay(event.start, date) || isWithinMultiDay(event, date));
+
+            return (
+              <div
+                key={date.toISOString()}
+                className={`min-h-[64px] flex-1 border-r border-slate-200 p-2 ${
+                  isToday(date) ? 'bg-blue-50/60' : 'bg-transparent'
+                }`}
+              >
+                <div className="flex flex-wrap gap-2">
+                  {dayEvents.map((event) => (
+                    <button
+                      key={event.id + event.start.toISOString()}
+                      onClick={() => onEventClick?.(event)}
+                      className="group flex max-w-full items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow"
+                      style={{
+                        backgroundColor: event.color,
+                        color: event.textColor
+                      }}
+                    >
+                      <span className="truncate">{event.title}</span>
+                      {event.end && !isSameDay(event.start, event.end) && (
+                        <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-medium">
+                          {format(event.start, 'd.M.')} – {format(event.end, 'd.M.')}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  const renderTimedGrid = () => (
+    <div className="flex flex-1 overflow-hidden">
+      {/* Time column */}
+      <div className="hidden w-20 flex-shrink-0 border-r border-slate-200 bg-white md:block">
+        <div className="h-16" />
+        {timeSlots.map((slot) => (
+          <div
+            key={`${slot.hour}-${slot.minute}`}
+            className={`flex items-start justify-end border-b border-slate-100 pr-2 text-[11px] text-slate-400 ${
+              slot.minute === 0 ? 'font-semibold text-slate-500' : ''
+            }`}
+            style={{ height: slotHeight }}
+          >
+            {slot.minute === 0 ? slot.label : ''}
+          </div>
+        ))}
       </div>
 
-      <h2 className="text-xl font-semibold text-gray-900">
-        {view === 'day' && format(currentDate, 'EEEE, d. MMMM yyyy', { locale: de })}
-        {view === 'week' && `${format(calendarDates[0], 'd. MMM', { locale: de })} - ${format(calendarDates[6], 'd. MMM yyyy', { locale: de })}`}
-        {view === 'month' && format(currentDate, 'MMMM yyyy', { locale: de })}
-        {view === 'year' && format(currentDate, 'yyyy', { locale: de })}
-      </h2>
+      {/* Day columns */}
+      <div className="flex flex-1 overflow-auto">
+        {calendarDates.map((date) => {
+          const dayTimedEvents = layoutEventsForDay(
+            timedEvents.filter((event) => isSameDay(event.start, date))
+          );
 
-      <div className="flex items-center space-x-2">
-        {['day', 'week', 'month', 'year'].map(viewType => (
-          <button
-            key={viewType}
-            onClick={() => setCurrentDate(currentDate)} // This would be passed as prop to change view
-            className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-              view === viewType
-                ? 'bg-blue-600 text-white'
-                : 'text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            {viewType === 'day' ? 'Tag' :
-             viewType === 'week' ? 'Woche' :
-             viewType === 'month' ? 'Monat' : 'Jahr'}
-          </button>
-        ))}
+          return (
+            <div key={date.toISOString()} className="relative flex-1 border-r border-slate-100">
+              <DayColumnHeader date={date} isMobile={isMobile} />
+
+              <div className="relative h-full min-h-[1200px]">
+                {timeSlots.map((slot) => {
+                  const slotKey = `${date.toDateString()}-${slot.label}`;
+                  const slotDate = setMinutesAndHours(slot.hour, slot.minute, date);
+
+                  return (
+                    <div
+                      key={slotKey}
+                      className={`border-b border-slate-100 transition hover:bg-blue-50/60 ${
+                        hoveredSlot === slotKey ? 'bg-blue-100/40' : ''
+                      }`}
+                      style={{ height: slotHeight }}
+                      onMouseEnter={() => setHoveredSlot(slotKey)}
+                      onMouseLeave={() => setHoveredSlot(null)}
+                      onDoubleClick={(e) => openQuickCreate(date, slot, e.clientX, e.clientY)}
+                      onClick={() => onDateSelect?.(slotDate)}
+                      role="button"
+                      tabIndex={0}
+                    />
+                  );
+                })}
+
+                {dayTimedEvents.map((event) => {
+                  const { top, height, width, offsetLeft } = computeEventPosition(event, slotHeight);
+
+                  return (
+                    <div
+                      key={`${event.id}-${event.start.toISOString()}`}
+                      className="absolute overflow-hidden rounded-lg border border-white/20 shadow-md transition hover:z-30 hover:shadow-lg"
+                      style={{
+                        top,
+                        height,
+                        left: `${offsetLeft * 100}%`,
+                        width: `${width * 100}%`,
+                        backgroundColor: event.color,
+                        color: event.textColor
+                      }}
+                      onClick={() => onEventClick?.(event)}
+                      title={`${event.title} (${format(event.start, 'HH:mm')} – ${format(event.end, 'HH:mm')})`}
+                    >
+                      <div className="flex items-center justify-between px-3 py-2 text-xs font-semibold">
+                        <span className="truncate text-sm leading-tight">{event.title}</span>
+                        {event.location && (
+                          <span className="ml-2 rounded-full bg-black/20 px-2 py-0.5 text-[10px] uppercase tracking-wide">
+                            {event.location}
+                          </span>
+                        )}
+                      </div>
+                      <div className="px-3 pb-3 text-[11px] opacity-90">
+                        {format(event.start, 'HH:mm')} – {format(event.end, 'HH:mm')}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                <CurrentTimeIndicator referenceDate={date} slotHeight={slotHeight} />
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 
   const renderWeekView = () => (
-    <div className="flex-1 flex">
-      {/* Time column */}
-      <div className="w-20 bg-gray-50 border-r border-gray-200">
-        <div className="h-16"></div> {/* Header spacer */}
-        {timeSlots.map(slot => (
-          <div
-            key={slot.time}
-            className="h-12 border-b border-gray-100 flex items-center justify-end pr-2 text-xs text-gray-500"
-          >
-            {slot.minute === 0 && slot.label}
-          </div>
-        ))}
-      </div>
+    <div className="flex h-full flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      {renderAllDayRow()}
+      {renderTimedGrid()}
+    </div>
+  );
 
-      {/* Days columns */}
-      <div className="flex-1 flex">
-        {calendarDates.map(date => (
-          <div key={date.toISOString()} className="flex-1 border-r border-gray-200">
-            {/* Day header */}
-            <div className={`h-16 border-b border-gray-200 flex flex-col items-center justify-center ${
-              isToday(date) ? 'bg-blue-50' : 'bg-white'
-            }`}>
-              <div className="text-xs font-medium text-gray-600">
-                {format(date, 'EEE', { locale: de })}
-              </div>
-              <div className={`text-lg font-semibold ${
-                isToday(date) ? 'bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center' : 'text-gray-900'
-              }`}>
-                {format(date, 'd')}
-              </div>
-            </div>
-
-            {/* Time slots */}
-            <div className="relative">
-              {timeSlots.map(slot => (
-                <div
-                  key={slot.time}
-                  className={`h-12 border-b border-gray-100 hover:bg-blue-50 cursor-pointer transition-colors ${
-                    hoveredSlot === `${date.toDateString()}-${slot.time}` ? 'bg-blue-100' : ''
-                  }`}
-                  onMouseEnter={() => setHoveredSlot(`${date.toDateString()}-${slot.time}`)}
-                  onMouseLeave={() => setHoveredSlot(null)}
-                  onClick={(e) => handleSlotClick(date, slot, e)}
-                  onDragOver={handleDragOver}
-                  onDrop={(e) => handleDrop(date, slot, e)}
-                />
-              ))}
-
-              {/* Events for this day */}
-              {processedEvents
-                .filter(event => isSameDay(parseISO(event.date), date))
-                .map(event => (
-                  <EventCard
-                    key={event.id}
-                    event={event}
-                    onDragStart={(e) => handleDragStart(event, e)}
-                    onClick={() => onEventClick?.(event)}
-                    style={{
-                      position: 'absolute',
-                      top: getEventTop(event.startTime),
-                      height: getEventHeight(event.startTime, event.endTime),
-                      left: '2px',
-                      right: '2px',
-                      zIndex: 10
-                    }}
-                  />
-                ))}
-            </div>
-          </div>
-        ))}
-      </div>
+  const renderDayView = () => (
+    <div className="flex h-full flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      {renderAllDayRow()}
+      {renderTimedGrid()}
     </div>
   );
 
   const renderMonthView = () => (
-    <div className="grid grid-cols-7 flex-1">
-      {/* Week days header */}
-      {['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map(day => (
-        <div key={day} className="p-3 text-center font-medium text-gray-700 bg-gray-50 border-b">
+    <div className="grid h-full flex-1 grid-cols-7 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      {['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map((day) => (
+        <div key={day} className="border-b border-slate-100 bg-slate-50 py-3 text-center text-xs font-semibold uppercase tracking-wide text-slate-500">
           {day}
         </div>
       ))}
 
-      {/* Calendar days */}
-      {calendarDates.map(date => {
-        const dayEvents = processedEvents.filter(event =>
-          isSameDay(parseISO(event.date), date)
-        );
+      {calendarDates.map((date) => {
+        const dayEvents = normalisedEvents.filter((event) => isSameDay(event.start, date));
+        const isMuted = !isSameMonth(date, currentDate);
 
         return (
           <div
             key={date.toISOString()}
-            className={`min-h-32 p-2 border-b border-r border-gray-200 cursor-pointer hover:bg-gray-50 ${
-              !isSameMonth(date, currentDate) ? 'bg-gray-50 text-gray-400' : 'bg-white'
-            } ${isToday(date) ? 'bg-blue-50' : ''}`}
+            className={`min-h-[140px] border-b border-r border-slate-100 p-2 transition hover:bg-blue-50/60 ${
+              isMuted ? 'bg-slate-50 text-slate-400' : 'bg-white text-slate-600'
+            } ${isToday(date) ? 'border-blue-200 bg-blue-50/70' : ''}`}
             onClick={() => onDateSelect?.(date)}
+            onDoubleClick={(e) => openQuickCreate(date, null, e.clientX, e.clientY)}
           >
-            <div className={`text-sm font-medium mb-1 ${
-              isToday(date) ? 'bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center' : ''
-            }`}>
-              {format(date, 'd')}
+            <div className="mb-2 flex items-center justify-between">
+              <span
+                className={`flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold ${
+                  isToday(date) ? 'bg-blue-600 text-white shadow-sm' : ''
+                }`}
+              >
+                {format(date, 'd')}
+              </span>
+              {dayEvents.length > 0 && (
+                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
+                  {dayEvents.length}
+                </span>
+              )}
             </div>
 
             <div className="space-y-1">
-              {dayEvents.slice(0, 3).map(event => (
-                <div
-                  key={event.id}
-                  className="text-xs p-1 rounded truncate cursor-pointer"
-                  style={{
-                    backgroundColor: event.color,
-                    color: event.textColor
-                  }}
+              {dayEvents.slice(0, 3).map((event) => (
+                <button
+                  key={`${event.id}-${event.start.toISOString()}`}
                   onClick={(e) => {
                     e.stopPropagation();
                     onEventClick?.(event);
                   }}
+                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-[11px] font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow"
+                  style={{ backgroundColor: event.color, color: event.textColor }}
                 >
-                  {event.title}
-                </div>
+                  <span className="truncate">{event.title}</span>
+                </button>
               ))}
+
               {dayEvents.length > 3 && (
-                <div className="text-xs text-gray-500">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDateSelect?.(date);
+                  }}
+                  className="text-[10px] font-semibold text-blue-600 hover:text-blue-800"
+                >
                   +{dayEvents.length - 3} weitere
-                </div>
+                </button>
               )}
             </div>
           </div>
@@ -435,109 +499,395 @@ const AdvancedCalendar = ({
     </div>
   );
 
-  // Helper functions
-  const getEventTop = (startTime) => {
-    const [hours, minutes] = startTime.split(':').map(Number);
-    const totalMinutes = hours * 60 + minutes;
-    const slotIndex = Math.floor(totalMinutes / 30);
-    return slotIndex * 48; // 48px per slot (12px per quarter hour)
-  };
+  const renderAgendaView = () => (
+    <div className="flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="divide-y divide-slate-100">
+        {calendarDates.map((date) => {
+          const dayEvents = normalisedEvents.filter((event) => isSameDay(event.start, date));
 
-  const getEventHeight = (startTime, endTime) => {
-    const [startHours, startMinutes] = startTime.split(':').map(Number);
-    const [endHours, endMinutes] = endTime.split(':').map(Number);
-    const startTotalMinutes = startHours * 60 + startMinutes;
-    const endTotalMinutes = endHours * 60 + endMinutes;
-    const durationMinutes = endTotalMinutes - startTotalMinutes;
-    return Math.max(24, (durationMinutes / 30) * 48); // Minimum 24px height
-  };
+          return (
+            <div key={date.toISOString()} className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-start">
+              <div className="flex w-40 flex-shrink-0 items-center gap-2">
+                <div
+                  className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border text-sm font-semibold ${
+                    isToday(date)
+                      ? 'border-blue-400 bg-blue-50 text-blue-700'
+                      : 'border-slate-200 bg-slate-50 text-slate-600'
+                  }`}
+                >
+                  {format(date, 'd')}
+                </div>
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    {format(date, 'EEEE', { locale: de })}
+                  </div>
+                  <div className="text-sm font-medium text-slate-700">
+                    {format(date, 'd. MMM', { locale: de })}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex-1 space-y-2">
+                {dayEvents.length === 0 && (
+                  <div className="rounded-xl border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-400">
+                    Keine Termine – Tippe, um einen hinzuzufügen
+                  </div>
+                )}
+
+                {dayEvents.map((event) => (
+                  <button
+                    key={`${event.id}-${event.start.toISOString()}`}
+                    onClick={() => onEventClick?.(event)}
+                    className="flex w-full flex-col gap-1 rounded-xl border border-transparent px-4 py-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md"
+                    style={{ backgroundColor: `${event.color}1A` }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold text-slate-700">{event.title}</span>
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                        {event.type}
+                      </span>
+                    </div>
+                    <div className="text-xs font-medium text-slate-500">
+                      {event.allDay
+                        ? 'Ganztägig'
+                        : `${format(event.start, 'HH:mm')} – ${format(event.end, 'HH:mm')}`}
+                    </div>
+                    {event.location && (
+                      <div className="text-xs text-slate-500">📍 {event.location}</div>
+                    )}
+                    {event.description && (
+                      <div className="text-xs text-slate-500 line-clamp-2">{event.description}</div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-lg shadow-lg overflow-hidden">
-      {renderHeader()}
+    <div className="advanced-calendar flex h-full flex-col gap-4">
+      {renderToolbar()}
 
-      <div className="flex-1 overflow-auto">
-        {view === 'week' || view === 'day' ? renderWeekView() : renderMonthView()}
+      <div className="relative flex-1 overflow-hidden">
+        {activeView === 'day' && renderDayView()}
+        {activeView === 'week' && renderWeekView()}
+        {activeView === 'month' && renderMonthView()}
+        {activeView === 'agenda' && renderAgendaView()}
+
+        <button
+          onClick={() => onEventCreate?.({
+            start: new Date(),
+            end: addMinutes(new Date(), 60),
+            all_day: false
+          })}
+          className="group absolute bottom-6 right-6 flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-xl transition hover:scale-[1.03] hover:bg-blue-500"
+          aria-label="Neuen Termin anlegen"
+        >
+          <span className="text-2xl">＋</span>
+        </button>
       </div>
 
-      {/* Quick Add Modal */}
-      {quickAddVisible && (
-        <QuickAddModal
-          position={quickAddPosition}
-          onSave={createQuickEvent}
-          onCancel={() => setQuickAddVisible(false)}
+      {quickCreateState.visible && (
+        <QuickCreatePopover
+          anchor={quickCreateState.anchor}
+          date={quickCreateState.date}
+          slot={quickCreateState.time}
+          onClose={closeQuickCreate}
+          onConfirm={handleQuickCreate}
         />
       )}
+    </div>
+  );
+};
 
-      {/* Keyboard shortcuts help */}
-      <div className="hidden">
-        Shortcuts: Ctrl+← → Navigation, Ctrl+T Heute, Ctrl+N Neuer Termin, Esc Abbrechen
+const DayColumnHeader = ({ date, isMobile }) => (
+  <div
+    className={`sticky top-0 z-20 flex h-16 flex-col items-center justify-center border-b border-slate-200 bg-white/95 backdrop-blur ${
+      isToday(date) ? 'bg-blue-50/80 text-blue-700' : 'text-slate-600'
+    }`}
+  >
+    <div className="text-xs font-semibold uppercase tracking-wide">
+      {format(date, isMobile ? 'EEE' : 'EEEE', { locale: de })}
+    </div>
+    <div className={`mt-1 flex h-8 w-8 items-center justify-center rounded-full text-lg font-semibold ${
+      isToday(date) ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-800'
+    }`}>
+      {format(date, 'd')}
+    </div>
+  </div>
+);
+
+const CurrentTimeIndicator = ({ referenceDate, slotHeight }) => {
+  const [position, setPosition] = useState(null);
+
+  useEffect(() => {
+    const update = () => {
+      const now = new Date();
+      if (!isSameDay(now, referenceDate)) {
+        setPosition(null);
+        return;
+      }
+
+      const minutesFromStart = differenceInMinutes(now, startOfDay(referenceDate));
+      const top = (minutesFromStart / SLOT_INTERVAL) * slotHeight;
+      setPosition(top);
+    };
+
+    update();
+    const interval = setInterval(update, 60000);
+    return () => clearInterval(interval);
+  }, [referenceDate]);
+
+  if (position === null || position < 0) return null;
+
+  return (
+    <div
+      className="pointer-events-none absolute left-0 right-0 z-10 flex items-center"
+      style={{ top: position }}
+    >
+      <div className="h-px flex-1 bg-red-400" />
+      <div className="ml-2 rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-semibold text-white shadow">
+        Jetzt
       </div>
     </div>
   );
 };
 
-// Event Card Component
-const EventCard = ({ event, onDragStart, onClick, style }) => (
-  <div
-    className="rounded-md border border-white/20 cursor-pointer hover:shadow-md transition-all duration-200 text-xs p-1"
-    style={{
-      ...style,
-      backgroundColor: event.color,
-      color: event.textColor
-    }}
-    draggable
-    onDragStart={onDragStart}
-    onClick={onClick}
-    title={`${event.title} (${event.startTime} - ${event.endTime})`}
-  >
-    <div className="font-medium truncate">{event.title}</div>
-    <div className="opacity-90 truncate">{event.startTime} - {event.endTime}</div>
-  </div>
-);
-
-// Quick Add Modal Component
-const QuickAddModal = ({ position, onSave, onCancel }) => {
+const QuickCreatePopover = ({ anchor, date, slot, onClose, onConfirm }) => {
   const [title, setTitle] = useState('');
+  const [duration, setDuration] = useState(60);
+  const [type, setType] = useState('Meeting');
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSave(title);
-    setTitle('');
+    if (!title.trim()) return;
+
+    const start = slot
+      ? setMinutesAndHours(slot.hour, slot.minute, date)
+      : startOfDay(date);
+    const end = addMinutes(start, duration);
+
+    onConfirm?.({
+      title: title.trim(),
+      start,
+      end,
+      start_date: format(start, 'yyyy-MM-dd'),
+      end_date: format(end, 'yyyy-MM-dd'),
+      start_time: format(start, 'HH:mm'),
+      end_time: format(end, 'HH:mm'),
+      type,
+      all_day: false
+    });
   };
 
   return (
     <div
-      className="fixed bg-white rounded-lg shadow-xl border border-gray-200 p-4 z-50"
-      style={{ left: position.x, top: position.y }}
+      className="fixed z-50 w-[280px] rounded-2xl border border-slate-200 bg-white p-4 shadow-xl"
+      style={{ left: anchor.x, top: anchor.y }}
     >
-      <form onSubmit={handleSubmit}>
-        <input
-          type="text"
-          placeholder="Termin hinzufügen..."
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className="w-48 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          autoFocus
-        />
-        <div className="flex justify-end space-x-2 mt-3">
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            Titel
+          </label>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+            autoFocus
+            placeholder="Besprechung..."
+          />
+        </div>
+
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            Dauer (Minuten)
+          </label>
+          <input
+            type="number"
+            min={15}
+            step={15}
+            value={duration}
+            onChange={(e) => setDuration(Number(e.target.value))}
+            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+          />
+        </div>
+
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            Typ
+          </label>
+          <select
+            value={type}
+            onChange={(e) => setType(e.target.value)}
+            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+          >
+            <option value="Meeting">Meeting</option>
+            <option value="Arbeit">Arbeit</option>
+            <option value="Urlaub">Urlaub</option>
+            <option value="Krankheit">Krankheit</option>
+            <option value="Deadline">Deadline</option>
+            <option value="Projekt">Projekt</option>
+          </select>
+        </div>
+
+        <div className="flex justify-end gap-2 pt-2">
           <button
             type="button"
-            onClick={onCancel}
-            className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800"
+            onClick={onClose}
+            className="rounded-full px-3 py-1 text-sm font-semibold text-slate-500 hover:text-slate-700"
           >
             Abbrechen
           </button>
           <button
             type="submit"
-            className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+            className="rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-blue-500"
           >
-            Hinzufügen
+            Speichern
           </button>
         </div>
       </form>
     </div>
   );
+};
+
+// --------------------- utility helpers ---------------------
+
+const normaliseEvent = (event) => {
+  const parseDate = (input) => {
+    if (!input) return null;
+    if (input instanceof Date) return input;
+    if (typeof input === 'string') {
+      const iso = input.includes('T') ? input : input.replace(' ', 'T');
+      const parsed = new Date(iso);
+      return Number.isNaN(parsed.getTime()) ? parseISO(input) : parsed;
+    }
+    return null;
+  };
+
+  const ensureDateTime = (dateValue, timeValue) => {
+    if (dateValue instanceof Date) return dateValue;
+    if (!dateValue) return null;
+
+    if (typeof dateValue === 'string' && dateValue.includes('T')) {
+      const parsed = new Date(dateValue);
+      if (!Number.isNaN(parsed.getTime())) return parsed;
+    }
+
+    if (typeof dateValue === 'string' && timeValue) {
+      return new Date(`${dateValue}T${timeValue}`);
+    }
+
+    if (typeof dateValue === 'string') {
+      return new Date(`${dateValue}T00:00:00`);
+    }
+
+    return null;
+  };
+
+  const start = ensureDateTime(event.start ?? event.start_date, event.start_time) ?? new Date();
+  const end = ensureDateTime(event.end ?? event.end_date ?? event.start_date, event.end_time) ?? addMinutes(start, 60);
+
+  const allDay = event.allDay ?? event.all_day ?? differenceInMinutes(end, start) >= 24 * 60;
+  const type = event.type || event.category || 'Arbeit';
+  const color = event.color || getEventColor(type);
+  const textColor = getTextColor(color);
+
+  return {
+    ...event,
+    start,
+    end,
+    allDay,
+    all_day: allDay,
+    start_date: event.start_date ?? format(start, 'yyyy-MM-dd'),
+    end_date: event.end_date ?? format(end, 'yyyy-MM-dd'),
+    start_time: event.start_time ?? (allDay ? '' : format(start, 'HH:mm')),
+    end_time: event.end_time ?? (allDay ? '' : format(end, 'HH:mm')),
+    color,
+    textColor,
+    durationMinutes: Math.max(30, differenceInMinutes(end, start))
+  };
+};
+
+const layoutEventsForDay = (dayEvents) => {
+  if (dayEvents.length === 0) return [];
+
+  const eventsWithLayout = dayEvents.map((event) => ({ ...event }));
+  const columns = [];
+
+  eventsWithLayout.forEach((event) => {
+    let columnIndex = columns.findIndex((column) =>
+      column.every((placedEvent) =>
+        event.start.getTime() >= placedEvent.end.getTime() || event.end.getTime() <= placedEvent.start.getTime()
+      )
+    );
+
+    if (columnIndex === -1) {
+      columns.push([event]);
+      columnIndex = columns.length - 1;
+    } else {
+      columns[columnIndex].push(event);
+    }
+
+    event._column = columnIndex;
+    event._columnCount = Math.max(1, columns.length);
+  });
+
+  return eventsWithLayout;
+};
+
+const computeEventPosition = (event, slotHeight = BASE_SLOT_HEIGHT) => {
+  const minutesFromStart = differenceInMinutes(event.start, startOfDay(event.start));
+  const duration = Math.max(30, differenceInMinutes(event.end, event.start));
+
+  const top = (minutesFromStart / SLOT_INTERVAL) * slotHeight;
+  const height = (duration / SLOT_INTERVAL) * slotHeight;
+  const width = 1 / (event._columnCount || 1);
+  const offsetLeft = (event._column || 0) * width;
+
+  return { top, height, width, offsetLeft };
+};
+
+const setMinutesAndHours = (hour, minute, baseDate = new Date()) => {
+  const clone = new Date(baseDate);
+  clone.setHours(hour, minute, 0, 0);
+  return clone;
+};
+
+const isWithinMultiDay = (event, date) => {
+  if (!event.start || !event.end) return false;
+  return isAfter(date, event.start) && isBefore(date, event.end);
+};
+
+const getEventColor = (type = 'default') => {
+  const colors = {
+    Arbeit: '#0EA5E9',
+    Meeting: '#6366F1',
+    Urlaub: '#F97316',
+    Krankheit: '#EF4444',
+    Training: '#10B981',
+    Projekt: '#8B5CF6',
+    Termin: '#06B6D4',
+    Deadline: '#DC2626',
+    Personal: '#84CC16',
+    default: '#475569'
+  };
+  return colors[type] || colors.default;
+};
+
+const getTextColor = (background) => {
+  if (!background) return '#ffffff';
+  const color = background.replace('#', '');
+  const r = parseInt(color.substring(0, 2), 16);
+  const g = parseInt(color.substring(2, 4), 16);
+  const b = parseInt(color.substring(4, 6), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.65 ? '#1f2937' : '#ffffff';
 };
 
 export default AdvancedCalendar;

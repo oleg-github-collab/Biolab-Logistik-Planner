@@ -1,20 +1,178 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import AdvancedCalendar from '../components/AdvancedCalendar';
 import EventDetailsPanel from '../components/EventDetailsPanel';
-import CalendarView from '../components/CalendarView';
 import KanbanBoard from '../components/KanbanBoard';
 import WasteTemplateManager from '../components/WasteTemplateManager';
 import { 
   getCurrentWeek, 
   getMySchedule, 
-  updateDaySchedule, 
   getTeamSchedule,
   getArchivedSchedules,
-  updateWasteItem,
-  createWasteItem
+  createWasteItem,
+  getEvents,
+  createEvent,
+  updateEvent,
+  deleteEvent
 } from '../utils/api';
-import { format, addDays, subDays, parseISO } from 'date-fns';
+import { format, addDays, addMinutes, parseISO, startOfWeek, endOfWeek, formatISO } from 'date-fns';
+
+const EVENT_COLOR_MAP = {
+  Arbeit: '#0EA5E9',
+  Meeting: '#6366F1',
+  Urlaub: '#F97316',
+  Krankheit: '#EF4444',
+  Training: '#10B981',
+  Projekt: '#8B5CF6',
+  Termin: '#06B6D4',
+  Deadline: '#DC2626',
+  Personal: '#84CC16',
+  default: '#475569'
+};
+
+const getEventColor = (type = 'Arbeit') => EVENT_COLOR_MAP[type] || EVENT_COLOR_MAP.default;
+
+const parseDbDateTime = (value) => {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof value === 'string') {
+    const isoLike = value.includes('T') ? value : value.replace(' ', 'T');
+    const parsed = new Date(isoLike);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed;
+    }
+  }
+  return null;
+};
+
+const safeParseJson = (value, fallback = []) => {
+  if (!value || typeof value !== 'string') return fallback;
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : fallback;
+  } catch (error) {
+    return fallback;
+  }
+};
+
+const mapApiEventToUi = (event) => {
+  const start = parseDbDateTime(event.start_date) ?? new Date();
+  const end = parseDbDateTime(event.end_date) ?? addMinutes(start, event.duration ?? 60);
+  const allDay = Boolean(event.is_all_day) || !event.start_time;
+  const type = event.type || 'Termin';
+
+  return {
+    id: event.id,
+    title: event.title,
+    description: event.description || '',
+    start,
+    end,
+    start_date: format(start, 'yyyy-MM-dd'),
+    end_date: format(end, 'yyyy-MM-dd'),
+    start_time: allDay ? '' : (event.start_time || format(start, 'HH:mm')),
+    end_time: allDay ? '' : (event.end_time || format(end, 'HH:mm')),
+    all_day: allDay,
+    type,
+    priority: event.priority || 'medium',
+    location: event.location || '',
+    attendees: event.attendees
+      ? event.attendees.split(',').map((entry) => entry.trim()).filter(Boolean)
+      : [],
+    reminder: event.reminder ?? 15,
+    status: event.status || 'confirmed',
+    color: event.color || getEventColor(type),
+    notes: event.notes || '',
+    category: event.category || 'work',
+    recurring: Boolean(event.is_recurring),
+    recurring_pattern: event.recurrence_pattern || 'weekly',
+    recurring_end: event.recurrence_end_date ? format(parseDbDateTime(event.recurrence_end_date), 'yyyy-MM-dd') : '',
+    tags: safeParseJson(event.tags),
+    raw: event
+  };
+};
+
+const combineDateAndTime = (dateStr, timeStr, allDay = false) => {
+  if (!dateStr) return null;
+  if (allDay || !timeStr) {
+    return new Date(`${dateStr}T00:00:00`);
+  }
+  return new Date(`${dateStr}T${timeStr}`);
+};
+
+const buildEventPayload = (event) => {
+  const startDate = combineDateAndTime(event.start_date, event.start_time, event.all_day);
+  const endDate = combineDateAndTime(event.end_date || event.start_date, event.end_time || event.start_time, event.all_day);
+
+  return {
+    title: event.title,
+    description: event.description || '',
+    startDate: startDate?.toISOString(),
+    endDate: endDate?.toISOString(),
+    startTime: event.all_day ? null : (event.start_time || (startDate ? format(startDate, 'HH:mm') : null)),
+    endTime: event.all_day ? null : (event.end_time || (endDate ? format(endDate, 'HH:mm') : null)),
+    type: event.type || 'Termin',
+    isAllDay: Boolean(event.all_day),
+    isRecurring: Boolean(event.recurring),
+    recurrencePattern: event.recurring ? event.recurring_pattern : null,
+    recurrenceEndDate: event.recurring && event.recurring_end
+      ? new Date(event.recurring_end).toISOString()
+      : null,
+    priority: event.priority || 'medium',
+    location: event.location || '',
+    attendees: Array.isArray(event.attendees) ? event.attendees.join(',') : (event.attendees || ''),
+    reminder: event.reminder ?? 15,
+    category: event.category || 'work'
+  };
+};
+
+const EVENT_TYPES = [
+  { value: null, label: 'Alle', chipClass: 'bg-slate-100 text-slate-600 hover:bg-slate-200' },
+  { value: 'Arbeit', label: 'Arbeit', chipClass: 'bg-sky-100 text-sky-700 hover:bg-sky-200' },
+  { value: 'Meeting', label: 'Meetings', chipClass: 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200' },
+  { value: 'Urlaub', label: 'Urlaub', chipClass: 'bg-amber-100 text-amber-700 hover:bg-amber-200' },
+  { value: 'Krankheit', label: 'Ausfälle', chipClass: 'bg-rose-100 text-rose-700 hover:bg-rose-200' },
+  { value: 'Projekt', label: 'Projekt', chipClass: 'bg-violet-100 text-violet-700 hover:bg-violet-200' }
+];
+
+const PRIORITY_FILTERS = [
+  { value: null, label: 'Alle', badgeClass: 'bg-slate-200 text-slate-700' },
+  { value: 'low', label: '⏱️ Locker', badgeClass: 'bg-emerald-100 text-emerald-700' },
+  { value: 'medium', label: '⚡ Normal', badgeClass: 'bg-amber-100 text-amber-700' },
+  { value: 'high', label: '🔥 Hoch', badgeClass: 'bg-rose-100 text-rose-700' }
+];
+
+const Toast = ({ toast, onClose }) => {
+  if (!toast) return null;
+
+  return (
+    <div className="fixed right-4 top-24 z-[1200] max-w-sm rounded-2xl border border-slate-200 bg-white/95 px-4 py-3 shadow-xl backdrop-blur" role="status">
+      <div className="flex items-start gap-3">
+        <div
+          className={`mt-0.5 flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold ${
+            toast.type === 'error'
+              ? 'bg-rose-100 text-rose-600'
+              : toast.type === 'success'
+              ? 'bg-emerald-100 text-emerald-600'
+              : 'bg-sky-100 text-sky-600'
+          }`}
+        >
+          {toast.type === 'error' ? '!' : toast.type === 'success' ? '✓' : 'ℹ️'}
+        </div>
+        <div className="flex-1 text-sm text-slate-700">
+          <p className="font-semibold text-slate-900">{toast.title}</p>
+          {toast.message && <p className="mt-1 leading-relaxed">{toast.message}</p>}
+        </div>
+        <button
+          onClick={onClose}
+          className="text-slate-400 transition hover:text-slate-600"
+          aria-label="Hinweis schließen"
+        >
+          ×
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -26,13 +184,35 @@ const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('calendar');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [calendarView, setCalendarView] = useState('month');
+  const [calendarView, setCalendarView] = useState('week');
   const [tasks, setTasks] = useState([]);
   const [wasteTemplates, setWasteTemplates] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [eventPanelMode, setEventPanelMode] = useState('view');
   const [showEventPanel, setShowEventPanel] = useState(false);
   const [events, setEvents] = useState([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [eventTypeFilter, setEventTypeFilter] = useState(EVENT_TYPES[0].value);
+  const [priorityFilter, setPriorityFilter] = useState(PRIORITY_FILTERS[0].value);
+  const [eventRange, setEventRange] = useState(() => {
+    const today = new Date();
+    return {
+      start: startOfWeek(today, { weekStartsOn: 1 }),
+      end: endOfWeek(today, { weekStartsOn: 1 }),
+      view: 'week'
+    };
+  });
+
+  const showToast = useCallback((payload) => {
+    setToast({ id: Date.now(), ...payload });
+  }, []);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 4200);
+    return () => clearTimeout(timer);
+  }, [toast]);
 
   const loadData = useCallback(async () => {
     try {
@@ -51,22 +231,6 @@ const Dashboard = () => {
       setMySchedule(scheduleRes.data || []);
       setTeamSchedule(teamRes.data || []);
       setArchivedSchedules(archivedRes.data || []);
-      
-      // Transform schedule data to events
-      const scheduleEvents = (scheduleRes.data || []).map(day => ({
-        id: day.id || `schedule-${day.dayOfWeek}-${Date.now()}`,
-        title: day.status || 'Arbeit',
-        description: day.notes || '',
-        date: currentWeek ? format(addDays(parseISO(currentWeek.weekStart), day.dayOfWeek), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
-        start_time: day.startTime || '09:00',
-        end_time: day.endTime || '17:00',
-        type: day.status || 'Arbeit',
-        all_day: !day.startTime && !day.endTime,
-        priority: 'medium',
-        status: 'confirmed'
-      }));
-
-      setEvents(scheduleEvents);
       
       setTasks([
         {
@@ -135,6 +299,25 @@ const Dashboard = () => {
     loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        setEventsLoading(true);
+        const startParam = eventRange.start ? formatISO(eventRange.start) : null;
+        const endParam = eventRange.end ? formatISO(eventRange.end) : null;
+        const response = await getEvents(startParam, endParam, eventTypeFilter || undefined, priorityFilter || undefined);
+        setEvents((response.data || []).map(mapApiEventToUi));
+      } catch (err) {
+        console.error('Error loading events:', err);
+        showToast({ type: 'error', title: 'Termine konnten nicht geladen werden', message: 'Bitte überprüfe deine Verbindung und versuche es erneut.' });
+      } finally {
+        setEventsLoading(false);
+      }
+    };
+
+    fetchEvents();
+  }, [eventRange.start, eventRange.end, eventTypeFilter, priorityFilter, showToast]);
+
   const handleDateSelect = (date) => {
     setSelectedDate(date);
   };
@@ -145,45 +328,122 @@ const Dashboard = () => {
     setShowEventPanel(true);
   };
 
-  const handleEventSave = (eventData) => {
-    if (eventPanelMode === 'create') {
-      setEvents(prev => [...prev, { ...eventData, id: Date.now() }]);
-    } else {
-      setEvents(prev => prev.map(e => e.id === eventData.id ? eventData : e));
+  const handleEventSave = async (eventData) => {
+    if (!eventData?.title?.trim()) {
+      showToast({ type: 'error', title: 'Titel fehlt', message: 'Bitte gib einen aussagekräftigen Titel für den Termin an.' });
+      return;
     }
-    setShowEventPanel(false);
+
+    try {
+      if (eventPanelMode === 'create') {
+        const response = await createEvent(buildEventPayload(eventData));
+        setEvents((prev) => [...prev, mapApiEventToUi(response.data)]);
+        showToast({ type: 'success', title: 'Termin erstellt', message: `${eventData.title} wurde hinzugefügt.` });
+      } else {
+        const response = await updateEvent(eventData.id, buildEventPayload(eventData));
+        setEvents((prev) => prev.map((event) => (event.id === eventData.id ? mapApiEventToUi(response.data) : event)));
+        showToast({ type: 'success', title: 'Termin aktualisiert' });
+      }
+      setShowEventPanel(false);
+    } catch (err) {
+      console.error('Error saving event:', err);
+      showToast({ type: 'error', title: 'Speichern fehlgeschlagen', message: 'Der Termin konnte nicht gespeichert werden.' });
+    }
   };
 
-  const handleEventDelete = (eventId) => {
-    setEvents(prev => prev.filter(e => e.id !== eventId));
-    setShowEventPanel(false);
+  const handleEventDelete = async (eventId) => {
+    try {
+      await deleteEvent(eventId);
+      setEvents((prev) => prev.filter((event) => event.id !== eventId));
+      showToast({ type: 'success', title: 'Termin gelöscht' });
+      setShowEventPanel(false);
+    } catch (err) {
+      console.error('Error deleting event:', err);
+      showToast({ type: 'error', title: 'Löschen fehlgeschlagen', message: 'Bitte versuche es in ein paar Sekunden erneut.' });
+    }
   };
 
-  const handleEventDuplicate = (eventData) => {
-    setEvents(prev => [...prev, { ...eventData, id: Date.now() }]);
-    setShowEventPanel(false);
+  const handleEventDuplicate = async (eventData) => {
+    try {
+      const start = combineDateAndTime(eventData.start_date, eventData.start_time, eventData.all_day) ?? new Date();
+      const end = combineDateAndTime(eventData.end_date || eventData.start_date, eventData.end_time || eventData.start_time, eventData.all_day) ?? addMinutes(start, 60);
+      const duplicateStart = addDays(start, 1);
+      const duplicateEnd = addDays(end, 1);
+      const payload = buildEventPayload({
+        ...eventData,
+        title: `${eventData.title || 'Termin'} (Kopie)`,
+        start_date: format(duplicateStart, 'yyyy-MM-dd'),
+        end_date: format(duplicateEnd, 'yyyy-MM-dd'),
+        start_time: eventData.all_day ? '' : format(duplicateStart, 'HH:mm'),
+        end_time: eventData.all_day ? '' : format(duplicateEnd, 'HH:mm')
+      });
+      const response = await createEvent(payload);
+      setEvents((prev) => [...prev, mapApiEventToUi(response.data)]);
+      showToast({ type: 'success', title: 'Termin dupliziert', message: `${eventData.title} wurde auf den Folgetag kopiert.` });
+      setShowEventPanel(false);
+    } catch (err) {
+      console.error('Error duplicating event:', err);
+      showToast({ type: 'error', title: 'Duplizieren fehlgeschlagen' });
+    }
   };
 
-  const handleCreateNewEvent = () => {
-    setSelectedEvent(null);
+  const handleCreateNewEvent = (defaults = {}) => {
+    const start = defaults.start ? new Date(defaults.start) : new Date();
+    const end = defaults.end ? new Date(defaults.end) : addMinutes(start, 60);
+
+    setSelectedEvent({
+      title: defaults.title || '',
+      description: defaults.description || '',
+      start_date: format(start, 'yyyy-MM-dd'),
+      end_date: format(end, 'yyyy-MM-dd'),
+      start_time: defaults.all_day ? '' : format(start, 'HH:mm'),
+      end_time: defaults.all_day ? '' : format(end, 'HH:mm'),
+      all_day: Boolean(defaults.all_day),
+      type: defaults.type || 'Termin',
+      priority: defaults.priority || 'medium',
+      attendees: defaults.attendees || [],
+      reminder: defaults.reminder ?? 15,
+      status: defaults.status || 'confirmed',
+      color: getEventColor(defaults.type || 'Termin'),
+      tags: defaults.tags || [],
+      location: defaults.location || ''
+    });
     setEventPanelMode('create');
     setShowEventPanel(true);
   };
 
-  const handleEventCreate = async (newEvent) => {
-    try {
-      // Convert event back to schedule format
-      const dayOfWeek = newEvent.date.getDay() === 0 ? 6 : newEvent.date.getDay() - 1;
-      const status = newEvent.type;
-      const startTime = newEvent.startTime;
-      const endTime = newEvent.endTime;
-      
-      await updateDaySchedule(dayOfWeek, startTime, endTime, status);
-      loadData(); // Refresh data
-    } catch (err) {
-      console.error('Error creating event:', err);
-      setError('Fehler beim Erstellen des Termins.');
+  const handleCalendarEventCreate = async (details = {}) => {
+    if (details.title) {
+      try {
+        const start = details.start ? new Date(details.start) : new Date();
+        const end = details.end ? new Date(details.end) : addMinutes(start, 60);
+        const draft = {
+          title: details.title,
+          description: details.description || '',
+          start_date: format(start, 'yyyy-MM-dd'),
+          end_date: format(end, 'yyyy-MM-dd'),
+          start_time: details.all_day ? '' : format(start, 'HH:mm'),
+          end_time: details.all_day ? '' : format(end, 'HH:mm'),
+          all_day: Boolean(details.all_day),
+          type: details.type || 'Termin',
+          priority: details.priority || 'medium',
+          attendees: details.attendees || [],
+          reminder: details.reminder ?? 15,
+          status: 'confirmed',
+          category: details.category || 'work'
+        };
+
+        const response = await createEvent(buildEventPayload(draft));
+        setEvents((prev) => [...prev, mapApiEventToUi(response.data)]);
+        showToast({ type: 'success', title: 'Termin erstellt', message: `${draft.title} wurde hinzugefügt.` });
+      } catch (err) {
+        console.error('Error creating event:', err);
+        showToast({ type: 'error', title: 'Erstellen fehlgeschlagen', message: 'Ein neuer Termin konnte nicht angelegt werden.' });
+      }
+      return;
     }
+
+    handleCreateNewEvent(details);
   };
 
   const handleTaskUpdate = (taskId, updates) => {
@@ -199,6 +459,28 @@ const Dashboard = () => {
   const handleTaskDelete = (taskId) => {
     setTasks(prev => prev.filter(task => task.id !== taskId));
   };
+
+  const handleRangeChange = (range) => {
+    if (!range) return;
+    setEventRange(range);
+    if (range.view && range.view !== calendarView) {
+      setCalendarView(range.view);
+    }
+    if (range.start) {
+      setSelectedDate(range.start);
+    }
+  };
+
+  const handleTypeFilterChange = (value) => {
+    setEventTypeFilter(value);
+  };
+
+  const handlePriorityFilterChange = (value) => {
+    setPriorityFilter(value);
+  };
+
+  const activeType = useMemo(() => EVENT_TYPES.find((type) => type.value === eventTypeFilter), [eventTypeFilter]);
+  const activePriority = useMemo(() => PRIORITY_FILTERS.find((priority) => priority.value === priorityFilter), [priorityFilter]);
 
   const handleTemplateCreate = (newTemplate) => {
     setWasteTemplates(prev => [...prev, { ...newTemplate, id: Date.now() }]);
@@ -304,57 +586,94 @@ const Dashboard = () => {
 
       {/* Calendar View */}
       {activeTab === 'calendar' && (
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold text-gray-800">Fortgeschrittener Kalender</h2>
-            <div className="flex space-x-2">
+        <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-lg">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">Fortgeschrittener Kalender</h2>
+              <p className="text-sm text-slate-500">
+                Plane Schichten, Termine und Einsätze mit einer Ansicht, die sich wie eine mobile App anfühlt.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
               <button
-                onClick={handleCreateNewEvent}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                onClick={() => handleCreateNewEvent({ start: selectedDate })}
+                className="rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-blue-500"
               >
                 + Neuer Termin
               </button>
-              <button
-                onClick={() => setCalendarView('day')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  calendarView === 'day'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                Tag
-              </button>
-              <button
-                onClick={() => setCalendarView('week')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  calendarView === 'week'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                Woche
-              </button>
-              <button
-                onClick={() => setCalendarView('month')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  calendarView === 'month'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                Monat
-              </button>
             </div>
           </div>
-          
-          <div className="h-[700px]">
+
+          <div className="mt-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-wrap gap-2">
+              {EVENT_TYPES.map((type) => (
+                <button
+                  key={type.label}
+                  onClick={() => handleTypeFilterChange(type.value)}
+                  className={`rounded-full px-3 py-1 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400 ${
+                    eventTypeFilter === type.value ? `${type.chipClass} ring-2 ring-blue-200` : `${type.chipClass} opacity-70`
+                  }`}
+                >
+                  {type.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2 overflow-x-auto">
+              {PRIORITY_FILTERS.map((priority) => (
+                <button
+                  key={priority.label}
+                  onClick={() => handlePriorityFilterChange(priority.value)}
+                  className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                    priorityFilter === priority.value
+                      ? `${priority.badgeClass} ring-2 ring-offset-1 ring-offset-white`
+                      : `${priority.badgeClass} opacity-60`
+                  }`}
+                >
+                  {priority.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {(activeType?.value || activePriority?.value) && (
+            <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+              <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1">
+                <span className="font-semibold text-slate-700">Filter aktiv:</span>
+                <span>{activeType?.label}</span>
+                <span>•</span>
+                <span>{activePriority?.label}</span>
+                <button
+                  onClick={() => {
+                    setEventTypeFilter(EVENT_TYPES[0].value);
+                    setPriorityFilter(PRIORITY_FILTERS[0].value);
+                  }}
+                  className="ml-2 text-slate-400 hover:text-slate-600"
+                  aria-label="Filter zurücksetzen"
+                >
+                  ×
+                </button>
+              </span>
+            </div>
+          )}
+
+          <div className="relative mt-6 h-[720px]">
+            {eventsLoading && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70 backdrop-blur-sm">
+                <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-200 border-t-blue-500" />
+              </div>
+            )}
+
             <AdvancedCalendar
               events={events}
               view={calendarView}
               selectedDate={selectedDate}
               onDateSelect={handleDateSelect}
               onEventClick={handleEventClick}
-              onEventCreate={handleEventCreate}
+              onEventCreate={handleCalendarEventCreate}
+              onRangeChange={handleRangeChange}
+              onViewChange={setCalendarView}
             />
           </div>
         </div>
@@ -391,6 +710,8 @@ const Dashboard = () => {
         onDuplicate={handleEventDuplicate}
         mode={eventPanelMode}
       />
+
+      <Toast toast={toast} onClose={() => setToast(null)} />
     </div>
   );
 };
