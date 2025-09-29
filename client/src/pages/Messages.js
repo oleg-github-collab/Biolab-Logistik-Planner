@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import TelegramChat from '../components/TelegramChat';
-import { 
-  getMessages, 
-  sendMessage, 
-  getUsersForMessaging,
-  getUnreadCount
+import {
+  getMessages,
+  sendMessage,
+  getUsersForMessaging
 } from '../utils/api';
 
 const Messages = () => {
@@ -14,7 +13,6 @@ const Messages = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [unreadCount, setUnreadCount] = useState(0);
   const [selectedUser, setSelectedUser] = useState(null);
 
   useEffect(() => {
@@ -22,7 +20,6 @@ const Messages = () => {
     // Set up polling for new messages every 30 seconds
     const interval = setInterval(() => {
       getMessagesData();
-      getUnreadCountData();
     }, 30000);
     
     return () => clearInterval(interval);
@@ -33,15 +30,13 @@ const Messages = () => {
       setLoading(true);
       setError('');
       
-      const [messagesRes, usersRes, unreadRes] = await Promise.all([
+      const [messagesRes, usersRes] = await Promise.all([
         getMessages(),
-        getUsersForMessaging(),
-        getUnreadCount()
+        getUsersForMessaging()
       ]);
       
       setMessages(messagesRes.data);
       setUsers(usersRes.data);
-      setUnreadCount(unreadRes.data.unreadCount);
     } catch (err) {
       console.error('Error loading messages:', err);
       setError('Fehler beim Laden der Nachrichten. Bitte versuche es später erneut.');
@@ -59,22 +54,11 @@ const Messages = () => {
     }
   };
 
-  const getUnreadCountData = async () => {
-    try {
-      const unreadRes = await getUnreadCount();
-      setUnreadCount(unreadRes.data.unreadCount);
-    } catch (err) {
-      console.error('Error loading unread count:', err);
-    }
-  };
-
   const handleSendMessage = async (receiverId, message) => {
     try {
       const messageData = await sendMessage(receiverId, message);
       // Add new message to state
       setMessages(prev => [...prev, messageData]);
-      // Update unread count
-      getUnreadCountData();
     } catch (err) {
       console.error('Error sending message:', err);
       setError('Fehler beim Senden der Nachricht. Bitte versuche es erneut.');
@@ -117,28 +101,26 @@ const Messages = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">
-          Nachrichten
-        </h1>
-        <p className="text-gray-600">
-          Kommuniziere mit deinen Kollegen in Echtzeit
-        </p>
-      </div>
+    <div className="space-y-6 px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-7xl mx-auto w-full">
+        <div className="mb-6 text-slate-100">
+          <h1 className="text-3xl font-bold tracking-tight">
+            Nachrichten-Hub
+          </h1>
+          <p className="text-slate-300">
+            Koordiniere dein Team mit Echtzeit-Updates und Statusmeldungen.
+          </p>
+        </div>
 
-      <TelegramChat
-        users={users}
-        messages={messages.filter(msg => 
-          selectedUser 
-            ? (msg.sender_id === selectedUser.id || msg.receiver_id === selectedUser.id)
-            : true
-        )}
-        currentUserId={user.id}
-        onSendMessage={handleSendMessage}
-        onSelectUser={handleSelectUser}
-        selectedUser={selectedUser}
-      />
+        <TelegramChat
+          users={users}
+          messages={messages}
+          currentUserId={user.id}
+          onSendMessage={handleSendMessage}
+          onSelectUser={handleSelectUser}
+          selectedUser={selectedUser}
+        />
+      </div>
     </div>
   );
 };

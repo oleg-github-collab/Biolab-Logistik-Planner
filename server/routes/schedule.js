@@ -224,6 +224,8 @@ router.get('/events', auth, (req, res) => {
         }
       });
 
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.set('Pragma', 'no-cache');
       res.json(processedEvents);
     });
   } catch (error) {

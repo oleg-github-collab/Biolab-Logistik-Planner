@@ -303,10 +303,21 @@ const Dashboard = () => {
     const fetchEvents = async () => {
       try {
         setEventsLoading(true);
-        const startParam = eventRange.start ? formatISO(eventRange.start) : null;
-        const endParam = eventRange.end ? formatISO(eventRange.end) : null;
+        const startParam = eventRange?.start ? formatISO(eventRange.start) : null;
+        const endParam = eventRange?.end ? formatISO(eventRange.end) : null;
         const response = await getEvents(startParam, endParam, eventTypeFilter || undefined, priorityFilter || undefined);
-        setEvents((response.data || []).map(mapApiEventToUi));
+
+        if (response?.status === 304) {
+          return; // retain current events when upstream indicates no change
+        }
+
+        const payload = Array.isArray(response?.data)
+          ? response.data
+          : Array.isArray(response?.data?.data)
+          ? response.data.data
+          : [];
+
+        setEvents(payload.map(mapApiEventToUi));
       } catch (err) {
         console.error('Error loading events:', err);
         showToast({ type: 'error', title: 'Termine konnten nicht geladen werden', message: 'Bitte überprüfe deine Verbindung und versuche es erneut.' });
@@ -316,7 +327,7 @@ const Dashboard = () => {
     };
 
     fetchEvents();
-  }, [eventRange.start, eventRange.end, eventTypeFilter, priorityFilter, showToast]);
+  }, [eventRange?.start, eventRange?.end, eventTypeFilter, priorityFilter, showToast]);
 
   const handleDateSelect = (date) => {
     setSelectedDate(date);
@@ -462,12 +473,44 @@ const Dashboard = () => {
 
   const handleRangeChange = (range) => {
     if (!range) return;
-    setEventRange(range);
+
+    const normaliseDate = (value) => {
+      if (!value) return null;
+      return value instanceof Date ? value : new Date(value);
+    };
+
+    const sameTimestamp = (a, b) => {
+      if (!a && !b) return true;
+      if (!a || !b) return false;
+      return a.getTime() === b.getTime();
+    };
+
+    const nextStart = normaliseDate(range.start);
+    const nextEnd = normaliseDate(range.end);
+    const nextView = range.view || calendarView;
+
+    setEventRange((prev) => {
+      const sameStart = sameTimestamp(prev?.start, nextStart);
+      const sameEnd = sameTimestamp(prev?.end, nextEnd);
+      const sameView = (prev?.view || calendarView) === nextView;
+
+      if (sameStart && sameEnd && sameView) {
+        return prev;
+      }
+
+      return {
+        start: nextStart,
+        end: nextEnd,
+        view: nextView
+      };
+    });
+
     if (range.view && range.view !== calendarView) {
       setCalendarView(range.view);
     }
-    if (range.start) {
-      setSelectedDate(range.start);
+
+    if (nextStart) {
+      setSelectedDate((prev) => (sameTimestamp(prev, nextStart) ? prev : nextStart));
     }
   };
 

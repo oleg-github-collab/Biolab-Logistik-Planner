@@ -1,280 +1,322 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { format, formatDistanceToNow } from 'date-fns';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { addDays, format, formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
 
-const TelegramChat = ({ 
-  users = [], 
-  messages = [], 
-  currentUserId, 
+const STATUSES = [
+  { id: 'online', label: 'Online', icon: '🟢', color: '#4ade80' },
+  { id: 'away', label: 'Kurz weg', icon: '🌤️', color: '#facc15' },
+  { id: 'busy', label: 'Beschäftigt', icon: '⛔', color: '#f87171' },
+  { id: 'dnd', label: 'Bitte nicht stören', icon: '🚫', color: '#ef4444' },
+  { id: 'offline', label: 'Offline', icon: '⚪', color: '#94a3b8' }
+];
+
+const formatDateHeader = (dateKey) => {
+  const today = new Date();
+  const parsed = new Date(dateKey);
+
+  const sameDay = format(today, 'yyyy-MM-dd') === dateKey;
+  const yesterday = format(addDays(today, -1), 'yyyy-MM-dd') === dateKey;
+
+  if (sameDay) return 'Heute';
+  if (yesterday) return 'Gestern';
+  return format(parsed, 'dd. MMMM yyyy', { locale: de });
+};
+
+const TelegramChat = ({
+  users = [],
+  messages = [],
+  currentUserId,
   onSendMessage,
   onSelectUser,
   selectedUser
 }) => {
   const [messageText, setMessageText] = useState('');
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const [activeStatus, setActiveStatus] = useState(STATUSES[0]);
+  const [customStatus, setCustomStatus] = useState('');
   const messagesEndRef = useRef(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, selectedUser]);
 
-  const handleSendMessage = (e) => {
-    e.preventDefault();
-    if (messageText.trim() && selectedUser) {
-      onSendMessage(selectedUser.id, messageText.trim());
-      setMessageText('');
+  const groupedMessages = useMemo(() => {
+    const buckets = new Map();
+
+    messages
+      .filter((msg) => {
+        if (!selectedUser) return true;
+        return msg.sender_id === selectedUser.id || msg.receiver_id === selectedUser.id;
+      })
+      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+      .forEach((message) => {
+        const key = format(new Date(message.created_at), 'yyyy-MM-dd');
+        if (!buckets.has(key)) {
+          buckets.set(key, []);
+        }
+        buckets.get(key).push(message);
+      });
+
+    return Array.from(buckets.entries()).sort((a, b) => (a[0] > b[0] ? 1 : -1));
+  }, [messages, selectedUser]);
+
+  const unreadByUser = useMemo(() => {
+    return messages.reduce((acc, message) => {
+      if (message.receiver_id === currentUserId && message.read_status === 0) {
+        acc[message.sender_id] = (acc[message.sender_id] || 0) + 1;
+      }
+      return acc;
+    }, {});
+  }, [messages, currentUserId]);
+
+  const handleSendMessage = (event) => {
+    event.preventDefault();
+    const trimmed = messageText.trim();
+    if (!trimmed || !selectedUser) {
+      return;
     }
+    onSendMessage(selectedUser.id, trimmed);
+    setMessageText('');
   };
 
-  const addEmoji = (emoji) => {
-    setMessageText(prev => prev + emoji);
-    setShowEmojiPicker(false);
+  const closeStatusModal = () => {
+    setStatusModalOpen(false);
+    setCustomStatus('');
   };
 
-  const isCurrentUser = (message) => {
-    return message.sender_id === currentUserId;
+  const handleStatusSelect = (status) => {
+    setActiveStatus(status);
+    closeStatusModal();
   };
 
-  const formatDateHeader = (date) => {
-    const today = new Date();
-    const messageDate = new Date(date);
-    
-    if (format(today, 'yyyy-MM-dd') === format(messageDate, 'yyyy-MM-dd')) {
-      return 'Heute';
-    }
-    
-    if (format(addDays(today, -1), 'yyyy-MM-dd') === format(messageDate, 'yyyy-MM-dd')) {
-      return 'Gestern';
-    }
-    
-    return format(messageDate, 'dd. MMMM yyyy', { locale: de });
+  const handleCustomStatus = () => {
+    if (!customStatus.trim()) return;
+    setActiveStatus({ id: 'custom', label: customStatus.trim(), icon: '✨', color: '#818cf8' });
+    closeStatusModal();
   };
-
-  // Group messages by date
-  const groupedMessages = messages.reduce((groups, message) => {
-    const date = format(new Date(message.created_at), 'yyyy-MM-dd');
-    if (!groups[date]) {
-      groups[date] = [];
-    }
-    groups[date].push(message);
-    return groups;
-  }, {});
-
-  // Common emojis
-  const emojis = [
-    '😀', '😁', '😂', '🤣', '😃', '😄', '😅', '😆', '😉', '😊', 
-    '🙂', '🙃', '😋', '😎', '😍', '😘', '🥰', '😗', '😙', '😚',
-    '👍', '👎', '👏', '🙌', '🙏', '✌️', '🤞', '🤟', '🤘', '👌',
-    '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔'
-  ];
 
   return (
-    <div className="h-full flex bg-[#f5f5f5] rounded-lg overflow-hidden">
-      {/* User List - Desktop */}
-      <div className="hidden lg:block w-80 bg-white border-r border-gray-200 overflow-y-auto">
-        <div className="p-4 border-b border-gray-200">
-          <h2 className="text-lg font-bold text-gray-800">Nachrichten</h2>
-        </div>
-        
-        <div className="p-2">
-          {users.map(user => (
-            <div
-              key={user.id}
-              onClick={() => onSelectUser(user)}
-              className={`flex items-center space-x-3 p-3 rounded-lg cursor-pointer transition-colors ${
-                selectedUser?.id === user.id 
-                  ? 'bg-blue-100 border-r-4 border-blue-500' 
-                  : 'hover:bg-gray-50'
-              }`}
-            >
-              <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-medium">
-                {user.name.charAt(0).toUpperCase()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">{user.name}</p>
-                <p className="text-xs text-gray-500 truncate">
-                  {user.email}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Chat Area */}
-      <div className="flex-1 flex flex-col">
-        {/* Chat Header */}
-        {selectedUser ? (
-          <div className="bg-white border-b border-gray-200 p-4 flex items-center space-x-3">
-            <div className="lg:hidden">
-              <button 
-                onClick={() => onSelectUser(null)}
-                className="p-2 hover:bg-gray-100 rounded-lg"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-            </div>
-            <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-medium">
-              {selectedUser.name.charAt(0).toUpperCase()}
-            </div>
+    <div className="talkpai-messenger">
+      <div className="talkpai-layout">
+        <aside className="channel-manager">
+          <div className="channel-header">
             <div>
-              <h3 className="font-bold text-gray-800">{selectedUser.name}</h3>
-              <p className="text-sm text-gray-500">Online</p>
+              <h3>Talk pAI Workspace</h3>
+              <p className="channel-subtitle">Synchronisiere dich mit deinem Team</p>
+            </div>
+            <button
+              type="button"
+              className="create-channel-btn"
+              onClick={() => setStatusModalOpen(true)}
+            >
+              Status setzen
+            </button>
+          </div>
+
+          <div className="status-preview">
+            <span className="status-indicator" style={{ background: activeStatus.color }} />
+            <div className="status-copy">
+              <span className="status-title">Dein Status</span>
+              <span className="status-value">{activeStatus.icon} {activeStatus.label}</span>
             </div>
           </div>
-        ) : (
-          <div className="bg-white border-b border-gray-200 p-4 flex items-center justify-center">
-            <p className="text-gray-500">Wähle einen Benutzer zum Chatten aus</p>
-          </div>
-        )}
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-6">
-          {selectedUser ? (
-            Object.keys(groupedMessages).map(date => (
-              <div key={date}>
-                <div className="flex justify-center my-4">
-                  <span className="bg-gray-200 text-gray-600 text-xs px-4 py-1 rounded-full">
-                    {formatDateHeader(date)}
-                  </span>
-                </div>
-                
-                {groupedMessages[date].map((message, index) => (
-                  <div
-                    key={index}
-                    className={`flex ${isCurrentUser(message) ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div
-                      className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl ${
-                        isCurrentUser(message)
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-white text-gray-800 shadow-sm'
-                      }`}
-                    >
-                      <p className="text-sm">{message.message}</p>
-                      <p className={`text-xs mt-1 ${
-                        isCurrentUser(message) ? 'text-blue-100' : 'text-gray-500'
-                      }`}>
-                        {formatDistanceToNow(new Date(message.created_at), { 
-                          addSuffix: true, 
-                          locale: de 
-                        })}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ))
-          ) : (
-            <div className="h-full flex items-center justify-center">
-              <div className="text-center text-gray-500">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                </svg>
-                <h3 className="text-lg font-medium">Willkommen bei Biolab Chat</h3>
-                <p className="mt-2">Wähle einen Benutzer aus, um eine Unterhaltung zu beginnen</p>
-              </div>
-            </div>
-          )}
-          
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Message Input */}
-        {selectedUser && (
-          <div className="bg-white border-t border-gray-200 p-4">
-            {showEmojiPicker && (
-              <div className="absolute bottom-20 left-4 bg-white border border-gray-200 rounded-lg shadow-lg p-4 max-h-64 overflow-y-auto z-10">
-                <div className="grid grid-cols-5 gap-2">
-                  {emojis.map((emoji, index) => (
-                    <button
-                      key={index}
-                      onClick={() => addEmoji(emoji)}
-                      className="text-2xl hover:bg-gray-100 p-2 rounded-lg transition-colors"
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            <form onSubmit={handleSendMessage} className="flex space-x-2">
-              <button
-                type="button"
-                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                className="p-2 text-gray-500 hover:text-gray-700 rounded-lg transition-colors"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </button>
-              
-              <input
-                type="text"
-                value={messageText}
-                onChange={(e) => setMessageText(e.target.value)}
-                placeholder="Schreibe eine Nachricht..."
-                className="flex-1 p-2 border border-gray-300 rounded-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              
-              <button
-                type="submit"
-                disabled={!messageText.trim()}
-                className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white p-2 rounded-full transition-colors"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                </svg>
-              </button>
-            </form>
-          </div>
-        )}
-      </div>
-
-      {/* User List - Mobile */}
-      {!selectedUser && (
-        <div className="lg:hidden fixed inset-0 bg-white z-20 overflow-y-auto">
-          <div className="p-4 border-b border-gray-200">
-            <h2 className="text-lg font-bold text-gray-800">Nachrichten</h2>
-          </div>
-          
-          <div className="p-2">
-            {users.map(user => (
-              <div
-                key={user.id}
-                onClick={() => onSelectUser(user)}
-                className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-medium">
-                  {user.name.charAt(0).toUpperCase()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{user.name}</p>
-                  <p className="text-xs text-gray-500 truncate">
-                    {user.email}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// Helper function to add days
-const addDays = (date, days) => {
-  const result = new Date(date);
-  result.setDate(result.getDate() + days);
-  return result;
-};
-
-export default TelegramChat;
+          <div className="channel-categories">
+            <div className="category">
+              <h4>
+                <span className="category-icon">💼</span>
+                Direct Channels
++              </h4>
++              <div className="channel-list">
++                {users.map((chatUser) => {
++                  const unread = unreadByUser[chatUser.id] || 0;
++                  const isActive = selectedUser?.id === chatUser.id;
++                  const isMuted = chatUser.role === 'employee' && unread === 0;
++
++                  return (
++                    <button
++                      key={chatUser.id}
++                      type="button"
++                      onClick={() => onSelectUser(chatUser)}
++                      className={`channel-item${isActive ? ' active' : ''}${isMuted ? ' muted' : ''}`}
++                    >
++                      <div className="channel-info">
++                        <div className="channel-icon">{chatUser.name.slice(0, 1).toUpperCase()}</div>
++                        <div>
++                          <div className="channel-name">{chatUser.name}</div>
++                          <div className="channel-topic">{chatUser.email}</div>
++                        </div>
++                      </div>
++                      <div className="channel-meta">
++                        {unread > 0 && <span className="unread-badge">{unread}</span>}
++                        <span className="member-count">{chatUser.role}</span>
++                      </div>
++                      <div className="channel-actions">
++                        <span className="channel-action" aria-hidden="true">⋮</span>
++                      </div>
++                    </button>
++                  );
++                })}
++              </div>
++            </div>
++          </div>
++        </aside>
++
++        <section className="talkpai-chat-pane">
++          {selectedUser ? (
++            <div className="chat-surface">
++              <header className="thread-header">
++                <div className="thread-info">
++                  <button
++                    type="button"
++                    className="back-btn mobile-only"
++                    onClick={() => onSelectUser(null)}
++                  >
++                    ←
++                  </button>
++                  <div className="talkpai-avatar">{selectedUser.name.slice(0, 1).toUpperCase()}</div>
++                  <div>
++                    <h3>{selectedUser.name}</h3>
++                    <p className="thread-participants">{selectedUser.email}</p>
++                  </div>
++                </div>
++                <div className="thread-actions">
++                  <button type="button" className="follow-thread">Follow</button>
++                  <button type="button" className="thread-settings">Details</button>
++                </div>
++              </header>
++
++              <div className="message-stream">
++                {groupedMessages.length === 0 && (
++                  <div className="chat-placeholder">
++                    <div className="chat-placeholder-icon">💬</div>
++                    <h4>Starte das Gespräch</h4>
++                    <p>Schicke {selectedUser.name} eine Nachricht, um das Team zu synchronisieren.</p>
++                  </div>
++                )}
++
++                {groupedMessages.map(([dateKey, dayMessages]) => (
++                  <div className="chat-day" key={dateKey}>
++                    <span className="chat-day-divider">{formatDateHeader(dateKey)}</span>
++                    {dayMessages.map((message) => {
++                      const mine = message.sender_id === currentUserId;
++                      return (
++                        <div
++                          key={`${message.id}-${message.created_at}`}
++                          className={`message-row${mine ? ' from-self' : ''}`}
++                        >
++                          <div className={`message-bubble${mine ? ' self' : ''}`}>
++                            <p className="message-text">{message.message}</p>
++                            <span className="message-meta">
++                              {formatDistanceToNow(new Date(message.created_at), {
++                                addSuffix: true,
++                                locale: de
++                              })}
++                            </span>
++                          </div>
++                        </div>
++                      );
++                    })}
++                  </div>
++                ))}
++
++                <div ref={messagesEndRef} />
++              </div>
++
++              <footer className="thread-input">
++                <form className="composer" onSubmit={handleSendMessage}>
++                  <div className="composer-input">
++                    <textarea
++                      rows={1}
++                      value={messageText}
++                      onChange={(event) => setMessageText(event.target.value)}
++                      placeholder={`Nachricht an ${selectedUser.name} schreiben ...`}
++                    />
++                  </div>
++                  <div className="composer-actions">
++                    <div className="composer-tools">
++                      <button type="button" aria-label="Datei anhängen">📎</button>
++                      <button type="button" aria-label="Emoji einfügen">😊</button>
++                      <button type="button" aria-label="Erinnerung setzen">⏰</button>
++                    </div>
++                    <button
++                      type="submit"
++                      className="send-reply"
++                      disabled={!messageText.trim()}
++                    >
++                      Senden
++                    </button>
++                  </div>
++                </form>
++              </footer>
++            </div>
++          ) : (
++            <div className="chat-empty-state">
++              <div className="workspace-switcher">
++                <div className="workspace-header">
++                  <h3>Wähle einen Kanal</h3>
++                  <span>Team Messaging</span>
++                </div>
++                <div className="workspace-list">
++                  <div className="workspace-item active">
++                    <div className="workspace-avatar">BL</div>
++                    <div className="workspace-info">
++                      <span className="workspace-name">Biolab Operations</span>
++                      <span className="workspace-members">{users.length} Mitglieder online</span>
++                    </div>
++                    <span className="workspace-notification">LIVE</span>
++                  </div>
++                  <p className="workspace-hint">
++                    Wähle rechts eine Person aus, um sofort loszulegen.
++                  </p>
++                </div>
++              </div>
++            </div>
++          )}
++        </section>
++      </div>
++
++      {statusModalOpen && (
++        <div className="status-overlay" role="dialog" aria-modal="true">
++          <div className="status-selector">
++            <div className="status-header">
++              <h3>Status aktualisieren</h3>
++              <button type="button" className="close-btn" onClick={closeStatusModal}>
++                ×
++              </button>
++            </div>
++
++            <div className="status-options">
++              {STATUSES.map((status) => (
++                <button
++                  type="button"
++                  key={status.id}
++                  className="status-option"
++                  onClick={() => handleStatusSelect(status)}
++                >
++                  <span className="status-icon" aria-hidden="true">{status.icon}</span>
++                  <span className="status-text">{status.label}</span>
++                  <span className="status-color" style={{ background: status.color }} />
++                </button>
++              ))}
++            </div>
++
++            <div className="custom-status">
++              <input
++                type="text"
++                value={customStatus}
++                placeholder="Eigener Status (z. B. Fokus bis 15:00)"
++                onChange={(event) => setCustomStatus(event.target.value)}
++              />
++              <button type="button" className="set-custom-status" onClick={handleCustomStatus}>
++                Eigenen Status setzen
++              </button>
++            </div>
++          </div>
++        </div>
++      )}
++    </div>
++  );
++};
++
++export default TelegramChat;
