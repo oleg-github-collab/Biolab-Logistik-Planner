@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
-import AdvancedCalendar from '../components/AdvancedCalendar';
+import SimpleCalendar from '../components/SimpleCalendar';
 import EventDetailsPanel from '../components/EventDetailsPanel';
 import KanbanBoard from '../components/KanbanBoard';
 import WasteTemplateManager from '../components/WasteTemplateManager';
@@ -709,15 +709,12 @@ const Dashboard = () => {
               </div>
             )}
 
-            <AdvancedCalendar
+            <SimpleCalendar
               events={events}
-              view={calendarView}
               selectedDate={selectedDate}
               onDateSelect={handleDateSelect}
               onEventClick={handleEventClick}
               onEventCreate={handleCalendarEventCreate}
-              onRangeChange={handleRangeChange}
-              onViewChange={setCalendarView}
             />
           </div>
         </div>

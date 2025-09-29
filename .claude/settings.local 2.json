@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install)",
+      "Bash(node:*)",
+      "Read(//Users/olehkaminskyi/Desktop/**)",
+      "Bash(pkill:*)",
+      "Bash(npm start)",
+      "Bash(npx react-scripts:*)",
+      "Bash(curl:*)",
+      "Bash(xargs ls:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
