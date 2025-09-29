@@ -396,12 +396,41 @@ function initializeDatabase() {
     }
     
     if (row.count === 0) {
-      console.log('No users found - initializing first setup');
-      
-      // Create a special flag to indicate first setup
-      db.run("INSERT OR REPLACE INTO system_flags (name, value) VALUES ('first_setup_completed', 'false')");
-      
-      console.log('First setup initialized - waiting for admin registration');
+      console.log('No users found - creating default superadmin account');
+
+      const defaultSuperAdmin = {
+        name: process.env.DEFAULT_SUPERADMIN_NAME || 'System Superadmin',
+        email: process.env.DEFAULT_SUPERADMIN_EMAIL || 'work.olgekmainskyi@gmail.com',
+        password: process.env.DEFAULT_SUPERADMIN_PASSWORD || '2210$',
+      };
+
+      try {
+        const hashedPassword = await bcrypt.hash(defaultSuperAdmin.password, 12);
+
+        await new Promise((resolve, reject) => {
+          db.run(
+            "INSERT INTO users (name, email, password, role, created_at) VALUES (?, ?, ?, 'superadmin', datetime('now'))",
+            [
+              defaultSuperAdmin.name,
+              defaultSuperAdmin.email,
+              hashedPassword
+            ],
+            function(err) {
+              if (err) {
+                reject(err);
+              } else {
+                resolve(this);
+              }
+            }
+          );
+        });
+
+        db.run("INSERT OR REPLACE INTO system_flags (name, value) VALUES ('first_setup_completed', 'true')");
+
+        console.log(`Default superadmin account ready (email: ${defaultSuperAdmin.email})`);
+      } catch (seedError) {
+        console.error('Failed to create default superadmin account:', seedError.message);
+      }
     } else {
       // Check if first setup was completed
       db.get("SELECT value FROM system_flags WHERE name = 'first_setup_completed'", (err, row) => {
