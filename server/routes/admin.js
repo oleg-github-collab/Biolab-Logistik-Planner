@@ -53,9 +53,14 @@ router.put('/users/:id', [auth, adminAuth], async (req, res) => {
   
   try {
     // 1. Check if user exists
-    const user = await dbGet("SELECT id FROM users WHERE id = ?", [id]);
+    const user = await dbGet("SELECT id, role FROM users WHERE id = ?", [id]);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Prevent admins from modifying superadmin accounts
+    if (user.role === 'superadmin' && req.user.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Only superadmins can modify superadmin accounts' });
     }
     
     // 2. Check for email conflicts if email is being updated
@@ -86,7 +91,24 @@ router.put('/users/:id', [auth, adminAuth], async (req, res) => {
       updateFields.push("email = ?");
       updateValues.push(email);
     }
-    if (role && ['employee', 'admin'].includes(role)) {
+    if (role) {
+      const allowedRoles = ['employee', 'admin', 'superadmin'];
+
+      if (!allowedRoles.includes(role)) {
+        return res.status(400).json({ error: 'Invalid role specified' });
+      }
+
+      if (role === 'superadmin' && req.user.role !== 'superadmin') {
+        return res.status(403).json({ error: 'Only superadmins can assign the superadmin role' });
+      }
+
+      if (user.role === 'superadmin' && role !== 'superadmin') {
+        const superAdminCount = await dbGet("SELECT COUNT(*) as count FROM users WHERE role = 'superadmin'");
+        if (superAdminCount.count <= 1) {
+          return res.status(400).json({ error: 'Cannot remove the last superadmin' });
+        }
+      }
+
       updateFields.push("role = ?");
       updateValues.push(role);
     }
@@ -137,9 +159,20 @@ router.delete('/users/:id', [auth, adminAuth], async (req, res) => {
   
   try {
     // Check if user exists
-    const user = await dbGet("SELECT id, name FROM users WHERE id = ?", [id]);
+    const user = await dbGet("SELECT id, name, role FROM users WHERE id = ?", [id]);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (user.role === 'superadmin') {
+      if (req.user.role !== 'superadmin') {
+        return res.status(403).json({ error: 'Only superadmins can delete superadmin accounts' });
+      }
+
+      const superAdminCount = await dbGet("SELECT COUNT(*) as count FROM users WHERE role = 'superadmin'");
+      if (superAdminCount.count <= 1) {
+        return res.status(400).json({ error: 'Cannot delete the last superadmin' });
+      }
     }
     
     // Delete user

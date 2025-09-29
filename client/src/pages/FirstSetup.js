@@ -88,25 +88,32 @@ const FirstSetup = () => {
         formData.email, 
         formData.password
       );
-      
-      if (response.data.token) {
-        // Save token and user data to localStorage
-        localStorage.setItem('token', response.data.token);
-        authLogin(response.data.token, response.data.user);
-        setSuccess(true);
-        
-        // Redirect to dashboard after 2 seconds
-        setTimeout(() => {
-          navigate('/dashboard');
-        }, 2000);
+
+      const payload = response.data?.data || response.data;
+      const token = payload?.token;
+      const userData = payload?.user;
+
+      if (token && userData) {
+        localStorage.setItem('token', token);
+        authLogin(token, userData);
       }
+
+      setSuccess(true);
+
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 2000);
     } catch (err) {
       console.error('Registration error:', err);
       if (err.response?.data?.firstSetupRequired) {
         // This means we need to force refresh
         setSetupStatus('ready');
       } else {
-        setError(err.response?.data?.error || 'Registration failed. Please try again.');
+        const responseError = err.response?.data?.error;
+        const message = typeof responseError === 'string'
+          ? responseError
+          : responseError?.message;
+        setError(message || 'Registration failed. Please try again.');
       }
     } finally {
       setLoading(false);

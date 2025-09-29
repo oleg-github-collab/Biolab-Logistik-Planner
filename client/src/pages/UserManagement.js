@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getAllUsers, updateUser, deleteUser } from '../utils/api';
+import { getAllUsers, updateUser, deleteUser, register } from '../utils/api';
 
 const UserManagement = () => {
   const { user } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [statusMessage, setStatusMessage] = useState('');
   const [showAddUserForm, setShowAddUserForm] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   
@@ -56,31 +57,54 @@ const UserManagement = () => {
       setError('Please enter a valid email');
       return;
     }
-    
+
+    if (!editingUser && !formData.password) {
+      setError('Password is required for new users');
+      return;
+    }
+
     if (formData.password && formData.password.length < 6) {
       setError('Password must be at least 6 characters');
       return;
     }
-    
+
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
       return;
     }
-    
+
     try {
       setError('');
-      const userData = {
-        name: formData.name,
-        email: formData.email,
-        role: formData.role
-      };
-      
-      // Only include password if it's provided
-      if (formData.password) {
-        userData.password = formData.password;
+      setStatusMessage('');
+
+      if (editingUser) {
+        const userData = {
+          name: formData.name,
+          email: formData.email,
+          role: formData.role
+        };
+
+        if (formData.password) {
+          userData.password = formData.password;
+        }
+
+        const response = await updateUser(editingUser.id, userData);
+        const payload = response.data?.data || response.data;
+        const updatedName = payload?.user?.name || formData.name;
+        setStatusMessage(`Benutzer ${updatedName} wurde aktualisiert.`);
+      } else {
+        const response = await register(
+          formData.name,
+          formData.email,
+          formData.password,
+          formData.role
+        );
+
+        const payload = response.data?.data || response.data;
+        const createdName = payload?.user?.name || formData.name;
+        setStatusMessage(`Benutzer ${createdName} wurde erstellt.`);
       }
-      
-      await updateUser(editingUser?.id || 0, userData);
+
       setShowAddUserForm(false);
       setEditingUser(null);
       setFormData({
@@ -93,11 +117,17 @@ const UserManagement = () => {
       loadUsers();
     } catch (err) {
       console.error('Error saving user:', err);
-      setError(err.response?.data?.error || 'Fehler beim Speichern des Benutzers.');
+      const responseError = err.response?.data?.error;
+      const message = typeof responseError === 'string'
+        ? responseError
+        : responseError?.message;
+      setError(message || 'Fehler beim Speichern des Benutzers.');
     }
   };
 
   const handleEditUser = (user) => {
+    setError('');
+    setStatusMessage('');
     setEditingUser(user);
     setFormData({
       name: user.name,
@@ -115,7 +145,9 @@ const UserManagement = () => {
     }
     
     try {
+      setStatusMessage('');
       await deleteUser(userId);
+      setStatusMessage(`Benutzer ${userName} wurde gelöscht.`);
       loadUsers();
     } catch (err) {
       console.error('Error deleting user:', err);
@@ -134,6 +166,7 @@ const UserManagement = () => {
       confirmPassword: ''
     });
     setError('');
+    setStatusMessage('');
   };
 
   if (!['admin', 'superadmin'].includes(user.role)) {
@@ -174,6 +207,12 @@ const UserManagement = () => {
         </div>
       )}
 
+      {statusMessage && (
+        <div className="mb-6 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-md">
+          {statusMessage}
+        </div>
+      )}
+
       <div className="mb-6">
         <button
           onClick={() => {
@@ -185,6 +224,8 @@ const UserManagement = () => {
               password: '',
               confirmPassword: ''
             });
+            setError('');
+            setStatusMessage('');
             setShowAddUserForm(true);
           }}
           className="bg-biolab-blue hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium transition-colors"
