@@ -126,197 +126,197 @@ const TelegramChat = ({
               <h4>
                 <span className="category-icon">💼</span>
                 Direct Channels
-+              </h4>
-+              <div className="channel-list">
-+                {users.map((chatUser) => {
-+                  const unread = unreadByUser[chatUser.id] || 0;
-+                  const isActive = selectedUser?.id === chatUser.id;
-+                  const isMuted = chatUser.role === 'employee' && unread === 0;
-+
-+                  return (
-+                    <button
-+                      key={chatUser.id}
-+                      type="button"
-+                      onClick={() => onSelectUser(chatUser)}
-+                      className={`channel-item${isActive ? ' active' : ''}${isMuted ? ' muted' : ''}`}
-+                    >
-+                      <div className="channel-info">
-+                        <div className="channel-icon">{chatUser.name.slice(0, 1).toUpperCase()}</div>
-+                        <div>
-+                          <div className="channel-name">{chatUser.name}</div>
-+                          <div className="channel-topic">{chatUser.email}</div>
-+                        </div>
-+                      </div>
-+                      <div className="channel-meta">
-+                        {unread > 0 && <span className="unread-badge">{unread}</span>}
-+                        <span className="member-count">{chatUser.role}</span>
-+                      </div>
-+                      <div className="channel-actions">
-+                        <span className="channel-action" aria-hidden="true">⋮</span>
-+                      </div>
-+                    </button>
-+                  );
-+                })}
-+              </div>
-+            </div>
-+          </div>
-+        </aside>
-+
-+        <section className="talkpai-chat-pane">
-+          {selectedUser ? (
-+            <div className="chat-surface">
-+              <header className="thread-header">
-+                <div className="thread-info">
-+                  <button
-+                    type="button"
-+                    className="back-btn mobile-only"
-+                    onClick={() => onSelectUser(null)}
-+                  >
-+                    ←
-+                  </button>
-+                  <div className="talkpai-avatar">{selectedUser.name.slice(0, 1).toUpperCase()}</div>
-+                  <div>
-+                    <h3>{selectedUser.name}</h3>
-+                    <p className="thread-participants">{selectedUser.email}</p>
-+                  </div>
-+                </div>
-+                <div className="thread-actions">
-+                  <button type="button" className="follow-thread">Follow</button>
-+                  <button type="button" className="thread-settings">Details</button>
-+                </div>
-+              </header>
-+
-+              <div className="message-stream">
-+                {groupedMessages.length === 0 && (
-+                  <div className="chat-placeholder">
-+                    <div className="chat-placeholder-icon">💬</div>
-+                    <h4>Starte das Gespräch</h4>
-+                    <p>Schicke {selectedUser.name} eine Nachricht, um das Team zu synchronisieren.</p>
-+                  </div>
-+                )}
-+
-+                {groupedMessages.map(([dateKey, dayMessages]) => (
-+                  <div className="chat-day" key={dateKey}>
-+                    <span className="chat-day-divider">{formatDateHeader(dateKey)}</span>
-+                    {dayMessages.map((message) => {
-+                      const mine = message.sender_id === currentUserId;
-+                      return (
-+                        <div
-+                          key={`${message.id}-${message.created_at}`}
-+                          className={`message-row${mine ? ' from-self' : ''}`}
-+                        >
-+                          <div className={`message-bubble${mine ? ' self' : ''}`}>
-+                            <p className="message-text">{message.message}</p>
-+                            <span className="message-meta">
-+                              {formatDistanceToNow(new Date(message.created_at), {
-+                                addSuffix: true,
-+                                locale: de
-+                              })}
-+                            </span>
-+                          </div>
-+                        </div>
-+                      );
-+                    })}
-+                  </div>
-+                ))}
-+
-+                <div ref={messagesEndRef} />
-+              </div>
-+
-+              <footer className="thread-input">
-+                <form className="composer" onSubmit={handleSendMessage}>
-+                  <div className="composer-input">
-+                    <textarea
-+                      rows={1}
-+                      value={messageText}
-+                      onChange={(event) => setMessageText(event.target.value)}
-+                      placeholder={`Nachricht an ${selectedUser.name} schreiben ...`}
-+                    />
-+                  </div>
-+                  <div className="composer-actions">
-+                    <div className="composer-tools">
-+                      <button type="button" aria-label="Datei anhängen">📎</button>
-+                      <button type="button" aria-label="Emoji einfügen">😊</button>
-+                      <button type="button" aria-label="Erinnerung setzen">⏰</button>
-+                    </div>
-+                    <button
-+                      type="submit"
-+                      className="send-reply"
-+                      disabled={!messageText.trim()}
-+                    >
-+                      Senden
-+                    </button>
-+                  </div>
-+                </form>
-+              </footer>
-+            </div>
-+          ) : (
-+            <div className="chat-empty-state">
-+              <div className="workspace-switcher">
-+                <div className="workspace-header">
-+                  <h3>Wähle einen Kanal</h3>
-+                  <span>Team Messaging</span>
-+                </div>
-+                <div className="workspace-list">
-+                  <div className="workspace-item active">
-+                    <div className="workspace-avatar">BL</div>
-+                    <div className="workspace-info">
-+                      <span className="workspace-name">Biolab Operations</span>
-+                      <span className="workspace-members">{users.length} Mitglieder online</span>
-+                    </div>
-+                    <span className="workspace-notification">LIVE</span>
-+                  </div>
-+                  <p className="workspace-hint">
-+                    Wähle rechts eine Person aus, um sofort loszulegen.
-+                  </p>
-+                </div>
-+              </div>
-+            </div>
-+          )}
-+        </section>
-+      </div>
-+
-+      {statusModalOpen && (
-+        <div className="status-overlay" role="dialog" aria-modal="true">
-+          <div className="status-selector">
-+            <div className="status-header">
-+              <h3>Status aktualisieren</h3>
-+              <button type="button" className="close-btn" onClick={closeStatusModal}>
-+                ×
-+              </button>
-+            </div>
-+
-+            <div className="status-options">
-+              {STATUSES.map((status) => (
-+                <button
-+                  type="button"
-+                  key={status.id}
-+                  className="status-option"
-+                  onClick={() => handleStatusSelect(status)}
-+                >
-+                  <span className="status-icon" aria-hidden="true">{status.icon}</span>
-+                  <span className="status-text">{status.label}</span>
-+                  <span className="status-color" style={{ background: status.color }} />
-+                </button>
-+              ))}
-+            </div>
-+
-+            <div className="custom-status">
-+              <input
-+                type="text"
-+                value={customStatus}
-+                placeholder="Eigener Status (z. B. Fokus bis 15:00)"
-+                onChange={(event) => setCustomStatus(event.target.value)}
-+              />
-+              <button type="button" className="set-custom-status" onClick={handleCustomStatus}>
-+                Eigenen Status setzen
-+              </button>
-+            </div>
-+          </div>
-+        </div>
-+      )}
-+    </div>
-+  );
-+};
-+
-+export default TelegramChat;
+              </h4>
+              <div className="channel-list">
+                {users.map((chatUser) => {
+                  const unread = unreadByUser[chatUser.id] || 0;
+                  const isActive = selectedUser?.id === chatUser.id;
+                  const isMuted = chatUser.role === 'employee' && unread === 0;
+
+                  return (
+                    <button
+                      key={chatUser.id}
+                      type="button"
+                      onClick={() => onSelectUser(chatUser)}
+                      className={`channel-item${isActive ? ' active' : ''}${isMuted ? ' muted' : ''}`}
+                    >
+                      <div className="channel-info">
+                        <div className="channel-icon">{chatUser.name.slice(0, 1).toUpperCase()}</div>
+                        <div>
+                          <div className="channel-name">{chatUser.name}</div>
+                          <div className="channel-topic">{chatUser.email}</div>
+                        </div>
+                      </div>
+                      <div className="channel-meta">
+                        {unread > 0 && <span className="unread-badge">{unread}</span>}
+                        <span className="member-count">{chatUser.role}</span>
+                      </div>
+                      <div className="channel-actions">
+                        <span className="channel-action" aria-hidden="true">⋮</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <section className="talkpai-chat-pane">
+          {selectedUser ? (
+            <div className="chat-surface">
+              <header className="thread-header">
+                <div className="thread-info">
+                  <button
+                    type="button"
+                    className="back-btn mobile-only"
+                    onClick={() => onSelectUser(null)}
+                  >
+                    ←
+                  </button>
+                  <div className="talkpai-avatar">{selectedUser.name.slice(0, 1).toUpperCase()}</div>
+                  <div>
+                    <h3>{selectedUser.name}</h3>
+                    <p className="thread-participants">{selectedUser.email}</p>
+                  </div>
+                </div>
+                <div className="thread-actions">
+                  <button type="button" className="follow-thread">Follow</button>
+                  <button type="button" className="thread-settings">Details</button>
+                </div>
+              </header>
+
+              <div className="message-stream">
+                {groupedMessages.length === 0 && (
+                  <div className="chat-placeholder">
+                    <div className="chat-placeholder-icon">💬</div>
+                    <h4>Starte das Gespräch</h4>
+                    <p>Schicke {selectedUser.name} eine Nachricht, um das Team zu synchronisieren.</p>
+                  </div>
+                )}
+
+                {groupedMessages.map(([dateKey, dayMessages]) => (
+                  <div className="chat-day" key={dateKey}>
+                    <span className="chat-day-divider">{formatDateHeader(dateKey)}</span>
+                    {dayMessages.map((message) => {
+                      const mine = message.sender_id === currentUserId;
+                      return (
+                        <div
+                          key={`${message.id}-${message.created_at}`}
+                          className={`message-row${mine ? ' from-self' : ''}`}
+                        >
+                          <div className={`message-bubble${mine ? ' self' : ''}`}>
+                            <p className="message-text">{message.message}</p>
+                            <span className="message-meta">
+                              {formatDistanceToNow(new Date(message.created_at), {
+                                addSuffix: true,
+                                locale: de
+                              })}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+
+                <div ref={messagesEndRef} />
+              </div>
+
+              <footer className="thread-input">
+                <form className="composer" onSubmit={handleSendMessage}>
+                  <div className="composer-input">
+                    <textarea
+                      rows={1}
+                      value={messageText}
+                      onChange={(event) => setMessageText(event.target.value)}
+                      placeholder={`Nachricht an ${selectedUser.name} schreiben ...`}
+                    />
+                  </div>
+                  <div className="composer-actions">
+                    <div className="composer-tools">
+                      <button type="button" aria-label="Datei anhängen">📎</button>
+                      <button type="button" aria-label="Emoji einfügen">😊</button>
+                      <button type="button" aria-label="Erinnerung setzen">⏰</button>
+                    </div>
+                    <button
+                      type="submit"
+                      className="send-reply"
+                      disabled={!messageText.trim()}
+                    >
+                      Senden
+                    </button>
+                  </div>
+                </form>
+              </footer>
+            </div>
+          ) : (
+            <div className="chat-empty-state">
+              <div className="workspace-switcher">
+                <div className="workspace-header">
+                  <h3>Wähle einen Kanal</h3>
+                  <span>Team Messaging</span>
+                </div>
+                <div className="workspace-list">
+                  <div className="workspace-item active">
+                    <div className="workspace-avatar">BL</div>
+                    <div className="workspace-info">
+                      <span className="workspace-name">Biolab Operations</span>
+                      <span className="workspace-members">{users.length} Mitglieder online</span>
+                    </div>
+                    <span className="workspace-notification">LIVE</span>
+                  </div>
+                  <p className="workspace-hint">
+                    Wähle rechts eine Person aus, um sofort loszulegen.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+      </div>
+
+      {statusModalOpen && (
+        <div className="status-overlay" role="dialog" aria-modal="true">
+          <div className="status-selector">
+            <div className="status-header">
+              <h3>Status aktualisieren</h3>
+              <button type="button" className="close-btn" onClick={closeStatusModal}>
+                ×
+              </button>
+            </div>
+
+            <div className="status-options">
+              {STATUSES.map((status) => (
+                <button
+                  type="button"
+                  key={status.id}
+                  className="status-option"
+                  onClick={() => handleStatusSelect(status)}
+                >
+                  <span className="status-icon" aria-hidden="true">{status.icon}</span>
+                  <span className="status-text">{status.label}</span>
+                  <span className="status-color" style={{ background: status.color }} />
+                </button>
+              ))}
+            </div>
+
+            <div className="custom-status">
+              <input
+                type="text"
+                value={customStatus}
+                placeholder="Eigener Status (z. B. Fokus bis 15:00)"
+                onChange={(event) => setCustomStatus(event.target.value)}
+              />
+              <button type="button" className="set-custom-status" onClick={handleCustomStatus}>
+                Eigenen Status setzen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default TelegramChat;
