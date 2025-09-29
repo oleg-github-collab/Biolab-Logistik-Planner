@@ -3,8 +3,10 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const path = require('path');
+const http = require('http');
 const db = require('./database');
 const schedule = require('node-schedule');
+const { initializeSocket } = require('./websocket');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -175,11 +177,17 @@ function formatDateForDB(date) {
   return date.toISOString().split('T')[0];
 }
 
-// Start server
-const server = app.listen(PORT, '0.0.0.0', () => {
+// Start server with WebSocket support
+const server = http.createServer(app);
+
+// Initialize WebSocket
+initializeSocket(server);
+
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV}`);
   console.log(`API Base URL: ${process.env.NODE_ENV === 'production' ? 'https://your-app.railway.app/api' : 'http://localhost:5000/api'}`);
+  console.log(`WebSocket server enabled`);
 });
 
 // Graceful shutdown
