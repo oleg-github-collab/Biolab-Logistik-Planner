@@ -19,8 +19,8 @@ const validate = {
       errors.push('Password must be at least 6 characters long');
     }
 
-    if (role && !['admin', 'user'].includes(role)) {
-      errors.push('Role must be either admin or user');
+    if (role && !['employee', 'admin', 'superadmin', 'user'].includes(role)) {
+      errors.push('Role must be one of: employee, admin, superadmin');
     }
 
     if (errors.length > 0) {
