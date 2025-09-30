@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { login, checkFirstSetup } from '../utils/api';
+import { login } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 
 const Login = () => {
@@ -10,29 +10,8 @@ const Login = () => {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [checkingSetup, setCheckingSetup] = useState(true);
   const { login: authLogin } = useAuth();
   const navigate = useNavigate();
-
-  // Check if first setup is required
-  useEffect(() => {
-    const verifyFirstSetup = async () => {
-      try {
-        const response = await checkFirstSetup();
-        setCheckingSetup(false);
-        
-        if (response.data.isFirstSetup) {
-          navigate('/first-setup');
-        }
-      } catch (err) {
-        console.error('Error checking first setup:', err);
-        setError('Could not connect to server. Please try again later.');
-        setCheckingSetup(false);
-      }
-    };
-
-    verifyFirstSetup();
-  }, [navigate]);
 
   const handleChange = (e) => {
     setFormData({
@@ -49,33 +28,15 @@ const Login = () => {
     try {
       const response = await login(formData.email, formData.password);
       const { token, user } = response.data;
-      
+
       authLogin(token, user);
       navigate('/dashboard');
     } catch (err) {
-      console.error('Login error:', err.response?.data || err.message);
-      
-      if (err.response?.data?.firstSetupRequired) {
-        // Redirect to first setup if required
-        navigate('/first-setup');
-      } else {
-        setError('Ungültige Anmeldeinformationen. Bitte versuche es erneut.');
-      }
+      setError('Ungültige Anmeldeinformationen. Bitte versuche es erneut.');
     } finally {
       setLoading(false);
     }
   };
-
-  if (checkingSetup) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-biolab-blue to-blue-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-          <p className="text-white text-lg">System wird überprüft...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-biolab-blue to-blue-900 flex items-center justify-center p-4">

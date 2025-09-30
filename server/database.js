@@ -400,8 +400,8 @@ function initializeDatabase() {
 
       const defaultSuperAdmin = {
         name: process.env.DEFAULT_SUPERADMIN_NAME || 'System Superadmin',
-        email: process.env.DEFAULT_SUPERADMIN_EMAIL || 'work.olgekmainskyi@gmail.com',
-        password: process.env.DEFAULT_SUPERADMIN_PASSWORD || '2210$',
+        email: process.env.DEFAULT_SUPERADMIN_EMAIL || 'work.olegkaminskyi@gmail.com',
+        password: process.env.DEFAULT_SUPERADMIN_PASSWORD || 'QwertY24$',
       };
 
       try {
