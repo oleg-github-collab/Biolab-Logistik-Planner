@@ -5,6 +5,7 @@ import EventDetailsPanel from '../components/EventDetailsPanel';
 import ImprovedKanbanBoard from '../components/ImprovedKanbanBoard';
 import WasteTemplateManager from '../components/WasteTemplateManager';
 import AdvancedWasteManager from '../components/AdvancedWasteManager';
+import EnhancedWasteManager from '../components/EnhancedWasteManager';
 import { 
   getCurrentWeek, 
   getMySchedule, 
@@ -727,7 +728,7 @@ const Dashboard = () => {
 
       {/* Waste Manager */}
       {activeTab === 'waste-manager' && (
-        <AdvancedWasteManager />
+        <EnhancedWasteManager />
       )}
 
       {/* Event Details Panel */}

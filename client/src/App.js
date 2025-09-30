@@ -42,50 +42,58 @@ const AppContent = () => {
   return (
     <Router>
       <div className="min-h-screen flex flex-col">
-        {!loading && isAuthenticated && <Header />}
-
-        <main className="flex-grow pb-24 md:pb-0">
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/first-setup" element={<FirstSetup />} />
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/first-setup" element={<FirstSetup />} />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <>
+                  <Header />
                   <Dashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/messages"
-              element={
-                <ProtectedRoute>
+                </>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/messages"
+            element={
+              <ProtectedRoute>
+                <>
+                  <Header />
                   <Messages />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/waste"
-              element={
-                <ProtectedRoute>
+                </>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/waste"
+            element={
+              <ProtectedRoute>
+                <>
+                  <Header />
                   <Waste />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/users"
-              element={
-                <AdminRoute>
+                </>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/users"
+            element={
+              <AdminRoute>
+                <>
+                  <Header />
                   <UserManagement />
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="/"
-              element={<Navigate to="/dashboard" replace />}
-            />
-          </Routes>
-        </main>
+                </>
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/"
+            element={<Navigate to="/dashboard" replace />}
+          />
+        </Routes>
       </div>
     </Router>
   );

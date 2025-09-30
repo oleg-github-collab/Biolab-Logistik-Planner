@@ -1,8 +1,12 @@
 import React from 'react';
-import AdvancedMessaging from '../components/AdvancedMessaging';
+import ModernMessenger from '../components/ModernMessenger';
 
 const Messages = () => {
-  return <AdvancedMessaging />;
+  return (
+    <div className="h-screen">
+      <ModernMessenger />
+    </div>
+  );
 };
 
 export default Messages;

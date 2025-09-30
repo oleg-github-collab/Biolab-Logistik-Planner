@@ -156,10 +156,16 @@ function initializeDatabase() {
       disposal_instructions TEXT NOT NULL,
       color TEXT DEFAULT '#A9D08E',
       icon TEXT DEFAULT 'trash',
-      default_frequency TEXT DEFAULT 'weekly', -- 'daily', 'weekly', 'biweekly', 'monthly', 'quarterly', 'yearly'
+      default_frequency TEXT DEFAULT 'weekly', -- 'immediate', 'daily', 'weekly', 'biweekly', 'monthly', 'quarterly', 'yearly'
       default_next_date DATE,
+      hazard_level TEXT DEFAULT 'low', -- 'low', 'medium', 'high', 'critical'
+      waste_code TEXT,
+      category TEXT DEFAULT 'general', -- 'chemical', 'heavy_metal', 'aqueous', 'hazardous', 'construction', 'soil', 'container', 'general'
+      assigned_to INTEGER, -- user responsible for this waste type
+      notification_users TEXT, -- JSON array of user IDs to notify
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (assigned_to) REFERENCES users (id) ON DELETE SET NULL
     )
   `);
 
@@ -252,49 +258,133 @@ function initializeDatabase() {
     if (row.count === 0) {
       const defaultTemplates = [
         {
-          name: 'Bioabfall',
-          description: 'Organische Abfälle aus Küche und Garten',
-          disposal_instructions: 'Bioabfallbehälter alle 2 Wochen am Dienstag rausstellen.\nNicht erlaubt: Plastik, Metall, Glas.',
-          color: '#A9D08E',
-          icon: 'bio',
-          default_frequency: 'biweekly',
-          default_next_date: null
-        },
-        {
-          name: 'Papiertonne',
-          description: 'Altpapier und Kartonagen',
-          disposal_instructions: 'Papiertonnen monatlich am Freitag rausstellen.\nNicht erlaubt: verschmutztes Papier, Tapeten, Foto- und Faxpapier.',
-          color: '#D9E1F2',
-          icon: 'paper',
+          name: 'Acetone - Kanister 140603',
+          description: 'Acetonhaltige Lösungsmittel in Kanistern',
+          disposal_instructions: 'Kanister müssen vollständig entleert und gekennzeichnet sein. Sammlung nach Bedarf oder monatlich.',
+          color: '#FF6B6B',
+          icon: 'chemical',
           default_frequency: 'monthly',
-          default_next_date: null
+          default_next_date: null,
+          hazard_level: 'high',
+          waste_code: '140603',
+          category: 'chemical'
         },
         {
-          name: 'Restmüll',
-          description: 'Nicht-recyclebare Abfälle',
-          disposal_instructions: 'Restmülltonnen wöchentlich am Montag rausstellen.\nNicht erlaubt: Wertstoffe, Elektroschrott, Sondermüll.',
-          color: '#F4B084',
+          name: 'Säuren - Kanister 060106',
+          description: 'Saure Lösungen und Konzentrate',
+          disposal_instructions: 'Säuren in originalen Kanistern sammeln. pH-Wert dokumentieren. Wöchentliche Kontrolle.',
+          color: '#E74C3C',
+          icon: 'acid',
+          default_frequency: 'weekly',
+          default_next_date: null,
+          hazard_level: 'critical',
+          waste_code: '060106',
+          category: 'chemical'
+        },
+        {
+          name: 'Quecksilbereluate',
+          description: 'Quecksilberhaltige Extrakte und Lösungen',
+          disposal_instructions: 'Sofortige fachgerechte Entsorgung erforderlich. Spezielle Behälter verwenden.',
+          color: '#8E44AD',
+          icon: 'mercury',
+          default_frequency: 'immediate',
+          default_next_date: null,
+          hazard_level: 'critical',
+          waste_code: '060404',
+          category: 'heavy_metal'
+        },
+        {
+          name: 'Wassereluate',
+          description: 'Wässrige Eluate aus Analysen',
+          disposal_instructions: 'Sammlung in PE-Behältern. Monatliche Entsorgung oder bei 80% Füllstand.',
+          color: '#3498DB',
+          icon: 'water',
+          default_frequency: 'monthly',
+          default_next_date: null,
+          hazard_level: 'medium',
+          waste_code: '160216',
+          category: 'aqueous'
+        },
+        {
+          name: 'Wasserproben - Waschbecken',
+          description: 'Kontaminierte Wasserproben aus Waschbecken',
+          disposal_instructions: 'Tägliche Sammlung aus Laborwaschbecken. Spezielle Aufbewahrung erforderlich.',
+          color: '#17A2B8',
+          icon: 'sink',
+          default_frequency: 'daily',
+          default_next_date: null,
+          hazard_level: 'medium',
+          waste_code: '160216',
+          category: 'aqueous'
+        },
+        {
+          name: 'Asbest - Asbest Säcke im Lager',
+          description: 'Asbesthaltige Materialien in speziellen Säcken',
+          disposal_instructions: 'Nur von geschultem Personal handhaben. Lagerung in separatem Bereich. Quartalsweise Entsorgung.',
+          color: '#6C757D',
+          icon: 'hazmat',
+          default_frequency: 'quarterly',
+          default_next_date: null,
+          hazard_level: 'critical',
+          waste_code: '170605',
+          category: 'hazardous'
+        },
+        {
+          name: 'Asphalte',
+          description: 'Asphaltproben und -reste',
+          disposal_instructions: 'Sammlung in stabilen Behältern. Monatliche Entsorgung über Bauschutt-Entsorgung.',
+          color: '#495057',
+          icon: 'construction',
+          default_frequency: 'monthly',
+          default_next_date: null,
+          hazard_level: 'low',
+          waste_code: '170302',
+          category: 'construction'
+        },
+        {
+          name: 'Bodenproben',
+          description: 'Kontaminierte und unkontaminierte Bodenproben',
+          disposal_instructions: 'Getrennte Sammlung nach Kontaminationsgrad. Wöchentliche Kontrolle der Lagerung.',
+          color: '#8D6E63',
+          icon: 'soil',
+          default_frequency: 'weekly',
+          default_next_date: null,
+          hazard_level: 'medium',
+          waste_code: '200203',
+          category: 'soil'
+        },
+        {
+          name: 'Gefäße nach Extrakte',
+          description: 'Leere Behälter nach Extraktionsverfahren',
+          disposal_instructions: 'Behälter müssen gespült und getrocknet sein. Sammlung alle 2 Wochen.',
+          color: '#FFC107',
+          icon: 'container',
+          default_frequency: 'biweekly',
+          default_next_date: null,
+          hazard_level: 'low',
+          waste_code: '150110',
+          category: 'container'
+        },
+        {
+          name: 'Restmüll - Gewerbemüllcontainer',
+          description: 'Allgemeine Abfälle ohne besondere Eigenschaften',
+          disposal_instructions: 'Regelmäßige Entleerung des Gewerbemüllcontainers. Wöchentliche Abholung.',
+          color: '#6C757D',
           icon: 'trash',
           default_frequency: 'weekly',
-          default_next_date: null
-        },
-        {
-          name: 'Gelber Sack',
-          description: 'Verpackungen aus Plastik, Metall und Verbundstoffen',
-          disposal_instructions: 'Gelbe Säcke alle 2 Wochen am Mittwoch rausstellen.\nNicht erlaubt: Elektroschrott, Batterien, Glas.',
-          color: '#FFD700',
-          icon: 'plastic',
-          default_frequency: 'biweekly',
-          default_next_date: null
+          default_next_date: null,
+          hazard_level: 'low',
+          waste_code: '200301',
+          category: 'general'
         }
       ];
 
       defaultTemplates.forEach(template => {
         db.run(
           `INSERT INTO waste_templates (
-            name, description, disposal_instructions, color, icon, 
-            default_frequency, default_next_date
-          ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            name, description, disposal_instructions, color, icon,
+            default_frequency, default_next_date, hazard_level, waste_code, category
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             template.name,
             template.description,
@@ -302,7 +392,10 @@ function initializeDatabase() {
             template.color,
             template.icon,
             template.default_frequency,
-            template.default_next_date
+            template.default_next_date,
+            template.hazard_level,
+            template.waste_code,
+            template.category
           ]
         );
       });
