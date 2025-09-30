@@ -47,11 +47,13 @@ const authReducer = (state, action) => {
 };
 
 export const AuthProvider = ({ children }) => {
+  const token = localStorage.getItem('token');
+
   const initialState = {
     user: null,
-    token: localStorage.getItem('token'),
-    isAuthenticated: false,
-    loading: true,
+    token: token,
+    isAuthenticated: !!token, // If we have a token, assume authenticated until proven otherwise
+    loading: !!token, // Only loading if we have a token to validate
   };
 
   const [state, dispatch] = useReducer(authReducer, initialState);
@@ -65,10 +67,15 @@ export const AuthProvider = ({ children }) => {
           dispatch({ type: 'LOAD_USER', payload: res.data });
         } catch (err) {
           console.error('Error loading user:', err);
-          // Only logout if it's an auth error (401 or 403)
+          // Only logout if it's definitely an auth error
           if (err.response?.status === 401 || err.response?.status === 403) {
+            console.log('Authentication failed, logging out');
             dispatch({ type: 'USER_ERROR' });
             localStorage.removeItem('token');
+          } else {
+            // For other errors (network, 500, etc), just stop loading but keep token
+            console.log('Network/server error, keeping user logged in');
+            dispatch({ type: 'SET_LOADING', payload: false });
           }
         }
       } else {

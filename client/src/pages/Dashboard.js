@@ -401,10 +401,11 @@ const Dashboard = () => {
   };
 
   const handleCreateNewEvent = (defaults = {}) => {
+    console.log('handleCreateNewEvent called with:', defaults);
     const start = defaults.start ? new Date(defaults.start) : new Date();
     const end = defaults.end ? new Date(defaults.end) : addMinutes(start, 60);
 
-    setSelectedEvent({
+    const newEvent = {
       title: defaults.title || '',
       description: defaults.description || '',
       start_date: format(start, 'yyyy-MM-dd'),
@@ -420,12 +421,17 @@ const Dashboard = () => {
       color: getEventColor(defaults.type || 'Termin'),
       tags: defaults.tags || [],
       location: defaults.location || ''
-    });
+    };
+
+    console.log('Setting selectedEvent to:', newEvent);
+    setSelectedEvent(newEvent);
     setEventPanelMode('create');
     setShowEventPanel(true);
+    console.log('Event panel should now be open');
   };
 
   const handleCalendarEventCreate = async (details = {}) => {
+    // If we have a complete event with title, create it directly
     if (details.title) {
       try {
         const start = details.start ? new Date(details.start) : new Date();
@@ -642,7 +648,10 @@ const Dashboard = () => {
 
             <div className="flex items-center gap-2">
               <button
-                onClick={() => handleCalendarEventCreate({ start: selectedDate })}
+                onClick={() => {
+                  console.log('Neuer Termin button clicked, selectedDate:', selectedDate);
+                  handleCalendarEventCreate({ start: selectedDate });
+                }}
                 className="rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-blue-500"
               >
                 + Neuer Termin
