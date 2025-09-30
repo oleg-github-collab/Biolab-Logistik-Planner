@@ -11,6 +11,7 @@ const authReducer = (state, action) => {
         user: action.payload.user,
         token: action.payload.token,
         isAuthenticated: true,
+        loading: false,
       };
     case 'LOGOUT':
       return {
@@ -18,12 +19,14 @@ const authReducer = (state, action) => {
         user: null,
         token: null,
         isAuthenticated: false,
+        loading: false,
       };
     case 'LOAD_USER':
       return {
         ...state,
         user: action.payload,
         isAuthenticated: true,
+        loading: false,
       };
     case 'USER_ERROR':
       return {
@@ -31,6 +34,12 @@ const authReducer = (state, action) => {
         user: null,
         token: null,
         isAuthenticated: false,
+        loading: false,
+      };
+    case 'SET_LOADING':
+      return {
+        ...state,
+        loading: action.payload,
       };
     default:
       return state;
@@ -42,6 +51,7 @@ export const AuthProvider = ({ children }) => {
     user: null,
     token: localStorage.getItem('token'),
     isAuthenticated: false,
+    loading: true,
   };
 
   const [state, dispatch] = useReducer(authReducer, initialState);
@@ -49,6 +59,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const loadUser = async () => {
       if (state.token) {
+        dispatch({ type: 'SET_LOADING', payload: true });
         try {
           const res = await getUser();
           dispatch({ type: 'LOAD_USER', payload: res.data });
@@ -60,6 +71,8 @@ export const AuthProvider = ({ children }) => {
             localStorage.removeItem('token');
           }
         }
+      } else {
+        dispatch({ type: 'SET_LOADING', payload: false });
       }
     };
 

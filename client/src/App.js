@@ -37,52 +37,52 @@ const AdminRoute = ({ children }) => {
 
 // Main App component
 const AppContent = () => {
-  const { isAuthenticated } = useAuth();
-  
+  const { isAuthenticated, loading } = useAuth();
+
   return (
     <Router>
       <div className="min-h-screen flex flex-col">
-        {isAuthenticated && <Header />}
-        
+        {!loading && isAuthenticated && <Header />}
+
         <main className="flex-grow pb-24 md:pb-0">
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/first-setup" element={<FirstSetup />} />
-            <Route 
-              path="/dashboard" 
+            <Route
+              path="/dashboard"
               element={
                 <ProtectedRoute>
                   <Dashboard />
                 </ProtectedRoute>
-              } 
+              }
             />
-            <Route 
-              path="/messages" 
+            <Route
+              path="/messages"
               element={
                 <ProtectedRoute>
                   <Messages />
                 </ProtectedRoute>
-              } 
+              }
             />
-            <Route 
-              path="/waste" 
+            <Route
+              path="/waste"
               element={
                 <ProtectedRoute>
                   <Waste />
                 </ProtectedRoute>
-              } 
+              }
             />
-            <Route 
-              path="/users" 
+            <Route
+              path="/users"
               element={
                 <AdminRoute>
                   <UserManagement />
                 </AdminRoute>
-              } 
+              }
             />
-            <Route 
-              path="/" 
-              element={<Navigate to="/dashboard" replace />} 
+            <Route
+              path="/"
+              element={<Navigate to="/dashboard" replace />}
             />
           </Routes>
         </main>
