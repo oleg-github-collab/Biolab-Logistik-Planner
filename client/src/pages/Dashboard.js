@@ -2,9 +2,9 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import SimpleCalendar from '../components/SimpleCalendar';
 import EventDetailsPanel from '../components/EventDetailsPanel';
-import KanbanBoard from '../components/KanbanBoard';
+import ImprovedKanbanBoard from '../components/ImprovedKanbanBoard';
 import WasteTemplateManager from '../components/WasteTemplateManager';
-import WasteManager from '../components/WasteManager';
+import AdvancedWasteManager from '../components/AdvancedWasteManager';
 import { 
   getCurrentWeek, 
   getMySchedule, 
@@ -641,7 +641,7 @@ const Dashboard = () => {
 
             <div className="flex items-center gap-2">
               <button
-                onClick={() => handleCreateNewEvent({ start: selectedDate })}
+                onClick={() => handleCalendarEventCreate({ start: selectedDate })}
                 className="rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-blue-500"
               >
                 + Neuer Termin
@@ -722,17 +722,12 @@ const Dashboard = () => {
 
       {/* Kanban Board */}
       {activeTab === 'kanban' && (
-        <KanbanBoard
-          tasks={tasks}
-          onTaskUpdate={handleTaskUpdate}
-          onTaskCreate={handleTaskCreate}
-          onTaskDelete={handleTaskDelete}
-        />
+        <ImprovedKanbanBoard />
       )}
 
       {/* Waste Manager */}
       {activeTab === 'waste-manager' && (
-        <WasteManager />
+        <AdvancedWasteManager />
       )}
 
       {/* Event Details Panel */}
