@@ -37,7 +37,18 @@ const AdminRoute = ({ children }) => {
 
 // Main App component
 const AppContent = () => {
-  const { } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-600 to-blue-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <p className="text-white text-lg">System lädt...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Router>
