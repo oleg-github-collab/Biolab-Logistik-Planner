@@ -11,6 +11,7 @@ const logger = require('../utils/logger');
 
 const router = express.Router();
 const apiController = new ApiController();
+const { autoScheduleOnEmploymentChange } = require('../utils/scheduleHelper');
 
 // @route   GET /api/auth/first-setup
 // @desc    Check if this is the first setup
@@ -66,7 +67,7 @@ router.get('/first-setup', asyncHandler(async (req, res) => {
 // @route   POST /api/auth/register
 // @desc    Register a new user
 router.post('/register', limiters.auth, validate.registerUser, asyncHandler(async (req, res) => {
-  const { name, email, password, role = 'user' } = req.body;
+  const { name, email, password, role = 'user', employment_type = 'Werkstudent' } = req.body;
 
   logger.info('User registration attempt', {
     email,
@@ -145,8 +146,8 @@ router.post('/register', limiters.auth, validate.registerUser, asyncHandler(asyn
   // Create user
   const result = await apiController.executeQuery(
     db,
-    "INSERT INTO users (name, email, password, role, created_at) VALUES (?, ?, ?, ?, datetime('now'))",
-    [name, email, hashedPassword, userRole],
+    "INSERT INTO users (name, email, password, role, employment_type, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))",
+    [name, email, hashedPassword, userRole, employment_type],
     'run'
   );
 
@@ -165,7 +166,7 @@ router.post('/register', limiters.auth, validate.registerUser, asyncHandler(asyn
   // Get created user (without password)
   const newUser = await apiController.executeQuery(
     db,
-    "SELECT id, name, email, role, created_at FROM users WHERE id = ?",
+    "SELECT id, name, email, role, employment_type, created_at FROM users WHERE id = ?",
     [result.id],
     'get'
   );
@@ -185,10 +186,21 @@ router.post('/register', limiters.auth, validate.registerUser, asyncHandler(asyn
     );
   }
 
+  // Auto-schedule if Vollzeit
+  if (employment_type === 'Vollzeit') {
+    try {
+      await autoScheduleOnEmploymentChange(result.id, employment_type);
+      logger.info('Auto-schedule completed for Vollzeit employee', { userId: result.id });
+    } catch (scheduleErr) {
+      logger.warn('Auto-schedule failed but continuing', { userId: result.id, error: scheduleErr.message });
+    }
+  }
+
   logger.info('User registered successfully', {
     userId: result.id,
     email,
     role: userRole,
+    employmentType: employment_type,
     isFirstSetup: allowOpenRegistration
   });
 

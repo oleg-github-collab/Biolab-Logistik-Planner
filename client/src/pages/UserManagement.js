@@ -15,6 +15,7 @@ const UserManagement = () => {
     name: '',
     email: '',
     role: 'employee',
+    employment_type: 'Werkstudent',
     password: '',
     confirmPassword: ''
   });
@@ -81,7 +82,8 @@ const UserManagement = () => {
         const userData = {
           name: formData.name,
           email: formData.email,
-          role: formData.role
+          role: formData.role,
+          employment_type: formData.employment_type
         };
 
         if (formData.password) {
@@ -97,7 +99,8 @@ const UserManagement = () => {
           formData.name,
           formData.email,
           formData.password,
-          formData.role
+          formData.role,
+          formData.employment_type
         );
 
         const payload = response.data?.data || response.data;
@@ -111,6 +114,7 @@ const UserManagement = () => {
         name: '',
         email: '',
         role: 'employee',
+        employment_type: 'Werkstudent',
         password: '',
         confirmPassword: ''
       });
@@ -133,6 +137,7 @@ const UserManagement = () => {
       name: user.name,
       email: user.email,
       role: user.role,
+      employment_type: user.employment_type || 'Werkstudent',
       password: '',
       confirmPassword: ''
     });
@@ -271,22 +276,44 @@ const UserManagement = () => {
               </div>
             </div>
             
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Rolle *
-              </label>
-              <select
-                name="role"
-                value={formData.role}
-                onChange={(e) => setFormData({...formData, role: e.target.value})}
-                className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-biolab-blue focus:border-transparent"
-              >
-                <option value="employee">Mitarbeiter</option>
-                <option value="admin">Administrator</option>
-                {user.role === 'superadmin' && (
-                  <option value="superadmin">Superadministrator</option>
-                )}
-              </select>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Rolle *
+                </label>
+                <select
+                  name="role"
+                  value={formData.role}
+                  onChange={(e) => setFormData({...formData, role: e.target.value})}
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-biolab-blue focus:border-transparent"
+                >
+                  <option value="employee">Mitarbeiter</option>
+                  <option value="admin">Administrator</option>
+                  {user.role === 'superadmin' && (
+                    <option value="superadmin">Superadministrator</option>
+                  )}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Beschäftigungsart *
+                </label>
+                <select
+                  name="employment_type"
+                  value={formData.employment_type}
+                  onChange={(e) => setFormData({...formData, employment_type: e.target.value})}
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-biolab-blue focus:border-transparent"
+                >
+                  <option value="Werkstudent">Werkstudent</option>
+                  <option value="Vollzeit">Vollzeit</option>
+                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  {formData.employment_type === 'Vollzeit'
+                    ? '8:00-17:00 wird automatisch geplant'
+                    : 'Buchung von Arbeitszeiten erforderlich'}
+                </p>
+              </div>
             </div>
             
             <div>
@@ -353,6 +380,9 @@ const UserManagement = () => {
                   Rolle
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Beschäftigungsart
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Erstellt am
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -387,6 +417,15 @@ const UserManagement = () => {
                         : userItem.role === 'admin'
                           ? 'Administrator'
                           : 'Mitarbeiter'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                      userItem.employment_type === 'Vollzeit'
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-orange-100 text-orange-800'
+                    }`}>
+                      {userItem.employment_type || 'Werkstudent'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

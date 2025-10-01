@@ -191,10 +191,16 @@ const ModernMessenger = () => {
   };
 
   const MessageBubble = ({ message, isOwn }) => {
+    // Create sender object for non-own messages
+    const sender = !isOwn && message.sender_name ? {
+      id: message.sender_id,
+      name: message.sender_name
+    } : null;
+
     return (
       <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-4`}>
         <div className={`flex items-end space-x-2 max-w-xs lg:max-w-md ${isOwn ? 'flex-row-reverse space-x-reverse' : 'flex-row'}`}>
-          {!isOwn && <UserAvatar user={message.sender} size="w-8 h-8" />}
+          {!isOwn && sender && <UserAvatar user={sender} size="w-8 h-8" />}
           <div className={`px-4 py-2 rounded-2xl ${
             isOwn
               ? 'bg-blue-500 text-white rounded-br-md'
@@ -258,42 +264,50 @@ const ModernMessenger = () => {
               <p className="text-sm text-gray-400 mt-1">Starten Sie eine neue Unterhaltung</p>
             </div>
           ) : (
-            conversations.map(conversation => (
-              <div
-                key={conversation.id}
-                onClick={() => {
-                  setSelectedConversation(conversation);
-                  setSidebarOpen(false);
-                }}
-                className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors ${
-                  selectedConversation?.id === conversation.id ? 'bg-blue-50 border-blue-200' : ''
-                }`}
-              >
-                <div className="flex items-center space-x-3">
-                  <UserAvatar user={conversation.other_user} showOnline />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {conversation.other_user.name}
-                      </p>
-                      {conversation.last_message_time && (
-                        <p className="text-xs text-gray-500">
-                          {formatMessageTime(conversation.last_message_time)}
+            conversations.map(conversation => {
+              const conversationUser = {
+                id: conversation.id,
+                name: conversation.name || conversation.user_name,
+                email: conversation.email || conversation.user_email
+              };
+
+              return (
+                <div
+                  key={conversation.id}
+                  onClick={() => {
+                    setSelectedConversation(conversationUser);
+                    setSidebarOpen(false);
+                  }}
+                  className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors ${
+                    selectedConversation?.id === conversation.id ? 'bg-blue-50 border-blue-200' : ''
+                  }`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <UserAvatar user={conversationUser} showOnline />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {conversationUser.name}
                         </p>
-                      )}
+                        {conversation.lastMessageTime && (
+                          <p className="text-xs text-gray-500">
+                            {formatMessageTime(conversation.lastMessageTime)}
+                          </p>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-500 truncate mt-1">
+                        {conversation.lastMessage || 'Neue Unterhaltung'}
+                      </p>
                     </div>
-                    <p className="text-sm text-gray-500 truncate mt-1">
-                      {getConversationPreview(conversation)}
-                    </p>
+                    {conversation.unreadCount > 0 && (
+                      <div className="bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                        {conversation.unreadCount}
+                      </div>
+                    )}
                   </div>
-                  {conversation.unread_count > 0 && (
-                    <div className="bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                      {conversation.unread_count}
-                    </div>
-                  )}
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>
@@ -313,13 +327,13 @@ const ModernMessenger = () => {
                 </svg>
               </button>
 
-              <UserAvatar user={selectedConversation.other_user} showOnline />
+              <UserAvatar user={selectedConversation} showOnline />
               <div className="ml-3">
                 <h2 className="text-lg font-semibold text-gray-900">
-                  {selectedConversation.other_user.name}
+                  {selectedConversation.name}
                 </h2>
                 <p className="text-sm text-gray-500">
-                  {onlineUsers.has(selectedConversation.other_user.id) ? 'Online' : 'Offline'}
+                  {onlineUsers.has(selectedConversation.id) ? 'Online' : 'Offline'}
                 </p>
               </div>
             </div>
