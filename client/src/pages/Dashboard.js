@@ -2,20 +2,23 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import SimpleCalendar from '../components/SimpleCalendar';
 import EventDetailsPanel from '../components/EventDetailsPanel';
+import EventModal from '../components/EventModal';
+import AbsenceModal from '../components/AbsenceModal';
 import ImprovedKanbanBoard from '../components/ImprovedKanbanBoard';
 import WasteTemplateManager from '../components/WasteTemplateManager';
 import AdvancedWasteManager from '../components/AdvancedWasteManager';
 import EnhancedWasteManager from '../components/EnhancedWasteManager';
-import { 
-  getCurrentWeek, 
-  getMySchedule, 
+import {
+  getCurrentWeek,
+  getMySchedule,
   getTeamSchedule,
   getArchivedSchedules,
   createWasteItem,
   getEvents,
   createEvent,
   updateEvent,
-  deleteEvent
+  deleteEvent,
+  createAbsenceEvent
 } from '../utils/api';
 import { format, addDays, addMinutes, parseISO, startOfWeek, endOfWeek, formatISO } from 'date-fns';
 
@@ -192,6 +195,8 @@ const Dashboard = () => {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [eventPanelMode, setEventPanelMode] = useState('view');
   const [showEventPanel, setShowEventPanel] = useState(false);
+  const [showEventModal, setShowEventModal] = useState(false);
+  const [showAbsenceModal, setShowAbsenceModal] = useState(false);
   const [events, setEvents] = useState([]);
   const [eventsLoading, setEventsLoading] = useState(false);
   const [toast, setToast] = useState(null);
@@ -358,10 +363,16 @@ const Dashboard = () => {
         showToast({ type: 'success', title: 'Termin aktualisiert' });
       }
       setShowEventPanel(false);
+      setShowEventModal(false);
     } catch (err) {
       console.error('Error saving event:', err);
       showToast({ type: 'error', title: 'Speichern fehlgeschlagen', message: 'Der Termin konnte nicht gespeichert werden.' });
     }
+  };
+
+  const handleEventModalClose = () => {
+    setShowEventModal(false);
+    setSelectedEvent(null);
   };
 
   const handleEventDelete = async (eventId) => {
@@ -431,38 +442,33 @@ const Dashboard = () => {
   };
 
   const handleCalendarEventCreate = async (details = {}) => {
-    // If we have a complete event with title, create it directly
-    if (details.title) {
-      try {
-        const start = details.start ? new Date(details.start) : new Date();
-        const end = details.end ? new Date(details.end) : addMinutes(start, 60);
-        const draft = {
-          title: details.title,
-          description: details.description || '',
-          start_date: format(start, 'yyyy-MM-dd'),
-          end_date: format(end, 'yyyy-MM-dd'),
-          start_time: details.all_day ? '' : format(start, 'HH:mm'),
-          end_time: details.all_day ? '' : format(end, 'HH:mm'),
-          all_day: Boolean(details.all_day),
-          type: details.type || 'Termin',
-          priority: details.priority || 'medium',
-          attendees: details.attendees || [],
-          reminder: details.reminder ?? 15,
-          status: 'confirmed',
-          category: details.category || 'work'
-        };
+    console.log('handleCalendarEventCreate called with:', details);
 
-        const response = await createEvent(buildEventPayload(draft));
-        setEvents((prev) => [...prev, mapApiEventToUi(response.data)]);
-        showToast({ type: 'success', title: 'Termin erstellt', message: `${draft.title} wurde hinzugefügt.` });
-      } catch (err) {
-        console.error('Error creating event:', err);
-        showToast({ type: 'error', title: 'Erstellen fehlgeschlagen', message: 'Ein neuer Termin konnte nicht angelegt werden.' });
-      }
-      return;
-    }
+    // Set selected event for the modal
+    const start = details.start ? new Date(details.start) : selectedDate || new Date();
+    const end = details.end ? new Date(details.end) : addMinutes(start, 60);
 
-    handleCreateNewEvent(details);
+    setSelectedEvent({
+      title: details.title || '',
+      description: details.description || '',
+      start_date: format(start, 'yyyy-MM-dd'),
+      end_date: format(end, 'yyyy-MM-dd'),
+      start_time: details.all_day ? '' : format(start, 'HH:mm'),
+      end_time: details.all_day ? '' : format(end, 'HH:mm'),
+      all_day: Boolean(details.all_day),
+      type: details.type || 'Arbeit',
+      priority: details.priority || 'medium',
+      location: details.location || '',
+      attendees: details.attendees || [],
+      reminder: details.reminder ?? 15,
+      status: 'confirmed',
+      category: details.category || 'work',
+      notes: details.notes || ''
+    });
+
+    setEventPanelMode('create');
+    setShowEventModal(true);
+    console.log('EventModal should now be open');
   };
 
   const handleTaskUpdate = (taskId, updates) => {
@@ -558,13 +564,44 @@ const Dashboard = () => {
         template.disposalInstructions,
         template.defaultNextDate
       );
-      
+
       // Show success message
       alert(`Vorlage "${template.name}" erfolgreich angewendet!`);
     } catch (err) {
       console.error('Error applying template:', err);
       setError('Fehler beim Anwenden der Vorlage.');
     }
+  };
+
+  const handleAbsenceSave = async (absenceData) => {
+    try {
+      await createAbsenceEvent(absenceData);
+      showToast({
+        type: 'success',
+        title: 'Abwesenheit gemeldet',
+        message: `${absenceData.title} wurde erfolgreich für ${absenceData.start_date} bis ${absenceData.end_date} gemeldet.`
+      });
+
+      // Refresh events to show the new absence
+      const startParam = eventRange?.start ? formatISO(eventRange.start) : null;
+      const endParam = eventRange?.end ? formatISO(eventRange.end) : null;
+      const response = await getEvents(startParam, endParam, eventTypeFilter || undefined, priorityFilter || undefined);
+      const payload = Array.isArray(response?.data) ? response.data : Array.isArray(response?.data?.data) ? response.data.data : [];
+      setEvents(payload.map(mapApiEventToUi));
+
+      setShowAbsenceModal(false);
+    } catch (err) {
+      console.error('Error creating absence:', err);
+      showToast({
+        type: 'error',
+        title: 'Fehler beim Speichern',
+        message: 'Die Abwesenheit konnte nicht gespeichert werden. Bitte versuche es erneut.'
+      });
+    }
+  };
+
+  const handleAbsenceModalClose = () => {
+    setShowAbsenceModal(false);
   };
 
   if (loading) {
@@ -656,6 +693,16 @@ const Dashboard = () => {
               >
                 + Neuer Termin
               </button>
+
+              {/* Show absence button only for Vollzeit employees */}
+              {user.employment_type === 'Vollzeit' && (
+                <button
+                  onClick={() => setShowAbsenceModal(true)}
+                  className="rounded-full bg-orange-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-orange-500"
+                >
+                  🏖️ Abwesenheit melden
+                </button>
+              )}
             </div>
           </div>
 
@@ -749,6 +796,24 @@ const Dashboard = () => {
         onDelete={handleEventDelete}
         onDuplicate={handleEventDuplicate}
         mode={eventPanelMode}
+      />
+
+      {/* Event Modal */}
+      <EventModal
+        isOpen={showEventModal}
+        onClose={handleEventModalClose}
+        onSave={handleEventSave}
+        selectedDate={selectedDate}
+        event={selectedEvent}
+        mode={eventPanelMode}
+      />
+
+      {/* Absence Modal */}
+      <AbsenceModal
+        isOpen={showAbsenceModal}
+        onClose={handleAbsenceModalClose}
+        onSave={handleAbsenceSave}
+        selectedDate={selectedDate}
       />
 
       <Toast toast={toast} onClose={() => setToast(null)} />

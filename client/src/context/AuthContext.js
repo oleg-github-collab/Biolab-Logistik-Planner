@@ -96,8 +96,36 @@ export const AuthProvider = ({ children }) => {
     dispatch({ type: 'LOGOUT' });
   };
 
+  const hasRole = (roles) => {
+    if (!state.user?.role) return false;
+    if (Array.isArray(roles)) {
+      return roles.includes(state.user.role);
+    }
+    return state.user.role === roles;
+  };
+
+  const canAssignTasks = () => {
+    return hasRole(['admin', 'superadmin']);
+  };
+
+  const canManageUsers = () => {
+    return hasRole(['admin', 'superadmin']);
+  };
+
+  const isEmployee = () => {
+    return hasRole('employee');
+  };
+
   return (
-    <AuthContext.Provider value={{ ...state, login, logout }}>
+    <AuthContext.Provider value={{
+      ...state,
+      login,
+      logout,
+      hasRole,
+      canAssignTasks,
+      canManageUsers,
+      isEmployee
+    }}>
       {children}
     </AuthContext.Provider>
   );

@@ -108,22 +108,25 @@ const ModernMessenger = () => {
 
     setSending(true);
     try {
-      const response = await fetch('/api/messages', {
+      const response = await fetch('/api/messages/send', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
         body: JSON.stringify({
-          receiver_id: selectedConversation.other_user.id,
+          receiver_id: selectedConversation.id,
           message: newMessage.trim()
         })
       });
 
       if (response.ok) {
+        const message = await response.json();
+        setMessages(prev => [...prev, message]);
         setNewMessage('');
-        loadMessages(selectedConversation.id);
         loadConversations();
+      } else {
+        console.error('Failed to send message:', response.status);
       }
     } catch (err) {
       console.error('Error sending message:', err);

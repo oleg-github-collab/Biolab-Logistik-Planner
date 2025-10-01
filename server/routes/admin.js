@@ -37,7 +37,7 @@ const dbRun = (query, params = []) => {
 // @desc    Get all users (admin only)
 router.get('/users', [auth, adminAuth], async (req, res) => {
   try {
-    const users = await dbAll("SELECT id, name, email, role, created_at FROM users ORDER BY name");
+    const users = await dbAll("SELECT id, name, email, role, employment_type, auto_schedule, default_start_time, default_end_time, created_at FROM users ORDER BY name");
     res.json(users);
   } catch (err) {
     console.error(err.message);
@@ -49,7 +49,7 @@ router.get('/users', [auth, adminAuth], async (req, res) => {
 // @desc    Update user (admin only)
 router.put('/users/:id', [auth, adminAuth], async (req, res) => {
   const { id } = req.params;
-  const { name, email, role, password } = req.body;
+  const { name, email, role, password, employment_type, auto_schedule, default_start_time, default_end_time } = req.body;
   
   try {
     // 1. Check if user exists
@@ -112,7 +112,35 @@ router.put('/users/:id', [auth, adminAuth], async (req, res) => {
       updateFields.push("role = ?");
       updateValues.push(role);
     }
-    
+
+    if (employment_type) {
+      const allowedTypes = ['Vollzeit', 'Werkstudent'];
+      if (!allowedTypes.includes(employment_type)) {
+        return res.status(400).json({ error: 'Invalid employment type specified' });
+      }
+      updateFields.push("employment_type = ?");
+      updateValues.push(employment_type);
+
+      // Auto-set auto_schedule based on employment_type
+      updateFields.push("auto_schedule = ?");
+      updateValues.push(employment_type === 'Vollzeit' ? 1 : 0);
+    }
+
+    if (auto_schedule !== undefined) {
+      updateFields.push("auto_schedule = ?");
+      updateValues.push(auto_schedule ? 1 : 0);
+    }
+
+    if (default_start_time) {
+      updateFields.push("default_start_time = ?");
+      updateValues.push(default_start_time);
+    }
+
+    if (default_end_time) {
+      updateFields.push("default_end_time = ?");
+      updateValues.push(default_end_time);
+    }
+
     // 5. Hash password if provided (this is now valid within the async function)
     if (password) {
       const hashedPassword = await bcrypt.hash(password, 10);
@@ -134,7 +162,7 @@ router.put('/users/:id', [auth, adminAuth], async (req, res) => {
     await dbRun(query, updateValues);
     
     // 7. Get the updated user data to send back
-    const updatedUser = await dbGet("SELECT id, name, email, role, created_at FROM users WHERE id = ?", [id]);
+    const updatedUser = await dbGet("SELECT id, name, email, role, employment_type, auto_schedule, default_start_time, default_end_time, created_at FROM users WHERE id = ?", [id]);
     
     res.json({
       message: 'User updated successfully',
@@ -143,6 +171,71 @@ router.put('/users/:id', [auth, adminAuth], async (req, res) => {
 
   } catch (err) {
     console.error('Update user error:', err.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   POST /api/admin/users
+// @desc    Create new user (admin only)
+router.post('/users', [auth, adminAuth], async (req, res) => {
+  const { name, email, password, role = 'employee', employment_type = 'Werkstudent', default_start_time = '08:00', default_end_time = '17:00' } = req.body;
+
+  try {
+    // Validate required fields
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: 'Name, email, and password are required' });
+    }
+
+    // Validate employment type
+    const allowedTypes = ['Vollzeit', 'Werkstudent'];
+    if (!allowedTypes.includes(employment_type)) {
+      return res.status(400).json({ error: 'Invalid employment type. Must be Vollzeit or Werkstudent' });
+    }
+
+    // Validate role
+    const allowedRoles = ['employee', 'admin', 'superadmin'];
+    if (!allowedRoles.includes(role)) {
+      return res.status(400).json({ error: 'Invalid role specified' });
+    }
+
+    if (role === 'superadmin' && req.user.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Only superadmins can create superadmin accounts' });
+    }
+
+    // Check if email already exists
+    const existingEmailUser = await dbGet("SELECT id FROM users WHERE email = ?", [email]);
+    if (existingEmailUser) {
+      return res.status(400).json({ error: 'Email already in use' });
+    }
+
+    // Check if name already exists
+    const existingNameUser = await dbGet("SELECT id FROM users WHERE name = ?", [name]);
+    if (existingNameUser) {
+      return res.status(400).json({ error: 'Name already in use' });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    // Set auto_schedule based on employment_type
+    const auto_schedule = employment_type === 'Vollzeit' ? 1 : 0;
+
+    // Create user
+    const result = await dbRun(
+      `INSERT INTO users (name, email, password, role, employment_type, auto_schedule, default_start_time, default_end_time, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+      [name, email, hashedPassword, role, employment_type, auto_schedule, default_start_time, default_end_time]
+    );
+
+    // Get the created user
+    const newUser = await dbGet("SELECT id, name, email, role, employment_type, auto_schedule, default_start_time, default_end_time, created_at FROM users WHERE id = ?", [result.lastID]);
+
+    res.status(201).json({
+      message: 'User created successfully',
+      user: newUser
+    });
+  } catch (err) {
+    console.error('Create user error:', err.message);
     res.status(500).json({ error: 'Server error' });
   }
 });

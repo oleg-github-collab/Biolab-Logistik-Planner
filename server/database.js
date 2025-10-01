@@ -30,6 +30,10 @@ function initializeDatabase() {
       email TEXT NOT NULL UNIQUE,
       password TEXT NOT NULL,
       role TEXT DEFAULT 'employee',
+      employment_type TEXT DEFAULT 'Werkstudent', -- 'Vollzeit', 'Werkstudent'
+      default_start_time TEXT DEFAULT '08:00',
+      default_end_time TEXT DEFAULT '17:00',
+      auto_schedule BOOLEAN DEFAULT 0, -- 1 for Vollzeit, 0 for Werkstudent
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
@@ -258,9 +262,9 @@ function initializeDatabase() {
     if (row.count === 0) {
       const defaultTemplates = [
         {
-          name: 'Acetone - Kanister 140603',
-          description: 'Acetonhaltige Lösungsmittel in Kanistern',
-          disposal_instructions: 'Kanister müssen vollständig entleert und gekennzeichnet sein. Sammlung nach Bedarf oder monatlich.',
+          name: 'Lösungsmittel - Kanister 140603 (Acetone, Heptan, Methanol)',
+          description: 'Acetonhaltige Lösungsmittel, Heptan und Methanol in Kanistern',
+          disposal_instructions: 'Kanister müssen vollständig entleert und gekennzeichnet sein. Sammlung nach Bedarf oder monatlich. Separate Kennzeichnung für verschiedene Lösungsmittel.',
           color: '#FF6B6B',
           icon: 'chemical',
           default_frequency: 'monthly',
@@ -502,7 +506,7 @@ function initializeDatabase() {
 
         await new Promise((resolve, reject) => {
           db.run(
-            "INSERT INTO users (name, email, password, role, created_at) VALUES (?, ?, ?, 'superadmin', datetime('now'))",
+            "INSERT INTO users (name, email, password, role, employment_type, auto_schedule, created_at) VALUES (?, ?, ?, 'superadmin', 'Vollzeit', 1, datetime('now'))",
             [
               defaultSuperAdmin.name,
               defaultSuperAdmin.email,

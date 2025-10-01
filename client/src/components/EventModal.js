@@ -1,62 +1,118 @@
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { de } from 'date-fns/locale';
 
-const EventModal = ({ isOpen, onClose, event, onSave, onChange }) => {
+const EventModal = ({ isOpen, onClose, onSave, selectedDate, event = null, mode = 'create' }) => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    startTime: '09:00',
-    endTime: '17:00',
+    start_date: '',
+    end_date: '',
+    start_time: '08:00',
+    end_time: '17:00',
+    all_day: false,
     type: 'Arbeit',
-    isAllDay: false,
-    isRecurring: false,
-    recurrencePattern: 'weekly',
     priority: 'medium',
     location: '',
-    attendees: '',
-    reminder: '15',
+    attendees: [],
+    reminder: 15,
+    status: 'confirmed',
     category: 'work',
-    ...event
+    notes: ''
   });
 
   const [errors, setErrors] = useState({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (event) {
-      setFormData({ ...formData, ...event });
+    if (isOpen) {
+      if (mode === 'edit' && event) {
+        setFormData({
+          title: event.title || '',
+          description: event.description || '',
+          start_date: event.start_date || format(selectedDate || new Date(), 'yyyy-MM-dd'),
+          end_date: event.end_date || format(selectedDate || new Date(), 'yyyy-MM-dd'),
+          start_time: event.start_time || '08:00',
+          end_time: event.end_time || '17:00',
+          all_day: Boolean(event.all_day),
+          type: event.type || 'Arbeit',
+          priority: event.priority || 'medium',
+          location: event.location || '',
+          attendees: Array.isArray(event.attendees) ? event.attendees : [],
+          reminder: event.reminder ?? 15,
+          status: event.status || 'confirmed',
+          category: event.category || 'work',
+          notes: event.notes || ''
+        });
+      } else {
+        const dateStr = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
+        setFormData({
+          title: '',
+          description: '',
+          start_date: dateStr,
+          end_date: dateStr,
+          start_time: '08:00',
+          end_time: '17:00',
+          all_day: false,
+          type: 'Arbeit',
+          priority: 'medium',
+          location: '',
+          attendees: [],
+          reminder: 15,
+          status: 'confirmed',
+          category: 'work',
+          notes: ''
+        });
+      }
+      setErrors({});
     }
-  }, [event]);
+  }, [isOpen, selectedDate, event, mode]);
+
+  const handleInputChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const handleAttendeesChange = (e) => {
+    const value = e.target.value;
+    const attendees = value.split(',').map(email => email.trim()).filter(Boolean);
+    setFormData(prev => ({ ...prev, attendees }));
+  };
 
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.title?.trim()) {
+    if (!formData.title.trim()) {
       newErrors.title = 'Titel ist erforderlich';
     }
 
-    if (!formData.isAllDay && formData.startTime && formData.endTime) {
-      const startHour = parseInt(formData.startTime.split(':')[0]);
-      const endHour = parseInt(formData.endTime.split(':')[0]);
-      const startMinute = parseInt(formData.startTime.split(':')[1]);
-      const endMinute = parseInt(formData.endTime.split(':')[1]);
-
-      const startTotal = startHour * 60 + startMinute;
-      const endTotal = endHour * 60 + endMinute;
-
-      if (startTotal >= endTotal) {
-        newErrors.time = 'Endzeit muss nach der Startzeit liegen';
-      }
+    if (!formData.start_date) {
+      newErrors.start_date = 'Startdatum ist erforderlich';
     }
 
-    if (formData.attendees) {
-      const emails = formData.attendees.split(',').map(email => email.trim());
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!formData.end_date) {
+      newErrors.end_date = 'Enddatum ist erforderlich';
+    }
 
-      const invalidEmails = emails.filter(email => email && !emailRegex.test(email));
-      if (invalidEmails.length > 0) {
-        newErrors.attendees = `Ungültige E-Mail-Adressen: ${invalidEmails.join(', ')}`;
+    if (formData.start_date && formData.end_date && formData.start_date > formData.end_date) {
+      newErrors.end_date = 'Enddatum muss nach Startdatum liegen';
+    }
+
+    if (!formData.all_day) {
+      if (!formData.start_time) {
+        newErrors.start_time = 'Startzeit ist erforderlich';
+      }
+      if (!formData.end_time) {
+        newErrors.end_time = 'Endzeit ist erforderlich';
+      }
+      if (formData.start_date === formData.end_date && formData.start_time && formData.end_time && formData.start_time >= formData.end_time) {
+        newErrors.end_time = 'Endzeit muss nach Startzeit liegen';
       }
     }
 
@@ -64,73 +120,27 @@ const EventModal = ({ isOpen, onClose, event, onSave, onChange }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
-
-    if (!validateForm()) {
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      await onSave(formData);
-      onClose();
-    } catch (error) {
-      console.error('Error saving event:', error);
-      setErrors({ submit: 'Fehler beim Speichern des Termins' });
-    } finally {
-      setIsSubmitting(false);
+    if (validateForm()) {
+      const eventData = {
+        ...formData,
+        id: event?.id
+      };
+      onSave(eventData);
     }
   };
-
-  const handleChange = (field, value) => {
-    const newFormData = { ...formData, [field]: value };
-    setFormData(newFormData);
-    onChange(newFormData);
-
-    // Clear related errors when user starts typing
-    if (errors[field]) {
-      setErrors({ ...errors, [field]: null });
-    }
-  };
-
-  const typeOptions = [
-    { value: 'Arbeit', label: 'Arbeit', color: 'bg-green-100 text-green-800', icon: '💼' },
-    { value: 'Urlaub', label: 'Urlaub', color: 'bg-purple-100 text-purple-800', icon: '🏖️' },
-    { value: 'Krankheit', label: 'Krankheit', color: 'bg-red-100 text-red-800', icon: '🏥' },
-    { value: 'Meeting', label: 'Meeting', color: 'bg-blue-100 text-blue-800', icon: '👥' },
-    { value: 'Projekt', label: 'Projekt', color: 'bg-orange-100 text-orange-800', icon: '📊' },
-    { value: 'Training', label: 'Training', color: 'bg-yellow-100 text-yellow-800', icon: '📚' },
-    { value: 'Abwesend', label: 'Abwesend', color: 'bg-gray-100 text-gray-800', icon: '🚫' }
-  ];
-
-  const priorityOptions = [
-    { value: 'low', label: 'Niedrig', color: 'text-green-600' },
-    { value: 'medium', label: 'Mittel', color: 'text-yellow-600' },
-    { value: 'high', label: 'Hoch', color: 'text-red-600' }
-  ];
-
-  const reminderOptions = [
-    { value: '0', label: 'Keine Erinnerung' },
-    { value: '5', label: '5 Minuten vorher' },
-    { value: '15', label: '15 Minuten vorher' },
-    { value: '30', label: '30 Minuten vorher' },
-    { value: '60', label: '1 Stunde vorher' },
-    { value: '120', label: '2 Stunden vorher' },
-    { value: '1440', label: '1 Tag vorher' }
-  ];
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl w-full max-w-2xl mx-auto max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b border-gray-200 p-6 rounded-t-xl">
-          <div className="flex justify-between items-center">
-            <h3 className="text-xl font-bold text-gray-800">
-              {event?.id ? 'Termin bearbeiten' : 'Neuer Termin'}
-            </h3>
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-gray-900">
+              {mode === 'edit' ? 'Termin bearbeiten' : 'Neuen Termin erstellen'}
+            </h2>
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -140,121 +150,167 @@ const EventModal = ({ isOpen, onClose, event, onSave, onChange }) => {
               </svg>
             </button>
           </div>
-          {formData.date && (
-            <p className="text-sm text-gray-600 mt-1">
-              {format(new Date(formData.date), 'EEEE, dd. MMMM yyyy', { locale: de })}
-            </p>
-          )}
-        </div>
 
-        <form onSubmit={handleSubmit} className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
             {/* Title */}
-            <div className="md:col-span-2">
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Titel *
               </label>
               <input
                 type="text"
+                name="title"
                 value={formData.title}
-                onChange={(e) => handleChange('title', e.target.value)}
+                onChange={handleInputChange}
                 className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.title ? 'border-red-300' : 'border-gray-300'
+                  errors.title ? 'border-red-500' : 'border-gray-300'
                 }`}
-                placeholder="z.B. Labortermin, Meeting mit Team..."
+                placeholder="Termin Titel eingeben..."
               />
-              {errors.title && (
-                <p className="text-red-600 text-sm mt-1">{errors.title}</p>
-              )}
+              {errors.title && <p className="text-red-500 text-sm mt-1">{errors.title}</p>}
             </div>
 
-            {/* Type */}
+            {/* Description */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Typ
+                Beschreibung
               </label>
-              <select
-                value={formData.type}
-                onChange={(e) => handleChange('type', e.target.value)}
+              <textarea
+                name="description"
+                value={formData.description}
+                onChange={handleInputChange}
+                rows="3"
                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                {typeOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.icon} {option.label}
-                  </option>
-                ))}
-              </select>
+                placeholder="Zusätzliche Details..."
+              />
             </div>
 
-            {/* Priority */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Priorität
-              </label>
-              <select
-                value={formData.priority}
-                onChange={(e) => handleChange('priority', e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                {priorityOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* All Day Toggle */}
-            <div className="md:col-span-2">
-              <div className="flex items-center space-x-3">
-                <input
-                  type="checkbox"
-                  id="allDay"
-                  checked={formData.isAllDay}
-                  onChange={(e) => handleChange('isAllDay', e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                />
-                <label htmlFor="allDay" className="text-sm font-medium text-gray-700">
-                  Ganztägiger Termin
+            {/* Date and Time */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Startdatum *
                 </label>
+                <input
+                  type="date"
+                  name="start_date"
+                  value={formData.start_date}
+                  onChange={handleInputChange}
+                  className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    errors.start_date ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                />
+                {errors.start_date && <p className="text-red-500 text-sm mt-1">{errors.start_date}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Enddatum *
+                </label>
+                <input
+                  type="date"
+                  name="end_date"
+                  value={formData.end_date}
+                  onChange={handleInputChange}
+                  className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    errors.end_date ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                />
+                {errors.end_date && <p className="text-red-500 text-sm mt-1">{errors.end_date}</p>}
               </div>
             </div>
 
+            {/* All Day Toggle */}
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                name="all_day"
+                id="all_day"
+                checked={formData.all_day}
+                onChange={handleInputChange}
+                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+              />
+              <label htmlFor="all_day" className="ml-2 text-sm font-medium text-gray-700">
+                Ganztägig
+              </label>
+            </div>
+
             {/* Time Fields */}
-            {!formData.isAllDay && (
-              <>
+            {!formData.all_day && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Startzeit
+                    Startzeit *
                   </label>
                   <input
                     type="time"
-                    value={formData.startTime}
-                    onChange={(e) => handleChange('startTime', e.target.value)}
+                    name="start_time"
+                    value={formData.start_time}
+                    onChange={handleInputChange}
                     className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                      errors.time ? 'border-red-300' : 'border-gray-300'
+                      errors.start_time ? 'border-red-500' : 'border-gray-300'
                     }`}
                   />
+                  {errors.start_time && <p className="text-red-500 text-sm mt-1">{errors.start_time}</p>}
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Endzeit
+                    Endzeit *
                   </label>
                   <input
                     type="time"
-                    value={formData.endTime}
-                    onChange={(e) => handleChange('endTime', e.target.value)}
+                    name="end_time"
+                    value={formData.end_time}
+                    onChange={handleInputChange}
                     className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                      errors.time ? 'border-red-300' : 'border-gray-300'
+                      errors.end_time ? 'border-red-500' : 'border-gray-300'
                     }`}
                   />
-                  {errors.time && (
-                    <p className="text-red-600 text-sm mt-1">{errors.time}</p>
-                  )}
+                  {errors.end_time && <p className="text-red-500 text-sm mt-1">{errors.end_time}</p>}
                 </div>
-              </>
+              </div>
             )}
+
+            {/* Type and Priority */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Typ
+                </label>
+                <select
+                  name="type"
+                  value={formData.type}
+                  onChange={handleInputChange}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="Arbeit">Arbeit</option>
+                  <option value="Meeting">Meeting</option>
+                  <option value="Urlaub">Urlaub</option>
+                  <option value="Krankheit">Krankheit</option>
+                  <option value="Training">Training</option>
+                  <option value="Projekt">Projekt</option>
+                  <option value="Termin">Termin</option>
+                  <option value="Deadline">Deadline</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Priorität
+                </label>
+                <select
+                  name="priority"
+                  value={formData.priority}
+                  onChange={handleInputChange}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="low">Niedrig</option>
+                  <option value="medium">Normal</option>
+                  <option value="high">Hoch</option>
+                </select>
+              </div>
+            </div>
 
             {/* Location */}
             <div>
@@ -263,137 +319,81 @@ const EventModal = ({ isOpen, onClose, event, onSave, onChange }) => {
               </label>
               <input
                 type="text"
+                name="location"
                 value={formData.location}
-                onChange={(e) => handleChange('location', e.target.value)}
+                onChange={handleInputChange}
                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="z.B. Labor 1, Konferenzraum A..."
+                placeholder="Ort des Termins..."
+              />
+            </div>
+
+            {/* Attendees */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Teilnehmer (E-Mail Adressen, durch Komma getrennt)
+              </label>
+              <input
+                type="text"
+                value={formData.attendees.join(', ')}
+                onChange={handleAttendeesChange}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="beispiel@email.com, andere@email.com"
               />
             </div>
 
             {/* Reminder */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Erinnerung
+                Erinnerung (Minuten vorher)
               </label>
               <select
+                name="reminder"
                 value={formData.reminder}
-                onChange={(e) => handleChange('reminder', e.target.value)}
+                onChange={handleInputChange}
                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                {reminderOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
+                <option value={0}>Keine</option>
+                <option value={5}>5 Minuten</option>
+                <option value={15}>15 Minuten</option>
+                <option value={30}>30 Minuten</option>
+                <option value={60}>1 Stunde</option>
+                <option value={1440}>1 Tag</option>
               </select>
             </div>
 
-            {/* Attendees */}
-            <div className="md:col-span-2">
+            {/* Notes */}
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Teilnehmer (E-Mail-Adressen, durch Komma getrennt)
-              </label>
-              <input
-                type="text"
-                value={formData.attendees}
-                onChange={(e) => handleChange('attendees', e.target.value)}
-                className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.attendees ? 'border-red-300' : 'border-gray-300'
-                }`}
-                placeholder="max.mustermann@example.com, anna.schmidt@example.com"
-              />
-              {errors.attendees && (
-                <p className="text-red-600 text-sm mt-1">{errors.attendees}</p>
-              )}
-            </div>
-
-            {/* Description */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Beschreibung
+                Notizen
               </label>
               <textarea
-                value={formData.description}
-                onChange={(e) => handleChange('description', e.target.value)}
-                rows="4"
+                name="notes"
+                value={formData.notes}
+                onChange={handleInputChange}
+                rows="3"
                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Zusätzliche Details zum Termin..."
+                placeholder="Zusätzliche Notizen..."
               />
             </div>
 
-            {/* Recurring Section */}
-            <div className="md:col-span-2 border-t border-gray-200 pt-6">
-              <div className="flex items-center space-x-3 mb-4">
-                <input
-                  type="checkbox"
-                  id="recurring"
-                  checked={formData.isRecurring}
-                  onChange={(e) => handleChange('isRecurring', e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                />
-                <label htmlFor="recurring" className="text-sm font-medium text-gray-700">
-                  Wiederholender Termin
-                </label>
-              </div>
-
-              {formData.isRecurring && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Wiederholungsmuster
-                    </label>
-                    <select
-                      value={formData.recurrencePattern}
-                      onChange={(e) => handleChange('recurrencePattern', e.target.value)}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="daily">Täglich</option>
-                      <option value="weekly">Wöchentlich</option>
-                      <option value="biweekly">Alle 2 Wochen</option>
-                      <option value="monthly">Monatlich</option>
-                      <option value="yearly">Jährlich</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Endet am (optional)
-                    </label>
-                    <input
-                      type="date"
-                      value={formData.recurrenceEndDate || ''}
-                      onChange={(e) => handleChange('recurrenceEndDate', e.target.value)}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                </div>
-              )}
+            {/* Action Buttons */}
+            <div className="flex items-center justify-end space-x-4 pt-6 border-t">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-6 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="submit"
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                {mode === 'edit' ? 'Aktualisieren' : 'Erstellen'}
+              </button>
             </div>
-          </div>
-
-          {errors.submit && (
-            <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-              {errors.submit}
-            </div>
-          )}
-
-          <div className="flex space-x-3 mt-8 pt-6 border-t border-gray-200">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors font-medium"
-            >
-              Abbrechen
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? 'Speichern...' : 'Speichern'}
-            </button>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
     </div>
   );

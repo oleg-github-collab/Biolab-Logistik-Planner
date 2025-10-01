@@ -107,6 +107,10 @@ export const createBulkEvents = (events) =>
 export const duplicateEvent = (id, newDate) =>
   api.post(`/schedule/events/${id}/duplicate`, { newDate });
 
+// Absence endpoints
+export const createAbsenceEvent = (absenceData) =>
+  api.post('/schedule/absence', absenceData);
+
 // Task endpoints
 export const getTasks = (status) => 
   api.get(`/tasks${status ? `?status=${status}` : ''}`);
