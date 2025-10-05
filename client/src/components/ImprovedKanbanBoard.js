@@ -1,8 +1,186 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, memo } from 'react';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { format, differenceInDays, isOverdue, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useAuth } from '../context/AuthContext';
+
+// Toast notification component
+const Toast = memo(({ message, type, onClose }) => {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 3000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  const bgColor = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500';
+
+  return (
+    <div className={`fixed top-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-slide-in flex items-center gap-2`}>
+      <span>{message}</span>
+      <button onClick={onClose} className="text-white hover:text-gray-200">✕</button>
+    </div>
+  );
+});
+Toast.displayName = 'Toast';
+
+// Skeleton loader for cards
+const TaskSkeleton = memo(() => (
+  <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-3 p-4 animate-pulse">
+    <div className="h-4 bg-gray-200 rounded w-3/4 mb-3"></div>
+    <div className="h-3 bg-gray-200 rounded w-full mb-2"></div>
+    <div className="h-3 bg-gray-200 rounded w-5/6"></div>
+  </div>
+));
+TaskSkeleton.displayName = 'TaskSkeleton';
+
+// Memoized Task Card Component
+const TaskCard = memo(({ task, index, onTaskClick, onDuplicate, onDelete, getPriorityInfo, getCategoryInfo, getTaskTimeInfo }) => {
+  const priorityInfo = getPriorityInfo(task.priority);
+  const categoryInfo = getCategoryInfo(task.category);
+  const timeInfo = getTaskTimeInfo(task);
+
+  // Touch state for better mobile interaction
+  const [touchStart, setTouchStart] = useState(null);
+  const [touchEnd, setTouchEnd] = useState(null);
+
+  const handleTouchStart = (e) => {
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchMove = (e) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > 50;
+    const isRightSwipe = distance < -50;
+
+    if (isLeftSwipe) {
+      onDelete(task.id);
+    } else if (isRightSwipe) {
+      onDuplicate(task);
+    }
+
+    setTouchStart(null);
+    setTouchEnd(null);
+  };
+
+  return (
+    <Draggable key={task.id} draggableId={String(task.id)} index={index}>
+      {(provided, snapshot) => (
+        <div
+          ref={provided.innerRef}
+          {...provided.draggableProps}
+          {...provided.dragHandleProps}
+          className={`bg-white rounded-lg shadow-sm border border-gray-200 mb-3 p-4 cursor-pointer hover:shadow-md transition-all ${
+            snapshot.isDragging ? 'shadow-lg rotate-2 scale-105' : ''
+          } ${timeInfo?.urgent ? 'ring-2 ring-red-300' : ''}`}
+          onClick={() => onTaskClick(task)}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          {/* Task Header */}
+          <div className="flex justify-between items-start mb-3">
+            <h4 className="font-semibold text-gray-800 flex-1 pr-2">{task.title}</h4>
+            <div className="flex items-center space-x-1">
+              <span className={`text-xs px-2 py-1 rounded-full ${priorityInfo.color}`}>
+                {priorityInfo.icon}
+              </span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDuplicate(task);
+                }}
+                className="text-gray-400 hover:text-blue-600 text-xs p-2 min-w-[44px] min-h-[44px] md:p-1 md:min-w-0 md:min-h-0 flex items-center justify-center"
+                title="Duplizieren"
+              >
+                📋
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(task.id);
+                }}
+                className="text-gray-400 hover:text-red-600 text-xs p-2 min-w-[44px] min-h-[44px] md:p-1 md:min-w-0 md:min-h-0 flex items-center justify-center"
+                title="Löschen"
+              >
+                🗑️
+              </button>
+            </div>
+          </div>
+
+          {/* Description */}
+          {task.description && (
+            <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+              {task.description}
+            </p>
+          )}
+
+          {/* Task Meta Info */}
+          <div className="space-y-2 text-xs text-gray-500">
+            {task.assignee && (
+              <div className="flex items-center space-x-1">
+                <span>👤</span>
+                <span>{task.assignee}</span>
+              </div>
+            )}
+
+            {timeInfo && (
+              <div className={`flex items-center space-x-1 ${timeInfo.color}`}>
+                <span>📅</span>
+                <span className="font-semibold">{timeInfo.text}</span>
+              </div>
+            )}
+
+            {task.estimatedHours && (
+              <div className="flex items-center space-x-1">
+                <span>⏱️</span>
+                <span>{task.estimatedHours}h geschätzt</span>
+              </div>
+            )}
+
+            <div className="flex items-center space-x-1">
+              <span>{categoryInfo.icon}</span>
+              <span>{categoryInfo.label}</span>
+            </div>
+          </div>
+
+          {/* Tags */}
+          {task.tags && task.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-3">
+              {task.tags.slice(0, 3).map((tag, tagIndex) => (
+                <span key={tagIndex} className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                  {tag}
+                </span>
+              ))}
+              {task.tags.length > 3 && (
+                <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+                  +{task.tags.length - 3}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Completion Info */}
+          {task.status === 'done' && task.completedBy && (
+            <div className="mt-3 pt-2 border-t border-gray-200 text-xs text-green-600">
+              ✅ Abgeschlossen von {task.completedBy}
+              {task.completedAt && (
+                <div className="text-gray-500">
+                  {format(new Date(task.completedAt), 'dd.MM.yyyy HH:mm', { locale: de })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </Draggable>
+  );
+});
+TaskCard.displayName = 'TaskCard';
 
 const ImprovedKanbanBoard = () => {
   const { user } = useAuth();
@@ -49,6 +227,7 @@ const ImprovedKanbanBoard = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPriority, setFilterPriority] = useState('all');
   const [filterAssignee, setFilterAssignee] = useState('all');
+  const [toast, setToast] = useState(null);
 
   const [newTask, setNewTask] = useState({
     title: '',
@@ -78,9 +257,16 @@ const ImprovedKanbanBoard = () => {
     { value: 'maintenance', label: 'Wartung', icon: '🔧' }
   ];
 
+  // Show toast notification
+  const showToast = useCallback((message, type = 'success') => {
+    setToast({ message, type });
+  }, []);
+
   // Load tasks from localStorage on component mount
   useEffect(() => {
+    setLoading(true);
     loadTasksFromStorage();
+    setTimeout(() => setLoading(false), 500);
   }, []);
 
   // Save tasks to localStorage whenever tasks change
@@ -207,7 +393,7 @@ const ImprovedKanbanBoard = () => {
     }));
   }, [tasks]);
 
-  const onDragEnd = (result) => {
+  const onDragEnd = useCallback((result) => {
     const { destination, source, draggableId } = result;
 
     if (!destination) return;
@@ -227,9 +413,16 @@ const ImprovedKanbanBoard = () => {
         completedBy: user.name
       } : {})
     });
-  };
 
-  const createTask = () => {
+    // Haptic feedback for mobile
+    if (navigator.vibrate) {
+      navigator.vibrate(10);
+    }
+
+    showToast(`Aufgabe erfolgreich verschoben`, 'success');
+  }, [user.name, showToast]);
+
+  const createTask = useCallback(() => {
     if (!newTask.title.trim()) {
       setError('Titel ist erforderlich');
       return;
@@ -247,23 +440,30 @@ const ImprovedKanbanBoard = () => {
 
     setTasks(prev => [...prev, task]);
     closeModal();
-  };
+    showToast('Aufgabe erfolgreich erstellt', 'success');
+  }, [newTask, user.name, showToast]);
 
-  const updateTask = (taskId, updates) => {
+  const updateTask = useCallback((taskId, updates) => {
     setTasks(prev => prev.map(task =>
       task.id === taskId
         ? { ...task, ...updates, updatedAt: new Date().toISOString() }
         : task
     ));
-  };
+  }, []);
 
-  const deleteTask = (taskId) => {
+  const deleteTask = useCallback((taskId) => {
     if (window.confirm('Sind Sie sicher, dass Sie diese Aufgabe löschen möchten?')) {
       setTasks(prev => prev.filter(task => task.id !== taskId));
-    }
-  };
+      showToast('Aufgabe erfolgreich gelöscht', 'success');
 
-  const duplicateTask = (task) => {
+      // Haptic feedback
+      if (navigator.vibrate) {
+        navigator.vibrate(20);
+      }
+    }
+  }, [showToast]);
+
+  const duplicateTask = useCallback((task) => {
     const duplicatedTask = {
       ...task,
       id: Date.now() + Math.random(),
@@ -276,7 +476,13 @@ const ImprovedKanbanBoard = () => {
       completedBy: null
     };
     setTasks(prev => [...prev, duplicatedTask]);
-  };
+    showToast('Aufgabe dupliziert', 'success');
+
+    // Haptic feedback
+    if (navigator.vibrate) {
+      navigator.vibrate(10);
+    }
+  }, [user.name, showToast]);
 
   const handleTaskSubmit = (e) => {
     e.preventDefault();
@@ -333,13 +539,13 @@ const ImprovedKanbanBoard = () => {
     }
   };
 
-  const getPriorityInfo = (priority) => {
+  const getPriorityInfo = useCallback((priority) => {
     return priorities.find(p => p.value === priority) || priorities[1];
-  };
+  }, []);
 
-  const getCategoryInfo = (category) => {
+  const getCategoryInfo = useCallback((category) => {
     return categories.find(c => c.value === category) || categories[0];
-  };
+  }, []);
 
   const filteredTasks = tasks.filter(task => {
     const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -382,35 +588,44 @@ const ImprovedKanbanBoard = () => {
   };
 
   return (
-    <div className="h-full bg-gradient-to-br from-slate-50 to-blue-50 p-6 rounded-xl">
+    <div className="h-full bg-gradient-to-br from-slate-50 to-blue-50 p-3 md:p-6 rounded-xl">
+      {/* Toast Notifications */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+
       {/* Header */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 space-y-4 lg:space-y-0">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-4 md:mb-6 space-y-3 lg:space-y-0">
         <div>
-          <h2 className="text-3xl font-bold text-gray-800 mb-2">🚀 Kanban Board</h2>
-          <p className="text-gray-600">Verwalte deine Aufgaben effizient und behalte den Überblick</p>
+          <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-1 md:mb-2">🚀 Kanban Board</h2>
+          <p className="text-sm md:text-base text-gray-600">Verwalte deine Aufgaben effizient und behalte den Überblick</p>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 w-full lg:w-auto">
           <button
             onClick={exportTasks}
-            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2"
+            className="bg-gray-600 hover:bg-gray-700 active:bg-gray-800 text-white px-4 py-3 min-h-[44px] rounded-lg font-medium transition-colors flex items-center justify-center space-x-2 flex-1 lg:flex-initial"
           >
             <span>📊</span>
-            <span>Export</span>
+            <span className="hidden sm:inline">Export</span>
           </button>
           <button
             onClick={clearAllTasks}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2"
+            className="bg-red-600 hover:bg-red-700 active:bg-red-800 text-white px-4 py-3 min-h-[44px] rounded-lg font-medium transition-colors flex items-center justify-center space-x-2 flex-1 lg:flex-initial"
           >
             <span>🗑️</span>
-            <span>Alle löschen</span>
+            <span className="hidden sm:inline">Alle löschen</span>
           </button>
           <button
             onClick={() => {
               setSelectedTask(null);
               setShowTaskModal(true);
             }}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2"
+            className="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white px-4 py-3 min-h-[44px] rounded-lg font-medium transition-colors flex items-center justify-center space-x-2 flex-1 lg:flex-initial"
           >
             <span>+</span>
             <span>Neue Aufgabe</span>
@@ -419,23 +634,23 @@ const ImprovedKanbanBoard = () => {
       </div>
 
       {/* Filters */}
-      <div className="mb-6 bg-white rounded-lg p-4 shadow-sm">
-        <div className="flex flex-col lg:flex-row gap-4">
+      <div className="mb-4 md:mb-6 bg-white rounded-lg p-3 md:p-4 shadow-sm">
+        <div className="flex flex-col lg:flex-row gap-3 md:gap-4">
           <div className="flex-1">
             <input
               type="text"
               placeholder="Aufgaben durchsuchen..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full p-3 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
             />
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-col sm:flex-row">
             <select
               value={filterPriority}
               onChange={(e) => setFilterPriority(e.target.value)}
-              className="p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="flex-1 sm:flex-initial p-3 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
             >
               <option value="all">Alle Prioritäten</option>
               {priorities.map(priority => (
@@ -448,7 +663,7 @@ const ImprovedKanbanBoard = () => {
             <select
               value={filterAssignee}
               onChange={(e) => setFilterAssignee(e.target.value)}
-              className="p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="flex-1 sm:flex-initial p-3 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
             >
               <option value="all">Alle Personen</option>
               {uniqueAssignees.map(assignee => (
@@ -471,179 +686,95 @@ const ImprovedKanbanBoard = () => {
 
       {/* Kanban Board */}
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="flex space-x-4 overflow-x-auto pb-4">
-          {Object.values(filteredColumns).map(column => (
-            <Droppable key={column.id} droppableId={column.id}>
-              {(provided, snapshot) => (
-                <div
-                  {...provided.droppableProps}
-                  ref={provided.innerRef}
-                  className={`${column.bgColor} rounded-lg shadow-sm min-w-80 max-w-80 border-2 ${
-                    snapshot.isDraggingOver ? column.borderColor : 'border-transparent'
-                  } transition-colors`}
-                >
-                  <div className="p-4 border-b border-gray-200">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-bold text-gray-800 text-lg">{column.title}</h3>
-                      <div className="flex items-center space-x-2">
-                        <span className="bg-white px-2 py-1 rounded-full text-sm font-semibold" style={{color: column.color}}>
-                          {column.tasks.length}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-3 min-h-96 max-h-[600px] overflow-y-auto">
-                    {column.tasks.map((task, index) => {
-                      const priorityInfo = getPriorityInfo(task.priority);
-                      const categoryInfo = getCategoryInfo(task.category);
-                      const timeInfo = getTaskTimeInfo(task);
-
-                      return (
-                        <Draggable key={task.id} draggableId={String(task.id)} index={index}>
-                          {(provided, snapshot) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              {...provided.dragHandleProps}
-                              className={`bg-white rounded-lg shadow-sm border border-gray-200 mb-3 p-4 cursor-pointer hover:shadow-md transition-all ${
-                                snapshot.isDragging ? 'shadow-lg rotate-2' : ''
-                              } ${timeInfo?.urgent ? 'ring-2 ring-red-300' : ''}`}
-                              onClick={() => handleTaskClick(task)}
-                            >
-                              {/* Task Header */}
-                              <div className="flex justify-between items-start mb-3">
-                                <h4 className="font-semibold text-gray-800 flex-1 pr-2">{task.title}</h4>
-                                <div className="flex items-center space-x-1">
-                                  <span className={`text-xs px-2 py-1 rounded-full ${priorityInfo.color}`}>
-                                    {priorityInfo.icon}
-                                  </span>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      duplicateTask(task);
-                                    }}
-                                    className="text-gray-400 hover:text-blue-600 text-xs p-1"
-                                    title="Duplizieren"
-                                  >
-                                    📋
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      deleteTask(task.id);
-                                    }}
-                                    className="text-gray-400 hover:text-red-600 text-xs p-1"
-                                    title="Löschen"
-                                  >
-                                    🗑️
-                                  </button>
-                                </div>
-                              </div>
-
-                              {/* Description */}
-                              {task.description && (
-                                <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                                  {task.description}
-                                </p>
-                              )}
-
-                              {/* Task Meta Info */}
-                              <div className="space-y-2 text-xs text-gray-500">
-                                {task.assignee && (
-                                  <div className="flex items-center space-x-1">
-                                    <span>👤</span>
-                                    <span>{task.assignee}</span>
-                                  </div>
-                                )}
-
-                                {timeInfo && (
-                                  <div className={`flex items-center space-x-1 ${timeInfo.color}`}>
-                                    <span>📅</span>
-                                    <span className="font-semibold">{timeInfo.text}</span>
-                                  </div>
-                                )}
-
-                                {task.estimatedHours && (
-                                  <div className="flex items-center space-x-1">
-                                    <span>⏱️</span>
-                                    <span>{task.estimatedHours}h geschätzt</span>
-                                  </div>
-                                )}
-
-                                <div className="flex items-center space-x-1">
-                                  <span>{categoryInfo.icon}</span>
-                                  <span>{categoryInfo.label}</span>
-                                </div>
-                              </div>
-
-                              {/* Tags */}
-                              {task.tags && task.tags.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mt-3">
-                                  {task.tags.slice(0, 3).map((tag, tagIndex) => (
-                                    <span key={tagIndex} className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                                      {tag}
-                                    </span>
-                                  ))}
-                                  {task.tags.length > 3 && (
-                                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
-                                      +{task.tags.length - 3}
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-
-                              {/* Completion Info */}
-                              {task.status === 'done' && task.completedBy && (
-                                <div className="mt-3 pt-2 border-t border-gray-200 text-xs text-green-600">
-                                  ✅ Abgeschlossen von {task.completedBy}
-                                  {task.completedAt && (
-                                    <div className="text-gray-500">
-                                      {format(new Date(task.completedAt), 'dd.MM.yyyy HH:mm', { locale: de })}
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </Draggable>
-                      );
-                    })}
-                    {provided.placeholder}
-
-                    {/* Empty State */}
-                    {column.tasks.length === 0 && (
-                      <div className="text-center py-8 text-gray-400">
-                        <div className="text-4xl mb-2">📝</div>
-                        <p>Keine Aufgaben in dieser Spalte</p>
-                      </div>
-                    )}
+        {/* Mobile: Vertical layout, Tablet: 2 columns, Desktop: Horizontal layout */}
+        <div className="flex flex-col md:grid md:grid-cols-2 lg:flex lg:flex-row gap-3 md:gap-4 lg:space-x-4 pb-4 lg:overflow-x-auto">
+          {loading ? (
+            // Skeleton loader
+            Object.values(filteredColumns).map(column => (
+              <div key={column.id} className={`${column.bgColor} rounded-lg shadow-sm w-full lg:min-w-80 lg:max-w-80 border-2 border-transparent`}>
+                <div className="p-3 md:p-4 border-b border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-bold text-gray-800 text-base md:text-lg">{column.title}</h3>
                   </div>
                 </div>
-              )}
-            </Droppable>
-          ))}
+                <div className="p-3 min-h-64 md:min-h-96">
+                  <TaskSkeleton />
+                  <TaskSkeleton />
+                </div>
+              </div>
+            ))
+          ) : (
+            Object.values(filteredColumns).map(column => (
+              <Droppable key={column.id} droppableId={column.id}>
+                {(provided, snapshot) => (
+                  <div
+                    {...provided.droppableProps}
+                    ref={provided.innerRef}
+                    className={`${column.bgColor} rounded-lg shadow-sm w-full lg:min-w-80 lg:max-w-80 border-2 ${
+                      snapshot.isDraggingOver ? column.borderColor : 'border-transparent'
+                    } transition-colors`}
+                  >
+                    <div className="p-3 md:p-4 border-b border-gray-200 sticky top-0 bg-white/80 backdrop-blur-sm z-10">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-bold text-gray-800 text-base md:text-lg">{column.title}</h3>
+                        <div className="flex items-center space-x-2">
+                          <span className="bg-white px-2 py-1 rounded-full text-sm font-semibold" style={{color: column.color}}>
+                            {column.tasks.length}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-2 md:p-3 min-h-64 md:min-h-96 max-h-[500px] md:max-h-[600px] overflow-y-auto">
+                      {column.tasks.map((task, index) => (
+                        <TaskCard
+                          key={task.id}
+                          task={task}
+                          index={index}
+                          onTaskClick={handleTaskClick}
+                          onDuplicate={duplicateTask}
+                          onDelete={deleteTask}
+                          getPriorityInfo={getPriorityInfo}
+                          getCategoryInfo={getCategoryInfo}
+                          getTaskTimeInfo={getTaskTimeInfo}
+                        />
+                      ))}
+                      {provided.placeholder}
+
+                      {/* Empty State */}
+                      {column.tasks.length === 0 && (
+                        <div className="text-center py-8 text-gray-400">
+                          <div className="text-4xl mb-2">📝</div>
+                          <p className="text-sm">Keine Aufgaben in dieser Spalte</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </Droppable>
+            ))
+          )}
         </div>
       </DragDropContext>
 
       {/* Task Modal */}
       {showTaskModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-2xl mx-auto max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-gray-800">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 md:p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-xl p-4 md:p-6 w-full max-w-2xl mx-auto my-auto max-h-[95vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4 md:mb-6">
+              <h3 className="text-lg md:text-xl font-bold text-gray-800">
                 {selectedTask ? '✏️ Aufgabe bearbeiten' : '➕ Neue Aufgabe'}
               </h3>
               <button
                 onClick={closeModal}
-                className="text-gray-400 hover:text-gray-600 text-2xl"
+                className="text-gray-400 hover:text-gray-600 text-2xl min-w-[44px] min-h-[44px] flex items-center justify-center"
               >
                 ✕
               </button>
             </div>
 
             <form onSubmit={handleTaskSubmit}>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
                 <div className="lg:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Titel *
@@ -653,7 +784,7 @@ const ImprovedKanbanBoard = () => {
                     value={newTask.title}
                     onChange={(e) => setNewTask({...newTask, title: e.target.value})}
                     required
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full p-3 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
                     placeholder="Aufgaben Titel"
                   />
                 </div>
@@ -666,7 +797,7 @@ const ImprovedKanbanBoard = () => {
                     value={newTask.description}
                     onChange={(e) => setNewTask({...newTask, description: e.target.value})}
                     rows="3"
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full p-3 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base resize-y"
                     placeholder="Detailierte Beschreibung der Aufgabe"
                   />
                 </div>
@@ -679,7 +810,7 @@ const ImprovedKanbanBoard = () => {
                     type="text"
                     value={newTask.assignee}
                     onChange={(e) => setNewTask({...newTask, assignee: e.target.value})}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full p-3 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
                     placeholder="Name der verantwortlichen Person"
                   />
                 </div>
@@ -692,7 +823,7 @@ const ImprovedKanbanBoard = () => {
                     type="date"
                     value={newTask.dueDate}
                     onChange={(e) => setNewTask({...newTask, dueDate: e.target.value})}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full p-3 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
                   />
                 </div>
 
@@ -703,7 +834,7 @@ const ImprovedKanbanBoard = () => {
                   <select
                     value={newTask.priority}
                     onChange={(e) => setNewTask({...newTask, priority: e.target.value})}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full p-3 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
                   >
                     {priorities.map(priority => (
                       <option key={priority.value} value={priority.value}>
@@ -720,7 +851,7 @@ const ImprovedKanbanBoard = () => {
                   <select
                     value={newTask.category}
                     onChange={(e) => setNewTask({...newTask, category: e.target.value})}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full p-3 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
                   >
                     {categories.map(category => (
                       <option key={category.value} value={category.value}>
@@ -740,7 +871,7 @@ const ImprovedKanbanBoard = () => {
                     step="0.5"
                     value={newTask.estimatedHours}
                     onChange={(e) => setNewTask({...newTask, estimatedHours: e.target.value})}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full p-3 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
                     placeholder="z.B. 2.5"
                   />
                 </div>
@@ -753,7 +884,7 @@ const ImprovedKanbanBoard = () => {
                     <select
                       value={newTask.status}
                       onChange={(e) => setNewTask({...newTask, status: e.target.value})}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full p-3 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
                     >
                       <option value="todo">📋 Zu erledigen</option>
                       <option value="inprogress">⚡ In Arbeit</option>
@@ -774,23 +905,23 @@ const ImprovedKanbanBoard = () => {
                       ...newTask,
                       tags: e.target.value.split(',').map(tag => tag.trim()).filter(tag => tag)
                     })}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full p-3 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
                     placeholder="projekt, wichtig, dringend, meeting"
                   />
                 </div>
               </div>
 
-              <div className="flex space-x-3 mt-8">
+              <div className="flex flex-col sm:flex-row gap-3 mt-6 md:mt-8">
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="flex-1 px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-6 py-3 min-h-[44px] border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors font-medium"
                 >
                   Abbrechen
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="flex-1 px-6 py-3 min-h-[44px] bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors font-medium"
                 >
                   {selectedTask ? 'Aktualisieren' : 'Erstellen'}
                 </button>

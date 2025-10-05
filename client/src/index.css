@@ -2196,6 +2196,50 @@ body {
   padding-right: 1rem;
 }
 
+/* Kanban Board Mobile Optimizations */
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out forwards;
+}
+
+/* Touch feedback for mobile */
+@media (hover: none) and (pointer: coarse) {
+  .kanban-card:active {
+    transform: scale(0.98);
+    transition: transform 0.1s ease;
+  }
+
+  button:active,
+  .btn:active {
+    transform: scale(0.95);
+    transition: transform 0.1s ease;
+  }
+}
+
+/* Improved scrolling for mobile */
+.smooth-scroll {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* Prevent text selection during drag */
+.dragging {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
 /* Enhanced accessibility and print styles */
 @media (prefers-reduced-motion: reduce) {
   *,

@@ -74,25 +74,41 @@ const handleJWTError = (error) => {
 const errorHandler = (err, req, res, next) => {
   let error = err;
 
-  logger.error('Error occurred', {
-    error: {
-      message: err.message,
-      stack: err.stack,
-      statusCode: err.statusCode,
-      isOperational: err.isOperational
-    },
+  // Use the enhanced logger for error tracking
+  logger.error('Error occurred', err, {
     request: {
       method: req.method,
       url: req.originalUrl,
       ip: req.ip,
       userAgent: req.get('User-Agent'),
-      userId: req.user?.id
-    }
+      userId: req.user?.id,
+      body: process.env.NODE_ENV === 'development' ? req.body : undefined,
+      params: process.env.NODE_ENV === 'development' ? req.params : undefined,
+    },
+    statusCode: err.statusCode,
+    isOperational: err.isOperational,
   });
+
+  // Security logging for authentication/authorization errors
+  if (err.statusCode === 401 || err.statusCode === 403) {
+    logger.security('Access violation attempt', {
+      ip: req.ip,
+      userAgent: req.get('User-Agent'),
+      url: req.originalUrl,
+      method: req.method,
+      userId: req.user?.id,
+      errorMessage: err.message,
+    });
+  }
 
   // Handle specific error types
   if (err.code?.startsWith('SQLITE_')) {
     error = handleDatabaseError(err);
+    logger.database('Database error', {
+      code: err.code,
+      message: err.message,
+      url: req.originalUrl,
+    });
   } else if (err.name === 'ValidationError' || err.isJoi) {
     error = handleValidationError(err);
   } else if (err.name?.includes('JWT') || err.name?.includes('Token')) {
@@ -111,7 +127,13 @@ const errorHandler = (err, req, res, next) => {
       ...(error.errors && { errors: error.errors }),
       ...(isDevelopment && {
         stack: error.stack,
-        originalError: err.message
+        originalError: err.message,
+        requestInfo: {
+          method: req.method,
+          url: req.originalUrl,
+          params: req.params,
+          query: req.query,
+        }
       })
     }
   };

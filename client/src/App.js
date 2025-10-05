@@ -1,6 +1,8 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import ErrorBoundary from './components/ErrorBoundary';
 import Header from './components/Header';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -51,62 +53,102 @@ const AppContent = () => {
   }
 
   return (
-    <Router>
-      <div className="min-h-screen flex flex-col">
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/first-setup" element={<FirstSetup />} />
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <>
-                  <Header />
-                  <Dashboard />
-                </>
-              </ProtectedRoute>
-            }
+    <ErrorBoundary>
+      <Router>
+        <div className="min-h-screen flex flex-col">
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              duration: 4000,
+              style: {
+                background: '#363636',
+                color: '#fff',
+                borderRadius: '10px',
+                padding: '16px',
+                fontSize: '14px',
+                fontWeight: '500',
+              },
+              success: {
+                iconTheme: {
+                  primary: '#10B981',
+                  secondary: '#fff',
+                },
+                style: {
+                  background: '#10B981',
+                },
+              },
+              error: {
+                iconTheme: {
+                  primary: '#EF4444',
+                  secondary: '#fff',
+                },
+                style: {
+                  background: '#EF4444',
+                },
+              },
+              loading: {
+                iconTheme: {
+                  primary: '#3B82F6',
+                  secondary: '#fff',
+                },
+              },
+            }}
           />
-          <Route
-            path="/messages"
-            element={
-              <ProtectedRoute>
-                <>
-                  <Header />
-                  <Messages />
-                </>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/waste"
-            element={
-              <ProtectedRoute>
-                <>
-                  <Header />
-                  <Waste />
-                </>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/users"
-            element={
-              <AdminRoute>
-                <>
-                  <Header />
-                  <UserManagement />
-                </>
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/"
-            element={<Navigate to="/dashboard" replace />}
-          />
-        </Routes>
-      </div>
-    </Router>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/first-setup" element={<FirstSetup />} />
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <>
+                    <Header />
+                    <Dashboard />
+                  </>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/messages"
+              element={
+                <ProtectedRoute>
+                  <>
+                    <Header />
+                    <Messages />
+                  </>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/waste"
+              element={
+                <ProtectedRoute>
+                  <>
+                    <Header />
+                    <Waste />
+                  </>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/users"
+              element={
+                <AdminRoute>
+                  <>
+                    <Header />
+                    <UserManagement />
+                  </>
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/"
+              element={<Navigate to="/dashboard" replace />}
+            />
+          </Routes>
+        </div>
+      </Router>
+    </ErrorBoundary>
   );
 };
 
