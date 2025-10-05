@@ -52,6 +52,7 @@ app.use('/api/schedule', require('./routes/schedule'));
 app.use('/api/messages', require('./routes/messages'));
 app.use('/api/waste', require('./routes/waste'));
 app.use('/api/waste', require('./routes/wasteTemplates'));
+app.use('/api/waste', require('./routes/wasteSchedule'));
 app.use('/api/tasks', require('./routes/tasks'));
 app.use('/api/admin', require('./routes/admin'));
 
@@ -151,18 +152,166 @@ schedule.scheduleJob('0 1 * * 1', function() {
 schedule.scheduleJob('0 8 * * 1', function() {
   // In a real app, you would integrate with an email service
   console.log('Sending weekly reminder emails...');
-  
+
   db.all("SELECT name, email FROM users", (err, users) => {
     if (err) {
       console.error('Error getting users for reminders:', err.message);
       return;
     }
-    
+
     users.forEach(user => {
       console.log(`Reminder sent to ${user.name} at ${user.email}`);
       // In production, integrate with Nodemailer or similar
     });
   });
+});
+
+// Check for waste disposal reminders every hour
+schedule.scheduleJob('0 * * * *', function() {
+  const { sendNotificationToUser } = require('./websocket');
+  const now = new Date();
+  const nextHour = new Date(now.getTime() + 60 * 60 * 1000);
+
+  console.log('Checking for waste disposal reminders...');
+
+  db.all(
+    `SELECT
+      wds.*,
+      wi.name as waste_name,
+      wt.hazard_level,
+      wt.category,
+      wt.color,
+      u.name as assigned_to_name,
+      u.email as assigned_to_email
+    FROM waste_disposal_schedule wds
+    LEFT JOIN waste_items wi ON wds.waste_item_id = wi.id
+    LEFT JOIN waste_templates wt ON wi.template_id = wt.id
+    LEFT JOIN users u ON wds.assigned_to = u.id
+    WHERE wds.status IN ('scheduled', 'rescheduled')
+      AND wds.reminder_sent = 0
+      AND wds.reminder_dates IS NOT NULL`,
+    (err, schedules) => {
+      if (err) {
+        console.error('Error fetching schedules for reminders:', err.message);
+        return;
+      }
+
+      schedules.forEach(schedule => {
+        try {
+          const reminderDates = JSON.parse(schedule.reminder_dates || '[]');
+          const scheduledDate = new Date(schedule.scheduled_date);
+
+          // Check if any reminder date is within the next hour
+          const shouldSendReminder = reminderDates.some(reminderDate => {
+            const reminder = new Date(reminderDate);
+            return reminder >= now && reminder <= nextHour;
+          });
+
+          if (shouldSendReminder) {
+            const daysUntil = Math.ceil((scheduledDate - now) / (1000 * 60 * 60 * 24));
+
+            // Send notification to assigned user
+            if (schedule.assigned_to) {
+              sendNotificationToUser(schedule.assigned_to, {
+                title: 'Waste Disposal Reminder',
+                body: `${schedule.waste_name} disposal scheduled ${daysUntil === 0 ? 'today' : `in ${daysUntil} day(s)`}`,
+                icon: '/favicon.ico',
+                tag: `waste_reminder_${schedule.id}`,
+                data: {
+                  url: '/waste-disposal-planner',
+                  scheduleId: schedule.id
+                },
+                requireInteraction: schedule.hazard_level === 'critical',
+                priority: schedule.hazard_level === 'critical' ? 'high' : 'normal'
+              });
+
+              console.log(`Reminder sent to ${schedule.assigned_to_name} for ${schedule.waste_name}`);
+            }
+
+            // Mark reminder as sent if it's the last one or if it's the day of disposal
+            if (daysUntil <= 0) {
+              db.run(
+                'UPDATE waste_disposal_schedule SET reminder_sent = 1 WHERE id = ?',
+                [schedule.id],
+                (err) => {
+                  if (err) {
+                    console.error('Error updating reminder status:', err.message);
+                  }
+                }
+              );
+            }
+          }
+        } catch (error) {
+          console.error('Error processing reminder for schedule:', schedule.id, error);
+        }
+      });
+    }
+  );
+});
+
+// Check for overdue waste disposals every day at 9 AM
+schedule.scheduleJob('0 9 * * *', function() {
+  const { sendNotificationToUser } = require('./websocket');
+  const now = new Date();
+
+  console.log('Checking for overdue waste disposals...');
+
+  db.all(
+    `SELECT
+      wds.*,
+      wi.name as waste_name,
+      wt.hazard_level,
+      u.name as assigned_to_name
+    FROM waste_disposal_schedule wds
+    LEFT JOIN waste_items wi ON wds.waste_item_id = wi.id
+    LEFT JOIN waste_templates wt ON wi.template_id = wt.id
+    LEFT JOIN users u ON wds.assigned_to = u.id
+    WHERE wds.scheduled_date < ?
+      AND wds.status IN ('scheduled', 'rescheduled')`,
+    [now.toISOString()],
+    (err, overdueSchedules) => {
+      if (err) {
+        console.error('Error fetching overdue schedules:', err.message);
+        return;
+      }
+
+      // Update status to overdue
+      overdueSchedules.forEach(schedule => {
+        db.run(
+          'UPDATE waste_disposal_schedule SET status = ? WHERE id = ?',
+          ['overdue', schedule.id],
+          (err) => {
+            if (err) {
+              console.error('Error updating overdue status:', err.message);
+              return;
+            }
+
+            // Send urgent notification to assigned user
+            if (schedule.assigned_to) {
+              sendNotificationToUser(schedule.assigned_to, {
+                title: 'OVERDUE: Waste Disposal',
+                body: `${schedule.waste_name} disposal is overdue! Please complete immediately.`,
+                icon: '/favicon.ico',
+                tag: `waste_overdue_${schedule.id}`,
+                requireInteraction: true,
+                priority: 'urgent',
+                data: {
+                  url: '/waste-disposal-planner',
+                  scheduleId: schedule.id
+                }
+              });
+
+              console.log(`Overdue notification sent to ${schedule.assigned_to_name} for ${schedule.waste_name}`);
+            }
+          }
+        );
+      });
+
+      if (overdueSchedules.length > 0) {
+        console.log(`Found ${overdueSchedules.length} overdue waste disposals`);
+      }
+    }
+  );
 });
 
 // Helper functions

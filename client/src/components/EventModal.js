@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { format } from 'date-fns';
 
-const EventModal = ({ isOpen, onClose, onSave, selectedDate, event = null, mode = 'create' }) => {
+// ✅ OPTIMIZED: Main EventModal component wrapped with memo to prevent unnecessary re-renders
+const EventModal = memo(({ isOpen, onClose, onSave, selectedDate, event = null, mode = 'create' }) => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -66,7 +67,8 @@ const EventModal = ({ isOpen, onClose, onSave, selectedDate, event = null, mode 
     }
   }, [isOpen, selectedDate, event, mode]);
 
-  const handleInputChange = (e) => {
+  // ✅ OPTIMIZED: useCallback to memoize input handlers
+  const handleInputChange = useCallback((e) => {
     const { name, value, type, checked } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -74,18 +76,24 @@ const EventModal = ({ isOpen, onClose, onSave, selectedDate, event = null, mode 
     }));
 
     // Clear error when user starts typing
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
-  };
+    setErrors(prev => {
+      if (prev[name]) {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      }
+      return prev;
+    });
+  }, []);
 
-  const handleAttendeesChange = (e) => {
+  const handleAttendeesChange = useCallback((e) => {
     const value = e.target.value;
     const attendees = value.split(',').map(email => email.trim()).filter(Boolean);
     setFormData(prev => ({ ...prev, attendees }));
-  };
+  }, []);
 
-  const validateForm = () => {
+  // ✅ OPTIMIZED: useCallback for validation and submit
+  const validateForm = useCallback(() => {
     const newErrors = {};
 
     if (!formData.title.trim()) {
@@ -118,9 +126,9 @@ const EventModal = ({ isOpen, onClose, onSave, selectedDate, event = null, mode 
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
+  }, [formData]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = useCallback((e) => {
     e.preventDefault();
     if (validateForm()) {
       const eventData = {
@@ -129,7 +137,7 @@ const EventModal = ({ isOpen, onClose, onSave, selectedDate, event = null, mode 
       };
       onSave(eventData);
     }
-  };
+  }, [formData, event?.id, onSave, validateForm]);
 
   if (!isOpen) return null;
 
@@ -397,6 +405,8 @@ const EventModal = ({ isOpen, onClose, onSave, selectedDate, event = null, mode 
       </div>
     </div>
   );
-};
+});
+
+EventModal.displayName = 'EventModal';
 
 export default EventModal;

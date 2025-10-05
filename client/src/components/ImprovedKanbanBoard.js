@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback, memo } from 'react';
+import React, { useState, useEffect, useCallback, memo, useRef } from 'react';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { format, differenceInDays, isOverdue, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useAuth } from '../context/AuthContext';
+import useWebSocket from '../hooks/useWebSocket';
 
 // Toast notification component
 const Toast = memo(({ message, type, onClose }) => {
@@ -33,7 +34,7 @@ const TaskSkeleton = memo(() => (
 TaskSkeleton.displayName = 'TaskSkeleton';
 
 // Memoized Task Card Component
-const TaskCard = memo(({ task, index, onTaskClick, onDuplicate, onDelete, getPriorityInfo, getCategoryInfo, getTaskTimeInfo }) => {
+const TaskCard = memo(({ task, index, onTaskClick, onDuplicate, onDelete, getPriorityInfo, getCategoryInfo, getTaskTimeInfo, editingUser }) => {
   const priorityInfo = getPriorityInfo(task.priority);
   const categoryInfo = getCategoryInfo(task.category);
   const timeInfo = getTaskTimeInfo(task);
@@ -74,14 +75,23 @@ const TaskCard = memo(({ task, index, onTaskClick, onDuplicate, onDelete, getPri
           ref={provided.innerRef}
           {...provided.draggableProps}
           {...provided.dragHandleProps}
-          className={`bg-white rounded-lg shadow-sm border border-gray-200 mb-3 p-4 cursor-pointer hover:shadow-md transition-all ${
+          className={`bg-white rounded-lg shadow-sm border mb-3 p-4 cursor-pointer hover:shadow-md transition-all ${
             snapshot.isDragging ? 'shadow-lg rotate-2 scale-105' : ''
-          } ${timeInfo?.urgent ? 'ring-2 ring-red-300' : ''}`}
+          } ${timeInfo?.urgent ? 'ring-2 ring-red-300' : ''} ${
+            editingUser ? 'border-blue-400 ring-2 ring-blue-200' : 'border-gray-200'
+          }`}
           onClick={() => onTaskClick(task)}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
+          {/* Editing indicator */}
+          {editingUser && (
+            <div className="mb-2 flex items-center gap-2 text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-md">
+              <span className="animate-pulse">✏️</span>
+              <span>{editingUser.name} bearbeitet gerade...</span>
+            </div>
+          )}
           {/* Task Header */}
           <div className="flex justify-between items-start mb-3">
             <h4 className="font-semibold text-gray-800 flex-1 pr-2">{task.title}</h4>
@@ -175,6 +185,16 @@ const TaskCard = memo(({ task, index, onTaskClick, onDuplicate, onDelete, getPri
               )}
             </div>
           )}
+
+          {/* Last Updated Info */}
+          {task.last_updated_by_name && task.updated_at && (
+            <div className="mt-3 pt-2 border-t border-gray-200 text-xs text-gray-500">
+              Zuletzt aktualisiert von {task.last_updated_by_name}
+              <div className="text-gray-400">
+                {format(new Date(task.updated_at), 'dd.MM.yyyy HH:mm', { locale: de })}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </Draggable>
@@ -184,7 +204,10 @@ TaskCard.displayName = 'TaskCard';
 
 const ImprovedKanbanBoard = () => {
   const { user } = useAuth();
+  const { isConnected, onTaskEvent, emitTaskEditing, emitTaskStopEditing } = useWebSocket();
   const [tasks, setTasks] = useState([]);
+  const [editingUsers, setEditingUsers] = useState({});
+  const editingTimeoutRef = useRef({});
   const [columns, setColumns] = useState({
     todo: {
       id: 'todo',
@@ -228,6 +251,7 @@ const ImprovedKanbanBoard = () => {
   const [filterPriority, setFilterPriority] = useState('all');
   const [filterAssignee, setFilterAssignee] = useState('all');
   const [toast, setToast] = useState(null);
+  const [conflictDialog, setConflictDialog] = useState(null);
 
   const [newTask, setNewTask] = useState({
     title: '',
@@ -262,112 +286,159 @@ const ImprovedKanbanBoard = () => {
     setToast({ message, type });
   }, []);
 
-  // Load tasks from localStorage on component mount
+  // Load tasks from API on component mount
   useEffect(() => {
-    setLoading(true);
-    loadTasksFromStorage();
-    setTimeout(() => setLoading(false), 500);
+    loadTasksFromAPI();
   }, []);
 
-  // Save tasks to localStorage whenever tasks change
+  // Group tasks by status whenever tasks change
   useEffect(() => {
-    saveTasksToStorage();
     groupTasksByStatus();
   }, [tasks]);
 
-  const loadTasksFromStorage = () => {
-    try {
-      const savedTasks = localStorage.getItem('kanban-tasks');
-      if (savedTasks) {
-        const parsedTasks = JSON.parse(savedTasks);
-        // Ensure all tasks have required fields and fix dates
-        const validTasks = parsedTasks.map(task => ({
-          id: task.id || Date.now() + Math.random(),
-          title: task.title || 'Untitled Task',
-          description: task.description || '',
-          assignee: task.assignee || '',
-          dueDate: task.dueDate || null,
-          priority: task.priority || 'medium',
-          tags: Array.isArray(task.tags) ? task.tags : [],
-          status: task.status || 'todo',
-          createdAt: task.createdAt || new Date().toISOString(),
-          updatedAt: task.updatedAt || new Date().toISOString(),
-          createdBy: task.createdBy || user.name,
-          estimatedHours: task.estimatedHours || '',
-          category: task.category || 'general',
-          completedAt: task.completedAt || null,
-          completedBy: task.completedBy || null
-        }));
-        setTasks(validTasks);
+  // WebSocket event handlers for real-time updates
+  useEffect(() => {
+    if (!isConnected) return;
+
+    // Task created by another user
+    const unsubscribeCreated = onTaskEvent('task:created', (data) => {
+      const { task, user: updatedByUser } = data;
+
+      // Don't update if it's the current user (already updated optimistically)
+      if (updatedByUser.id === user.id) return;
+
+      setTasks(prev => {
+        // Check if task already exists
+        if (prev.find(t => t.id === task.id)) return prev;
+        return [...prev, task];
+      });
+
+      showToast(`${updatedByUser.name} hat eine neue Aufgabe erstellt: "${task.title}"`, 'info');
+    });
+
+    // Task updated by another user
+    const unsubscribeUpdated = onTaskEvent('task:updated', (data) => {
+      const { task, user: updatedByUser } = data;
+
+      if (updatedByUser.id === user.id) return;
+
+      // Check if current user is editing this task
+      if (selectedTask && selectedTask.id === task.id && showTaskModal) {
+        // Show conflict dialog
+        setConflictDialog({
+          updatedTask: task,
+          updatedByUser,
+          currentChanges: newTask
+        });
       } else {
-        // Load initial demo tasks
-        loadInitialTasks();
+        setTasks(prev => prev.map(t => t.id === task.id ? task : t));
+        showToast(`${updatedByUser.name} hat eine Aufgabe aktualisiert: "${task.title}"`, 'info');
       }
-    } catch (error) {
-      console.error('Error loading tasks from storage:', error);
-      loadInitialTasks();
-    }
-  };
+    });
 
-  const saveTasksToStorage = () => {
+    // Task moved by another user
+    const unsubscribeMoved = onTaskEvent('task:moved', (data) => {
+      const { task, user: updatedByUser, previousStatus } = data;
+
+      if (updatedByUser.id === user.id) return;
+
+      setTasks(prev => prev.map(t => t.id === task.id ? task : t));
+
+      const statusNames = {
+        todo: 'Zu erledigen',
+        inprogress: 'In Arbeit',
+        review: 'Zur Überprüfung',
+        done: 'Erledigt'
+      };
+
+      showToast(
+        `${updatedByUser.name} hat "${task.title}" nach ${statusNames[task.status]} verschoben`,
+        'info'
+      );
+    });
+
+    // Task deleted by another user
+    const unsubscribeDeleted = onTaskEvent('task:deleted', (data) => {
+      const { taskId, task, user: deletedByUser } = data;
+
+      if (deletedByUser.id === user.id) return;
+
+      setTasks(prev => prev.filter(t => t.id !== parseInt(taskId)));
+      showToast(`${deletedByUser.name} hat eine Aufgabe gelöscht: "${task.title}"`, 'info');
+    });
+
+    // User editing task
+    const unsubscribeUserEditing = onTaskEvent('task:user_editing', (data) => {
+      const { taskId, user: editingUser } = data;
+      setEditingUsers(prev => ({
+        ...prev,
+        [taskId]: editingUser
+      }));
+
+      // Clear timeout if exists
+      if (editingTimeoutRef.current[taskId]) {
+        clearTimeout(editingTimeoutRef.current[taskId]);
+      }
+
+      // Auto-remove after 5 seconds if no stop signal
+      editingTimeoutRef.current[taskId] = setTimeout(() => {
+        setEditingUsers(prev => {
+          const newState = { ...prev };
+          delete newState[taskId];
+          return newState;
+        });
+      }, 5000);
+    });
+
+    // User stopped editing task
+    const unsubscribeUserStoppedEditing = onTaskEvent('task:user_stopped_editing', (data) => {
+      const { taskId } = data;
+
+      if (editingTimeoutRef.current[taskId]) {
+        clearTimeout(editingTimeoutRef.current[taskId]);
+        delete editingTimeoutRef.current[taskId];
+      }
+
+      setEditingUsers(prev => {
+        const newState = { ...prev };
+        delete newState[taskId];
+        return newState;
+      });
+    });
+
+    return () => {
+      unsubscribeCreated();
+      unsubscribeUpdated();
+      unsubscribeMoved();
+      unsubscribeDeleted();
+      unsubscribeUserEditing();
+      unsubscribeUserStoppedEditing();
+    };
+  }, [isConnected, onTaskEvent, user.id, showToast, selectedTask, showTaskModal, newTask]);
+
+  const loadTasksFromAPI = async () => {
     try {
-      localStorage.setItem('kanban-tasks', JSON.stringify(tasks));
+      setLoading(true);
+      const response = await fetch('/api/tasks', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to load tasks');
+      }
+
+      const data = await response.json();
+      setTasks(data);
     } catch (error) {
-      console.error('Error saving tasks to storage:', error);
-      setError('Fehler beim Speichern der Aufgaben');
+      console.error('Error loading tasks from API:', error);
+      showToast('Fehler beim Laden der Aufgaben', 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const loadInitialTasks = () => {
-    const initialTasks = [
-      {
-        id: 1,
-        title: 'Wochenplanung abschließen',
-        description: 'Stelle sicher, dass alle Arbeitszeiten für die kommende Woche eingetragen sind',
-        status: 'todo',
-        priority: 'high',
-        assignee: user.name,
-        dueDate: new Date().toISOString(),
-        tags: ['planung', 'dringend'],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        createdBy: user.name,
-        estimatedHours: '2',
-        category: 'general'
-      },
-      {
-        id: 2,
-        title: 'Abfallentsorgung planen',
-        description: 'Überprüfe die nächsten Entsorgungstermine für alle Abfallarten',
-        status: 'inprogress',
-        priority: 'medium',
-        assignee: user.name,
-        dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-        tags: ['abfall', 'logistik'],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        createdBy: user.name,
-        estimatedHours: '4',
-        category: 'maintenance'
-      },
-      {
-        id: 3,
-        title: 'Team Meeting vorbereiten',
-        description: 'Agenda erstellen und Präsentation für das wöchentliche Team Meeting',
-        status: 'review',
-        priority: 'medium',
-        assignee: user.name,
-        dueDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString(),
-        tags: ['meeting', 'team'],
-        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-        updatedAt: new Date().toISOString(),
-        createdBy: user.name,
-        estimatedHours: '1',
-        category: 'meeting'
-      }
-    ];
-    setTasks(initialTasks);
-  };
 
   const groupTasksByStatus = useCallback(() => {
     const groupedTasks = {
@@ -393,7 +464,7 @@ const ImprovedKanbanBoard = () => {
     }));
   }, [tasks]);
 
-  const onDragEnd = useCallback((result) => {
+  const onDragEnd = useCallback(async (result) => {
     const { destination, source, draggableId } = result;
 
     if (!destination) return;
@@ -405,96 +476,190 @@ const ImprovedKanbanBoard = () => {
     const taskId = parseInt(draggableId);
     const newStatus = destination.droppableId;
 
-    updateTask(taskId, {
-      status: newStatus,
-      updatedAt: new Date().toISOString(),
-      ...(newStatus === 'done' ? {
-        completedAt: new Date().toISOString(),
-        completedBy: user.name
-      } : {})
-    });
+    // Optimistic UI update
+    setTasks(prev => prev.map(task =>
+      task.id === taskId
+        ? {
+            ...task,
+            status: newStatus,
+            ...(newStatus === 'done' ? {
+              completedAt: new Date().toISOString(),
+              completedBy: user.name
+            } : {})
+          }
+        : task
+    ));
 
-    // Haptic feedback for mobile
-    if (navigator.vibrate) {
-      navigator.vibrate(10);
+    try {
+      await updateTaskAPI(taskId, { status: newStatus });
+
+      // Haptic feedback for mobile
+      if (navigator.vibrate) {
+        navigator.vibrate(10);
+      }
+
+      showToast(`Aufgabe erfolgreich verschoben`, 'success');
+    } catch (error) {
+      // Revert on error
+      loadTasksFromAPI();
+      showToast('Fehler beim Verschieben der Aufgabe', 'error');
     }
-
-    showToast(`Aufgabe erfolgreich verschoben`, 'success');
   }, [user.name, showToast]);
 
-  const createTask = useCallback(() => {
+  const createTask = useCallback(async () => {
     if (!newTask.title.trim()) {
       setError('Titel ist erforderlich');
       return;
     }
 
-    const task = {
-      id: Date.now() + Math.random(),
-      ...newTask,
-      dueDate: newTask.dueDate || null,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      createdBy: user.name,
-      tags: Array.isArray(newTask.tags) ? newTask.tags : []
-    };
+    try {
+      const response = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          title: newTask.title,
+          description: newTask.description,
+          status: newTask.status,
+          priority: newTask.priority,
+          assigneeId: newTask.assigneeId,
+          dueDate: newTask.dueDate,
+          tags: newTask.tags
+        })
+      });
 
-    setTasks(prev => [...prev, task]);
-    closeModal();
-    showToast('Aufgabe erfolgreich erstellt', 'success');
-  }, [newTask, user.name, showToast]);
+      if (!response.ok) {
+        throw new Error('Failed to create task');
+      }
 
-  const updateTask = useCallback((taskId, updates) => {
-    setTasks(prev => prev.map(task =>
-      task.id === taskId
-        ? { ...task, ...updates, updatedAt: new Date().toISOString() }
-        : task
-    ));
+      const task = await response.json();
+      setTasks(prev => [...prev, task]);
+      closeModal();
+      showToast('Aufgabe erfolgreich erstellt', 'success');
+    } catch (error) {
+      console.error('Error creating task:', error);
+      showToast('Fehler beim Erstellen der Aufgabe', 'error');
+    }
+  }, [newTask, showToast]);
+
+  const updateTaskAPI = useCallback(async (taskId, updates) => {
+    const response = await fetch(`/api/tasks/${taskId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify(updates)
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to update task');
+    }
+
+    const updatedTask = await response.json();
+    setTasks(prev => prev.map(task => task.id === taskId ? updatedTask : task));
+    return updatedTask;
   }, []);
 
-  const deleteTask = useCallback((taskId) => {
-    if (window.confirm('Sind Sie sicher, dass Sie diese Aufgabe löschen möchten?')) {
-      setTasks(prev => prev.filter(task => task.id !== taskId));
+  const updateTask = useCallback(async (taskId, updates) => {
+    try {
+      await updateTaskAPI(taskId, updates);
+      showToast('Aufgabe erfolgreich aktualisiert', 'success');
+    } catch (error) {
+      console.error('Error updating task:', error);
+      showToast('Fehler beim Aktualisieren der Aufgabe', 'error');
+    }
+  }, [updateTaskAPI, showToast]);
+
+  const deleteTask = useCallback(async (taskId) => {
+    if (!window.confirm('Sind Sie sicher, dass Sie diese Aufgabe löschen möchten?')) {
+      return;
+    }
+
+    // Optimistic UI update
+    setTasks(prev => prev.filter(task => task.id !== taskId));
+
+    try {
+      const response = await fetch(`/api/tasks/${taskId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete task');
+      }
+
       showToast('Aufgabe erfolgreich gelöscht', 'success');
 
       // Haptic feedback
       if (navigator.vibrate) {
         navigator.vibrate(20);
       }
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      // Reload tasks on error
+      loadTasksFromAPI();
+      showToast('Fehler beim Löschen der Aufgabe', 'error');
     }
   }, [showToast]);
 
-  const duplicateTask = useCallback((task) => {
-    const duplicatedTask = {
-      ...task,
-      id: Date.now() + Math.random(),
-      title: `${task.title} (Kopie)`,
-      status: 'todo',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      createdBy: user.name,
-      completedAt: null,
-      completedBy: null
-    };
-    setTasks(prev => [...prev, duplicatedTask]);
-    showToast('Aufgabe dupliziert', 'success');
+  const duplicateTask = useCallback(async (task) => {
+    try {
+      const response = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          title: `${task.title} (Kopie)`,
+          description: task.description,
+          status: 'todo',
+          priority: task.priority,
+          assigneeId: task.assignee_id,
+          dueDate: task.due_date,
+          tags: task.tags
+        })
+      });
 
-    // Haptic feedback
-    if (navigator.vibrate) {
-      navigator.vibrate(10);
+      if (!response.ok) {
+        throw new Error('Failed to duplicate task');
+      }
+
+      const duplicatedTask = await response.json();
+      setTasks(prev => [...prev, duplicatedTask]);
+      showToast('Aufgabe dupliziert', 'success');
+
+      // Haptic feedback
+      if (navigator.vibrate) {
+        navigator.vibrate(10);
+      }
+    } catch (error) {
+      console.error('Error duplicating task:', error);
+      showToast('Fehler beim Duplizieren der Aufgabe', 'error');
     }
-  }, [user.name, showToast]);
+  }, [showToast]);
 
-  const handleTaskSubmit = (e) => {
+  const handleTaskSubmit = async (e) => {
     e.preventDefault();
     if (selectedTask) {
-      updateTask(selectedTask.id, newTask);
+      await updateTask(selectedTask.id, newTask);
+      closeModal();
     } else {
-      createTask();
+      await createTask();
     }
-    closeModal();
   };
 
   const closeModal = () => {
+    // Emit stop editing if task was being edited
+    if (selectedTask) {
+      emitTaskStopEditing(selectedTask.id);
+    }
+
     setShowTaskModal(false);
     setSelectedTask(null);
     setError('');
@@ -519,6 +684,9 @@ const ImprovedKanbanBoard = () => {
       tags: Array.isArray(task.tags) ? task.tags : []
     });
     setShowTaskModal(true);
+
+    // Emit editing status
+    emitTaskEditing(task.id);
   };
 
   const getTaskTimeInfo = (task) => {
@@ -580,10 +748,29 @@ const ImprovedKanbanBoard = () => {
     linkElement.click();
   };
 
-  const clearAllTasks = () => {
-    if (window.confirm('Sind Sie sicher, dass Sie alle Aufgaben löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.')) {
+  const clearAllTasks = async () => {
+    if (!window.confirm('Sind Sie sicher, dass Sie alle Aufgaben löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.')) {
+      return;
+    }
+
+    try {
+      // Delete all tasks one by one
+      const deletePromises = tasks.map(task =>
+        fetch(`/api/tasks/${task.id}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        })
+      );
+
+      await Promise.all(deletePromises);
       setTasks([]);
-      localStorage.removeItem('kanban-tasks');
+      showToast('Alle Aufgaben wurden gelöscht', 'success');
+    } catch (error) {
+      console.error('Error clearing tasks:', error);
+      showToast('Fehler beim Löschen aller Aufgaben', 'error');
+      loadTasksFromAPI();
     }
   };
 
@@ -600,9 +787,22 @@ const ImprovedKanbanBoard = () => {
 
       {/* Header */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-4 md:mb-6 space-y-3 lg:space-y-0">
-        <div>
-          <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-1 md:mb-2">🚀 Kanban Board</h2>
-          <p className="text-sm md:text-base text-gray-600">Verwalte deine Aufgaben effizient und behalte den Überblick</p>
+        <div className="flex items-center gap-3">
+          <div>
+            <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-1 md:mb-2 flex items-center gap-2">
+              🚀 Kanban Board
+              {isConnected && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full animate-pulse">
+                  <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                  Live
+                </span>
+              )}
+            </h2>
+            <p className="text-sm md:text-base text-gray-600">
+              Verwalte deine Aufgaben effizient und behalte den Überblick
+              {isConnected && <span className="ml-2 text-green-600">• Echtzeit-Sync aktiv</span>}
+            </p>
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2 w-full lg:w-auto">
@@ -737,6 +937,7 @@ const ImprovedKanbanBoard = () => {
                           getPriorityInfo={getPriorityInfo}
                           getCategoryInfo={getCategoryInfo}
                           getTaskTimeInfo={getTaskTimeInfo}
+                          editingUser={editingUsers[task.id]}
                         />
                       ))}
                       {provided.placeholder}
@@ -927,6 +1128,100 @@ const ImprovedKanbanBoard = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Conflict Resolution Dialog */}
+      {conflictDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-3xl">⚠️</span>
+              <div>
+                <h3 className="text-xl font-bold text-gray-800">Konflikt erkannt</h3>
+                <p className="text-sm text-gray-600">
+                  {conflictDialog.updatedByUser.name} hat diese Aufgabe gerade aktualisiert
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+              <p className="text-sm text-gray-700">
+                Die Aufgabe wurde von {conflictDialog.updatedByUser.name} geändert, während Sie sie bearbeitet haben.
+                Wählen Sie, ob Sie Ihre Änderungen behalten oder die neuen Änderungen übernehmen möchten.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div className="border border-gray-200 rounded-lg p-4">
+                <h4 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                  <span>📝</span>
+                  Ihre Änderungen
+                </h4>
+                <div className="space-y-2 text-sm">
+                  <div>
+                    <span className="font-medium">Titel:</span> {conflictDialog.currentChanges.title}
+                  </div>
+                  <div>
+                    <span className="font-medium">Status:</span> {conflictDialog.currentChanges.status}
+                  </div>
+                  <div>
+                    <span className="font-medium">Priorität:</span> {conflictDialog.currentChanges.priority}
+                  </div>
+                </div>
+              </div>
+
+              <div className="border border-blue-200 rounded-lg p-4 bg-blue-50">
+                <h4 className="font-semibold text-blue-800 mb-2 flex items-center gap-2">
+                  <span>🔄</span>
+                  Neue Änderungen von {conflictDialog.updatedByUser.name}
+                </h4>
+                <div className="space-y-2 text-sm text-blue-900">
+                  <div>
+                    <span className="font-medium">Titel:</span> {conflictDialog.updatedTask.title}
+                  </div>
+                  <div>
+                    <span className="font-medium">Status:</span> {conflictDialog.updatedTask.status}
+                  </div>
+                  <div>
+                    <span className="font-medium">Priorität:</span> {conflictDialog.updatedTask.priority}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={() => {
+                  // Keep current changes - do nothing special
+                  setConflictDialog(null);
+                }}
+                className="flex-1 px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium"
+              >
+                Meine Änderungen behalten
+              </button>
+              <button
+                onClick={() => {
+                  // Accept server changes
+                  setTasks(prev => prev.map(t =>
+                    t.id === conflictDialog.updatedTask.id ? conflictDialog.updatedTask : t
+                  ));
+                  setNewTask({
+                    ...conflictDialog.updatedTask,
+                    dueDate: conflictDialog.updatedTask.dueDate ?
+                      new Date(conflictDialog.updatedTask.dueDate).toISOString().split('T')[0] : '',
+                    tags: Array.isArray(conflictDialog.updatedTask.tags) ? conflictDialog.updatedTask.tags : []
+                  });
+                  setSelectedTask(conflictDialog.updatedTask);
+                  setConflictDialog(null);
+                  showToast('Änderungen von ' + conflictDialog.updatedByUser.name + ' übernommen', 'info');
+                }}
+                className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+              >
+                Neue Änderungen übernehmen
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -378,14 +378,223 @@
   }
 }
 
+/* Waste Event Styles */
+.waste-event {
+  position: relative;
+  overflow: visible;
+}
+
+.waste-event-critical {
+  animation: criticalPulse 2s infinite;
+  box-shadow: 0 0 15px rgba(201, 42, 42, 0.4);
+}
+
+@keyframes criticalPulse {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(201, 42, 42, 0.4);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(201, 42, 42, 0.6);
+    transform: scale(1.02);
+  }
+}
+
+.waste-event-high {
+  box-shadow: 0 2px 8px rgba(230, 73, 128, 0.3);
+}
+
+.waste-event-medium {
+  box-shadow: 0 1px 6px rgba(255, 169, 77, 0.2);
+}
+
+.waste-event-low {
+  box-shadow: 0 1px 4px rgba(81, 207, 102, 0.15);
+}
+
+/* Hazard Badge Animation */
+.hazard-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  animation: badgeAppear 0.3s ease-out;
+}
+
+@keyframes badgeAppear {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Waste Icon Bounce */
+.waste-icon {
+  display: inline-block;
+  animation: iconBounce 0.5s ease-out;
+}
+
+@keyframes iconBounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+/* Filter Active State */
+.filter-active {
+  position: relative;
+  overflow: hidden;
+}
+
+.filter-active::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #3b82f6, #8b5cf6, #3b82f6);
+  background-size: 200% 100%;
+  animation: filterGlow 2s linear infinite;
+}
+
+@keyframes filterGlow {
+  0% {
+    background-position: 0% 0%;
+  }
+  100% {
+    background-position: 200% 0%;
+  }
+}
+
+/* Legend Modal Animations */
+.legend-item {
+  animation: legendSlideIn 0.3s ease-out backwards;
+}
+
+.legend-item:nth-child(1) { animation-delay: 0.05s; }
+.legend-item:nth-child(2) { animation-delay: 0.1s; }
+.legend-item:nth-child(3) { animation-delay: 0.15s; }
+.legend-item:nth-child(4) { animation-delay: 0.2s; }
+
+@keyframes legendSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Skeleton Loader for Calendar */
+.calendar-skeleton {
+  background: linear-gradient(90deg, #f0f0f0 0%, #e0e0e0 20%, #f0f0f0 40%, #f0f0f0 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Responsive Swipe Indicator */
+.swipe-hint {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 16px;
+  background: rgba(59, 130, 246, 0.9);
+  color: white;
+  border-radius: 20px;
+  font-size: 12px;
+  animation: swipeHintFade 3s ease-in-out;
+  pointer-events: none;
+}
+
+@keyframes swipeHintFade {
+  0%, 100% {
+    opacity: 0;
+  }
+  10%, 90% {
+    opacity: 1;
+  }
+}
+
+/* Touch-friendly button states */
+@media (hover: none) and (pointer: coarse) {
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .calendar-cell {
+    -webkit-tap-highlight-color: rgba(59, 130, 246, 0.1);
+  }
+}
+
+/* Smooth Calendar Transition */
+.calendar-transition {
+  animation: calendarSlide 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes calendarSlide {
+  from {
+    opacity: 0.8;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Waste Category Colors */
+.category-chemical {
+  border-left-color: #FF6B6B;
+}
+
+.category-biological {
+  border-left-color: #51CF66;
+}
+
+.category-heavy-metal {
+  border-left-color: #495057;
+}
+
+.category-hazardous {
+  border-left-color: #212529;
+}
+
+.category-general {
+  border-left-color: #228BE6;
+}
+
 /* Print Styles */
 @media print {
   .modal-backdrop,
   .modal-content,
   .ripple:before,
   .status-online::after,
-  .calendar-today::after {
+  .calendar-today::after,
+  .waste-event-critical,
+  .filter-active::after {
     display: none !important;
+    animation: none !important;
   }
 
   .calendar-cell {
@@ -398,5 +607,9 @@
     background: white !important;
     color: black !important;
     border: 1px solid #000 !important;
+  }
+
+  .waste-event {
+    border: 2px solid #000 !important;
   }
 }

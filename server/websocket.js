@@ -137,12 +137,23 @@ const initializeSocket = (server) => {
                   const [, receiverData] = receiverConnection;
                   io.to(receiverData.socketId).emit('new_message', formattedMessage);
 
-                  // Send browser notification to receiver if supported
+                  // Send enhanced browser notification to receiver
+                  const messagePreview = message.length > 50 ? message.substring(0, 50) + '...' : message;
                   io.to(receiverData.socketId).emit('notification', {
-                    title: `New message from ${userInfo.name}`,
-                    body: message.length > 50 ? message.substring(0, 50) + '...' : message,
+                    type: 'new_message',
+                    title: `Neue Nachricht von ${userInfo.name}`,
+                    body: messagePreview,
                     icon: '/favicon.ico',
-                    tag: `message_${this.lastID}`
+                    tag: `message_${this.lastID}`,
+                    timestamp: new Date().toISOString(),
+                    data: {
+                      messageId: this.lastID,
+                      senderId: userId,
+                      senderName: userInfo.name,
+                      messagePreview: messagePreview,
+                      messageType: messageType,
+                      url: '/messages'
+                    }
                   });
                 }
 
@@ -227,6 +238,31 @@ const initializeSocket = (server) => {
           userId
         });
       }
+    });
+
+    // Handle task real-time events
+    socket.on('task:editing', (data) => {
+      const { taskId } = data;
+      // Broadcast to all other users that someone is editing this task
+      socket.broadcast.emit('task:user_editing', {
+        taskId,
+        user: {
+          id: userId,
+          name: userInfo.name
+        }
+      });
+    });
+
+    socket.on('task:stop_editing', (data) => {
+      const { taskId } = data;
+      // Broadcast to all other users that someone stopped editing
+      socket.broadcast.emit('task:user_stopped_editing', {
+        taskId,
+        user: {
+          id: userId,
+          name: userInfo.name
+        }
+      });
     });
 
     // Handle group messages (future feature)

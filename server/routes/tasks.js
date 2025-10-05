@@ -1,35 +1,41 @@
 const express = require('express');
 const db = require('../database');
 const { auth } = require('../middleware/auth');
+const { getIO } = require('../websocket');
 const router = express.Router();
 
 // @route   GET /api/tasks
-// @desc    Get all tasks
+// @desc    Get all tasks (shared for all users)
 router.get('/', auth, (req, res) => {
   try {
     const { status } = req.query;
-    
-    let query = "SELECT t.*, u.name as assignee_name FROM tasks t LEFT JOIN users u ON t.assignee_id = u.id";
+
+    let query = `SELECT t.*,
+      u.name as assignee_name,
+      updater.name as last_updated_by_name
+      FROM tasks t
+      LEFT JOIN users u ON t.assignee_id = u.id
+      LEFT JOIN users updater ON t.last_updated_by = updater.id`;
     const params = [];
-    
+
     if (status) {
       query += " WHERE t.status = ?";
       params.push(status);
     }
-    
+
     query += " ORDER BY t.priority DESC, t.due_date ASC";
-    
+
     db.all(query, params, (err, rows) => {
       if (err) {
         return res.status(500).json({ error: 'Server error' });
       }
-      
+
       // Parse tags from JSON
       const tasks = rows.map(row => ({
         ...row,
         tags: row.tags ? JSON.parse(row.tags) : []
       }));
-      
+
       res.json(tasks);
     });
   } catch (error) {
@@ -71,8 +77,8 @@ router.post('/', auth, (req, res) => {
     
     db.run(
       `INSERT INTO tasks (
-        title, description, status, priority, assignee_id, due_date, tags
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        title, description, status, priority, assignee_id, due_date, tags, last_updated_by
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         title,
         description || null,
@@ -80,25 +86,46 @@ router.post('/', auth, (req, res) => {
         priority,
         assigneeId || null,
         dueDate ? new Date(dueDate).toISOString().slice(0, 19).replace('T', ' ') : null,
-        JSON.stringify(tags)
+        JSON.stringify(tags),
+        req.user.id
       ],
       function(err) {
         if (err) {
           return res.status(500).json({ error: 'Server error' });
         }
-        
+
         db.get(
-          "SELECT t.*, u.name as assignee_name FROM tasks t LEFT JOIN users u ON t.assignee_id = u.id WHERE t.id = ?",
+          `SELECT t.*,
+            u.name as assignee_name,
+            updater.name as last_updated_by_name
+           FROM tasks t
+           LEFT JOIN users u ON t.assignee_id = u.id
+           LEFT JOIN users updater ON t.last_updated_by = updater.id
+           WHERE t.id = ?`,
           [this.lastID],
           (err, task) => {
             if (err) {
               return res.status(500).json({ error: 'Server error' });
             }
-            
-            res.status(201).json({
+
+            const formattedTask = {
               ...task,
               tags: task.tags ? JSON.parse(task.tags) : []
-            });
+            };
+
+            // Broadcast to all connected clients via WebSocket
+            const io = getIO();
+            if (io) {
+              io.emit('task:created', {
+                task: formattedTask,
+                user: {
+                  id: req.user.id,
+                  name: req.user.name
+                }
+              });
+            }
+
+            res.status(201).json(formattedTask);
           }
         );
       }
@@ -183,33 +210,62 @@ router.put('/:id', auth, (req, res) => {
           updates.push("tags = ?");
           values.push(JSON.stringify(tags));
         }
-        
+
         updates.push("updated_at = CURRENT_TIMESTAMP");
-        
-        if (updates.length === 1) { // Only updated_at was added
+        updates.push("last_updated_by = ?");
+        values.push(req.user.id);
+
+        if (updates.length === 2) { // Only updated_at and last_updated_by were added
           return res.status(400).json({ error: 'No fields to update' });
         }
-        
+
         const query = `UPDATE tasks SET ${updates.join(', ')} WHERE id = ?`;
         values.push(id);
-        
+
         db.run(query, values, function(err) {
           if (err) {
             return res.status(500).json({ error: 'Server error' });
           }
-          
+
           db.get(
-            "SELECT t.*, u.name as assignee_name FROM tasks t LEFT JOIN users u ON t.assignee_id = u.id WHERE t.id = ?",
+            `SELECT t.*,
+              u.name as assignee_name,
+              updater.name as last_updated_by_name
+             FROM tasks t
+             LEFT JOIN users u ON t.assignee_id = u.id
+             LEFT JOIN users updater ON t.last_updated_by = updater.id
+             WHERE t.id = ?`,
             [id],
             (err, updatedTask) => {
               if (err) {
                 return res.status(500).json({ error: 'Server error' });
               }
-              
-              res.json({
+
+              const formattedTask = {
                 ...updatedTask,
                 tags: updatedTask.tags ? JSON.parse(updatedTask.tags) : []
-              });
+              };
+
+              // Broadcast to all connected clients via WebSocket
+              const io = getIO();
+              if (io) {
+                // Determine the type of update
+                let updateType = 'task:updated';
+                if (status !== undefined && task.status !== status) {
+                  updateType = 'task:moved';
+                }
+
+                io.emit(updateType, {
+                  task: formattedTask,
+                  user: {
+                    id: req.user.id,
+                    name: req.user.name
+                  },
+                  previousStatus: task.status
+                });
+              }
+
+              res.json(formattedTask);
             }
           );
         });
@@ -226,20 +282,26 @@ router.put('/:id', auth, (req, res) => {
 router.delete('/:id', auth, (req, res) => {
   try {
     const { id } = req.params;
-    
-    // First, verify the task exists
+
+    // First, verify the task exists and get its data
     db.get(
-      "SELECT id FROM tasks WHERE id = ?",
+      `SELECT t.*,
+        u.name as assignee_name,
+        updater.name as last_updated_by_name
+       FROM tasks t
+       LEFT JOIN users u ON t.assignee_id = u.id
+       LEFT JOIN users updater ON t.last_updated_by = updater.id
+       WHERE t.id = ?`,
       [id],
       (err, task) => {
         if (err) {
           return res.status(500).json({ error: 'Server error' });
         }
-        
+
         if (!task) {
           return res.status(404).json({ error: 'Task not found' });
         }
-        
+
         db.run(
           "DELETE FROM tasks WHERE id = ?",
           [id],
@@ -247,7 +309,23 @@ router.delete('/:id', auth, (req, res) => {
             if (err) {
               return res.status(500).json({ error: 'Server error' });
             }
-            
+
+            // Broadcast to all connected clients via WebSocket
+            const io = getIO();
+            if (io) {
+              io.emit('task:deleted', {
+                taskId: id,
+                task: {
+                  ...task,
+                  tags: task.tags ? JSON.parse(task.tags) : []
+                },
+                user: {
+                  id: req.user.id,
+                  name: req.user.name
+                }
+              });
+            }
+
             res.json({ message: 'Task deleted successfully' });
           }
         );

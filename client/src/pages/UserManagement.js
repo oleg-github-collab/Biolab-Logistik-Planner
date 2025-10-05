@@ -1,6 +1,90 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getAllUsers, updateUser, deleteUser, register } from '../utils/api';
+
+// ✅ OPTIMIZED: Memoized UserRow component to prevent unnecessary re-renders of table rows
+const UserRow = memo(({ userItem, currentUserId, onEdit, onDelete }) => {
+  const getRoleBadge = (role) => {
+    switch (role) {
+      case 'superadmin':
+        return 'bg-indigo-100 text-indigo-700';
+      case 'admin':
+        return 'bg-purple-100 text-purple-800';
+      default:
+        return 'bg-green-100 text-green-800';
+    }
+  };
+
+  const getRoleLabel = (role) => {
+    switch (role) {
+      case 'superadmin':
+        return 'Superadministrator';
+      case 'admin':
+        return 'Administrator';
+      default:
+        return 'Mitarbeiter';
+    }
+  };
+
+  return (
+    <tr className={userItem.id === currentUserId ? 'bg-blue-50' : ''}>
+      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+        {userItem.name}
+        {userItem.id === currentUserId && (
+          <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+            Du
+          </span>
+        )}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {userItem.email}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleBadge(userItem.role)}`}>
+          {getRoleLabel(userItem.role)}
+        </span>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+          userItem.employment_type === 'Vollzeit'
+            ? 'bg-blue-100 text-blue-800'
+            : 'bg-orange-100 text-orange-800'
+        }`}>
+          {userItem.employment_type || 'Werkstudent'}
+        </span>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {new Date(userItem.created_at).toLocaleDateString('de-DE', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        })}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+        <div className="flex space-x-2">
+          <button
+            onClick={() => onEdit(userItem)}
+            className="text-blue-600 hover:text-blue-900"
+          >
+            Bearbeiten
+          </button>
+          {userItem.id !== currentUserId && (
+            <button
+              onClick={() => onDelete(userItem.id, userItem.name)}
+              className="text-red-600 hover:text-red-900"
+            >
+              Löschen
+            </button>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+});
+
+UserRow.displayName = 'UserRow';
 
 const UserManagement = () => {
   const { user } = useAuth();
@@ -26,7 +110,8 @@ const UserManagement = () => {
     }
   }, [user.role]);
 
-  const loadUsers = async () => {
+  // ✅ OPTIMIZED: useCallback to memoize loadUsers function
+  const loadUsers = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
@@ -38,7 +123,7 @@ const UserManagement = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const handleAddUser = async (e) => {
     e.preventDefault();
@@ -129,7 +214,8 @@ const UserManagement = () => {
     }
   };
 
-  const handleEditUser = (user) => {
+  // ✅ OPTIMIZED: useCallback for user CRUD handlers
+  const handleEditUser = useCallback((user) => {
     setError('');
     setStatusMessage('');
     setEditingUser(user);
@@ -142,13 +228,13 @@ const UserManagement = () => {
       confirmPassword: ''
     });
     setShowAddUserForm(true);
-  };
+  }, []);
 
-  const handleDeleteUser = async (userId, userName) => {
+  const handleDeleteUser = useCallback(async (userId, userName) => {
     if (!window.confirm(`Bist du sicher, dass du den Benutzer "${userName}" löschen möchtest?`)) {
       return;
     }
-    
+
     try {
       setStatusMessage('');
       await deleteUser(userId);
@@ -158,9 +244,9 @@ const UserManagement = () => {
       console.error('Error deleting user:', err);
       setError('Fehler beim Löschen des Benutzers.');
     }
-  };
+  }, [loadUsers]);
 
-  const handleCancel = () => {
+  const handleCancel = useCallback(() => {
     setShowAddUserForm(false);
     setEditingUser(null);
     setFormData({
@@ -172,7 +258,7 @@ const UserManagement = () => {
     });
     setError('');
     setStatusMessage('');
-  };
+  }, []);
 
   if (!['admin', 'superadmin'].includes(user.role)) {
     return (
@@ -392,70 +478,13 @@ const UserManagement = () => {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {users.map((userItem) => (
-                <tr key={userItem.id} className={userItem.id === user.id ? 'bg-blue-50' : ''}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {userItem.name}
-                    {userItem.id === user.id && (
-                      <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        Du
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {userItem.email}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      userItem.role === 'superadmin'
-                        ? 'bg-indigo-100 text-indigo-700'
-                        : userItem.role === 'admin'
-                          ? 'bg-purple-100 text-purple-800'
-                          : 'bg-green-100 text-green-800'
-                    }`}>
-                      {userItem.role === 'superadmin'
-                        ? 'Superadministrator'
-                        : userItem.role === 'admin'
-                          ? 'Administrator'
-                          : 'Mitarbeiter'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      userItem.employment_type === 'Vollzeit'
-                        ? 'bg-blue-100 text-blue-800'
-                        : 'bg-orange-100 text-orange-800'
-                    }`}>
-                      {userItem.employment_type || 'Werkstudent'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(userItem.created_at).toLocaleDateString('de-DE', {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => handleEditUser(userItem)}
-                        className="text-blue-600 hover:text-blue-900"
-                      >
-                        Bearbeiten
-                      </button>
-                      {userItem.id !== user.id && (
-                        <button
-                          onClick={() => handleDeleteUser(userItem.id, userItem.name)}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          Löschen
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
+                <UserRow
+                  key={userItem.id}
+                  userItem={userItem}
+                  currentUserId={user.id}
+                  onEdit={handleEditUser}
+                  onDelete={handleDeleteUser}
+                />
               ))}
             </tbody>
           </table>

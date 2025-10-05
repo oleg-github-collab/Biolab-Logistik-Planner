@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import usePermissions from '../hooks/usePermissions';
 import { showSuccess, showError } from '../utils/toast';
+import useWebSocket from '../hooks/useWebSocket';
+import NotificationCenter from './NotificationCenter';
+import io from 'socket.io-client';
 
 const NAV_ITEMS = [
   {
@@ -89,12 +92,103 @@ const NAV_ITEMS = [
   }
 ];
 
+// ✅ OPTIMIZED: Memoized NavItem component to prevent unnecessary re-renders
+const NavItem = memo(({ item, isActive }) => (
+  <Link
+    to={item.to}
+    className={`group flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 ${
+      isActive
+        ? 'bg-blue-600 text-white shadow-md scale-105'
+        : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900 hover:scale-105'
+    }`}
+  >
+    {item.icon(isActive)}
+    <span>{item.label}</span>
+  </Link>
+));
+
+NavItem.displayName = 'NavItem';
+
+// ✅ OPTIMIZED: Memoized MobileNavItem component
+const MobileNavItem = memo(({ item, isActive, onClick }) => (
+  <Link
+    to={item.to}
+    onClick={onClick}
+    className={`group flex items-center gap-3 rounded-xl px-4 py-3 sm:py-3.5 text-sm sm:text-base font-medium transition-all duration-200 ${
+      isActive
+        ? 'bg-blue-600 text-white shadow-md scale-105'
+        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 active:scale-95'
+    }`}
+  >
+    {item.icon(isActive)}
+    <span className="flex-1">{item.label}</span>
+    {isActive && (
+      <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <polyline points="9 18 15 12 9 6" />
+      </svg>
+    )}
+  </Link>
+));
+
+MobileNavItem.displayName = 'MobileNavItem';
+
+// ✅ OPTIMIZED: Memoized BottomNavItem component
+const BottomNavItem = memo(({ item, isActive }) => (
+  <Link
+    to={item.to}
+    className={`flex flex-col items-center gap-1 rounded-xl px-2.5 py-1.5 transition-all duration-200 ${
+      isActive ? 'bg-blue-100/80 scale-105' : 'active:scale-95'
+    }`}
+  >
+    {item.icon(isActive)}
+    <span
+      className={`text-[10px] sm:text-[11px] font-medium ${
+        isActive ? 'text-blue-600' : 'text-slate-500'
+      }`}
+    >
+      {item.label}
+    </span>
+  </Link>
+));
+
+BottomNavItem.displayName = 'BottomNavItem';
+
 const Header = () => {
   const { user, logout } = useAuth();
   const { hasPermission } = usePermissions();
   const location = useLocation();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [socket, setSocket] = useState(null);
+
+  // Initialize WebSocket for notifications
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token || !user) return;
+
+    const wsUrl = process.env.NODE_ENV === 'development'
+      ? 'http://localhost:5000'
+      : window.location.origin;
+
+    const newSocket = io(wsUrl, {
+      auth: { token },
+      transports: ['websocket', 'polling']
+    });
+
+    newSocket.on('connect', () => {
+      console.log('WebSocket connected for notifications');
+    });
+
+    newSocket.on('connect_error', (error) => {
+      console.error('WebSocket connection error:', error);
+    });
+
+    setSocket(newSocket);
+
+    return () => {
+      newSocket.disconnect();
+    };
+  }, [user]);
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -115,11 +209,10 @@ const Header = () => {
 
   if (!user) return null;
 
-  // Check if current path is active
-  const isActive = (path) => location.pathname === path || location.pathname.startsWith(`${path}/`);
+  // ✅ OPTIMIZED: useCallback for path checking and logout
+  const isActive = useCallback((path) => location.pathname === path || location.pathname.startsWith(`${path}/`), [location.pathname]);
 
-  // Handle logout with toast notification
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     try {
       logout();
       showSuccess('Erfolgreich abgemeldet');
@@ -127,10 +220,10 @@ const Header = () => {
     } catch (error) {
       showError('Fehler beim Abmelden', error);
     }
-  };
+  }, [logout, navigate]);
 
-  // Filter navigation items based on user permissions
-  const availableNavItems = NAV_ITEMS.filter((item) => hasPermission(item.permission));
+  // ✅ OPTIMIZED: useMemo to cache filtered navigation items
+  const availableNavItems = useMemo(() => NAV_ITEMS.filter((item) => hasPermission(item.permission)), [hasPermission]);
 
   return (
     <>
@@ -150,27 +243,16 @@ const Header = () => {
 
           {/* Desktop Navigation - Hidden on mobile and tablet */}
           <nav className="hidden lg:flex items-center gap-1">
-            {availableNavItems.map((item) => {
-              const active = isActive(item.to);
-              return (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  className={`group flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 ${
-                    active
-                      ? 'bg-blue-600 text-white shadow-md scale-105'
-                      : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900 hover:scale-105'
-                  }`}
-                >
-                  {item.icon(active)}
-                  <span>{item.label}</span>
-                </Link>
-              );
-            })}
+            {availableNavItems.map((item) => (
+              <NavItem key={item.to} item={item} isActive={isActive(item.to)} />
+            ))}
           </nav>
 
           {/* Right Section */}
           <div className="flex items-center gap-2 sm:gap-4">
+            {/* Notification Center */}
+            <NotificationCenter socket={socket} userId={user?.id} />
+
             {/* User Info - Hidden on small screens */}
             <div className="hidden md:flex flex-col text-right">
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Angemeldet</span>
@@ -274,29 +356,14 @@ const Header = () => {
 
         {/* Navigation Links */}
         <nav className="flex flex-col p-4 sm:p-6 gap-2">
-          {availableNavItems.map((item) => {
-            const active = isActive(item.to);
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                onClick={() => setIsMobileMenuOpen(false)}
-                className={`group flex items-center gap-3 rounded-xl px-4 py-3 sm:py-3.5 text-sm sm:text-base font-medium transition-all duration-200 ${
-                  active
-                    ? 'bg-blue-600 text-white shadow-md scale-105'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 active:scale-95'
-                }`}
-              >
-                {item.icon(active)}
-                <span className="flex-1">{item.label}</span>
-                {active && (
-                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="9 18 15 12 9 6" />
-                  </svg>
-                )}
-              </Link>
-            );
-          })}
+          {availableNavItems.map((item) => (
+            <MobileNavItem
+              key={item.to}
+              item={item}
+              isActive={isActive(item.to)}
+              onClick={() => setIsMobileMenuOpen(false)}
+            />
+          ))}
         </nav>
 
         {/* Drawer Footer */}
@@ -320,27 +387,9 @@ const Header = () => {
 
       {/* Mobile Bottom Navigation - Only for very small screens */}
       <nav className="md:hidden fixed bottom-4 left-1/2 z-40 flex w-[92%] max-w-md -translate-x-1/2 items-center justify-around rounded-[28px] border border-slate-200/80 bg-white/95 px-3 py-2.5 shadow-xl backdrop-blur">
-        {availableNavItems.slice(0, 4).map((item) => {
-          const active = isActive(item.to);
-          return (
-            <Link
-              key={item.to}
-              to={item.to}
-              className={`flex flex-col items-center gap-1 rounded-xl px-2.5 py-1.5 transition-all duration-200 ${
-                active ? 'bg-blue-100/80 scale-105' : 'active:scale-95'
-              }`}
-            >
-              {item.icon(active)}
-              <span
-                className={`text-[10px] sm:text-[11px] font-medium ${
-                  active ? 'text-blue-600' : 'text-slate-500'
-                }`}
-              >
-                {item.label}
-              </span>
-            </Link>
-          );
-        })}
+        {availableNavItems.slice(0, 4).map((item) => (
+          <BottomNavItem key={item.to} item={item} isActive={isActive(item.to)} />
+        ))}
       </nav>
     </>
   );

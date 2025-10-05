@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import SimpleCalendar from '../components/SimpleCalendar';
 import EventDetailsPanel from '../components/EventDetailsPanel';
@@ -146,7 +146,8 @@ const PRIORITY_FILTERS = [
   { value: 'high', label: '🔥 Hoch', badgeClass: 'bg-rose-100 text-rose-700' }
 ];
 
-const Toast = ({ toast, onClose }) => {
+// ✅ OPTIMIZED: Memoized Toast component to prevent unnecessary re-renders
+const Toast = memo(({ toast, onClose }) => {
   if (!toast) return null;
 
   return (
@@ -177,7 +178,7 @@ const Toast = ({ toast, onClose }) => {
       </div>
     </div>
   );
-};
+});
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -336,17 +337,19 @@ const Dashboard = () => {
     fetchEvents();
   }, [eventRange?.start, eventRange?.end, eventTypeFilter, priorityFilter, showToast]);
 
-  const handleDateSelect = (date) => {
+  // ✅ OPTIMIZED: useCallback for date and event selection handlers
+  const handleDateSelect = useCallback((date) => {
     setSelectedDate(date);
-  };
+  }, []);
 
-  const handleEventClick = (event, mode = 'view') => {
+  const handleEventClick = useCallback((event, mode = 'view') => {
     setSelectedEvent(event);
     setEventPanelMode(mode);
     setShowEventPanel(true);
-  };
+  }, []);
 
-  const handleEventSave = async (eventData) => {
+  // ✅ OPTIMIZED: useCallback for event CRUD operations
+  const handleEventSave = useCallback(async (eventData) => {
     if (!eventData?.title?.trim()) {
       showToast({ type: 'error', title: 'Titel fehlt', message: 'Bitte gib einen aussagekräftigen Titel für den Termin an.' });
       return;
@@ -368,14 +371,14 @@ const Dashboard = () => {
       console.error('Error saving event:', err);
       showToast({ type: 'error', title: 'Speichern fehlgeschlagen', message: 'Der Termin konnte nicht gespeichert werden.' });
     }
-  };
+  }, [eventPanelMode, showToast]);
 
-  const handleEventModalClose = () => {
+  const handleEventModalClose = useCallback(() => {
     setShowEventModal(false);
     setSelectedEvent(null);
-  };
+  }, []);
 
-  const handleEventDelete = async (eventId) => {
+  const handleEventDelete = useCallback(async (eventId) => {
     try {
       await deleteEvent(eventId);
       setEvents((prev) => prev.filter((event) => event.id !== eventId));
@@ -385,9 +388,9 @@ const Dashboard = () => {
       console.error('Error deleting event:', err);
       showToast({ type: 'error', title: 'Löschen fehlgeschlagen', message: 'Bitte versuche es in ein paar Sekunden erneut.' });
     }
-  };
+  }, [showToast]);
 
-  const handleEventDuplicate = async (eventData) => {
+  const handleEventDuplicate = useCallback(async (eventData) => {
     try {
       const start = combineDateAndTime(eventData.start_date, eventData.start_time, eventData.all_day) ?? new Date();
       const end = combineDateAndTime(eventData.end_date || eventData.start_date, eventData.end_time || eventData.start_time, eventData.all_day) ?? addMinutes(start, 60);
@@ -409,7 +412,7 @@ const Dashboard = () => {
       console.error('Error duplicating event:', err);
       showToast({ type: 'error', title: 'Duplizieren fehlgeschlagen' });
     }
-  };
+  }, [showToast]);
 
   const handleCreateNewEvent = (defaults = {}) => {
     console.log('handleCreateNewEvent called with:', defaults);
@@ -471,21 +474,23 @@ const Dashboard = () => {
     console.log('EventModal should now be open');
   };
 
-  const handleTaskUpdate = (taskId, updates) => {
-    setTasks(prev => prev.map(task => 
+  // ✅ OPTIMIZED: useCallback to memoize task handlers - prevents child re-renders
+  const handleTaskUpdate = useCallback((taskId, updates) => {
+    setTasks(prev => prev.map(task =>
       task.id === taskId ? { ...task, ...updates } : task
     ));
-  };
+  }, []);
 
-  const handleTaskCreate = (newTask) => {
+  const handleTaskCreate = useCallback((newTask) => {
     setTasks(prev => [...prev, { ...newTask, id: Date.now() }]);
-  };
+  }, []);
 
-  const handleTaskDelete = (taskId) => {
+  const handleTaskDelete = useCallback((taskId) => {
     setTasks(prev => prev.filter(task => task.id !== taskId));
-  };
+  }, []);
 
-  const handleRangeChange = (range) => {
+  // ✅ OPTIMIZED: useCallback to memoize range change handler
+  const handleRangeChange = useCallback((range) => {
     if (!range) return;
 
     const normaliseDate = (value) => {
@@ -526,34 +531,36 @@ const Dashboard = () => {
     if (nextStart) {
       setSelectedDate((prev) => (sameTimestamp(prev, nextStart) ? prev : nextStart));
     }
-  };
+  }, [calendarView]);
 
-  const handleTypeFilterChange = (value) => {
+  // ✅ OPTIMIZED: useCallback for filter change handlers
+  const handleTypeFilterChange = useCallback((value) => {
     setEventTypeFilter(value);
-  };
+  }, []);
 
-  const handlePriorityFilterChange = (value) => {
+  const handlePriorityFilterChange = useCallback((value) => {
     setPriorityFilter(value);
-  };
+  }, []);
 
   const activeType = useMemo(() => EVENT_TYPES.find((type) => type.value === eventTypeFilter), [eventTypeFilter]);
   const activePriority = useMemo(() => PRIORITY_FILTERS.find((priority) => priority.value === priorityFilter), [priorityFilter]);
 
-  const handleTemplateCreate = (newTemplate) => {
+  // ✅ OPTIMIZED: useCallback for template handlers
+  const handleTemplateCreate = useCallback((newTemplate) => {
     setWasteTemplates(prev => [...prev, { ...newTemplate, id: Date.now() }]);
-  };
+  }, []);
 
-  const handleTemplateUpdate = (updatedTemplate) => {
-    setWasteTemplates(prev => 
-      prev.map(template => 
+  const handleTemplateUpdate = useCallback((updatedTemplate) => {
+    setWasteTemplates(prev =>
+      prev.map(template =>
         template.id === updatedTemplate.id ? updatedTemplate : template
       )
     );
-  };
+  }, []);
 
-  const handleTemplateDelete = (templateId) => {
+  const handleTemplateDelete = useCallback((templateId) => {
     setWasteTemplates(prev => prev.filter(template => template.id !== templateId));
-  };
+  }, []);
 
   const handleTemplateApply = async (template) => {
     try {

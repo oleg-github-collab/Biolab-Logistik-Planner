@@ -9,11 +9,12 @@ router.get('/', auth, (req, res) => {
   try {
     // Get all messages involving the user (sent or received)
     const query = `
-      SELECT 
+      SELECT
         m.id,
         m.sender_id,
         m.receiver_id,
         m.message,
+        m.message_type,
         m.is_group,
         m.read_status,
         m.created_at,
@@ -62,8 +63,71 @@ router.get('/unread-count', auth, (req, res) => {
         if (err) {
           return res.status(500).json({ error: 'Server error' });
         }
-        
+
         res.json({ unreadCount: row.count });
+      }
+    );
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   GET /api/messages/unread
+// @desc    Get all unread messages with sender info
+router.get('/unread', auth, (req, res) => {
+  try {
+    const query = `
+      SELECT
+        m.id,
+        m.sender_id,
+        m.receiver_id,
+        m.message,
+        m.message_type,
+        m.is_group,
+        m.read_status,
+        m.created_at,
+        sender.name as sender_name,
+        sender.email as sender_email
+      FROM messages m
+      JOIN users sender ON m.sender_id = sender.id
+      WHERE m.receiver_id = ? AND m.read_status = 0
+      ORDER BY m.created_at DESC
+      LIMIT 50
+    `;
+
+    db.all(query, [req.user.id], (err, rows) => {
+      if (err) {
+        return res.status(500).json({ error: 'Server error' });
+      }
+
+      res.json(rows);
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   POST /api/messages/:id/mark-read
+// @desc    Mark a specific message as read
+router.post('/:id/mark-read', auth, (req, res) => {
+  const { id } = req.params;
+
+  try {
+    db.run(
+      "UPDATE messages SET read_status = 1 WHERE id = ? AND receiver_id = ?",
+      [id, req.user.id],
+      function(err) {
+        if (err) {
+          return res.status(500).json({ error: 'Server error' });
+        }
+
+        if (this.changes === 0) {
+          return res.status(404).json({ error: 'Message not found or already read' });
+        }
+
+        res.json({ success: true, message: 'Message marked as read' });
       }
     );
   } catch (error) {
@@ -75,35 +139,39 @@ router.get('/unread-count', auth, (req, res) => {
 // @route   POST /api/messages
 // @desc    Send a message
 router.post('/', auth, (req, res) => {
-  const { receiverId, message, isGroup } = req.body;
-  
+  const { receiverId, message, isGroup, messageType = 'text' } = req.body;
+
   try {
     // Validate message
-    if (!message || message.trim().length === 0) {
+    if (!message || (messageType === 'text' && message.trim().length === 0)) {
       return res.status(400).json({ error: 'Message cannot be empty' });
     }
-    
+
     // For private messages, validate receiver
     if (!isGroup && (!receiverId || receiverId == req.user.id)) {
       return res.status(400).json({ error: 'Invalid receiver' });
     }
-    
+
+    // For text messages, trim the content. For GIFs and other types, keep as is
+    const messageContent = messageType === 'text' ? message.trim() : message;
+
     // Insert message
     db.run(
-      "INSERT INTO messages (sender_id, receiver_id, message, is_group, read_status) VALUES (?, ?, ?, ?, 0)",
-      [req.user.id, isGroup ? null : receiverId, message, isGroup ? 1 : 0],
+      "INSERT INTO messages (sender_id, receiver_id, message, message_type, is_group, read_status) VALUES (?, ?, ?, ?, ?, 0)",
+      [req.user.id, isGroup ? null : receiverId, messageContent, messageType, isGroup ? 1 : 0],
       function(err) {
         if (err) {
           return res.status(500).json({ error: 'Server error' });
         }
-        
+
         // Get the inserted message with user info
         const query = `
-          SELECT 
+          SELECT
             m.id,
             m.sender_id,
             m.receiver_id,
             m.message,
+            m.message_type,
             m.is_group,
             m.read_status,
             m.created_at,
@@ -114,12 +182,12 @@ router.post('/', auth, (req, res) => {
           LEFT JOIN users receiver ON m.receiver_id = receiver.id
           WHERE m.id = ?
         `;
-        
+
         db.get(query, [this.lastID], (err, row) => {
           if (err) {
             return res.status(500).json({ error: 'Server error' });
           }
-          
+
           res.json(row);
         });
       }
@@ -215,6 +283,7 @@ router.get('/conversation/:userId', auth, (req, res) => {
         m.sender_id,
         m.receiver_id,
         m.message,
+        m.message_type,
         m.created_at,
         m.read_status,
         sender.name as sender_name,
@@ -289,11 +358,11 @@ router.post('/start', auth, (req, res) => {
 // @route   POST /api/messages/send
 // @desc    Send a message to a user
 router.post('/send', auth, (req, res) => {
-  const { receiver_id, message } = req.body;
+  const { receiver_id, message, messageType = 'text' } = req.body;
 
   try {
     // Validate message
-    if (!message || message.trim().length === 0) {
+    if (!message || (messageType === 'text' && message.trim().length === 0)) {
       return res.status(400).json({ error: 'Message cannot be empty' });
     }
 
@@ -301,10 +370,13 @@ router.post('/send', auth, (req, res) => {
       return res.status(400).json({ error: 'Invalid receiver' });
     }
 
-    // Insert message
+    // For text messages, trim the content. For GIFs and other types, keep as is
+    const messageContent = messageType === 'text' ? message.trim() : message;
+
+    // Insert message with message_type
     db.run(
-      "INSERT INTO messages (sender_id, receiver_id, message, is_group, read_status, created_at) VALUES (?, ?, ?, 0, 0, datetime('now'))",
-      [req.user.id, receiver_id, message.trim()],
+      "INSERT INTO messages (sender_id, receiver_id, message, message_type, is_group, read_status, created_at) VALUES (?, ?, ?, ?, 0, 0, datetime('now'))",
+      [req.user.id, receiver_id, messageContent, messageType],
       function(err) {
         if (err) {
           console.error('Database error:', err);
@@ -318,6 +390,7 @@ router.post('/send', auth, (req, res) => {
             m.sender_id,
             m.receiver_id,
             m.message,
+            m.message_type,
             m.created_at,
             m.read_status,
             sender.name as sender_name,

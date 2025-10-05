@@ -99,11 +99,22 @@ function initializeDatabase() {
       assignee_id INTEGER,
       due_date DATETIME,
       tags TEXT, -- JSON array of tags
+      last_updated_by INTEGER,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (assignee_id) REFERENCES users (id) ON DELETE SET NULL
+      FOREIGN KEY (assignee_id) REFERENCES users (id) ON DELETE SET NULL,
+      FOREIGN KEY (last_updated_by) REFERENCES users (id) ON DELETE SET NULL
     )
   `);
+
+  // Add last_updated_by column if it doesn't exist (migration)
+  db.run(`
+    ALTER TABLE tasks ADD COLUMN last_updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL
+  `, (err) => {
+    if (err && !err.message.includes('duplicate column')) {
+      console.log('Migration: last_updated_by column already exists or migration completed');
+    }
+  });
 
   // Create archived_schedules table
   db.run(`
@@ -127,7 +138,7 @@ function initializeDatabase() {
       is_group BOOLEAN DEFAULT 0,
       read_status BOOLEAN DEFAULT 0,
       delivered_status BOOLEAN DEFAULT 1,
-      message_type TEXT DEFAULT 'text', -- 'text', 'image', 'file', 'location'
+      message_type TEXT DEFAULT 'text', -- 'text', 'image', 'file', 'location', 'gif'
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (sender_id) REFERENCES users (id) ON DELETE CASCADE,
       FOREIGN KEY (receiver_id) REFERENCES users (id) ON DELETE CASCADE
@@ -241,6 +252,35 @@ function initializeDatabase() {
       FOREIGN KEY (event_id) REFERENCES events (id) ON DELETE CASCADE,
       FOREIGN KEY (owner_id) REFERENCES users (id) ON DELETE CASCADE,
       FOREIGN KEY (shared_with_id) REFERENCES users (id) ON DELETE CASCADE
+    )
+  `);
+
+  // Create waste_disposal_schedule table for advanced waste planning
+  db.run(`
+    CREATE TABLE IF NOT EXISTS waste_disposal_schedule (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      waste_item_id INTEGER NOT NULL,
+      scheduled_date DATETIME NOT NULL,
+      actual_date DATETIME,
+      status TEXT DEFAULT 'scheduled', -- 'scheduled', 'completed', 'cancelled', 'rescheduled', 'overdue'
+      assigned_to INTEGER,
+      notes TEXT,
+      reminder_sent BOOLEAN DEFAULT 0,
+      reminder_dates TEXT, -- JSON array of reminder dates
+      is_recurring BOOLEAN DEFAULT 0,
+      recurrence_pattern TEXT, -- 'weekly', 'monthly', 'quarterly', 'yearly'
+      recurrence_end_date DATETIME,
+      next_occurrence DATETIME,
+      priority TEXT DEFAULT 'medium', -- 'low', 'medium', 'high', 'critical'
+      disposal_method TEXT,
+      quantity TEXT,
+      unit TEXT,
+      created_by INTEGER,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (waste_item_id) REFERENCES waste_items (id) ON DELETE CASCADE,
+      FOREIGN KEY (assigned_to) REFERENCES users (id) ON DELETE SET NULL,
+      FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL
     )
   `);
 
@@ -551,6 +591,10 @@ function initializeDatabase() {
   db.run("CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at)");
   db.run("CREATE INDEX IF NOT EXISTS idx_waste_next_disposal ON waste_items(next_disposal_date)");
   db.run("CREATE INDEX IF NOT EXISTS idx_waste_template ON waste_items(template_id)");
+  db.run("CREATE INDEX IF NOT EXISTS idx_waste_schedule_date ON waste_disposal_schedule(scheduled_date)");
+  db.run("CREATE INDEX IF NOT EXISTS idx_waste_schedule_status ON waste_disposal_schedule(status)");
+  db.run("CREATE INDEX IF NOT EXISTS idx_waste_schedule_assigned ON waste_disposal_schedule(assigned_to)");
+  db.run("CREATE INDEX IF NOT EXISTS idx_waste_schedule_waste_item ON waste_disposal_schedule(waste_item_id)");
   });
 }
 

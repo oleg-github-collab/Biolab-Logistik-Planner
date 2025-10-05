@@ -11,6 +11,8 @@ const useWebSocket = () => {
   const [messages, setMessages] = useState([]);
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [notifications, setNotifications] = useState([]);
+  const [taskEvents, setTaskEvents] = useState([]);
+  const taskEventHandlersRef = useRef(new Map());
 
   // Initialize WebSocket connection with auto-reconnect
   useEffect(() => {
@@ -128,6 +130,59 @@ const useWebSocket = () => {
 
         socket.on('user_stopped_typing', (data) => {
           console.log(`User ${data.userId} stopped typing`);
+        });
+
+        // Task events
+        socket.on('task:created', (data) => {
+          setTaskEvents(prev => [...prev, { type: 'created', ...data, timestamp: Date.now() }]);
+          // Trigger registered handlers
+          const handlers = taskEventHandlersRef.current.get('task:created');
+          if (handlers) {
+            handlers.forEach(handler => handler(data));
+          }
+        });
+
+        socket.on('task:updated', (data) => {
+          setTaskEvents(prev => [...prev, { type: 'updated', ...data, timestamp: Date.now() }]);
+          // Trigger registered handlers
+          const handlers = taskEventHandlersRef.current.get('task:updated');
+          if (handlers) {
+            handlers.forEach(handler => handler(data));
+          }
+        });
+
+        socket.on('task:moved', (data) => {
+          setTaskEvents(prev => [...prev, { type: 'moved', ...data, timestamp: Date.now() }]);
+          // Trigger registered handlers
+          const handlers = taskEventHandlersRef.current.get('task:moved');
+          if (handlers) {
+            handlers.forEach(handler => handler(data));
+          }
+        });
+
+        socket.on('task:deleted', (data) => {
+          setTaskEvents(prev => [...prev, { type: 'deleted', ...data, timestamp: Date.now() }]);
+          // Trigger registered handlers
+          const handlers = taskEventHandlersRef.current.get('task:deleted');
+          if (handlers) {
+            handlers.forEach(handler => handler(data));
+          }
+        });
+
+        socket.on('task:user_editing', (data) => {
+          // Trigger registered handlers
+          const handlers = taskEventHandlersRef.current.get('task:user_editing');
+          if (handlers) {
+            handlers.forEach(handler => handler(data));
+          }
+        });
+
+        socket.on('task:user_stopped_editing', (data) => {
+          // Trigger registered handlers
+          const handlers = taskEventHandlersRef.current.get('task:user_stopped_editing');
+          if (handlers) {
+            handlers.forEach(handler => handler(data));
+          }
         });
 
         socketRef.current = socket;
@@ -283,17 +338,50 @@ const useWebSocket = () => {
     return permission === 'granted';
   }, []);
 
+  // Register task event handler
+  const onTaskEvent = useCallback((eventType, handler) => {
+    if (!taskEventHandlersRef.current.has(eventType)) {
+      taskEventHandlersRef.current.set(eventType, new Set());
+    }
+    taskEventHandlersRef.current.get(eventType).add(handler);
+
+    // Return cleanup function
+    return () => {
+      const handlers = taskEventHandlersRef.current.get(eventType);
+      if (handlers) {
+        handlers.delete(handler);
+      }
+    };
+  }, []);
+
+  // Emit task editing status
+  const emitTaskEditing = useCallback((taskId) => {
+    if (socketRef.current && socketRef.current.connected) {
+      socketRef.current.emit('task:editing', { taskId });
+    }
+  }, []);
+
+  const emitTaskStopEditing = useCallback((taskId) => {
+    if (socketRef.current && socketRef.current.connected) {
+      socketRef.current.emit('task:stop_editing', { taskId });
+    }
+  }, []);
+
   return {
     isConnected,
     messages,
     onlineUsers,
     notifications,
+    taskEvents,
     sendMessage,
     markAsRead,
     startTyping,
     stopTyping,
     showNotification,
-    requestNotificationPermission
+    requestNotificationPermission,
+    onTaskEvent,
+    emitTaskEditing,
+    emitTaskStopEditing
   };
 };
 
