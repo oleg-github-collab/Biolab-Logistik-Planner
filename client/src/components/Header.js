@@ -207,9 +207,7 @@ const Header = () => {
     };
   }, [isMobileMenuOpen]);
 
-  if (!user) return null;
-
-  // ✅ OPTIMIZED: useCallback for path checking and logout
+  // ✅ OPTIMIZED: useCallback for path checking and logout - MUST be before early return
   const isActive = useCallback((path) => location.pathname === path || location.pathname.startsWith(`${path}/`), [location.pathname]);
 
   const handleLogout = useCallback(async () => {
@@ -224,6 +222,9 @@ const Header = () => {
 
   // ✅ OPTIMIZED: useMemo to cache filtered navigation items
   const availableNavItems = useMemo(() => NAV_ITEMS.filter((item) => hasPermission(item.permission)), [hasPermission]);
+
+  // Early return AFTER all hooks
+  if (!user) return null;
 
   return (
     <>
