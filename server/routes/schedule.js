@@ -3,6 +3,32 @@ const { auth, adminAuth } = require('../middleware/auth');
 const ScheduleService = require('../services/scheduleService');
 const router = express.Router();
 
+// @route   POST /api/schedule/auto-generate
+// @desc    Auto-generate schedule for current user (if Vollzeit)
+router.post('/auto-generate', auth, async (req, res) => {
+  try {
+    const { startDate, endDate } = req.body;
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({ error: 'Start date and end date are required' });
+    }
+
+    const events = await ScheduleService.generateVollzeitSchedule(
+      req.user.id,
+      new Date(startDate),
+      new Date(endDate)
+    );
+
+    res.json({
+      message: events.length > 0 ? `${events.length} Arbeitszeiten automatisch erstellt` : 'Keine automatische Planung erforderlich',
+      eventsCreated: events.length
+    });
+  } catch (error) {
+    console.error('Error auto-generating schedule:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // @route   POST /api/schedule/generate-week
 // @desc    Generate automatic schedule for current week (admin only)
 router.post('/generate-week', [auth, adminAuth], async (req, res) => {

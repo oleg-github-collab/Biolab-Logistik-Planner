@@ -22,16 +22,20 @@ const ModernMessenger = () => {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [messageSearchTerm, setMessageSearchTerm] = useState('');
   const [showUserList, setShowUserList] = useState(false);
+  const [showMessageSearch, setShowMessageSearch] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState(new Set());
   const [typingUsers, setTypingUsers] = useState(new Set());
   const [isTyping, setIsTyping] = useState(false);
   const [showGifPicker, setShowGifPicker] = useState(false);
   const [socket, setSocket] = useState(null);
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const typingTimeoutRef = useRef(null);
   const audioRef = useRef(null);
+  const textareaRef = useRef(null);
 
   // Initialize notification sound
   useEffect(() => {
@@ -169,6 +173,14 @@ const ModernMessenger = () => {
     scrollToBottom();
   }, [messages]);
 
+  // Auto-resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px';
+    }
+  }, [newMessage]);
+
   const loadUsers = async () => {
     try {
       const response = await fetch('/api/admin/users', {
@@ -304,6 +316,7 @@ const ModernMessenger = () => {
 
   const handleGifSelect = (gif) => {
     sendMessage(null, 'gif', gif.url);
+    setShowGifPicker(false);
   };
 
   const handleTyping = () => {
@@ -342,14 +355,16 @@ const ModernMessenger = () => {
     }
   };
 
-  const getConversationPreview = (conversation) => {
-    if (conversation.last_message) {
-      const maxLength = 50;
-      return conversation.last_message.length > maxLength
-        ? conversation.last_message.substring(0, maxLength) + '...'
-        : conversation.last_message;
+  const formatLastMessageTime = (timestamp) => {
+    if (!timestamp) return '';
+    const date = new Date(timestamp);
+    if (isToday(date)) {
+      return format(date, 'HH:mm');
+    } else if (isYesterday(date)) {
+      return 'Gestern';
+    } else {
+      return format(date, 'dd.MM.yy', { locale: de });
     }
-    return 'Neue Unterhaltung';
   };
 
   const groupUsersByRole = (userList) => {
@@ -381,6 +396,12 @@ const ModernMessenger = () => {
 
   const groupedUsers = groupUsersByRole(filteredUsers);
 
+  const filteredMessages = messageSearchTerm
+    ? messages.filter(msg =>
+        msg.message.toLowerCase().includes(messageSearchTerm.toLowerCase())
+      )
+    : messages;
+
   const groupMessagesByDate = (msgs) => {
     const grouped = [];
     let currentDate = null;
@@ -405,7 +426,7 @@ const ModernMessenger = () => {
     return format(date, 'dd. MMMM yyyy', { locale: de });
   };
 
-  const UserAvatar = ({ user: avatarUser, size = 'w-10 h-10', showOnline = false }) => {
+  const UserAvatar = ({ user: avatarUser, size = 'w-10 h-10', showOnline = false, fontSize = 'text-sm' }) => {
     const initials = avatarUser.name
       .split(' ')
       .map(n => n[0])
@@ -414,67 +435,93 @@ const ModernMessenger = () => {
       .substring(0, 2);
 
     const colors = [
-      'bg-red-500', 'bg-blue-500', 'bg-green-500', 'bg-yellow-500',
-      'bg-purple-500', 'bg-pink-500', 'bg-indigo-500', 'bg-teal-500'
+      'bg-gradient-to-br from-red-400 to-red-600',
+      'bg-gradient-to-br from-blue-400 to-blue-600',
+      'bg-gradient-to-br from-green-400 to-green-600',
+      'bg-gradient-to-br from-yellow-400 to-yellow-600',
+      'bg-gradient-to-br from-purple-400 to-purple-600',
+      'bg-gradient-to-br from-pink-400 to-pink-600',
+      'bg-gradient-to-br from-indigo-400 to-indigo-600',
+      'bg-gradient-to-br from-teal-400 to-teal-600'
     ];
 
     const colorIndex = avatarUser.id % colors.length;
+    const isOnline = onlineUsers.has(avatarUser.id);
 
     return (
-      <div className={`${size} ${colors[colorIndex]} rounded-full flex items-center justify-center text-white font-semibold relative`}>
-        {initials}
-        {showOnline && onlineUsers.has(avatarUser.id) && (
-          <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 border-2 border-white rounded-full"></div>
+      <div className="relative flex-shrink-0">
+        <div className={`${size} ${colors[colorIndex]} rounded-full flex items-center justify-center text-white font-semibold shadow-md ${fontSize}`}>
+          {initials}
+        </div>
+        {showOnline && (
+          <div className={`absolute -bottom-0.5 -right-0.5 ${
+            isOnline ? 'bg-green-500' : 'bg-gray-400'
+          } border-2 border-white rounded-full ${
+            size === 'w-12 h-12' ? 'w-4 h-4' : 'w-3 h-3'
+          } transition-all duration-300 ${isOnline ? 'animate-pulse' : ''}`} />
         )}
       </div>
     );
   };
 
   const MessageBubble = ({ message, isOwn }) => {
-    // Create sender object for non-own messages
     const sender = !isOwn && message.sender_name ? {
       id: message.sender_id,
       name: message.sender_name
     } : null;
 
     const isGif = message.message_type === 'gif' || message.type === 'gif';
+    const isHighlighted = messageSearchTerm &&
+      message.message.toLowerCase().includes(messageSearchTerm.toLowerCase());
 
     return (
-      <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-3 animate-fadeIn`}>
-        <div className={`flex items-end space-x-2 max-w-xs lg:max-w-md xl:max-w-lg ${isOwn ? 'flex-row-reverse space-x-reverse' : 'flex-row'}`}>
-          {!isOwn && sender && <UserAvatar user={sender} size="w-8 h-8" />}
-          <div className="flex flex-col">
-            <div className={`${isGif ? 'p-1' : 'px-4 py-2.5'} rounded-2xl shadow-sm transition-all hover:shadow-md ${
+      <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-2 group px-2 transition-all duration-200 ${
+        isHighlighted ? 'bg-yellow-50 -mx-2 px-4 py-1 rounded-lg' : ''
+      }`}>
+        <div className={`flex items-end gap-1.5 max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg ${
+          isOwn ? 'flex-row-reverse' : 'flex-row'
+        }`}>
+          {!isOwn && sender && (
+            <div className="mb-1">
+              <UserAvatar user={sender} size="w-7 h-7" fontSize="text-xs" />
+            </div>
+          )}
+
+          <div className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
+            <div className={`${isGif ? 'p-1' : 'px-3 py-2'} shadow-sm transition-all duration-200 ${
               isOwn
-                ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-br-md'
-                : 'bg-white text-gray-900 rounded-bl-md border border-gray-100'
+                ? 'bg-[#3B82F6] text-white rounded-2xl rounded-br-md hover:shadow-md'
+                : 'bg-[#F3F4F6] text-gray-900 rounded-2xl rounded-bl-md hover:shadow-md'
             }`}>
               {isGif ? (
-                <div className="relative">
+                <div className="relative rounded-xl overflow-hidden">
                   <img
                     src={message.message}
                     alt="GIF"
-                    className="rounded-lg max-w-xs max-h-64 object-contain"
+                    className="max-w-[250px] max-h-64 object-contain"
                     loading="lazy"
                   />
                 </div>
               ) : (
-                <p className="text-sm whitespace-pre-wrap break-words">{message.message}</p>
-              )}
-              <div className={`flex items-center justify-between ${isGif ? 'px-2 pb-1' : ''} mt-1.5 gap-2`}>
-                <p className={`text-xs ${isOwn ? 'text-blue-100' : 'text-gray-500'}`}>
-                  {formatMessageTime(message.created_at)}
+                <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words">
+                  {message.message}
                 </p>
+              )}
+
+              <div className={`flex items-center justify-end gap-1 mt-1 ${isGif ? 'px-2 pb-1' : ''}`}>
+                <span className={`text-[11px] ${isOwn ? 'text-blue-100' : 'text-gray-500'}`}>
+                  {format(new Date(message.created_at), 'HH:mm')}
+                </span>
+
                 {isOwn && (
-                  <div className="flex items-center space-x-1">
+                  <div className="flex items-center">
                     {message.read_status ? (
-                      <svg className="w-4 h-4 text-blue-200" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/>
-                        <path d="M12.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L4 10.586l7.293-7.293a1 1 0 011.414 0z"/>
+                      <svg className="w-4 h-4 text-blue-200" viewBox="0 0 16 15" fill="none">
+                        <path d="M15.01 3.316l-.478-.372a.365.365 0 0 0-.51.063L8.666 9.879a.32.32 0 0 1-.484.033l-.358-.325a.319.319 0 0 0-.484.032l-.378.483a.418.418 0 0 0 .036.541l1.32 1.266c.143.14.361.125.484-.033l6.272-8.048a.366.366 0 0 0-.064-.512zm-4.1 0l-.478-.372a.365.365 0 0 0-.51.063L4.566 9.879a.32.32 0 0 1-.484.033L1.891 7.769a.366.366 0 0 0-.515.006l-.423.433a.364.364 0 0 0 .006.514l3.258 3.185c.143.14.361.125.484-.033l6.272-8.048a.365.365 0 0 0-.063-.51z" fill="currentColor"/>
                       </svg>
                     ) : (
-                      <svg className="w-4 h-4 text-blue-200" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/>
+                      <svg className="w-4 h-4 text-blue-200" viewBox="0 0 12 11" fill="none">
+                        <path d="M11.1 2.1L9.4 0.6C9.3 0.5 9.1 0.5 9 0.6L3.4 6.7C3.3 6.8 3.1 6.8 3 6.7L0.9 4.6C0.8 4.5 0.6 4.5 0.5 4.6L0 5.1C-0.1 5.2 -0.1 5.4 0 5.5L2.9 8.9C3 9 3.2 9 3.3 8.9L11 1.6C11.2 1.5 11.2 1.2 11.1 2.1Z" fill="currentColor"/>
                       </svg>
                     )}
                   </div>
@@ -488,10 +535,12 @@ const ModernMessenger = () => {
   };
 
   const TypingIndicator = () => (
-    <div className="flex items-center space-x-2 mb-4 animate-fadeIn">
-      <div className="w-8 h-8" />
-      <div className="bg-gray-100 rounded-2xl rounded-bl-md px-4 py-3">
-        <div className="flex space-x-1">
+    <div className="flex items-end gap-1.5 mb-2 px-2 animate-fadeIn">
+      <div className="mb-1">
+        <div className="w-7 h-7 bg-gray-200 rounded-full animate-pulse" />
+      </div>
+      <div className="bg-[#F3F4F6] rounded-2xl rounded-bl-md px-4 py-3 shadow-sm">
+        <div className="flex gap-1">
           <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
           <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
           <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
@@ -502,27 +551,40 @@ const ModernMessenger = () => {
 
   const DateDivider = ({ date }) => (
     <div className="flex items-center justify-center my-4">
-      <div className="bg-gray-100 text-gray-600 text-xs px-3 py-1 rounded-full shadow-sm">
+      <div className="bg-white/80 backdrop-blur-sm text-gray-600 text-xs font-medium px-3 py-1.5 rounded-full shadow-sm border border-gray-200">
         {formatDateDivider(date)}
       </div>
     </div>
   );
 
+  const EmptyState = ({ icon, title, description, action }) => (
+    <div className="flex items-center justify-center h-full">
+      <div className="text-center px-4 py-12 max-w-sm">
+        <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-blue-50 to-blue-100 mb-6">
+          {icon}
+        </div>
+        <h3 className="text-xl font-semibold text-gray-900 mb-2">{title}</h3>
+        <p className="text-gray-500 mb-6">{description}</p>
+        {action}
+      </div>
+    </div>
+  );
+
   return (
-    <div className="h-screen bg-gray-50 flex overflow-hidden">
+    <div className="h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 flex overflow-hidden">
       {/* Sidebar */}
       <div className={`${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-      } fixed inset-y-0 left-0 z-50 w-80 bg-white shadow-xl transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 flex flex-col`}>
+      } fixed inset-y-0 left-0 z-50 w-full sm:w-96 bg-white shadow-2xl transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 flex flex-col border-r border-gray-200`}>
 
-        {/* Header - Fixed */}
+        {/* Header */}
         <div className="bg-white border-b border-gray-200 p-4 flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <h1 className="text-xl font-semibold text-gray-900">Nachrichten</h1>
-            <div className="flex items-center space-x-2">
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-2xl font-bold text-gray-900">Chats</h1>
+            <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowUserList(true)}
-                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-2.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-all duration-200 transform hover:scale-110"
                 title="Neue Unterhaltung"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -531,7 +593,7 @@ const ModernMessenger = () => {
               </button>
               <button
                 onClick={() => setSidebarOpen(false)}
-                className="lg:hidden p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+                className="lg:hidden p-2.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-all duration-200"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -539,118 +601,224 @@ const ModernMessenger = () => {
               </button>
             </div>
           </div>
+
+          {/* Search */}
+          <div className="relative">
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Unterhaltungen durchsuchen..."
+              className="w-full bg-gray-50 border-0 rounded-xl px-4 py-2.5 pl-11 focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all duration-200"
+            />
+            <svg className="w-5 h-5 absolute left-3.5 top-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
         </div>
 
-        {/* Conversations List - Scrollable */}
-        <div className="flex-1 overflow-y-auto">
+        {/* Conversations List */}
+        <div className="flex-1 overflow-y-auto overscroll-contain">
           {loading ? (
-            <LoadingSpinner variant="dots" size="md" text="Lade Unterhaltungen..." />
-          ) : conversations.length === 0 ? (
-            <div className="text-center p-8 text-gray-500">
-              <svg className="w-12 h-12 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
-              <p>Keine Unterhaltungen</p>
-              <p className="text-sm text-gray-400 mt-1">Starten Sie eine neue Unterhaltung</p>
+            <div className="flex items-center justify-center h-full">
+              <LoadingSpinner variant="dots" size="md" text="Lade Unterhaltungen..." />
             </div>
-          ) : (
-            conversations.map(conversation => {
-              const conversationUser = {
-                id: conversation.id,
-                name: conversation.name || conversation.user_name,
-                email: conversation.email || conversation.user_email
-              };
-
-              return (
-                <div
-                  key={conversation.id}
-                  onClick={() => {
-                    setSelectedConversation(conversationUser);
-                    setSidebarOpen(false);
-                  }}
-                  className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-all duration-200 ${
-                    selectedConversation?.id === conversation.id ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
-                  }`}
+          ) : conversations.length === 0 ? (
+            <EmptyState
+              icon={
+                <svg className="w-10 h-10 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+              }
+              title="Keine Unterhaltungen"
+              description="Starten Sie eine neue Unterhaltung, um loszulegen"
+              action={
+                <button
+                  onClick={() => setShowUserList(true)}
+                  className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-medium shadow-lg shadow-blue-600/30 hover:shadow-xl hover:shadow-blue-600/40 transition-all duration-200 transform hover:scale-105"
                 >
-                  <div className="flex items-center space-x-3">
-                    <UserAvatar user={conversationUser} showOnline />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm font-medium text-gray-900 truncate">
-                          {conversationUser.name}
-                        </p>
-                        {conversation.lastMessageTime && (
-                          <p className="text-xs text-gray-500">
-                            {formatMessageTime(conversation.lastMessageTime)}
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Neue Unterhaltung
+                </button>
+              }
+            />
+          ) : (
+            conversations
+              .filter(conv =>
+                !searchTerm ||
+                (conv.name || conv.user_name || '').toLowerCase().includes(searchTerm.toLowerCase())
+              )
+              .map(conversation => {
+                const conversationUser = {
+                  id: conversation.id,
+                  name: conversation.name || conversation.user_name,
+                  email: conversation.email || conversation.user_email
+                };
+
+                const isSelected = selectedConversation?.id === conversation.id;
+
+                return (
+                  <div
+                    key={conversation.id}
+                    onClick={() => {
+                      setSelectedConversation(conversationUser);
+                      setSidebarOpen(false);
+                      setMessageSearchTerm('');
+                    }}
+                    className={`px-4 py-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-all duration-200 ${
+                      isSelected ? 'bg-blue-50 border-l-4 border-l-blue-600' : 'border-l-4 border-l-transparent'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <UserAvatar user={conversationUser} size="w-12 h-12" showOnline fontSize="text-base" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className={`text-sm font-semibold truncate ${
+                            isSelected ? 'text-blue-900' : 'text-gray-900'
+                          } ${conversation.unreadCount > 0 ? 'font-bold' : ''}`}>
+                            {conversationUser.name}
                           </p>
-                        )}
+                          {conversation.lastMessageTime && (
+                            <span className={`text-xs flex-shrink-0 ml-2 ${
+                              conversation.unreadCount > 0 ? 'text-blue-600 font-semibold' : 'text-gray-500'
+                            }`}>
+                              {formatLastMessageTime(conversation.lastMessageTime)}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <p className={`text-sm truncate flex-1 ${
+                            conversation.unreadCount > 0 ? 'text-gray-900 font-medium' : 'text-gray-500'
+                          }`}>
+                            {conversation.lastMessage || 'Keine Nachrichten'}
+                          </p>
+                          {conversation.unreadCount > 0 && (
+                            <div className="bg-blue-600 text-white text-xs rounded-full min-w-[20px] h-5 px-2 flex items-center justify-center font-semibold flex-shrink-0">
+                              {conversation.unreadCount}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <p className="text-sm text-gray-500 truncate mt-1">
-                        {conversation.lastMessage || 'Neue Unterhaltung'}
-                      </p>
                     </div>
-                    {conversation.unreadCount > 0 && (
-                      <div className="bg-blue-500 text-white text-xs rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center animate-pulse">
-                        {conversation.unreadCount}
-                      </div>
-                    )}
                   </div>
-                </div>
-              );
-            })
+                );
+              })
           )}
         </div>
       </div>
 
       {/* Chat Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 bg-[#EFEAE2]">
         {selectedConversation ? (
           <>
-            {/* Chat Header - Fixed */}
-            <div className="bg-white border-b border-gray-200 p-4 flex items-center flex-shrink-0 shadow-sm">
+            {/* Chat Header */}
+            <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center flex-shrink-0 shadow-sm">
               <button
                 onClick={() => setSidebarOpen(true)}
-                className="lg:hidden mr-3 p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+                className="lg:hidden mr-3 p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-all duration-200"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
 
-              <UserAvatar user={selectedConversation} showOnline />
+              <UserAvatar user={selectedConversation} size="w-10 h-10" showOnline />
+
               <div className="ml-3 flex-1 min-w-0">
-                <h2 className="text-lg font-semibold text-gray-900 truncate">
+                <h2 className="text-base font-semibold text-gray-900 truncate">
                   {selectedConversation.name}
                 </h2>
-                <p className="text-sm text-gray-500 flex items-center">
+                <p className="text-xs text-gray-500 flex items-center gap-1.5">
                   {onlineUsers.has(selectedConversation.id) ? (
                     <>
-                      <span className="inline-block w-2 h-2 bg-green-400 rounded-full mr-2"></span>
+                      <span className="inline-block w-2 h-2 bg-green-500 rounded-full"></span>
                       Online
                     </>
                   ) : (
                     <>
-                      <span className="inline-block w-2 h-2 bg-gray-400 rounded-full mr-2"></span>
+                      <span className="inline-block w-2 h-2 bg-gray-400 rounded-full"></span>
                       Offline
                     </>
                   )}
                 </p>
               </div>
+
+              <button
+                onClick={() => setShowMessageSearch(!showMessageSearch)}
+                className={`p-2 rounded-full transition-all duration-200 ${
+                  showMessageSearch
+                    ? 'text-blue-600 bg-blue-50'
+                    : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50'
+                }`}
+                title="Nachrichten durchsuchen"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </button>
             </div>
 
-            {/* Messages - Scrollable */}
-            <div className="flex-1 overflow-y-auto p-4 bg-gradient-to-b from-gray-50 to-white">
-              {messages.length === 0 ? (
-                <div className="text-center text-gray-500 mt-8">
-                  <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            {/* Search Bar */}
+            {showMessageSearch && (
+              <div className="bg-white border-b border-gray-200 px-4 py-3 animate-fadeIn">
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={messageSearchTerm}
+                    onChange={(e) => setMessageSearchTerm(e.target.value)}
+                    placeholder="Nachrichten durchsuchen..."
+                    className="w-full bg-gray-50 border-0 rounded-xl px-4 py-2 pl-11 focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all duration-200 text-sm"
+                  />
+                  <svg className="w-5 h-5 absolute left-3 top-2.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
-                  <p className="text-lg font-medium">Noch keine Nachrichten</p>
-                  <p className="text-sm text-gray-400 mt-1">Senden Sie die erste Nachricht</p>
+                  {messageSearchTerm && (
+                    <button
+                      onClick={() => setMessageSearchTerm('')}
+                      className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
                 </div>
+              </div>
+            )}
+
+            {/* Messages */}
+            <div
+              ref={messagesContainerRef}
+              className="flex-1 overflow-y-auto overscroll-contain px-4 py-4"
+              style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23d1d5db' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+              }}
+            >
+              {filteredMessages.length === 0 && !messageSearchTerm ? (
+                <EmptyState
+                  icon={
+                    <svg className="w-10 h-10 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                  }
+                  title="Noch keine Nachrichten"
+                  description="Senden Sie die erste Nachricht und starten Sie die Unterhaltung"
+                />
+              ) : filteredMessages.length === 0 && messageSearchTerm ? (
+                <EmptyState
+                  icon={
+                    <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  }
+                  title="Keine Ergebnisse"
+                  description={`Keine Nachrichten gefunden für "${messageSearchTerm}"`}
+                />
               ) : (
                 <>
-                  {groupMessagesByDate(messages).map((item, index) =>
+                  {groupMessagesByDate(filteredMessages).map((item, index) =>
                     item.type === 'date' ? (
                       <DateDivider key={`date-${index}`} date={item.date} />
                     ) : (
@@ -667,21 +835,23 @@ const ModernMessenger = () => {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Message Input - Fixed */}
-            <div className="bg-white border-t border-gray-200 p-4 flex-shrink-0">
-              <form onSubmit={sendMessage} className="flex items-end space-x-2">
+            {/* Message Input */}
+            <div className="bg-white border-t border-gray-200 px-4 py-3 flex-shrink-0">
+              <form onSubmit={sendMessage} className="flex items-end gap-2">
                 <button
                   type="button"
                   onClick={() => setShowGifPicker(true)}
-                  className="p-2 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-full transition-colors mb-1"
-                  title="GIF hinzufügen"
+                  className="p-2.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-all duration-200 flex-shrink-0 transform hover:scale-110"
+                  title="GIF senden"
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </button>
+
                 <div className="flex-1 relative">
                   <textarea
+                    ref={textareaRef}
                     value={newMessage}
                     onChange={(e) => {
                       setNewMessage(e.target.value);
@@ -693,19 +863,19 @@ const ModernMessenger = () => {
                         sendMessage(e);
                       }
                     }}
-                    placeholder="Nachricht eingeben... (Enter zum Senden)"
-                    className="w-full border border-gray-300 rounded-2xl px-4 py-2.5 pr-12 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none overflow-hidden"
+                    placeholder="Nachricht eingeben..."
+                    className="w-full bg-gray-50 border-0 rounded-2xl px-4 py-3 pr-12 focus:ring-2 focus:ring-blue-500 focus:bg-white resize-none overflow-hidden transition-all duration-200 text-sm"
                     disabled={sending}
                     rows="1"
-                    style={{ minHeight: '42px', maxHeight: '120px' }}
+                    style={{ maxHeight: '120px' }}
                   />
                   <button
                     type="submit"
                     disabled={!newMessage.trim() || sending}
-                    className="absolute right-2 bottom-2 p-2 text-blue-500 hover:text-blue-600 disabled:text-gray-400 disabled:cursor-not-allowed rounded-full hover:bg-blue-50 transition-all"
+                    className="absolute right-2 bottom-2.5 p-2 text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-full transition-all duration-200 transform hover:scale-110 disabled:scale-100 shadow-lg disabled:shadow-none"
                   >
                     {sending ? (
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
                     ) : (
                       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
@@ -717,37 +887,42 @@ const ModernMessenger = () => {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-gray-50 to-blue-50">
-            <div className="text-center">
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="lg:hidden mb-4 bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg transition-all hover:shadow-xl"
-              >
-                Unterhaltungen anzeigen
-              </button>
-              <svg className="w-20 h-20 mx-auto mb-4 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <EmptyState
+            icon={
+              <svg className="w-12 h-12 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Willkommen im Messenger</h3>
-              <p className="text-gray-500">Wählen Sie eine Unterhaltung aus oder starten Sie eine neue</p>
-            </div>
-          </div>
+            }
+            title="Willkommen im Messenger"
+            description="Wählen Sie eine Unterhaltung aus der Liste oder starten Sie eine neue"
+            action={
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="lg:hidden inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-medium shadow-lg shadow-blue-600/30 hover:shadow-xl hover:shadow-blue-600/40 transition-all duration-200 transform hover:scale-105"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                Unterhaltungen anzeigen
+              </button>
+            }
+          />
         )}
       </div>
 
       {/* User List Modal */}
       {showUserList && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white rounded-xl w-full max-w-md max-h-[90vh] overflow-hidden shadow-2xl transform transition-all">
-            <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-blue-500 to-blue-600">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-lg font-semibold text-white">Neue Unterhaltung</h3>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-white rounded-2xl w-full max-w-md max-h-[85vh] overflow-hidden shadow-2xl transform transition-all animate-scaleIn">
+            <div className="p-5 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-blue-700">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-white">Neue Unterhaltung</h3>
                 <button
                   onClick={() => {
                     setShowUserList(false);
                     setSearchTerm('');
                   }}
-                  className="text-white hover:bg-blue-400 p-1.5 rounded-full transition-colors"
+                  className="text-white hover:bg-white/20 p-2 rounded-full transition-all duration-200"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -760,27 +935,29 @@ const ModernMessenger = () => {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Benutzer suchen..."
-                  className="w-full border-0 rounded-lg px-4 py-2 pl-10 focus:ring-2 focus:ring-blue-300"
+                  className="w-full border-0 rounded-xl px-4 py-2.5 pl-11 focus:ring-2 focus:ring-blue-300 text-sm"
+                  autoFocus
                 />
-                <svg className="w-5 h-5 absolute left-3 top-2.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 absolute left-3.5 top-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </div>
             </div>
 
-            <div className="overflow-y-auto" style={{ maxHeight: 'calc(90vh - 140px)' }}>
+            <div className="overflow-y-auto" style={{ maxHeight: 'calc(85vh - 160px)' }}>
               {filteredUsers.length === 0 ? (
-                <div className="text-center p-8 text-gray-500">
-                  <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                <div className="text-center p-12 text-gray-500">
+                  <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                   </svg>
-                  <p>Keine Benutzer gefunden</p>
+                  <p className="text-base font-medium">Keine Benutzer gefunden</p>
+                  <p className="text-sm text-gray-400 mt-1">Versuchen Sie einen anderen Suchbegriff</p>
                 </div>
               ) : (
                 groupedUsers.map(([role, roleUsers]) => (
                   <div key={role}>
-                    <div className="bg-gray-100 px-4 py-2 sticky top-0 z-10">
-                      <h4 className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <div className="bg-gray-50 px-4 py-2.5 sticky top-0 z-10 border-b border-gray-200">
+                      <h4 className="text-xs font-bold text-gray-600 uppercase tracking-wider">
                         {getRoleLabel(role)} ({roleUsers.length})
                       </h4>
                     </div>
@@ -788,19 +965,21 @@ const ModernMessenger = () => {
                       <div
                         key={u.id}
                         onClick={() => startConversation(u.id)}
-                        className="p-4 hover:bg-blue-50 cursor-pointer border-b border-gray-100 flex items-center space-x-3 transition-colors group"
+                        className="px-4 py-3.5 hover:bg-blue-50 cursor-pointer border-b border-gray-100 flex items-center gap-3 transition-all duration-200 group"
                       >
-                        <UserAvatar user={u} showOnline />
+                        <UserAvatar user={u} size="w-11 h-11" showOnline />
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-gray-900 truncate group-hover:text-blue-600 transition-colors">{u.name}</p>
-                          <p className="text-sm text-gray-500 truncate">{u.email}</p>
+                          <p className="font-semibold text-gray-900 truncate group-hover:text-blue-600 transition-colors text-sm">
+                            {u.name}
+                          </p>
+                          <p className="text-xs text-gray-500 truncate">{u.email}</p>
                         </div>
-                        {onlineUsers.has(u.id) ? (
-                          <div className="flex items-center space-x-1">
-                            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                            <span className="text-xs text-green-600 font-medium">Online</span>
+                        {onlineUsers.has(u.id) && (
+                          <div className="flex items-center gap-1.5 bg-green-50 px-2.5 py-1 rounded-full">
+                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                            <span className="text-xs text-green-700 font-medium">Online</span>
                           </div>
-                        ) : null}
+                        )}
                       </div>
                     ))}
                   </div>
@@ -814,7 +993,7 @@ const ModernMessenger = () => {
       {/* Overlay for mobile */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden animate-fadeIn"
           onClick={() => setSidebarOpen(false)}
         />
       )}

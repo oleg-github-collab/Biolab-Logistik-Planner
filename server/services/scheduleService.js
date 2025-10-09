@@ -3,7 +3,7 @@ const { format, addDays, startOfWeek, endOfWeek, isWeekend, startOfDay, endOfDay
 
 class ScheduleService {
   /**
-   * Generates automatic schedule for Vollzeit employees (8-17 working hours)
+   * Generates automatic schedule for Vollzeit employees (8:00-16:30 working hours)
    * @param {number} userId - User ID
    * @param {Date} startDate - Start date for schedule generation
    * @param {Date} endDate - End date for schedule generation
@@ -36,7 +36,7 @@ class ScheduleService {
 
               if (!existingEvent) {
                 const startTime = user.default_start_time || '08:00';
-                const endTime = user.default_end_time || '17:00';
+                const endTime = user.default_end_time || '16:30';
 
                 const event = {
                   title: 'Arbeit',

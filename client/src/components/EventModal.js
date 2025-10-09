@@ -18,7 +18,10 @@ const EventModal = memo(({ isOpen, onClose, onSave, selectedDate, event = null, 
     reminder: 15,
     status: 'confirmed',
     category: 'work',
-    notes: ''
+    notes: '',
+    recurring: false,
+    recurring_pattern: 'weekly',
+    recurring_end: ''
   });
 
   const [errors, setErrors] = useState({});
@@ -41,7 +44,10 @@ const EventModal = memo(({ isOpen, onClose, onSave, selectedDate, event = null, 
           reminder: event.reminder ?? 15,
           status: event.status || 'confirmed',
           category: event.category || 'work',
-          notes: event.notes || ''
+          notes: event.notes || '',
+          recurring: Boolean(event.recurring),
+          recurring_pattern: event.recurring_pattern || 'weekly',
+          recurring_end: event.recurring_end || ''
         });
       } else {
         const dateStr = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
@@ -60,7 +66,10 @@ const EventModal = memo(({ isOpen, onClose, onSave, selectedDate, event = null, 
           reminder: 15,
           status: 'confirmed',
           category: 'work',
-          notes: ''
+          notes: '',
+          recurring: false,
+          recurring_pattern: 'weekly',
+          recurring_end: ''
         });
       }
       setErrors({});
@@ -367,6 +376,62 @@ const EventModal = memo(({ isOpen, onClose, onSave, selectedDate, event = null, 
                 <option value={60}>1 Stunde</option>
                 <option value={1440}>1 Tag</option>
               </select>
+            </div>
+
+            {/* Recurring Event */}
+            <div className="border-t pt-6">
+              <div className="flex items-center mb-4">
+                <input
+                  type="checkbox"
+                  name="recurring"
+                  id="recurring"
+                  checked={formData.recurring}
+                  onChange={handleInputChange}
+                  className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <label htmlFor="recurring" className="ml-2 text-sm font-medium text-gray-700">
+                  Wiederholender Termin
+                </label>
+              </div>
+
+              {formData.recurring && (
+                <div className="space-y-4 pl-6 border-l-2 border-blue-200">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Wiederholungsmuster
+                    </label>
+                    <select
+                      name="recurring_pattern"
+                      value={formData.recurring_pattern}
+                      onChange={handleInputChange}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="daily">Täglich</option>
+                      <option value="weekly">Wöchentlich</option>
+                      <option value="biweekly">Alle 2 Wochen</option>
+                      <option value="monthly">Monatlich</option>
+                      <option value="yearly">Jährlich</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Wiederholung endet am (optional)
+                    </label>
+                    <input
+                      type="date"
+                      name="recurring_end"
+                      value={formData.recurring_end}
+                      onChange={handleInputChange}
+                      min={formData.start_date}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Leer lassen für unbegrenzte Wiederholung
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Notes */}
