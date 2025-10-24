@@ -341,12 +341,44 @@ server.listen(PORT, '0.0.0.0', () => {
 });
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received. Shutting down gracefully...');
+const shutdown = (signal) => {
+  console.log(`${signal} received. Shutting down gracefully...`);
+
+  // Stop accepting new connections
   server.close(() => {
     console.log('Server closed');
-    process.exit(0);
+
+    // Close database connection
+    db.close((err) => {
+      if (err) {
+        console.error('Error closing database:', err);
+        process.exit(1);
+      }
+      console.log('Database connection closed');
+      process.exit(0);
+    });
   });
+
+  // Force shutdown after 30 seconds
+  setTimeout(() => {
+    console.error('Forced shutdown after timeout');
+    process.exit(1);
+  }, 30000);
+};
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  shutdown('UNCAUGHT_EXCEPTION');
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  shutdown('UNHANDLED_REJECTION');
 });
 
 module.exports = app;

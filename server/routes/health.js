@@ -4,7 +4,7 @@
 
 const express = require('express');
 const router = express.Router();
-const db = require('../config/database');
+const db = require('../database');
 const logger = require('../utils/logger');
 const auditLogger = require('../utils/auditLog');
 const fs = require('fs');

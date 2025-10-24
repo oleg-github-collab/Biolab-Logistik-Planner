@@ -21,8 +21,16 @@ class AuditLogger {
    * Ensure audit directory exists
    */
   ensureAuditDirectory() {
-    if (!fs.existsSync(this.auditDir)) {
-      fs.mkdirSync(this.auditDir, { recursive: true });
+    try {
+      if (!fs.existsSync(this.auditDir)) {
+        fs.mkdirSync(this.auditDir, { recursive: true });
+        console.log(`Audit directory created: ${this.auditDir}`);
+      }
+    } catch (error) {
+      console.error('Failed to create audit directory:', error);
+      // Fallback to temp directory
+      this.auditDir = require('os').tmpdir();
+      console.log(`Using fallback audit directory: ${this.auditDir}`);
     }
   }
 
@@ -131,18 +139,25 @@ class AuditLogger {
     const entries = [...this.buffer];
     this.buffer = [];
 
-    const date = new Date().toISOString().split('T')[0];
-    const filename = path.join(this.auditDir, `audit-${date}.jsonl`);
+    try {
+      const date = new Date().toISOString().split('T')[0];
+      const filename = path.join(this.auditDir, `audit-${date}.jsonl`);
 
-    const lines = entries.map(entry => JSON.stringify(entry)).join('\n') + '\n';
+      const lines = entries.map(entry => JSON.stringify(entry)).join('\n') + '\n';
 
-    fs.appendFile(filename, lines, (err) => {
-      if (err) {
-        logger.error('Failed to write audit log:', err);
-        // Re-add to buffer
-        this.buffer.unshift(...entries);
-      }
-    });
+      fs.appendFile(filename, lines, (err) => {
+        if (err) {
+          console.error('Failed to write audit log:', err);
+          // Don't re-add to buffer to prevent memory leak in production
+          // Just log to console as fallback
+          console.log('AUDIT LOG (fallback):', JSON.stringify(entries));
+        }
+      });
+    } catch (error) {
+      console.error('Failed to flush audit buffer:', error);
+      // Fallback logging
+      console.log('AUDIT LOG (fallback):', JSON.stringify(entries));
+    }
   }
 
   /**
@@ -158,56 +173,82 @@ class AuditLogger {
    * Query audit logs
    */
   async query(filters = {}) {
-    const { startDate, endDate, category, userId, action, limit = 100 } = filters;
+    try {
+      const { startDate, endDate, category, userId, action, limit = 100 } = filters;
 
-    const results = [];
-    const files = await this.getAuditFiles(startDate, endDate);
+      const results = [];
+      const files = await this.getAuditFiles(startDate, endDate);
 
-    for (const file of files) {
-      const content = fs.readFileSync(file, 'utf-8');
-      const lines = content.trim().split('\n');
-
-      for (const line of lines) {
+      for (const file of files) {
         try {
-          const entry = JSON.parse(line);
+          if (!fs.existsSync(file)) continue;
 
-          // Apply filters
-          if (category && entry.category !== category) continue;
-          if (userId && entry.userId !== userId) continue;
-          if (action && entry.action !== action) continue;
+          const content = fs.readFileSync(file, 'utf-8');
+          const lines = content.trim().split('\n').filter(line => line.trim());
 
-          results.push(entry);
+          for (const line of lines) {
+            try {
+              const entry = JSON.parse(line);
 
-          if (results.length >= limit) {
-            return results;
+              // Apply filters
+              if (category && entry.category !== category) continue;
+              if (userId && entry.userId !== userId) continue;
+              if (action && entry.action !== action) continue;
+
+              results.push(entry);
+
+              if (results.length >= limit) {
+                return results;
+              }
+            } catch (err) {
+              console.warn('Failed to parse audit log line:', err.message);
+            }
           }
         } catch (err) {
-          logger.warn('Failed to parse audit log line:', err);
+          console.error('Failed to read audit file:', file, err.message);
         }
       }
-    }
 
-    return results;
+      return results;
+    } catch (error) {
+      console.error('Failed to query audit logs:', error);
+      return [];
+    }
   }
 
   /**
    * Get audit files for date range
    */
   async getAuditFiles(startDate, endDate) {
-    const files = fs.readdirSync(this.auditDir);
+    try {
+      if (!fs.existsSync(this.auditDir)) {
+        console.warn('Audit directory does not exist:', this.auditDir);
+        return [];
+      }
 
-    const start = startDate ? new Date(startDate) : new Date(0);
-    const end = endDate ? new Date(endDate) : new Date();
+      const files = fs.readdirSync(this.auditDir);
 
-    return files
-      .filter(file => file.startsWith('audit-') && file.endsWith('.jsonl'))
-      .filter(file => {
-        const dateStr = file.replace('audit-', '').replace('.jsonl', '');
-        const fileDate = new Date(dateStr);
-        return fileDate >= start && fileDate <= end;
-      })
-      .map(file => path.join(this.auditDir, file))
-      .sort();
+      const start = startDate ? new Date(startDate) : new Date(0);
+      const end = endDate ? new Date(endDate) : new Date();
+
+      return files
+        .filter(file => file.startsWith('audit-') && file.endsWith('.jsonl'))
+        .filter(file => {
+          try {
+            const dateStr = file.replace('audit-', '').replace('.jsonl', '');
+            const fileDate = new Date(dateStr);
+            return fileDate >= start && fileDate <= end;
+          } catch (err) {
+            console.warn('Failed to parse audit file date:', file);
+            return false;
+          }
+        })
+        .map(file => path.join(this.auditDir, file))
+        .sort();
+    } catch (error) {
+      console.error('Failed to get audit files:', error);
+      return [];
+    }
   }
 
   /**
