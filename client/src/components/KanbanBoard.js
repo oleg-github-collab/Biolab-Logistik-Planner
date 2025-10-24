@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import io from 'socket.io-client';
 
 const KanbanBoard = ({ tasks = [], onTaskUpdate, onTaskCreate, onTaskDelete }) => {
+  const [socket, setSocket] = useState(null);
   const [columns, setColumns] = useState({
     todo: {
       id: 'todo',
@@ -35,6 +37,61 @@ const KanbanBoard = ({ tasks = [], onTaskUpdate, onTaskCreate, onTaskDelete }) =
     priority: 'medium',
     tags: []
   });
+
+  // Initialize WebSocket for real-time sync
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    const wsUrl = process.env.NODE_ENV === 'development'
+      ? 'http://localhost:5000'
+      : window.location.origin;
+
+    const newSocket = io(wsUrl, {
+      auth: { token },
+      transports: ['websocket', 'polling'],
+      reconnection: true
+    });
+
+    newSocket.on('connect', () => {
+      console.log('✅ Kanban WebSocket connected');
+    });
+
+    // Listen for real-time task updates from other users
+    newSocket.on('task:created', (taskData) => {
+      console.log('Task created by another user:', taskData);
+      if (onTaskCreate) {
+        onTaskCreate(taskData.task);
+      }
+    });
+
+    newSocket.on('task:updated', (taskData) => {
+      console.log('Task updated by another user:', taskData);
+      if (onTaskUpdate) {
+        onTaskUpdate(taskData.task.id, taskData.task);
+      }
+    });
+
+    newSocket.on('task:deleted', (taskData) => {
+      console.log('Task deleted by another user:', taskData);
+      if (onTaskDelete) {
+        onTaskDelete(taskData.taskId);
+      }
+    });
+
+    newSocket.on('task:moved', (taskData) => {
+      console.log('Task moved by another user:', taskData);
+      if (onTaskUpdate) {
+        onTaskUpdate(taskData.taskId, { status: taskData.toStatus });
+      }
+    });
+
+    setSocket(newSocket);
+
+    return () => {
+      newSocket.disconnect();
+    };
+  }, [onTaskCreate, onTaskUpdate, onTaskDelete]);
 
   useEffect(() => {
     // Group tasks by status
@@ -80,18 +137,11 @@ const KanbanBoard = ({ tasks = [], onTaskUpdate, onTaskCreate, onTaskDelete }) =
     const sourceColumn = columns[source.droppableId];
     const destColumn = columns[destination.droppableId];
     const sourceTasks = [...sourceColumn.tasks];
-    const destTasks = [...destColumn.tasks];
+    const destTasks = source.droppableId === destination.droppableId ? sourceTasks : [...destColumn.tasks];
     const [removed] = sourceTasks.splice(source.index, 1);
     destTasks.splice(destination.index, 0, removed);
 
-    // Update task status
-    if (onTaskUpdate) {
-      onTaskUpdate(removed.id, {
-        ...removed,
-        status: destination.droppableId
-      });
-    }
-
+    // Optimistic UI update
     setColumns({
       ...columns,
       [source.droppableId]: {
@@ -103,6 +153,24 @@ const KanbanBoard = ({ tasks = [], onTaskUpdate, onTaskCreate, onTaskDelete }) =
         tasks: destTasks
       }
     });
+
+    // Update task status
+    if (onTaskUpdate) {
+      onTaskUpdate(removed.id, {
+        ...removed,
+        status: destination.droppableId
+      });
+    }
+
+    // Broadcast to other users via WebSocket
+    if (socket) {
+      socket.emit('task:move', {
+        taskId: removed.id,
+        fromStatus: source.droppableId,
+        toStatus: destination.droppableId,
+        newIndex: destination.index
+      });
+    }
   };
 
   const handleTaskClick = (task) => {
@@ -118,21 +186,39 @@ const KanbanBoard = ({ tasks = [], onTaskUpdate, onTaskCreate, onTaskDelete }) =
     e.preventDefault();
     if (selectedTask) {
       // Update existing task
+      const updatedTask = {
+        ...newTask,
+        dueDate: newTask.dueDate ? new Date(newTask.dueDate) : null
+      };
+
       if (onTaskUpdate) {
-        onTaskUpdate(selectedTask.id, {
-          ...newTask,
-          dueDate: newTask.dueDate ? new Date(newTask.dueDate) : null
+        onTaskUpdate(selectedTask.id, updatedTask);
+      }
+
+      // Broadcast update to other users
+      if (socket) {
+        socket.emit('task:update', {
+          task: { ...selectedTask, ...updatedTask }
         });
       }
     } else {
       // Create new task
+      const newTaskData = {
+        ...newTask,
+        id: Date.now(),
+        status: 'todo',
+        createdAt: new Date(),
+        dueDate: newTask.dueDate ? new Date(newTask.dueDate) : null
+      };
+
       if (onTaskCreate) {
-        onTaskCreate({
-          ...newTask,
-          id: Date.now(),
-          status: 'todo',
-          createdAt: new Date(),
-          dueDate: newTask.dueDate ? new Date(newTask.dueDate) : null
+        onTaskCreate(newTaskData);
+      }
+
+      // Broadcast creation to other users
+      if (socket) {
+        socket.emit('task:create', {
+          task: newTaskData
         });
       }
     }
@@ -185,14 +271,14 @@ const KanbanBoard = ({ tasks = [], onTaskUpdate, onTaskCreate, onTaskDelete }) =
       </div>
 
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="flex space-x-4 overflow-x-auto pb-4">
+        <div className="flex space-x-2 sm:space-x-4 overflow-x-auto pb-4 -webkit-overflow-scrolling-touch">
           {Object.values(columns).map(column => (
             <Droppable key={column.id} droppableId={column.id}>
               {(provided) => (
                 <div
                   {...provided.droppableProps}
                   ref={provided.innerRef}
-                  className="bg-white rounded-lg shadow-sm min-w-80 max-w-80"
+                  className="bg-white rounded-lg shadow-sm min-w-[280px] sm:min-w-80 max-w-[280px] sm:max-w-80 flex-shrink-0"
                 >
                   <div className="p-4 border-b border-gray-200">
                     <h3 className="font-bold text-gray-800 mb-1">{column.title}</h3>
@@ -256,8 +342,8 @@ const KanbanBoard = ({ tasks = [], onTaskUpdate, onTaskCreate, onTaskDelete }) =
 
       {/* Task Modal */}
       {showTaskModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md mx-auto slide-in">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50">
+          <div className="bg-white rounded-xl p-4 sm:p-6 w-full max-w-md mx-auto slide-in max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-gray-800">
                 {selectedTask ? 'Aufgabe bearbeiten' : 'Neue Aufgabe'}

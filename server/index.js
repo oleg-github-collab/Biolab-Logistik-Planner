@@ -55,6 +55,7 @@ app.use('/api/waste', require('./routes/wasteTemplates'));
 app.use('/api/waste', require('./routes/wasteSchedule'));
 app.use('/api/tasks', require('./routes/tasks'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/health', require('./routes/health'));
 
 // Serve static assets if in production
 if (process.env.NODE_ENV === 'production') {

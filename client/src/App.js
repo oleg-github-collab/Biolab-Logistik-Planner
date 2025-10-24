@@ -10,6 +10,7 @@ import Messages from './pages/Messages';
 import Waste from './pages/Waste';
 import FirstSetup from './pages/FirstSetup';
 import UserManagement from './pages/UserManagement';
+import Admin from './pages/Admin';
 
 // Protected Route component
 const ProtectedRoute = ({ children }) => {
@@ -137,6 +138,17 @@ const AppContent = () => {
                   <>
                     <Header />
                     <UserManagement />
+                  </>
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <AdminRoute>
+                  <>
+                    <Header />
+                    <Admin />
                   </>
                 </AdminRoute>
               }

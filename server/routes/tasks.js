@@ -2,6 +2,7 @@ const express = require('express');
 const db = require('../database');
 const { auth } = require('../middleware/auth');
 const { getIO } = require('../websocket');
+const auditLogger = require('../utils/auditLog');
 const router = express.Router();
 
 // @route   GET /api/tasks
@@ -124,6 +125,15 @@ router.post('/', auth, (req, res) => {
                 }
               });
             }
+
+            // Audit log
+            auditLogger.logDataChange('create', req.user.id, 'task', this.lastID, {
+              title,
+              status,
+              priority,
+              assigneeId,
+              ip: req.ip
+            });
 
             res.status(201).json(formattedTask);
           }
@@ -265,6 +275,18 @@ router.put('/:id', auth, (req, res) => {
                 });
               }
 
+              // Audit log
+              const changes = {};
+              if (title !== undefined) changes.title = title;
+              if (status !== undefined) changes.status = status;
+              if (priority !== undefined) changes.priority = priority;
+              if (assigneeId !== undefined) changes.assigneeId = assigneeId;
+
+              auditLogger.logDataChange('update', req.user.id, 'task', id, {
+                changes,
+                ip: req.ip
+              });
+
               res.json(formattedTask);
             }
           );
@@ -325,6 +347,13 @@ router.delete('/:id', auth, (req, res) => {
                 }
               });
             }
+
+            // Audit log
+            auditLogger.logDataChange('delete', req.user.id, 'task', id, {
+              title: task.title,
+              status: task.status,
+              ip: req.ip
+            });
 
             res.json({ message: 'Task deleted successfully' });
           }

@@ -2,6 +2,8 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const db = require('../database');
 const { auth, adminAuth } = require('../middleware/auth');
+const auditLogger = require('../utils/auditLog');
+const { getIO, getOnlineUsers } = require('../websocket');
 const router = express.Router();
 
 // Helper functions to wrap sqlite3 callback API in Promises for async/await
@@ -277,6 +279,133 @@ router.delete('/users/:id', [auth, adminAuth], async (req, res) => {
     });
   } catch (err) {
     console.error(err.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   GET /api/admin/audit/stats
+// @desc    Get audit statistics (admin only)
+router.get('/audit/stats', [auth, adminAuth], async (req, res) => {
+  try {
+    const days = parseInt(req.query.days) || 7;
+    const stats = await auditLogger.getStatistics(days);
+    res.json(stats);
+  } catch (err) {
+    console.error('Get audit stats error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   GET /api/admin/audit/logs
+// @desc    Get audit logs (admin only)
+router.get('/audit/logs', [auth, adminAuth], async (req, res) => {
+  try {
+    const { category, severity, limit = 50, userId, action } = req.query;
+
+    const filters = {
+      limit: parseInt(limit)
+    };
+
+    if (category && category !== 'all') filters.category = category;
+    if (severity && severity !== 'all') filters.severity = severity;
+    if (userId) filters.userId = parseInt(userId);
+    if (action) filters.action = action;
+
+    const logs = await auditLogger.query(filters);
+    res.json({ logs });
+  } catch (err) {
+    console.error('Get audit logs error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   GET /api/admin/audit/export
+// @desc    Export audit logs (admin only)
+router.get('/audit/export', [auth, adminAuth], async (req, res) => {
+  try {
+    const { format = 'json', days = 7, category, severity, userId } = req.query;
+
+    const filters = {
+      limit: 10000
+    };
+
+    if (category && category !== 'all') filters.category = category;
+    if (severity && severity !== 'all') filters.severity = severity;
+    if (userId) filters.userId = parseInt(userId);
+
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - parseInt(days));
+
+    filters.startDate = startDate.toISOString();
+    filters.endDate = endDate.toISOString();
+
+    const exportData = await auditLogger.export(filters, format);
+
+    res.setHeader('Content-Type', format === 'csv' ? 'text/csv' : 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename=audit-logs-${new Date().toISOString().split('T')[0]}.${format}`);
+    res.send(exportData);
+  } catch (err) {
+    console.error('Export audit logs error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   GET /api/admin/users/online
+// @desc    Get list of online users (admin only)
+router.get('/users/online', [auth, adminAuth], async (req, res) => {
+  try {
+    const onlineUsers = getOnlineUsers();
+    const usersWithDetails = [];
+
+    for (const userId of onlineUsers) {
+      const user = await dbGet(
+        "SELECT id, name, email, role FROM users WHERE id = ?",
+        [userId]
+      );
+      if (user) {
+        usersWithDetails.push(user);
+      }
+    }
+
+    res.json({ users: usersWithDetails });
+  } catch (err) {
+    console.error('Get online users error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   POST /api/admin/broadcast
+// @desc    Broadcast message to all users (admin only)
+router.post('/broadcast', [auth, adminAuth], async (req, res) => {
+  try {
+    const { message, type = 'info' } = req.body;
+
+    if (!message) {
+      return res.status(400).json({ error: 'Message is required' });
+    }
+
+    const io = getIO();
+    if (io) {
+      io.emit('admin:broadcast', {
+        message,
+        type,
+        timestamp: new Date().toISOString(),
+        from: req.user.name
+      });
+    }
+
+    auditLogger.logSystem('admin_broadcast', {
+      adminId: req.user.id,
+      adminName: req.user.name,
+      message,
+      type,
+      severity: 'medium'
+    });
+
+    res.json({ message: 'Broadcast sent successfully' });
+  } catch (err) {
+    console.error('Broadcast error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });

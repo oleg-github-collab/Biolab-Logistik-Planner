@@ -14,6 +14,15 @@ const initializeSocket = (server) => {
       origin: ["http://localhost:3000", "http://localhost:5000"],
       methods: ["GET", "POST"],
       credentials: true
+    },
+    pingTimeout: 30000,
+    pingInterval: 10000,
+    upgradeTimeout: 10000,
+    maxHttpBufferSize: 1e8,
+    transports: ['websocket', 'polling'],
+    allowUpgrades: true,
+    perMessageDeflate: {
+      threshold: 1024
     }
   });
 
@@ -82,7 +91,7 @@ const initializeSocket = (server) => {
       lastSeen: user.lastSeen
     })));
 
-    // Handle private message
+    // Handle private message - Optimized for instant delivery
     socket.on('send_message', async (data) => {
       try {
         const { receiverId, message, messageType = 'text' } = data;
@@ -92,78 +101,102 @@ const initializeSocket = (server) => {
           return;
         }
 
-        // Save message to database
+        const receiverConnection = Array.from(activeUsers.entries())
+          .find(([id]) => id == receiverId);
+
+        // Prepare optimistic message for instant UI update
+        const optimisticMessage = {
+          id: 'temp_' + Date.now(),
+          sender_id: userId,
+          receiver_id: receiverId,
+          message: message.trim(),
+          message_type: messageType,
+          sender_name: userInfo.name,
+          created_at: new Date().toISOString(),
+          read_status: 0,
+          delivered_status: receiverConnection ? 1 : 0,
+          isOptimistic: true
+        };
+
+        // Send immediate confirmation to sender (optimistic update)
+        socket.emit('message_sent', optimisticMessage);
+
+        // Send to receiver instantly if online (before DB save)
+        if (receiverConnection) {
+          const [, receiverData] = receiverConnection;
+          io.to(receiverData.socketId).emit('new_message', optimisticMessage);
+        }
+
+        // Save to database asynchronously
         db.run(
           `INSERT INTO messages (sender_id, receiver_id, message, message_type, is_group, read_status, delivered_status)
-           VALUES (?, ?, ?, ?, 0, 0, 1)`,
-          [userId, receiverId, message.trim(), messageType],
+           VALUES (?, ?, ?, ?, 0, 0, ?)`,
+          [userId, receiverId, message.trim(), messageType, receiverConnection ? 1 : 0],
           function(err) {
             if (err) {
               logger.error('Error saving message:', err);
-              socket.emit('message_error', { error: 'Failed to send message' });
+              socket.emit('message_error', {
+                error: 'Failed to send message',
+                tempId: optimisticMessage.id
+              });
+              // Notify receiver to remove optimistic message
+              if (receiverConnection) {
+                const [, receiverData] = receiverConnection;
+                io.to(receiverData.socketId).emit('message_failed', {
+                  tempId: optimisticMessage.id
+                });
+              }
               return;
             }
 
-            // Get the complete message with sender info
-            db.get(
-              `SELECT
-                m.id, m.sender_id, m.receiver_id, m.message, m.message_type,
-                m.is_group, m.read_status, m.delivered_status, m.created_at,
-                sender.name as sender_name, receiver.name as receiver_name
-               FROM messages m
-               JOIN users sender ON m.sender_id = sender.id
-               LEFT JOIN users receiver ON m.receiver_id = receiver.id
-               WHERE m.id = ?`,
-              [this.lastID],
-              (err, messageData) => {
-                if (err) {
-                  logger.error('Error fetching message:', err);
-                  return;
-                }
+            const messageId = this.lastID;
 
-                const formattedMessage = {
-                  ...messageData,
-                  timestamp: new Date(messageData.created_at).toISOString()
-                };
+            // Update with real ID
+            const confirmedMessage = {
+              ...optimisticMessage,
+              id: messageId,
+              isOptimistic: false
+            };
 
-                // Send to sender (confirmation)
-                socket.emit('message_sent', formattedMessage);
+            // Send real ID update to both parties
+            socket.emit('message_confirmed', {
+              tempId: optimisticMessage.id,
+              message: confirmedMessage
+            });
 
-                // Send to receiver if online
-                const receiverConnection = Array.from(activeUsers.entries())
-                  .find(([id]) => id == receiverId);
+            if (receiverConnection) {
+              const [, receiverData] = receiverConnection;
+              io.to(receiverData.socketId).emit('message_confirmed', {
+                tempId: optimisticMessage.id,
+                message: confirmedMessage
+              });
 
-                if (receiverConnection) {
-                  const [, receiverData] = receiverConnection;
-                  io.to(receiverData.socketId).emit('new_message', formattedMessage);
-
-                  // Send enhanced browser notification to receiver
-                  const messagePreview = message.length > 50 ? message.substring(0, 50) + '...' : message;
-                  io.to(receiverData.socketId).emit('notification', {
-                    type: 'new_message',
-                    title: `Neue Nachricht von ${userInfo.name}`,
-                    body: messagePreview,
-                    icon: '/favicon.ico',
-                    tag: `message_${this.lastID}`,
-                    timestamp: new Date().toISOString(),
-                    data: {
-                      messageId: this.lastID,
-                      senderId: userId,
-                      senderName: userInfo.name,
-                      messagePreview: messagePreview,
-                      messageType: messageType,
-                      url: '/messages'
-                    }
-                  });
-                }
-
-                logger.info('Message sent successfully', {
-                  messageId: this.lastID,
+              // Send enhanced browser notification to receiver
+              const messagePreview = message.length > 50 ? message.substring(0, 50) + '...' : message;
+              io.to(receiverData.socketId).emit('notification', {
+                type: 'new_message',
+                title: `Neue Nachricht von ${userInfo.name}`,
+                body: messagePreview,
+                icon: '/favicon.ico',
+                tag: `message_${messageId}`,
+                timestamp: new Date().toISOString(),
+                data: {
+                  messageId,
                   senderId: userId,
-                  receiverId
-                });
-              }
-            );
+                  senderName: userInfo.name,
+                  messagePreview,
+                  messageType,
+                  url: '/messages'
+                }
+              });
+            }
+
+            logger.info('Message saved successfully', {
+              messageId,
+              senderId: userId,
+              receiverId,
+              deliveryTime: Date.now() - new Date(optimisticMessage.created_at).getTime()
+            });
           }
         );
       } catch (error) {
@@ -240,10 +273,9 @@ const initializeSocket = (server) => {
       }
     });
 
-    // Handle task real-time events
+    // Handle task real-time events - Enhanced with optimistic updates
     socket.on('task:editing', (data) => {
       const { taskId } = data;
-      // Broadcast to all other users that someone is editing this task
       socket.broadcast.emit('task:user_editing', {
         taskId,
         user: {
@@ -255,7 +287,6 @@ const initializeSocket = (server) => {
 
     socket.on('task:stop_editing', (data) => {
       const { taskId } = data;
-      // Broadcast to all other users that someone stopped editing
       socket.broadcast.emit('task:user_stopped_editing', {
         taskId,
         user: {
@@ -263,6 +294,68 @@ const initializeSocket = (server) => {
           name: userInfo.name
         }
       });
+    });
+
+    // Task CRUD operations with real-time sync
+    socket.on('task:create', (data) => {
+      const { task } = data;
+      const taskWithUser = {
+        ...task,
+        createdBy: {
+          id: userId,
+          name: userInfo.name
+        },
+        timestamp: new Date().toISOString()
+      };
+      // Broadcast to all users
+      io.emit('task:created', taskWithUser);
+      logger.info('Task created', { taskId: task.id, userId });
+    });
+
+    socket.on('task:update', (data) => {
+      const { task } = data;
+      const taskWithUser = {
+        ...task,
+        updatedBy: {
+          id: userId,
+          name: userInfo.name
+        },
+        timestamp: new Date().toISOString()
+      };
+      // Broadcast to all users except sender
+      socket.broadcast.emit('task:updated', taskWithUser);
+      logger.info('Task updated', { taskId: task.id, userId });
+    });
+
+    socket.on('task:delete', (data) => {
+      const { taskId } = data;
+      // Broadcast to all users
+      io.emit('task:deleted', {
+        taskId,
+        deletedBy: {
+          id: userId,
+          name: userInfo.name
+        },
+        timestamp: new Date().toISOString()
+      });
+      logger.info('Task deleted', { taskId, userId });
+    });
+
+    socket.on('task:move', (data) => {
+      const { taskId, fromStatus, toStatus, newIndex } = data;
+      // Broadcast to all users for instant sync
+      socket.broadcast.emit('task:moved', {
+        taskId,
+        fromStatus,
+        toStatus,
+        newIndex,
+        movedBy: {
+          id: userId,
+          name: userInfo.name
+        },
+        timestamp: new Date().toISOString()
+      });
+      logger.info('Task moved', { taskId, fromStatus, toStatus, userId });
     });
 
     // Handle group messages (future feature)
@@ -348,10 +441,15 @@ const getActiveUsers = () => {
   }));
 };
 
+const getOnlineUsers = () => {
+  return Array.from(activeUsers.keys());
+};
+
 module.exports = {
   initializeSocket,
   sendNotificationToUser,
   sendMessageToUser,
   getActiveUsers,
+  getOnlineUsers,
   getIO: () => io
 };

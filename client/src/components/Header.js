@@ -89,6 +89,25 @@ const NAV_ITEMS = [
         <path d="M16 3.13a4 4 0 010 7.75" />
       </svg>
     )
+  },
+  {
+    to: '/admin',
+    label: 'Admin',
+    permission: 'user:read',
+    icon: (active) => (
+      <svg
+        className={active ? 'h-5 w-5 text-blue-600' : 'h-5 w-5 text-slate-400'}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <circle cx="12" cy="12" r="3" />
+        <path d="M12 1v6M12 17v6M4.22 4.22l4.25 4.25M15.53 15.53l4.25 4.25M1 12h6M17 12h6M4.22 19.78l4.25-4.25M15.53 8.47l4.25-4.25" />
+      </svg>
+    )
   }
 ];
 

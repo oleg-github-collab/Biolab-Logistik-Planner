@@ -148,6 +148,39 @@ body {
   }
 }
 
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -100%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+@keyframes slideOutUp {
+  from {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -100%);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -180,6 +213,18 @@ body {
 
 .pulse {
   animation: pulse 2s infinite;
+}
+
+.animate-slideInDown {
+  animation: slideInDown 0.3s ease-out forwards;
+}
+
+.animate-slideOutUp {
+  animation: slideOutUp 0.3s ease-out forwards;
+}
+
+.animate-scaleIn {
+  animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
 /* Custom scrollbar */
@@ -1192,21 +1237,32 @@ body {
     display: block;
   }
 
-  /* Prevent scrolling on mobile */
-  body {
+  /* Prevent scrolling on mobile - better handling */
+  html {
     overflow: hidden;
+    height: 100%;
     position: fixed;
     width: 100%;
+  }
+
+  body {
+    overflow: hidden;
+    position: relative;
+    width: 100%;
     height: 100vh;
+    height: 100dvh; /* Dynamic viewport height for mobile */
     -webkit-overflow-scrolling: touch;
+    overscroll-behavior: none;
   }
 
   /* Mobile container for full viewport height */
   #root {
     height: 100vh;
+    height: 100dvh;
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    touch-action: pan-y pinch-zoom;
   }
 
   /* Make main content use remaining space */
@@ -1215,7 +1271,15 @@ body {
     overflow-y: auto;
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
     padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Fix for iOS Safari URL bar */
+  @supports (-webkit-touch-callout: none) {
+    #root {
+      height: -webkit-fill-available;
+    }
   }
 
   .card {
@@ -1233,14 +1297,32 @@ body {
     min-width: 44px;
     padding: 0.875rem 1.25rem;
     font-size: 1rem;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
   }
 
   /* Mobile-friendly form inputs */
   .form-input,
   .form-textarea,
-  .form-select {
-    font-size: 16px; /* Prevents zoom on iOS */
+  .form-select,
+  input,
+  textarea {
+    font-size: 16px !important; /* Prevents zoom on iOS */
     min-height: 44px;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  /* Better touch targets */
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  /* Smooth kinetic scrolling */
+  * {
+    -webkit-overflow-scrolling: touch;
   }
 
   /* Safe area for notched phones */

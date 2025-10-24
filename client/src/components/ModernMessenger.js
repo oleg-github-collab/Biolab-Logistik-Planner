@@ -6,6 +6,8 @@ import { usePermissions } from '../hooks/usePermissions';
 import { useLocation } from 'react-router-dom';
 import LoadingSpinner from './LoadingSpinner';
 import GifPicker from './GifPicker';
+import ConnectionStatus from './ConnectionStatus';
+import offlineQueue from '../utils/offlineQueue';
 import { showSuccess, showError, showInfo, showCustom } from '../utils/toast';
 import { showTypedNotification, NotificationTypes, getNotificationPermission } from '../utils/notifications';
 import io from 'socket.io-client';
@@ -54,11 +56,40 @@ const ModernMessenger = () => {
 
     const newSocket = io(wsUrl, {
       auth: { token },
-      transports: ['websocket', 'polling']
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 500,
+      reconnectionDelayMax: 5000,
+      reconnectionAttempts: Infinity,
+      timeout: 10000,
+      upgrade: true
     });
 
     newSocket.on('connect', () => {
-      console.log('WebSocket connected for messenger');
+      console.log('✅ WebSocket connected for messenger');
+      showInfo('Verbindung hergestellt');
+    });
+
+    newSocket.on('reconnect', (attemptNumber) => {
+      console.log('🔄 WebSocket reconnected after', attemptNumber, 'attempts');
+      showSuccess('Verbindung wiederhergestellt');
+      // Reload conversations to sync any missed messages
+      loadConversations();
+      if (selectedConversation) {
+        loadMessages(selectedConversation.id);
+      }
+    });
+
+    newSocket.on('disconnect', (reason) => {
+      console.warn('⚠️ WebSocket disconnected:', reason);
+      if (reason === 'io server disconnect') {
+        // Server initiated disconnect, reconnect manually
+        newSocket.connect();
+      }
+    });
+
+    newSocket.on('connect_error', (error) => {
+      console.error('❌ WebSocket connection error:', error);
     });
 
     // Handle online users
@@ -78,18 +109,27 @@ const ModernMessenger = () => {
       });
     });
 
-    // Handle new message
+    // Handle new message - optimistic updates
     newSocket.on('new_message', (message) => {
       // Add message to list if conversation is selected
       if (selectedConversation && message.sender_id === selectedConversation.id) {
-        setMessages(prev => [...prev, message]);
+        setMessages(prev => {
+          // Avoid duplicates
+          const exists = prev.some(m => m.id === message.id);
+          if (exists) return prev;
+          return [...prev, message];
+        });
 
-        // Mark as read immediately if conversation is open
-        newSocket.emit('mark_as_read', { messageId: message.id });
+        // Mark as read immediately if conversation is open (only for real messages)
+        if (!message.isOptimistic && message.id && !message.id.toString().startsWith('temp_')) {
+          newSocket.emit('mark_as_read', { messageId: message.id });
+        }
       }
 
-      // Update conversations list
-      loadConversations();
+      // Update conversations list (debounced)
+      if (!message.isOptimistic) {
+        loadConversations();
+      }
 
       // Show notification if not on current conversation or not on Messages page
       const isOnMessagesPage = location.pathname === '/messages';
@@ -149,6 +189,31 @@ const ModernMessenger = () => {
       setMessages(prev => prev.map(msg =>
         msg.id === messageId ? { ...msg, read_status: 1 } : msg
       ));
+    });
+
+    // Handle message confirmation (optimistic -> real)
+    newSocket.on('message_confirmed', ({ tempId, message }) => {
+      setMessages(prev => prev.map(msg =>
+        msg.id === tempId ? { ...message, isOptimistic: false } : msg
+      ));
+    });
+
+    // Handle message failure
+    newSocket.on('message_failed', ({ tempId }) => {
+      setMessages(prev => prev.filter(msg => msg.id !== tempId));
+      showError('Nachricht konnte nicht gesendet werden');
+    });
+
+    // Handle message sent confirmation
+    newSocket.on('message_sent', (message) => {
+      // Optimistic update - add immediately
+      if (message.isOptimistic && selectedConversation && message.receiver_id === selectedConversation.id) {
+        setMessages(prev => {
+          const exists = prev.some(m => m.id === message.id);
+          if (exists) return prev;
+          return [...prev, message];
+        });
+      }
     });
 
     setSocket(newSocket);
@@ -280,35 +345,49 @@ const ModernMessenger = () => {
     setSending(true);
     setIsTyping(false);
 
-    try {
-      const response = await fetch('/api/messages/send', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          receiver_id: selectedConversation.id,
-          message: content,
-          messageType: messageType
-        })
-      });
+    // Clear input immediately for better UX
+    setNewMessage('');
 
-      if (!response.ok) {
-        throw new Error('Failed to send message');
+    const messageData = {
+      receiverId: selectedConversation.id,
+      message: content,
+      messageType: messageType
+    };
+
+    try {
+      // Check if online and socket connected
+      if (!navigator.onLine || !socket || !socket.connected) {
+        // Add to offline queue
+        offlineQueue.enqueue({
+          type: 'message',
+          data: messageData
+        });
+
+        showInfo('Nachricht wird gesendet, sobald Verbindung besteht');
+        return;
       }
 
-      const message = await response.json();
-      setMessages(prev => [...prev, message]);
-      setNewMessage('');
-      loadConversations();
+      // Send via WebSocket for instant delivery
+      socket.emit('send_message', messageData);
 
       if (messageType === 'gif') {
         showSuccess('GIF gesendet!');
       }
+
+      // Stop typing indicator
+      if (socket) {
+        socket.emit('typing_stop', { receiverId: selectedConversation.id });
+      }
     } catch (err) {
       console.error('Error sending message:', err);
-      showError('Fehler beim Senden der Nachricht');
+
+      // Add to offline queue on error
+      offlineQueue.enqueue({
+        type: 'message',
+        data: messageData
+      });
+
+      showInfo('Nachricht wird später gesendet');
     } finally {
       setSending(false);
     }
@@ -571,7 +650,9 @@ const ModernMessenger = () => {
   );
 
   return (
-    <div className="h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 flex overflow-hidden">
+    <>
+      <ConnectionStatus socket={socket} />
+      <div className="h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 flex overflow-hidden">
       {/* Sidebar */}
       <div className={`${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
@@ -1005,7 +1086,8 @@ const ModernMessenger = () => {
           onClose={() => setShowGifPicker(false)}
         />
       )}
-    </div>
+      </div>
+    </>
   );
 };
 

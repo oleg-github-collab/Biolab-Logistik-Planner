@@ -8,6 +8,7 @@ const validate = require('../middleware/validation');
 const { limiters } = require('../middleware/rateLimiter');
 const ApiController = require('../controllers/apiController');
 const logger = require('../utils/logger');
+const auditLogger = require('../utils/auditLog');
 
 const router = express.Router();
 const apiController = new ApiController();
@@ -204,6 +205,15 @@ router.post('/register', limiters.auth, validate.registerUser, asyncHandler(asyn
     isFirstSetup: allowOpenRegistration
   });
 
+  // Audit log
+  auditLogger.logAuth('user_registered', result.id, email, {
+    role: userRole,
+    employmentType: employment_type,
+    isFirstSetup: allowOpenRegistration,
+    ip: req.ip,
+    userAgent: req.get('user-agent')
+  });
+
   return apiController.sendResponse(res, {
     user: sanitizedUser,
     token,
@@ -237,13 +247,23 @@ router.post('/login', async (req, res) => {
         }
         
         if (!user) {
+          auditLogger.logAuth('login_failed', null, email, {
+            reason: 'user_not_found',
+            ip: req.ip,
+            userAgent: req.get('user-agent')
+          });
           return res.status(400).json({ error: 'Invalid credentials' });
         }
-        
+
         // Compare hashed password
         const isMatch = await bcrypt.compare(password, user.password);
-        
+
         if (!isMatch) {
+          auditLogger.logAuth('login_failed', user.id, email, {
+            reason: 'invalid_password',
+            ip: req.ip,
+            userAgent: req.get('user-agent')
+          });
           return res.status(400).json({ error: 'Invalid credentials' });
         }
         
@@ -266,9 +286,15 @@ router.post('/login', async (req, res) => {
             if (err) {
               return res.status(500).json({ error: 'Server error' });
             }
-            
-            res.json({ 
-              token, 
+
+            auditLogger.logAuth('login_success', user.id, email, {
+              role: user.role,
+              ip: req.ip,
+              userAgent: req.get('user-agent')
+            });
+
+            res.json({
+              token,
               user: payload.user,
               message: 'Login successful'
             });
