@@ -503,4 +503,426 @@ router.get('/users', auth, async (req, res) => {
   }
 });
 
+// @route   GET /api/schedule/events
+// @desc    Get all calendar events with optional filters
+router.get('/events', auth, async (req, res) => {
+  try {
+    const { startDate, endDate, userId, type, priority } = req.query;
+
+    let targetUserId = req.user.id;
+    if (userId && (req.user.role === 'admin' || req.user.role === 'superadmin')) {
+      targetUserId = parseInt(userId);
+    }
+
+    let query = `
+      SELECT e.*,
+        u.name as user_name,
+        creator.name as created_by_name
+      FROM calendar_events e
+      LEFT JOIN users u ON e.user_id = u.id
+      LEFT JOIN users creator ON e.created_by = creator.id
+      WHERE e.user_id = $1
+    `;
+
+    const params = [targetUserId];
+    let paramIndex = 2;
+
+    if (startDate) {
+      query += ` AND e.event_date >= $${paramIndex}`;
+      params.push(startDate);
+      paramIndex++;
+    }
+
+    if (endDate) {
+      query += ` AND e.event_date <= $${paramIndex}`;
+      params.push(endDate);
+      paramIndex++;
+    }
+
+    if (type) {
+      query += ` AND e.event_type = $${paramIndex}`;
+      params.push(type);
+      paramIndex++;
+    }
+
+    if (priority) {
+      query += ` AND e.priority = $${paramIndex}`;
+      params.push(priority);
+      paramIndex++;
+    }
+
+    query += ' ORDER BY e.event_date, e.start_time';
+
+    const result = await pool.query(query, params);
+
+    res.json(result.rows);
+
+  } catch (error) {
+    logger.error('Error fetching calendar events', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   POST /api/schedule/events
+// @desc    Create new calendar event
+router.post('/events', auth, async (req, res) => {
+  try {
+    const { title, description, event_date, start_time, end_time, event_type, priority, location, attendees } = req.body;
+
+    if (!title || !event_date) {
+      return res.status(400).json({ error: 'Title and date are required' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO calendar_events (
+        user_id, title, description, event_date, start_time, end_time,
+        event_type, priority, location, attendees, created_by, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      RETURNING *`,
+      [
+        req.user.id,
+        title,
+        description || null,
+        event_date,
+        start_time || null,
+        end_time || null,
+        event_type || 'other',
+        priority || 'medium',
+        location || null,
+        attendees ? JSON.stringify(attendees) : null,
+        req.user.id
+      ]
+    );
+
+    const newEvent = result.rows[0];
+
+    // Broadcast to connected clients
+    const io = getIO();
+    if (io) {
+      io.emit('schedule:event_created', {
+        event: newEvent,
+        user: {
+          id: req.user.id,
+          name: req.user.name
+        }
+      });
+    }
+
+    logger.info('Calendar event created', {
+      eventId: newEvent.id,
+      userId: req.user.id,
+      eventType: event_type
+    });
+
+    res.status(201).json(newEvent);
+
+  } catch (error) {
+    logger.error('Error creating calendar event', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   PUT /api/schedule/events/:id
+// @desc    Update calendar event
+router.put('/events/:id', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, description, event_date, start_time, end_time, event_type, priority, location, attendees } = req.body;
+
+    // Check if event exists and user has permission
+    const existing = await pool.query(
+      'SELECT * FROM calendar_events WHERE id = $1',
+      [id]
+    );
+
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+
+    const event = existing.rows[0];
+
+    if (event.user_id !== req.user.id && req.user.role !== 'admin' && req.user.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    const result = await pool.query(
+      `UPDATE calendar_events SET
+        title = $1,
+        description = $2,
+        event_date = $3,
+        start_time = $4,
+        end_time = $5,
+        event_type = $6,
+        priority = $7,
+        location = $8,
+        attendees = $9,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $10
+      RETURNING *`,
+      [
+        title,
+        description,
+        event_date,
+        start_time,
+        end_time,
+        event_type,
+        priority,
+        attendees ? JSON.stringify(attendees) : event.attendees,
+        id
+      ]
+    );
+
+    const updatedEvent = result.rows[0];
+
+    // Broadcast
+    const io = getIO();
+    if (io) {
+      io.emit('schedule:event_updated', {
+        event: updatedEvent,
+        user: {
+          id: req.user.id,
+          name: req.user.name
+        }
+      });
+    }
+
+    logger.info('Calendar event updated', {
+      eventId: id,
+      userId: req.user.id
+    });
+
+    res.json(updatedEvent);
+
+  } catch (error) {
+    logger.error('Error updating calendar event', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   DELETE /api/schedule/events/:id
+// @desc    Delete calendar event
+router.delete('/events/:id', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if event exists and user has permission
+    const existing = await pool.query(
+      'SELECT * FROM calendar_events WHERE id = $1',
+      [id]
+    );
+
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+
+    const event = existing.rows[0];
+
+    if (event.user_id !== req.user.id && req.user.role !== 'admin' && req.user.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    await pool.query('DELETE FROM calendar_events WHERE id = $1', [id]);
+
+    // Broadcast
+    const io = getIO();
+    if (io) {
+      io.emit('schedule:event_deleted', {
+        eventId: id,
+        user: {
+          id: req.user.id,
+          name: req.user.name
+        }
+      });
+    }
+
+    logger.info('Calendar event deleted', {
+      eventId: id,
+      userId: req.user.id
+    });
+
+    res.json({ message: 'Event deleted successfully', deletedId: id });
+
+  } catch (error) {
+    logger.error('Error deleting calendar event', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   GET /api/schedule/events/statistics
+// @desc    Get event statistics
+router.get('/events/statistics', auth, async (req, res) => {
+  try {
+    const { timeframe = 'month' } = req.query;
+
+    let startDate;
+    const endDate = new Date();
+
+    switch (timeframe) {
+      case 'week':
+        startDate = new Date();
+        startDate.setDate(startDate.getDate() - 7);
+        break;
+      case 'month':
+        startDate = new Date();
+        startDate.setMonth(startDate.getMonth() - 1);
+        break;
+      case 'year':
+        startDate = new Date();
+        startDate.setFullYear(startDate.getFullYear() - 1);
+        break;
+      default:
+        startDate = new Date();
+        startDate.setMonth(startDate.getMonth() - 1);
+    }
+
+    const result = await pool.query(
+      `SELECT
+        COUNT(*) as total_events,
+        COUNT(CASE WHEN event_type = 'meeting' THEN 1 END) as meetings,
+        COUNT(CASE WHEN event_type = 'vacation' THEN 1 END) as vacations,
+        COUNT(CASE WHEN event_type = 'sick' THEN 1 END) as sick_days,
+        COUNT(CASE WHEN priority = 'high' THEN 1 END) as high_priority
+      FROM calendar_events
+      WHERE user_id = $1
+        AND event_date >= $2
+        AND event_date <= $3`,
+      [req.user.id, formatDateForDB(startDate), formatDateForDB(endDate)]
+    );
+
+    res.json(result.rows[0]);
+
+  } catch (error) {
+    logger.error('Error fetching event statistics', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   POST /api/schedule/events/bulk
+// @desc    Create multiple events at once
+router.post('/events/bulk', auth, async (req, res) => {
+  try {
+    const { events } = req.body;
+
+    if (!Array.isArray(events) || events.length === 0) {
+      return res.status(400).json({ error: 'Events array is required' });
+    }
+
+    const client = await pool.getClient();
+    try {
+      await client.query('BEGIN');
+
+      const createdEvents = [];
+
+      for (const event of events) {
+        const result = await client.query(
+          `INSERT INTO calendar_events (
+            user_id, title, description, event_date, start_time, end_time,
+            event_type, priority, location, attendees, created_by, created_at, updated_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          RETURNING *`,
+          [
+            req.user.id,
+            event.title,
+            event.description || null,
+            event.event_date,
+            event.start_time || null,
+            event.end_time || null,
+            event.event_type || 'other',
+            event.priority || 'medium',
+            event.location || null,
+            event.attendees ? JSON.stringify(event.attendees) : null,
+            req.user.id
+          ]
+        );
+
+        createdEvents.push(result.rows[0]);
+      }
+
+      await client.query('COMMIT');
+
+      logger.info('Bulk events created', {
+        count: createdEvents.length,
+        userId: req.user.id
+      });
+
+      res.status(201).json(createdEvents);
+
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+
+  } catch (error) {
+    logger.error('Error creating bulk events', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   POST /api/schedule/events/:id/duplicate
+// @desc    Duplicate event to new date
+router.post('/events/:id/duplicate', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { newDate } = req.body;
+
+    if (!newDate) {
+      return res.status(400).json({ error: 'New date is required' });
+    }
+
+    // Get original event
+    const existing = await pool.query(
+      'SELECT * FROM calendar_events WHERE id = $1',
+      [id]
+    );
+
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+
+    const original = existing.rows[0];
+
+    if (original.user_id !== req.user.id && req.user.role !== 'admin' && req.user.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    // Create duplicate
+    const result = await pool.query(
+      `INSERT INTO calendar_events (
+        user_id, title, description, event_date, start_time, end_time,
+        event_type, priority, location, attendees, created_by, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      RETURNING *`,
+      [
+        req.user.id,
+        original.title,
+        original.description,
+        newDate,
+        original.start_time,
+        original.end_time,
+        original.event_type,
+        original.priority,
+        original.location,
+        original.attendees,
+        req.user.id
+      ]
+    );
+
+    const duplicatedEvent = result.rows[0];
+
+    logger.info('Event duplicated', {
+      originalId: id,
+      newId: duplicatedEvent.id,
+      userId: req.user.id
+    });
+
+    res.status(201).json(duplicatedEvent);
+
+  } catch (error) {
+    logger.error('Error duplicating event', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 module.exports = router;
