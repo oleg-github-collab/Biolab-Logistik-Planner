@@ -14,6 +14,7 @@
     "migrate:rollback": "node server/database/migrations.js rollback",
     "migrate:status": "node server/database/migrations.js status",
     "migrate:create": "node server/database/migrations.js create",
+    "migrate:pg": "node server/runMigrations.js",
     "seed": "node server/database/seeds.js",
     "seed:clear": "node server/database/seeds.js --clear",
     "db:reset": "npm run migrate:rollback && npm run migrate && npm run seed"

@@ -46,17 +46,29 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 
-// API routes - PostgreSQL versions
-app.use('/api/auth', require('./routes/auth.pg'));
-app.use('/api/schedule', require('./routes/schedule.pg'));
-app.use('/api/messages', require('./routes/messages.pg'));
-app.use('/api/messages', require('./routes/messagesEnhanced.pg')); // Enhanced features
-app.use('/api/tasks', require('./routes/tasks.pg'));
-app.use('/api/task-pool', require('./routes/taskPool.pg'));
-app.use('/api/kb', require('./routes/knowledgeBase.pg'));
-app.use('/api/profile', require('./routes/userProfile.pg'));
-app.use('/api/notifications', require('./routes/notifications.pg'));
-// SQLite-only routes (to be migrated to PostgreSQL)
+// API routes - Use PostgreSQL in production, SQLite in development
+const usePostgres = process.env.DATABASE_URL || process.env.NODE_ENV === 'production';
+
+if (usePostgres) {
+  console.log('📊 Using PostgreSQL routes');
+  app.use('/api/auth', require('./routes/auth.pg'));
+  app.use('/api/schedule', require('./routes/schedule.pg'));
+  app.use('/api/messages', require('./routes/messages.pg'));
+  app.use('/api/messages', require('./routes/messagesEnhanced.pg'));
+  app.use('/api/tasks', require('./routes/tasks.pg'));
+  app.use('/api/task-pool', require('./routes/taskPool.pg'));
+  app.use('/api/kb', require('./routes/knowledgeBase.pg'));
+  app.use('/api/profile', require('./routes/userProfile.pg'));
+  app.use('/api/notifications', require('./routes/notifications.pg'));
+} else {
+  console.log('📊 Using SQLite routes (local development)');
+  app.use('/api/auth', require('./routes/auth'));
+  app.use('/api/schedule', require('./routes/schedule'));
+  app.use('/api/messages', require('./routes/messages'));
+  app.use('/api/tasks', require('./routes/tasks'));
+}
+
+// Common routes (work with both databases)
 app.use('/api/waste', require('./routes/waste'));
 app.use('/api/waste', require('./routes/wasteTemplates'));
 app.use('/api/waste', require('./routes/wasteSchedule'));

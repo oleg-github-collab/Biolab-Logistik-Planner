@@ -47,16 +47,18 @@ pool.on('remove', (client) => {
   logger.info('PostgreSQL client removed from pool');
 });
 
-// Test connection on startup
+// Test connection on startup (non-blocking)
 pool.query('SELECT NOW()', (err, res) => {
   if (err) {
     logger.error('Failed to connect to PostgreSQL', err);
-    process.exit(1);
+    logger.warn('⚠️  PostgreSQL not available - will use SQLite fallback');
+    // Don't exit - allow fallback to SQLite routes
+  } else {
+    logger.info('✅ PostgreSQL connected successfully', {
+      time: res.rows[0].now,
+      database: config.database || 'Railway PostgreSQL'
+    });
   }
-  logger.info('✅ PostgreSQL connected successfully', {
-    time: res.rows[0].now,
-    database: config.database || 'Railway PostgreSQL'
-  });
 });
 
 /**
