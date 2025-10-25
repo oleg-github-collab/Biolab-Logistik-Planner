@@ -29,7 +29,7 @@
     "joi": "^18.0.1",
     "jsonwebtoken": "^9.0.1",
     "morgan": "^1.10.0",
-    "multer": "^1.4.5-lts.1",
+    "multer": "^1.4.5-lts.2",
     "node-schedule": "^2.1.1",
     "pg": "^8.16.3",
     "pg-pool": "^3.10.1",
@@ -45,6 +45,6 @@
     "nodemon": "^3.0.1"
   },
   "engines": {
-    "node": "18.x"
+    "node": ">=18.x"
   }
 }
