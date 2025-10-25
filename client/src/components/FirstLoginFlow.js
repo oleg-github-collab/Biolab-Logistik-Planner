@@ -3,12 +3,17 @@ import { AuthContext } from '../context/AuthContext';
 import api from '../utils/api';
 
 const FirstLoginFlow = ({ onComplete }) => {
-  const { state, dispatch } = useContext(AuthContext);
+  const { state = {}, dispatch } = useContext(AuthContext) || {};
   const { user } = state;
 
   const [weeklyHours, setWeeklyHours] = useState(
     user?.employment_type === 'Vollzeit' ? 40 : 20
   );
+
+  // Don't render if no user context
+  if (!state || !user) {
+    return null;
+  }
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 

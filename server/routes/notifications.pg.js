@@ -15,8 +15,7 @@ router.get('/', auth, async (req, res) => {
     let query = `
       SELECT
         n.*,
-        u.name as related_user_name,
-        u.profile_photo as related_user_photo
+        u.name as related_user_name
       FROM notifications n
       LEFT JOIN users u ON n.related_user_id = u.id
       WHERE n.user_id = $1
