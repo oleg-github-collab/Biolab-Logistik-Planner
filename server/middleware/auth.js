@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const db = require('../database');
+const { pool } = require('../config/database');
 const { createError, asyncHandler } = require('./errorHandler');
 const logger = require('../utils/logger');
 
@@ -66,7 +67,43 @@ const hasPermission = (userRole, permission) => {
 };
 
 // Authentication middleware
-const auth = (req, res, next) => {
+const getUserFromPostgres = async (userId) => {
+  if (!userId) return null;
+  try {
+    const result = await pool.query(
+      'SELECT id, name, email, role, employment_type FROM users WHERE id = $1',
+      [userId]
+    );
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('PostgreSQL lookup failed during auth', {
+      userId,
+      error: error.message
+    });
+    throw error;
+  }
+};
+
+const getUserFromSQLite = (userId) => {
+  return new Promise((resolve, reject) => {
+    db.get(
+      'SELECT id, name, email, role, employment_type FROM users WHERE id = ?',
+      [userId],
+      (err, user) => {
+        if (err) {
+          logger.error('SQLite lookup failed during auth', {
+            userId,
+            error: err.message
+          });
+          return reject(err);
+        }
+        resolve(user || null);
+      }
+    );
+  });
+};
+
+const auth = async (req, res, next) => {
   const token = req.header('Authorization')?.replace('Bearer ', '');
 
   if (!token) {
@@ -81,42 +118,43 @@ const auth = (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'biolab-logistik-secret-key');
 
-    // Verify user exists in database
-    db.get(
-      "SELECT id, name, email, role, employment_type FROM users WHERE id = ?",
-      [decoded.user.id],
-      (err, user) => {
-        if (err) {
-          logger.error('Database error during authentication', err);
-          return res.status(500).json({ error: 'Authentication failed' });
-        }
+    let user = null;
 
-        if (!user) {
-          logger.security('Authentication with non-existent user', {
-            userId: decoded.user.id,
-            ip: req.ip,
-          });
-          return res.status(401).json({ error: 'User not found. Please login again.' });
-        }
+    // Prefer PostgreSQL users (new stack)
+    try {
+      user = await getUserFromPostgres(decoded.user.id);
+    } catch (pgError) {
+      // Already logged inside helper, continue to fallback
+    }
 
-        // Attach user to request
-        req.user = {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          employment_type: user.employment_type
-        };
+    // Fallback to legacy SQLite users if Postgres not available / empty
+    if (!user) {
+      user = await getUserFromSQLite(decoded.user.id);
+    }
 
-        logger.audit('User authenticated successfully', {
-          userId: user.id,
-          role: user.role,
-          url: req.originalUrl,
-        });
+    if (!user) {
+      logger.security('Authentication with non-existent user', {
+        userId: decoded.user.id,
+        ip: req.ip,
+      });
+      return res.status(401).json({ error: 'User not found. Please login again.' });
+    }
 
-        next();
-      }
-    );
+    req.user = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      employment_type: user.employment_type
+    };
+
+    logger.audit('User authenticated successfully', {
+      userId: user.id,
+      role: user.role,
+      url: req.originalUrl,
+    });
+
+    next();
   } catch (error) {
     if (error.name === 'JsonWebTokenError') {
       logger.security('Invalid token attempt', {
