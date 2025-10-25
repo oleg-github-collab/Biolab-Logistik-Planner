@@ -64,19 +64,19 @@ export const AuthProvider = ({ children }) => {
         dispatch({ type: 'SET_LOADING', payload: true });
         try {
           const res = await getUser();
-          dispatch({ type: 'LOAD_USER', payload: res.data });
-        } catch (err) {
-          console.error('Error loading user:', err);
-          // Only logout if it's definitely an auth error
-          if (err.response?.status === 401 || err.response?.status === 403) {
-            console.log('Authentication failed, logging out');
+          if (res && res.data) {
+            dispatch({ type: 'LOAD_USER', payload: res.data });
+          } else {
+            console.error('Invalid response from getUser');
             dispatch({ type: 'USER_ERROR' });
             localStorage.removeItem('token');
-          } else {
-            // For other errors (network, 500, etc), just stop loading but keep token
-            console.log('Network/server error, keeping user logged in');
-            dispatch({ type: 'SET_LOADING', payload: false });
           }
+        } catch (err) {
+          console.error('Error loading user:', err);
+          // Logout on any auth error
+          console.log('Authentication error, logging out');
+          dispatch({ type: 'USER_ERROR' });
+          localStorage.removeItem('token');
         }
       } else {
         dispatch({ type: 'SET_LOADING', payload: false });

@@ -301,11 +301,13 @@ const Dashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, [user.role]);
+  }, [user?.role]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (user) {
+      loadData();
+    }
+  }, [loadData, user]);
 
   useEffect(() => {
     const fetchEvents = async () => {

@@ -66,7 +66,7 @@ const hasPermission = (userRole, permission) => {
 };
 
 // Authentication middleware
-const auth = asyncHandler(async (req, res, next) => {
+const auth = (req, res, next) => {
   const token = req.header('Authorization')?.replace('Bearer ', '');
 
   if (!token) {
@@ -75,7 +75,7 @@ const auth = asyncHandler(async (req, res, next) => {
       userAgent: req.get('User-Agent'),
       url: req.originalUrl,
     });
-    throw createError.unauthorized('Access denied. No token provided.');
+    return res.status(401).json({ error: 'Access denied. No token provided.' });
   }
 
   try {
@@ -83,12 +83,12 @@ const auth = asyncHandler(async (req, res, next) => {
 
     // Verify user exists in database
     db.get(
-      "SELECT id, name, email, role FROM users WHERE id = ?",
+      "SELECT id, name, email, role, employment_type FROM users WHERE id = ?",
       [decoded.user.id],
       (err, user) => {
         if (err) {
           logger.error('Database error during authentication', err);
-          throw createError.internal('Authentication failed');
+          return res.status(500).json({ error: 'Authentication failed' });
         }
 
         if (!user) {
@@ -96,7 +96,7 @@ const auth = asyncHandler(async (req, res, next) => {
             userId: decoded.user.id,
             ip: req.ip,
           });
-          throw createError.unauthorized('User not found. Please login again.');
+          return res.status(401).json({ error: 'User not found. Please login again.' });
         }
 
         // Attach user to request
@@ -104,7 +104,8 @@ const auth = asyncHandler(async (req, res, next) => {
           id: user.id,
           name: user.name,
           email: user.email,
-          role: user.role
+          role: user.role,
+          employment_type: user.employment_type
         };
 
         logger.audit('User authenticated successfully', {
@@ -122,15 +123,16 @@ const auth = asyncHandler(async (req, res, next) => {
         ip: req.ip,
         error: error.message,
       });
-      throw createError.unauthorized('Invalid token.');
+      return res.status(401).json({ error: 'Invalid token.' });
     }
     if (error.name === 'TokenExpiredError') {
       logger.security('Expired token attempt', { ip: req.ip });
-      throw createError.unauthorized('Token expired. Please login again.');
+      return res.status(401).json({ error: 'Token expired. Please login again.' });
     }
-    throw error;
+    logger.error('Authentication error', error);
+    return res.status(500).json({ error: 'Authentication failed' });
   }
-});
+};
 
 // Role-based middleware
 const requireRole = (...roles) => {
