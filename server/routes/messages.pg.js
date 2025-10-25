@@ -129,14 +129,22 @@ router.post('/', auth, async (req, res) => {
   try {
     const { recipientId, content, gif } = req.body;
 
-    // Validate
+    // Validate recipient
     if (!recipientId) {
       return res.status(400).json({ error: 'Empfänger ist erforderlich' });
     }
 
+    // Validate message content
     if (!content && !gif) {
       return res.status(400).json({ error: 'Nachrichteninhalt oder GIF ist erforderlich' });
     }
+
+    if (content && content.length > 5000) {
+      return res.status(400).json({ error: 'Nachricht zu lang (max 5000 Zeichen)' });
+    }
+
+    // Basic XSS protection - remove script tags
+    const sanitizedContent = content ? content.replace(/<script[^>]*>.*?<\/script>/gi, '').trim() : null;
 
     // Check if recipient exists
     const recipientResult = await pool.query(
@@ -155,7 +163,7 @@ router.post('/', auth, async (req, res) => {
       `INSERT INTO messages (sender_id, receiver_id, message, message_type, read_status, created_at)
        VALUES ($1, $2, $3, $4, false, CURRENT_TIMESTAMP)
        RETURNING *`,
-      [req.user.id, recipientId, content || gif || null, gif ? 'gif' : 'text']
+      [req.user.id, recipientId, sanitizedContent || gif || null, gif ? 'gif' : 'text']
     );
 
     const message = insertResult.rows[0];
@@ -190,7 +198,7 @@ router.post('/', auth, async (req, res) => {
     // Send notification to recipient
     sendNotificationToUser(recipientId, {
       title: `New message from ${req.user.name}`,
-      body: content || 'Sent a GIF',
+      body: sanitizedContent || 'Sent a GIF',
       icon: '/favicon.ico',
       tag: `message_${message.id}`,
       data: {

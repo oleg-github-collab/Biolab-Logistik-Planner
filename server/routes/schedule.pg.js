@@ -251,13 +251,22 @@ router.put('/day/:id', auth, async (req, res) => {
     }
 
     // Validate time range if working
-    if (isWorking && startTime && endTime) {
+    if (isWorking) {
+      if (!startTime || !endTime) {
+        return res.status(400).json({ error: 'Start- und Endzeit sind erforderlich' });
+      }
+
+      const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+      if (!timeRegex.test(startTime) || !timeRegex.test(endTime)) {
+        return res.status(400).json({ error: 'Ungültiges Zeitformat (HH:MM erforderlich)' });
+      }
+
       const hours = calculateHours(startTime, endTime);
       if (hours <= 0) {
-        return res.status(400).json({ error: 'End time must be after start time' });
+        return res.status(400).json({ error: 'Endzeit muss nach Startzeit liegen' });
       }
       if (hours > 24) {
-        return res.status(400).json({ error: 'Cannot schedule more than 24 hours per day' });
+        return res.status(400).json({ error: 'Arbeitszeit kann nicht mehr als 24 Stunden betragen' });
       }
     }
 

@@ -176,8 +176,18 @@ router.post('/:taskPoolId/request-help', auth, async (req, res) => {
     const { taskPoolId } = req.params;
     const { userId, message } = req.body;
 
-    if (!userId) {
-      return res.status(400).json({ error: 'Benutzer-ID ist erforderlich' });
+    // Validate userId
+    if (!userId || typeof userId !== 'number') {
+      return res.status(400).json({ error: 'Gültige Benutzer-ID ist erforderlich' });
+    }
+
+    // Validate message
+    if (!message || message.trim().length === 0) {
+      return res.status(400).json({ error: 'Nachricht ist erforderlich' });
+    }
+
+    if (message.length > 1000) {
+      return res.status(400).json({ error: 'Nachricht zu lang (max 1000 Zeichen)' });
     }
 
     const client = await pool.getClient();
