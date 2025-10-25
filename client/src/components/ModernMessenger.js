@@ -7,6 +7,7 @@ import { useLocation } from 'react-router-dom';
 import LoadingSpinner from './LoadingSpinner';
 import GifPicker from './GifPicker';
 import ConnectionStatus from './ConnectionStatus';
+import MessageReactions from './MessageReactions';
 import offlineQueue from '../utils/offlineQueue';
 import { showSuccess, showError, showInfo, showCustom } from '../utils/toast';
 import { showTypedNotification, NotificationTypes, getNotificationPermission } from '../utils/notifications';
@@ -38,6 +39,7 @@ const ModernMessenger = () => {
   const typingTimeoutRef = useRef(null);
   const audioRef = useRef(null);
   const textareaRef = useRef(null);
+  const [reactionRefreshMap, setReactionRefreshMap] = useState({});
 
   // Initialize notification sound
   useEffect(() => {
@@ -216,9 +218,50 @@ const ModernMessenger = () => {
       }
     });
 
+    const handleReactionUpdate = ({ messageId, reactions }) => {
+      if (!messageId) return;
+      const numericId = Number(messageId);
+
+      setMessages(prev => prev.map(msg =>
+        Number(msg.id) === numericId ? { ...msg, reactions } : msg
+      ));
+
+      setReactionRefreshMap(prev => {
+        const key = String(messageId);
+        return {
+          ...prev,
+          [key]: (prev[key] || 0) + 1
+        };
+      });
+    };
+
+    const handleMentionNotification = ({ messageId, mentionedBy }) => {
+      const mentionAuthor = mentionedBy?.name || 'Ein Kollege';
+      showCustom(`${mentionAuthor} hat dich erwähnt`, {
+        label: 'Öffnen',
+        onClick: () => {
+          if (location.pathname !== '/messages') {
+            window.location.href = '/messages';
+          } else if (messageId) {
+            const bubble = document.querySelector(`[data-message-id="${messageId}"]`);
+            bubble?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            bubble?.classList.add('ring-2', 'ring-blue-400');
+            setTimeout(() => {
+              bubble?.classList.remove('ring-2', 'ring-blue-400');
+            }, 1500);
+          }
+        }
+      });
+    };
+
+    newSocket.on('message:reaction', handleReactionUpdate);
+    newSocket.on('message:mentioned', handleMentionNotification);
+
     setSocket(newSocket);
 
     return () => {
+      newSocket.off('message:reaction', handleReactionUpdate);
+      newSocket.off('message:mentioned', handleMentionNotification);
       newSocket.disconnect();
     };
   }, [user, selectedConversation, location.pathname]);
@@ -554,9 +597,12 @@ const ModernMessenger = () => {
       message.message.toLowerCase().includes(messageSearchTerm.toLowerCase());
 
     return (
-      <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-2 group px-2 transition-all duration-200 ${
+      <div
+        data-message-id={message.id}
+        className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-2 group px-2 transition-all duration-200 ${
         isHighlighted ? 'bg-yellow-50 -mx-2 px-4 py-1 rounded-lg' : ''
-      }`}>
+      }`}
+      >
         <div className={`flex items-end gap-1.5 max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg ${
           isOwn ? 'flex-row-reverse' : 'flex-row'
         }`}>
@@ -607,6 +653,17 @@ const ModernMessenger = () => {
                 )}
               </div>
             </div>
+
+            {message.id && !String(message.id).startsWith('temp_') && (
+              <div className={`mt-1 ${isOwn ? 'items-end' : 'items-start'} flex`}>
+                <MessageReactions
+                  messageId={message.id}
+                  currentUserId={user.id}
+                  compact={isOwn}
+                  refreshKey={reactionRefreshMap[String(message.id)] || 0}
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>

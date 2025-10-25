@@ -173,7 +173,7 @@ const initializeSocket = (server) => {
 
               // Send enhanced browser notification to receiver
               const messagePreview = message.length > 50 ? message.substring(0, 50) + '...' : message;
-              io.to(receiverData.socketId).emit('notification', {
+              const notificationPayload = {
                 type: 'new_message',
                 title: `Neue Nachricht von ${userInfo.name}`,
                 body: messagePreview,
@@ -188,7 +188,9 @@ const initializeSocket = (server) => {
                   messageType,
                   url: '/messages'
                 }
-              });
+              };
+              io.to(receiverData.socketId).emit('notification', notificationPayload);
+              io.to(receiverData.socketId).emit('notification:new', notificationPayload);
             }
 
             logger.info('Message saved successfully', {
@@ -423,6 +425,7 @@ const sendNotificationToUser = (userId, notification) => {
   const userData = activeUsers.get(userId);
   if (userData && io) {
     io.to(userData.socketId).emit('notification', notification);
+    io.to(userData.socketId).emit('notification:new', notification);
   }
 };
 

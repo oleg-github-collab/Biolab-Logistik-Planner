@@ -252,6 +252,7 @@ const ImprovedKanbanBoard = () => {
   const [filterAssignee, setFilterAssignee] = useState('all');
   const [toast, setToast] = useState(null);
   const [conflictDialog, setConflictDialog] = useState(null);
+  const [visibilityFilter, setVisibilityFilter] = useState('team');
 
   const [newTask, setNewTask] = useState({
     title: '',
@@ -281,15 +282,54 @@ const ImprovedKanbanBoard = () => {
     { value: 'maintenance', label: 'Wartung', icon: '🔧' }
   ];
 
+  const visibilityFilters = [
+    { value: 'team', label: 'Team Aufgaben' },
+    { value: 'personal', label: 'Meine Aufgaben' },
+    { value: 'all', label: 'Alle Aufgaben' }
+  ];
+
   // Show toast notification
   const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type });
   }, []);
 
+  const loadTasksFromAPI = useCallback(async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams();
+      if (visibilityFilter && visibilityFilter !== 'all') {
+        params.append('visibility', visibilityFilter);
+        if (visibilityFilter === 'personal' && user?.id) {
+          params.append('userId', user.id);
+        }
+      }
+
+      const query = params.toString() ? `?${params.toString()}` : '';
+
+      const response = await fetch(`/api/tasks${query}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to load tasks');
+      }
+
+      const data = await response.json();
+      setTasks(data);
+    } catch (error) {
+      console.error('Error loading tasks from API:', error);
+      showToast('Fehler beim Laden der Aufgaben', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [visibilityFilter, showToast, user?.id]);
+
   // Load tasks from API on component mount
   useEffect(() => {
     loadTasksFromAPI();
-  }, []);
+  }, [loadTasksFromAPI]);
 
   // Group tasks by status whenever tasks change
   useEffect(() => {
@@ -416,30 +456,6 @@ const ImprovedKanbanBoard = () => {
     };
   }, [isConnected, onTaskEvent, user.id, showToast, selectedTask, showTaskModal, newTask]);
 
-  const loadTasksFromAPI = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch('/api/tasks', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to load tasks');
-      }
-
-      const data = await response.json();
-      setTasks(data);
-    } catch (error) {
-      console.error('Error loading tasks from API:', error);
-      showToast('Fehler beim Laden der Aufgaben', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-
   const groupTasksByStatus = useCallback(() => {
     const groupedTasks = {
       todo: [],
@@ -504,7 +520,7 @@ const ImprovedKanbanBoard = () => {
       loadTasksFromAPI();
       showToast('Fehler beim Verschieben der Aufgabe', 'error');
     }
-  }, [user.name, showToast]);
+  }, [user.name, showToast, loadTasksFromAPI]);
 
   const createTask = useCallback(async () => {
     if (!newTask.title.trim()) {
@@ -605,7 +621,7 @@ const ImprovedKanbanBoard = () => {
       loadTasksFromAPI();
       showToast('Fehler beim Löschen der Aufgabe', 'error');
     }
-  }, [showToast]);
+  }, [showToast, loadTasksFromAPI]);
 
   const duplicateTask = useCallback(async (task) => {
     try {
@@ -835,11 +851,11 @@ const ImprovedKanbanBoard = () => {
 
       {/* Filters */}
       <div className="mb-4 md:mb-6 bg-white rounded-lg p-3 md:p-4 shadow-sm">
-        <div className="flex flex-col lg:flex-row gap-3 md:gap-4">
-          <div className="flex-1">
-            <input
-              type="text"
-              placeholder="Aufgaben durchsuchen..."
+      <div className="flex flex-col lg:flex-row gap-3 md:gap-4">
+        <div className="flex-1">
+          <input
+            type="text"
+            placeholder="Aufgaben durchsuchen..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full p-3 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
@@ -873,6 +889,23 @@ const ImprovedKanbanBoard = () => {
               ))}
             </select>
           </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2 mt-3">
+          {visibilityFilters.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => setVisibilityFilter(option.value)}
+              className={`px-3 py-2 rounded-full text-sm font-medium transition-all ${
+                visibilityFilter === option.value
+                  ? 'bg-blue-600 text-white shadow'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
         </div>
       </div>
 

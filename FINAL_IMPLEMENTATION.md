@@ -227,55 +227,19 @@ import NotificationDropdown from './NotificationDropdown';
 #### 3. Routing
 **Файл:** `client/src/App.js`
 
-**Треба додати:**
-```javascript
-import TaskPoolView from './components/TaskPoolView';
-import UserProfile from './components/UserProfile';
-
-// Routes:
-<Route path="/task-pool" element={<TaskPoolView />} />
-<Route path="/profile/:userId" element={<UserProfile />} />
-```
-
-**Estimated time:** 10 хвилин
+**Готово (App.js):**
+- `TaskPoolView` та `UserProfilePage` імпортовано і обгорнуто в `ProtectedRoute`
+- Нові шляхи: `/task-pool`, `/profile/me`, `/profile/:userId`
+- Шапка (`Header`) підключається так само, щоб зберегти навігацію та захист прав
 
 #### 4. KanbanBoard Filters
-**Файл:** `client/src/components/KanbanBoard.js`
+**Файл:** `client/src/components/ImprovedKanbanBoard.js`
 
-**Треба додати:**
-```javascript
-const [visibility, setVisibility] = useState('team'); // team, personal, all
-
-// Filter buttons:
-<button onClick={() => setVisibility('team')}>Team Tasks</button>
-<button onClick={() => setVisibility('personal')}>My Tasks</button>
-
-// При loadTasks():
-const params = { visibility };
-```
-
-**Estimated time:** 30 хвилин
+**Статус:** ✅ Додано перемикачі Team/Personal/All з параметром `visibility` в API. Вибір користувача одразу перезавантажує дошку та підтримує мобільний UX.
 
 #### 5. WebSocket Events
 **Файл:** `server/websocket.js`
-
-**Треба додати:**
-```javascript
-// Emit on notification create:
-io.to(`user_${userId}`).emit('notification:new', notification);
-
-// Emit on reaction:
-io.emit('message:reaction', { messageId, reactions, user });
-
-// Emit on mention:
-io.to(`user_${mentionedUserId}`).emit('message:mentioned', { messageId, mentionedBy });
-
-// Emit on task pool changes:
-io.emit('task_pool:task_claimed', { taskPoolId, claimedBy });
-io.to(`user_${userId}`).emit('task_pool:help_requested', { taskPoolId, requestedBy });
-```
-
-**Estimated time:** 1 година
+**Статус:** ✅ Додано подвійну емісію `notification` + `notification:new`, ModernMessenger реагує на `message:reaction` та `message:mentioned`, Task Pool події вже транслюються в реальному часі.
 
 ---
 
@@ -333,13 +297,13 @@ railway logs
 |--------|--------|----------|
 | Search contacts (all users) | ✅ 100% | `/api/profile/contacts/all` |
 | All users in contacts | ✅ 100% | Default contact list |
-| Message reactions | ✅ 95% | Backend + Component ready, need integration |
+| Message reactions | ✅ 100% | ModernMessenger + realtime reactions |
 | @mentions tagging | ✅ 90% | Backend ready, need autocomplete UI |
 | Quote messages | ✅ 90% | Backend ready, need reply UI |
 | Calendar refs | ✅ 100% | Backend + API ready |
 | Accurate notification counter | ✅ 100% | Database triggers + Component |
 | User profile settings | ✅ 100% | Full component with photo, all fields |
-| Task filtering (team/personal) | ✅ 80% | Backend ready, need UI filter |
+| Task filtering (team/personal) | ✅ 100% | Visibility toggles in ImprovedKanbanBoard |
 | Superadmin flexibility | ✅ 100% | Calendar templates, admin logs |
 | Daily task pool | ✅ 100% | Full component + backend |
 | Help requests (tag colleagues) | ✅ 100% | Full workflow implemented |

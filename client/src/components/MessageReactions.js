@@ -4,16 +4,18 @@ import { addMessageReaction, getMessageReactions } from '../utils/apiEnhanced';
 
 const QUICK_EMOJIS = ['👍', '❤️', '😊', '🎉', '🔥', '👏', '✅'];
 
-const MessageReactions = ({ messageId, currentUserId, compact = false }) => {
+const MessageReactions = ({ messageId, currentUserId, compact = false, refreshKey = 0 }) => {
   const [reactions, setReactions] = useState([]);
   const [showPicker, setShowPicker] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    if (!messageId || String(messageId).startsWith('temp_')) return;
     loadReactions();
-  }, [messageId]);
+  }, [messageId, refreshKey]);
 
   const loadReactions = async () => {
+    if (!messageId || String(messageId).startsWith('temp_')) return;
     try {
       const response = await getMessageReactions(messageId);
       setReactions(response.data);
@@ -43,6 +45,10 @@ const MessageReactions = ({ messageId, currentUserId, compact = false }) => {
   const hasUserReacted = (reaction) => {
     return reaction.users?.some(u => u.user_id === currentUserId);
   };
+
+  if (!messageId || String(messageId).startsWith('temp_')) {
+    return null;
+  }
 
   return (
     <div className="relative">

@@ -19,6 +19,22 @@ const NotificationDropdown = ({ socket }) => {
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef(null);
 
+  const normalizeNotification = (notification) => {
+    if (!notification) return null;
+
+    const normalizedContent = notification.content || notification.body || notification.message || '';
+    const normalizedTitle = notification.title || 'Сповіщення';
+
+    return {
+      ...notification,
+      id: notification.id || notification.notification_id || `temp_${Date.now()}`,
+      title: normalizedTitle,
+      content: normalizedContent,
+      created_at: notification.created_at || new Date().toISOString(),
+      icon: notification.icon || '/logo192.png'
+    };
+  };
+
   useEffect(() => {
     loadUnreadCount();
     loadNotifications();
@@ -34,10 +50,15 @@ const NotificationDropdown = ({ socket }) => {
   }, []);
 
   useEffect(() => {
-    if (socket) {
-      socket.on('notification:new', handleNewNotification);
-      return () => socket.off('notification:new', handleNewNotification);
-    }
+    if (!socket) return;
+
+    socket.on('notification:new', handleNewNotification);
+    socket.on('notification', handleNewNotification);
+
+    return () => {
+      socket.off('notification:new', handleNewNotification);
+      socket.off('notification', handleNewNotification);
+    };
   }, [socket]);
 
   useEffect(() => {
@@ -45,13 +66,19 @@ const NotificationDropdown = ({ socket }) => {
   }, [filter, isOpen]);
 
   const handleNewNotification = (notification) => {
-    setNotifications(prev => [notification, ...prev]);
+    const normalized = normalizeNotification(notification);
+    if (!normalized) return;
+
+    setNotifications(prev => {
+      const exists = prev.some((n) => n.id === normalized.id);
+      return exists ? prev : [normalized, ...prev];
+    });
     loadUnreadCount();
 
-    if (Notification.permission === 'granted') {
-      new Notification(notification.title, {
-        body: notification.content,
-        icon: '/logo192.png'
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      new Notification(normalized.title, {
+        body: normalized.content,
+        icon: normalized.icon
       });
     }
   };

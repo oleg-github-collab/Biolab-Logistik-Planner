@@ -13,6 +13,8 @@ import FirstSetup from './pages/FirstSetup';
 import UserManagement from './pages/UserManagement';
 import Admin from './pages/Admin';
 import FirstLoginFlow from './components/FirstLoginFlow';
+import TaskPoolView from './components/TaskPoolView';
+import UserProfilePage from './pages/UserProfilePage';
 
 // Protected Route component with First Login check
 const ProtectedRoute = ({ children }) => {
@@ -158,6 +160,39 @@ const AppContent = () => {
                   <>
                     <Header />
                     <Schedule />
+                  </>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/task-pool"
+              element={
+                <ProtectedRoute>
+                  <>
+                    <Header />
+                    <TaskPoolView />
+                  </>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile/me"
+              element={
+                <ProtectedRoute>
+                  <>
+                    <Header />
+                    <UserProfilePage />
+                  </>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile/:userId"
+              element={
+                <ProtectedRoute>
+                  <>
+                    <Header />
+                    <UserProfilePage />
                   </>
                 </ProtectedRoute>
               }

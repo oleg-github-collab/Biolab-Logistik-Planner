@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import usePermissions from '../hooks/usePermissions';
 import { showSuccess, showError } from '../utils/toast';
 import useWebSocket from '../hooks/useWebSocket';
-import NotificationCenter from './NotificationCenter';
+import NotificationDropdown from './NotificationDropdown';
 import io from 'socket.io-client';
 
 const NAV_ITEMS = [
@@ -44,6 +44,29 @@ const NAV_ITEMS = [
         strokeLinejoin="round"
       >
         <path d="M21 15a2 2 0 01-2 2H8l-4 4V5a2 2 0 012-2h13a2 2 0 012 2v10z" />
+      </svg>
+    )
+  },
+  {
+    to: '/task-pool',
+    label: 'Task Pool',
+    permission: 'task:read',
+    icon: (active) => (
+      <svg
+        className={active ? 'h-5 w-5 text-blue-600' : 'h-5 w-5 text-slate-400'}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <rect x="3" y="4" width="18" height="18" rx="2" />
+        <path d="M3 10h18" />
+        <path d="M8 2v4" />
+        <path d="M16 2v4" />
+        <path d="M9 14h3" />
+        <path d="M9 18h6" />
       </svg>
     )
   },
@@ -289,11 +312,11 @@ const Header = () => {
 
           {/* Right Section */}
           <div className="flex items-center gap-2 sm:gap-4">
-            {/* Notification Center */}
-            <NotificationCenter socket={socket} userId={user?.id} />
+            {/* Notification Dropdown */}
+            <NotificationDropdown socket={socket} />
 
             {/* User Info - Hidden on small screens */}
-            <div className="hidden md:flex flex-col text-right">
+            <Link to="/profile/me" className="hidden md:flex flex-col text-right group focus:outline-none">
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Angemeldet</span>
               <span className="text-sm font-medium text-slate-800">
                 {user.name}
@@ -301,7 +324,8 @@ const Header = () => {
                   {user.role === 'superadmin' ? 'Superadmin' : user.role === 'admin' ? 'Admin' : 'Team'}
                 </span>
               </span>
-            </div>
+              <span className="text-[11px] text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity">Profil öffnen</span>
+            </Link>
 
             {/* Logout Button - Responsive sizing */}
             <button
