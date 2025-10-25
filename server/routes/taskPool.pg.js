@@ -17,12 +17,16 @@ router.get('/today', auth, async (req, res) => {
       SELECT
         tp.*,
         t.title, t.description, t.priority, t.status as task_status,
+        t.category, t.due_date,
         assigned_user.name as assigned_to_name,
-        claimed_user.name as claimed_by_name
+        assigned_user.profile_photo as assigned_to_photo,
+        claimed_user.name as claimed_by_name,
+        help_req_user.name as help_requested_from_name
       FROM task_pool tp
       LEFT JOIN tasks t ON tp.task_id = t.id
       LEFT JOIN users assigned_user ON tp.assigned_to = assigned_user.id
       LEFT JOIN users claimed_user ON tp.claimed_by = claimed_user.id
+      LEFT JOIN users help_req_user ON tp.help_requested_from = help_req_user.id
       WHERE tp.available_date = $1
     `;
 
