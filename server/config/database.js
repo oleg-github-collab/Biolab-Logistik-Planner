@@ -50,9 +50,31 @@ pool.on('remove', (client) => {
 // Test connection on startup (non-blocking)
 pool.query('SELECT NOW()', (err, res) => {
   if (err) {
-    logger.error('Failed to connect to PostgreSQL', err);
-    logger.warn('⚠️  PostgreSQL not available - will use SQLite fallback');
-    // Don't exit - allow fallback to SQLite routes
+    logger.error('❌ Failed to connect to PostgreSQL', err);
+    logger.error('');
+    logger.error('='.repeat(80));
+    logger.error('DATABASE CONNECTION REQUIRED');
+    logger.error('='.repeat(80));
+    logger.error('');
+    logger.error('PostgreSQL is required for this application. SQLite has been removed.');
+    logger.error('');
+    logger.error('Option 1: Install PostgreSQL locally');
+    logger.error('  brew install postgresql@15');
+    logger.error('  brew services start postgresql@15');
+    logger.error('  createdb biolab_logistik');
+    logger.error('  npm run migrate:pg');
+    logger.error('');
+    logger.error('Option 2: Use Railway DATABASE_URL');
+    logger.error('  Get DATABASE_URL from Railway project settings');
+    logger.error('  Add to .env file: DATABASE_URL=postgresql://...');
+    logger.error('');
+    logger.error('='.repeat(80));
+    logger.error('');
+
+    // Exit after showing helpful message
+    setTimeout(() => {
+      process.exit(1);
+    }, 100);
   } else {
     logger.info('✅ PostgreSQL connected successfully', {
       time: res.rows[0].now,

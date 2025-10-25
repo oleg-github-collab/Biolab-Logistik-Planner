@@ -245,33 +245,7 @@ CREATE TRIGGER kb_article_revision_trigger
   AFTER UPDATE ON kb_articles
   FOR EACH ROW EXECUTE FUNCTION create_kb_article_revision();
 
--- Insert default categories
-INSERT INTO kb_categories (name, description, icon, color, display_order, created_by)
-VALUES
-  ('Waste Disposal', 'How to properly dispose of different waste types', '♻️', '#10B981', 1, 1),
-  ('Equipment Operation', 'Guides for operating lab equipment', '🔧', '#3B82F6', 2, 1),
-  ('Safety Procedures', 'Safety protocols and emergency procedures', '⚠️', '#EF4444', 3, 1),
-  ('Logistics & Planning', 'Team coordination and scheduling', '📋', '#8B5CF6', 4, 1),
-  ('Maintenance', 'Equipment maintenance and troubleshooting', '🛠️', '#F59E0B', 5, 1),
-  ('Training Materials', 'Onboarding and training resources', '📚', '#06B6D4', 6, 1)
-ON CONFLICT DO NOTHING;
-
--- Insert sample article
-INSERT INTO kb_articles (
-  category_id, title, content, summary, author_id, status, slug, tags, published_at
-)
-VALUES (
-  1,
-  'How to Dispose of Chemical Waste',
-  E'# Chemical Waste Disposal Guide\n\n## Overview\nProper disposal of chemical waste is critical for safety and environmental protection.\n\n## Steps\n1. Identify the waste type\n2. Use appropriate containers\n3. Label clearly with contents and date\n4. Store in designated area\n5. Request pickup when container is 75% full\n\n## Important Notes\n- Never mix different chemical types\n- Always wear PPE when handling waste\n- Report any spills immediately',
-  'Complete guide for safe chemical waste disposal in the laboratory',
-  1,
-  'published',
-  'how-to-dispose-chemical-waste',
-  ARRAY['waste', 'chemicals', 'safety', 'disposal'],
-  CURRENT_TIMESTAMP
-)
-ON CONFLICT DO NOTHING;
+-- Sample data removed - will be created via first-setup or admin panel
 
 COMMENT ON TABLE kb_categories IS 'Categories for organizing knowledge base articles';
 COMMENT ON TABLE kb_articles IS 'Main knowledge base articles with full content';

@@ -1,10 +1,11 @@
 const fs = require('fs');
 const path = require('path');
 const { Pool } = require('pg');
+require('dotenv').config();
 
 // Database connection
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/biolab',
+  connectionString: process.env.DATABASE_URL || 'postgresql://localhost:5432/biolab_logistik',
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 

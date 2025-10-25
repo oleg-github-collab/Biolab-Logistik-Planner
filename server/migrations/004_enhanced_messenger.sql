@@ -247,16 +247,16 @@ CREATE INDEX idx_voice_messages_message ON voice_messages(message_id);
 CREATE INDEX idx_message_search_cache_vector ON message_search_cache USING GIN(search_vector);
 
 -- Full-text search index for messages
-CREATE INDEX idx_messages_search ON messages USING GIN(to_tsvector('english', content));
+CREATE INDEX IF NOT EXISTS idx_messages_search ON messages USING GIN(to_tsvector('english', message));
 
 -- Trigger to update message search cache
 CREATE OR REPLACE FUNCTION update_message_search_cache()
 RETURNS TRIGGER AS $$
 BEGIN
   INSERT INTO message_search_cache (message_id, search_vector)
-  VALUES (NEW.id, to_tsvector('english', NEW.content))
+  VALUES (NEW.id, to_tsvector('english', NEW.message))
   ON CONFLICT (message_id) DO UPDATE
-  SET search_vector = to_tsvector('english', NEW.content),
+  SET search_vector = to_tsvector('english', NEW.message),
       updated_at = CURRENT_TIMESTAMP;
 
   RETURN NEW;
@@ -264,7 +264,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER message_search_cache_update
-  AFTER INSERT OR UPDATE OF content ON messages
+  AFTER INSERT OR UPDATE OF message ON messages
   FOR EACH ROW EXECUTE FUNCTION update_message_search_cache();
 
 -- Trigger to update thread metadata
