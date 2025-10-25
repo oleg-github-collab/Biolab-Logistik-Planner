@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -11,15 +11,34 @@ import Waste from './pages/Waste';
 import FirstSetup from './pages/FirstSetup';
 import UserManagement from './pages/UserManagement';
 import Admin from './pages/Admin';
+import FirstLoginFlow from './components/FirstLoginFlow';
 
-// Protected Route component
+// Protected Route component with First Login check
 const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated } = useAuth();
-  
+  const { isAuthenticated, user } = useAuth();
+  const [showFirstLogin, setShowFirstLogin] = useState(false);
+
+  useEffect(() => {
+    if (isAuthenticated && user && !user.first_login_completed) {
+      setShowFirstLogin(true);
+    } else {
+      setShowFirstLogin(false);
+    }
+  }, [isAuthenticated, user]);
+
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
-  
+
+  if (showFirstLogin) {
+    return (
+      <>
+        {children}
+        <FirstLoginFlow onComplete={() => setShowFirstLogin(false)} />
+      </>
+    );
+  }
+
   return children;
 };
 
