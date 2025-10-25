@@ -62,7 +62,7 @@ const AdminRoute = ({ children }) => {
 
 // Main App component
 const AppContent = () => {
-  const { isAuthenticated, loading } = useAuth();
+  const { loading } = useAuth();
 
   if (loading) {
     return (

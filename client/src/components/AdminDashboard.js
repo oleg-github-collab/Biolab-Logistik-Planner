@@ -29,6 +29,7 @@ const AdminDashboard = () => {
     fetchData();
     const interval = setInterval(fetchData, 30000); // Refresh every 30s
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter]);
 
   const fetchData = async () => {
@@ -59,7 +60,7 @@ const AdminDashboard = () => {
       setLoading(false);
     } catch (error) {
       console.error('Failed to fetch admin data:', error);
-      toast.error('Помилка завантаження даних адміністратора');
+      toast.error('Fehler beim Laden der Administrator-Daten');
       setLoading(false);
     }
   };
@@ -82,10 +83,10 @@ const AdminDashboard = () => {
       link.click();
       link.remove();
 
-      toast.success('Логи експортовано');
+      toast.success('Logs erfolgreich exportiert');
     } catch (error) {
       console.error('Export failed:', error);
-      toast.error('Помилка експорту логів');
+      toast.error('Fehler beim Exportieren der Logs');
     }
   };
 
@@ -135,8 +136,8 @@ const AdminDashboard = () => {
         <div className="flex items-center gap-3">
           <Shield className="w-8 h-8 text-blue-600" />
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Адміністраторська Панель</h1>
-            <p className="text-sm text-gray-600">Моніторинг системи та аудит дій</p>
+            <h1 className="text-2xl font-bold text-gray-900">Administrator-Panel</h1>
+            <p className="text-sm text-gray-600">Systemüberwachung und Aktionsaudit</p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -145,14 +146,14 @@ const AdminDashboard = () => {
             className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
           >
             <RefreshCw className="w-4 h-4" />
-            Оновити
+            Aktualisieren
           </button>
           <button
             onClick={() => exportLogs('json')}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
           >
             <Download className="w-4 h-4" />
-            Експорт
+            Export
           </button>
         </div>
       </div>
@@ -165,8 +166,8 @@ const AdminDashboard = () => {
               <FileText className="w-8 h-8 text-blue-600" />
               <span className="text-2xl font-bold text-gray-900">{stats.total || 0}</span>
             </div>
-            <p className="text-sm text-gray-600">Всього Подій</p>
-            <p className="text-xs text-gray-400 mt-1">За останні {filter.days} днів</p>
+            <p className="text-sm text-gray-600">Ereignisse Gesamt</p>
+            <p className="text-xs text-gray-400 mt-1">In den letzten {filter.days} Tagen</p>
           </div>
 
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
@@ -174,8 +175,8 @@ const AdminDashboard = () => {
               <Users className="w-8 h-8 text-green-600" />
               <span className="text-2xl font-bold text-gray-900">{onlineUsers.length}</span>
             </div>
-            <p className="text-sm text-gray-600">Онлайн Зараз</p>
-            <p className="text-xs text-gray-400 mt-1">Активні користувачі</p>
+            <p className="text-sm text-gray-600">Jetzt Online</p>
+            <p className="text-xs text-gray-400 mt-1">Aktive Benutzer</p>
           </div>
 
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
@@ -185,8 +186,8 @@ const AdminDashboard = () => {
                 {(stats.bySeverity?.high || 0) + (stats.bySeverity?.critical || 0)}
               </span>
             </div>
-            <p className="text-sm text-gray-600">Критичні Події</p>
-            <p className="text-xs text-gray-400 mt-1">Потребують уваги</p>
+            <p className="text-sm text-gray-600">Kritische Ereignisse</p>
+            <p className="text-xs text-gray-400 mt-1">Benötigen Aufmerksamkeit</p>
           </div>
 
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
@@ -196,8 +197,8 @@ const AdminDashboard = () => {
                 {stats.byCategory?.data_modification || 0}
               </span>
             </div>
-            <p className="text-sm text-gray-600">Зміни Даних</p>
-            <p className="text-xs text-gray-400 mt-1">Модифікацій</p>
+            <p className="text-sm text-gray-600">Datenänderungen</p>
+            <p className="text-xs text-gray-400 mt-1">Modifikationen</p>
           </div>
         </div>
       )}
@@ -207,7 +208,7 @@ const AdminDashboard = () => {
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <Users className="w-5 h-5 text-green-600" />
-            Онлайн Користувачі
+            Online Benutzer
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {onlineUsers.map((user) => (
@@ -233,7 +234,7 @@ const AdminDashboard = () => {
         <div className="flex items-center gap-4 flex-wrap">
           <div className="flex items-center gap-2">
             <Filter className="w-4 h-4 text-gray-600" />
-            <span className="text-sm font-medium text-gray-700">Фільтри:</span>
+            <span className="text-sm font-medium text-gray-700">Filter:</span>
           </div>
 
           <select
@@ -241,12 +242,12 @@ const AdminDashboard = () => {
             onChange={(e) => setFilter({ ...filter, category: e.target.value })}
             className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
           >
-            <option value="all">Всі категорії</option>
-            <option value="authentication">Автентифікація</option>
-            <option value="authorization">Авторизація</option>
-            <option value="data_modification">Зміни даних</option>
-            <option value="security">Безпека</option>
-            <option value="system">Система</option>
+            <option value="all">Alle Kategorien</option>
+            <option value="authentication">Authentifizierung</option>
+            <option value="authorization">Autorisierung</option>
+            <option value="data_modification">Datenänderungen</option>
+            <option value="security">Sicherheit</option>
+            <option value="system">System</option>
           </select>
 
           <select
@@ -254,11 +255,11 @@ const AdminDashboard = () => {
             onChange={(e) => setFilter({ ...filter, severity: e.target.value })}
             className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
           >
-            <option value="all">Всі рівні</option>
-            <option value="critical">Критичні</option>
-            <option value="high">Високі</option>
-            <option value="medium">Середні</option>
-            <option value="low">Низькі</option>
+            <option value="all">Alle Stufen</option>
+            <option value="critical">Kritisch</option>
+            <option value="high">Hoch</option>
+            <option value="medium">Mittel</option>
+            <option value="low">Niedrig</option>
           </select>
 
           <select
@@ -266,10 +267,10 @@ const AdminDashboard = () => {
             onChange={(e) => setFilter({ ...filter, days: Number(e.target.value) })}
             className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
           >
-            <option value={1}>Сьогодні</option>
-            <option value={7}>7 днів</option>
-            <option value={30}>30 днів</option>
-            <option value={90}>90 днів</option>
+            <option value={1}>Heute</option>
+            <option value={7}>7 Tage</option>
+            <option value={30}>30 Tage</option>
+            <option value={90}>90 Tage</option>
           </select>
         </div>
       </div>
@@ -279,7 +280,7 @@ const AdminDashboard = () => {
         <div className="p-6 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
             <Clock className="w-5 h-5 text-blue-600" />
-            Останні Події Аудиту
+            Letzte Audit-Ereignisse
           </h3>
         </div>
         <div className="overflow-x-auto">
@@ -287,22 +288,22 @@ const AdminDashboard = () => {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Час
+                  Zeit
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Категорія
+                  Kategorie
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Дія
+                  Aktion
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Користувач
+                  Benutzer
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Рівень
+                  Stufe
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Деталі
+                  Details
                 </th>
               </tr>
             </thead>
@@ -310,7 +311,7 @@ const AdminDashboard = () => {
               {logs.length === 0 ? (
                 <tr>
                   <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
-                    Немає подій для відображення
+                    Keine Ereignisse zum Anzeigen
                   </td>
                 </tr>
               ) : (
@@ -339,10 +340,10 @@ const AdminDashboard = () => {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
                       {log.ip && <div className="text-xs">IP: {log.ip}</div>}
-                      {log.reason && <div className="text-xs">Причина: {log.reason}</div>}
+                      {log.reason && <div className="text-xs">Grund: {log.reason}</div>}
                       {log.changes && (
                         <details className="text-xs cursor-pointer">
-                          <summary>Зміни</summary>
+                          <summary>Änderungen</summary>
                           <pre className="mt-1 text-xs bg-gray-50 p-2 rounded">
                             {JSON.stringify(log.changes, null, 2)}
                           </pre>
@@ -362,7 +363,7 @@ const AdminDashboard = () => {
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-blue-600" />
-            Статистика по Категоріях
+            Statistik nach Kategorien
           </h3>
           <div className="space-y-3">
             {Object.entries(stats.byCategory).map(([category, count]) => (

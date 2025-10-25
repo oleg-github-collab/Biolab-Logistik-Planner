@@ -58,16 +58,16 @@ const TaskPoolView = () => {
     try {
       await claimTask(taskPoolId);
       loadData();
-      alert('Завдання взято!');
+      alert('Aufgabe übernommen!');
     } catch (error) {
       console.error('Error claiming task:', error);
-      alert('Помилка при взятті завдання');
+      alert('Fehler beim Übernehmen der Aufgabe');
     }
   };
 
   const handleRequestHelp = async (taskPoolId) => {
     if (!selectedUser || !helpMessage) {
-      alert('Оберіть користувача та напишіть повідомлення');
+      alert('Bitte wählen Sie einen Benutzer und schreiben Sie eine Nachricht');
       return;
     }
 
@@ -77,10 +77,10 @@ const TaskPoolView = () => {
       setSelectedUser('');
       setHelpMessage('');
       loadData();
-      alert('Запит надіслано!');
+      alert('Anfrage gesendet!');
     } catch (error) {
       console.error('Error requesting help:', error);
-      alert('Помилка при запиті допомоги');
+      alert('Fehler beim Anfordern von Hilfe');
     }
   };
 
@@ -88,14 +88,14 @@ const TaskPoolView = () => {
     try {
       await respondToHelpRequest(requestId, action);
       loadData();
-      alert(action === 'accept' ? 'Завдання прийнято!' : 'Запит відхилено');
+      alert(action === 'accept' ? 'Aufgabe angenommen!' : 'Anfrage abgelehnt');
     } catch (error) {
       console.error('Error responding to help request:', error);
     }
   };
 
   const handleCompleteTask = async (taskPoolId) => {
-    const notes = prompt('Додайте нотатки (необов\'язково):');
+    const notes = prompt('Notizen hinzufügen (optional):');
     try {
       await completeTask(taskPoolId, notes || '');
       loadData();

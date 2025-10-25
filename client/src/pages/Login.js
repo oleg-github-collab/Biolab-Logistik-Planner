@@ -50,7 +50,7 @@ const Login = () => {
 
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-              Login
+              E-Mail
             </label>
             <input
               type="email"

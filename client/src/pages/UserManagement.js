@@ -130,32 +130,32 @@ const UserManagement = () => {
     
     // Validate form
     if (!formData.name.trim()) {
-      setError('Name is required');
+      setError('Name ist erforderlich');
       return;
     }
-    
+
     if (!formData.email.trim()) {
-      setError('Email is required');
+      setError('E-Mail ist erforderlich');
       return;
     }
-    
+
     if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      setError('Please enter a valid email');
+      setError('Bitte geben Sie eine gültige E-Mail-Adresse ein');
       return;
     }
 
     if (!editingUser && !formData.password) {
-      setError('Password is required for new users');
+      setError('Passwort ist für neue Benutzer erforderlich');
       return;
     }
 
     if (formData.password && formData.password.length < 6) {
-      setError('Password must be at least 6 characters');
+      setError('Passwort muss mindestens 6 Zeichen lang sein');
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
+      setError('Passwörter stimmen nicht überein');
       return;
     }
 

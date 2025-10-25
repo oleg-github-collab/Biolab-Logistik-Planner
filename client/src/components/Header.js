@@ -3,7 +3,6 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import usePermissions from '../hooks/usePermissions';
 import { showSuccess, showError } from '../utils/toast';
-import useWebSocket from '../hooks/useWebSocket';
 import NotificationDropdown from './NotificationDropdown';
 import io from 'socket.io-client';
 
@@ -49,7 +48,7 @@ const NAV_ITEMS = [
   },
   {
     to: '/task-pool',
-    label: 'Task Pool',
+    label: 'Aufgabenpool',
     permission: 'task:read',
     icon: (active) => (
       <svg
@@ -157,10 +156,10 @@ const NAV_ITEMS = [
 const NavItem = memo(({ item, isActive }) => (
   <Link
     to={item.to}
-    className={`group flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 ${
+    className={`group flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all duration-200 ${
       isActive
-        ? 'bg-blue-600 text-white shadow-md scale-105'
-        : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900 hover:scale-105'
+        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-200 scale-105'
+        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 hover:scale-105'
     }`}
   >
     {item.icon(isActive)}
@@ -290,16 +289,16 @@ const Header = () => {
   return (
     <>
       {/* Main Header */}
-      <header className="sticky top-0 z-50 border-b border-slate-200/60 bg-white/80 backdrop-blur-xl">
+      <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/95 backdrop-blur-xl shadow-sm">
         <div className="mx-auto flex h-14 sm:h-16 max-w-7xl items-center justify-between px-3 sm:px-6 lg:px-8">
           {/* Logo Section */}
           <div className="flex items-center gap-2 sm:gap-3">
-            <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl sm:rounded-2xl bg-gradient-to-br from-blue-500 via-indigo-500 to-sky-500 text-xs sm:text-sm font-semibold uppercase text-white shadow-inner">
+            <div className="flex h-9 w-9 sm:h-11 sm:w-11 items-center justify-center rounded-xl sm:rounded-2xl bg-gradient-to-br from-blue-600 via-indigo-600 to-sky-500 text-xs sm:text-sm font-bold uppercase text-white shadow-lg ring-2 ring-blue-100">
               BL
             </div>
             <div className="hidden sm:block">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Biolab Logistik</p>
-              <p className="text-sm sm:text-base font-semibold text-slate-900">Planner Suite</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Biolab Logistik</p>
+              <p className="text-sm sm:text-base font-bold text-slate-900 leading-tight">Planner Suite</p>
             </div>
           </div>
 
@@ -330,12 +329,12 @@ const Header = () => {
             {/* Logout Button - Responsive sizing */}
             <button
               onClick={handleLogout}
-              className="rounded-full border border-red-500/40 bg-red-500 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-red-400 hover:scale-105 active:scale-95"
+              className="rounded-full border border-red-500/50 bg-gradient-to-r from-red-500 to-red-600 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-bold text-white shadow-md shadow-red-200 transition-all duration-200 hover:from-red-400 hover:to-red-500 hover:scale-105 active:scale-95"
             >
               <span className="hidden sm:inline">Abmelden</span>
               <span className="sm:hidden">
                 {/* Logout icon for mobile */}
-                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
                   <polyline points="16 17 21 12 16 7" />
                   <line x1="21" y1="12" x2="9" y2="12" />

@@ -16,19 +16,12 @@ router.get('/:userId', auth, async (req, res) => {
     const result = await pool.query(
       `SELECT
         u.id, u.name, u.email, u.role, u.employment_type,
-        u.weekly_hours_quota, u.profile_photo, u.status, u.status_message,
-        u.bio, u.position_description, u.phone, u.phone_mobile,
-        u.emergency_contact, u.emergency_phone, u.address,
-        u.date_of_birth, u.hire_date, u.last_seen_at,
-        u.timezone, u.language, u.theme, u.created_at,
-        up.email_notifications, up.push_notifications, up.desktop_notifications,
-        up.sound_enabled, up.notify_messages, up.notify_tasks,
-        up.notify_mentions, up.notify_reactions, up.notify_calendar,
-        up.compact_view, up.show_avatars, up.message_preview,
-        up.quiet_hours_enabled, up.quiet_hours_start, up.quiet_hours_end
+        u.weekly_hours_quota, u.created_at,
+        up.theme, up.language, up.notifications_enabled,
+        up.email_notifications, up.push_notifications, up.sound_enabled
       FROM users u
       LEFT JOIN user_preferences up ON u.id = up.user_id
-      WHERE u.id = $1 AND u.is_active = TRUE`,
+      WHERE u.id = $1`,
       [userId]
     );
 

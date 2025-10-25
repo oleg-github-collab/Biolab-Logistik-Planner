@@ -24,7 +24,7 @@ const FirstLoginFlow = ({ onComplete }) => {
 
     try {
       if (weeklyHours < 1 || weeklyHours > 80) {
-        setError('Please enter hours between 1 and 80');
+        setError('Bitte geben Sie Stunden zwischen 1 und 80 ein');
         setLoading(false);
         return;
       }
@@ -45,7 +45,7 @@ const FirstLoginFlow = ({ onComplete }) => {
 
     } catch (err) {
       console.error('Error completing first login:', err);
-      setError(err.response?.data?.error || 'Failed to save settings');
+      setError(err.response?.data?.error || 'Fehler beim Speichern der Einstellungen');
     } finally {
       setLoading(false);
     }
@@ -62,19 +62,19 @@ const FirstLoginFlow = ({ onComplete }) => {
       <div className="bg-white rounded-lg shadow-2xl max-w-2xl w-full overflow-hidden">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-8">
-          <h2 className="text-3xl font-bold mb-2">Welcome to Biolab Logistik Planner! 👋</h2>
-          <p className="text-blue-100">Let's set up your weekly work schedule</p>
+          <h2 className="text-3xl font-bold mb-2">Willkommen beim Biolab Logistik Planner! 👋</h2>
+          <p className="text-blue-100">Lassen Sie uns Ihren wöchentlichen Arbeitsplan einrichten</p>
         </div>
 
         {/* Content */}
         <div className="p-8">
           <div className="mb-8">
             <h3 className="text-xl font-semibold text-gray-800 mb-3">
-              Set Your Weekly Hours Quota
+              Setzen Sie Ihre wöchentliche Stundenkontingent
             </h3>
             <p className="text-gray-600 mb-6">
-              This helps us track your work hours and ensure you don't exceed your planned schedule.
-              You can always change this later in your profile settings.
+              Dies hilft uns, Ihre Arbeitsstunden zu verfolgen und sicherzustellen, dass Sie Ihren geplanten Zeitplan nicht überschreiten.
+              Sie können dies später jederzeit in Ihren Profileinstellungen ändern.
             </p>
 
             {/* Employment Type Info */}
@@ -87,7 +87,7 @@ const FirstLoginFlow = ({ onComplete }) => {
                 </div>
                 <div className="ml-3">
                   <p className="text-sm text-blue-800">
-                    <span className="font-semibold">Employment Type:</span> {user?.employment_type || 'Not set'}
+                    <span className="font-semibold">Beschäftigungsart:</span> {user?.employment_type || 'Nicht gesetzt'}
                   </p>
                 </div>
               </div>
@@ -96,7 +96,7 @@ const FirstLoginFlow = ({ onComplete }) => {
             {/* Quick Presets */}
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-3">
-                Quick Presets:
+                Schnellvorlagen:
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {presetHours.map((preset) => (
