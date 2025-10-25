@@ -50,8 +50,12 @@ app.use(express.json({ limit: '10mb' }));
 app.use('/api/auth', require('./routes/auth.pg'));
 app.use('/api/schedule', require('./routes/schedule.pg'));
 app.use('/api/messages', require('./routes/messages.pg'));
+app.use('/api/messages', require('./routes/messagesEnhanced.pg')); // Enhanced features
 app.use('/api/tasks', require('./routes/tasks.pg'));
+app.use('/api/task-pool', require('./routes/taskPool.pg'));
 app.use('/api/kb', require('./routes/knowledgeBase.pg'));
+app.use('/api/profile', require('./routes/userProfile.pg'));
+app.use('/api/notifications', require('./routes/notifications.pg'));
 // SQLite-only routes (to be migrated to PostgreSQL)
 app.use('/api/waste', require('./routes/waste'));
 app.use('/api/waste', require('./routes/wasteTemplates'));
