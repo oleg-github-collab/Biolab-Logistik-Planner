@@ -85,7 +85,7 @@ router.get('/week/:weekStart', auth, async (req, res) => {
 
   } catch (error) {
     logger.error('Error fetching week schedule', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 
@@ -108,7 +108,7 @@ router.get('/hours-summary/:weekStart', auth, async (req, res) => {
     );
 
     if (userResult.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: 'Benutzer nicht gefunden' });
     }
 
     const weeklyQuota = parseFloat(userResult.rows[0].weekly_hours_quota);
@@ -141,7 +141,7 @@ router.get('/hours-summary/:weekStart', auth, async (req, res) => {
 
   } catch (error) {
     logger.error('Error fetching hours summary', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 
@@ -164,7 +164,7 @@ router.get('/hours-summary/month/:year/:month', auth, async (req, res) => {
     );
 
     if (userResult.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: 'Benutzer nicht gefunden' });
     }
 
     const weeklyQuota = parseFloat(userResult.rows[0].weekly_hours_quota);
@@ -220,7 +220,7 @@ router.get('/hours-summary/month/:year/:month', auth, async (req, res) => {
 
   } catch (error) {
     logger.error('Error fetching month hours summary', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 
@@ -247,7 +247,7 @@ router.put('/day/:id', auth, async (req, res) => {
     if (existingDay.user_id !== req.user.id &&
         req.user.role !== 'admin' &&
         req.user.role !== 'superadmin') {
-      return res.status(403).json({ error: 'Unauthorized' });
+      return res.status(403).json({ error: 'Nicht autorisiert' });
     }
 
     // Validate time range if working
@@ -321,7 +321,7 @@ router.put('/day/:id', auth, async (req, res) => {
 
   } catch (error) {
     logger.error('Error updating schedule day', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 
@@ -429,7 +429,7 @@ router.get('/audit/:weekStart', auth, async (req, res) => {
     if (userId && (req.user.role === 'admin' || req.user.role === 'superadmin')) {
       targetUserId = parseInt(userId);
     } else if (userId) {
-      return res.status(403).json({ error: 'Unauthorized' });
+      return res.status(403).json({ error: 'Nicht autorisiert' });
     }
 
     const result = await pool.query(
@@ -448,7 +448,7 @@ router.get('/audit/:weekStart', auth, async (req, res) => {
 
   } catch (error) {
     logger.error('Error fetching schedule audit', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 
@@ -499,7 +499,7 @@ router.get('/users', auth, async (req, res) => {
 
   } catch (error) {
     logger.error('Error fetching users schedule overview', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 
@@ -559,7 +559,7 @@ router.get('/events', auth, async (req, res) => {
 
   } catch (error) {
     logger.error('Error fetching calendar events', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 
@@ -570,7 +570,7 @@ router.post('/events', auth, async (req, res) => {
     const { title, description, event_date, start_time, end_time, event_type, priority, location, attendees } = req.body;
 
     if (!title || !event_date) {
-      return res.status(400).json({ error: 'Title and date are required' });
+      return res.status(400).json({ error: 'Titel und Datum sind erforderlich' });
     }
 
     const result = await pool.query(
@@ -618,7 +618,7 @@ router.post('/events', auth, async (req, res) => {
 
   } catch (error) {
     logger.error('Error creating calendar event', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 
@@ -636,13 +636,13 @@ router.put('/events/:id', auth, async (req, res) => {
     );
 
     if (existing.rows.length === 0) {
-      return res.status(404).json({ error: 'Event not found' });
+      return res.status(404).json({ error: 'Ereignis nicht gefunden' });
     }
 
     const event = existing.rows[0];
 
     if (event.user_id !== req.user.id && req.user.role !== 'admin' && req.user.role !== 'superadmin') {
-      return res.status(403).json({ error: 'Unauthorized' });
+      return res.status(403).json({ error: 'Nicht autorisiert' });
     }
 
     const result = await pool.query(
@@ -695,7 +695,7 @@ router.put('/events/:id', auth, async (req, res) => {
 
   } catch (error) {
     logger.error('Error updating calendar event', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 
@@ -712,13 +712,13 @@ router.delete('/events/:id', auth, async (req, res) => {
     );
 
     if (existing.rows.length === 0) {
-      return res.status(404).json({ error: 'Event not found' });
+      return res.status(404).json({ error: 'Ereignis nicht gefunden' });
     }
 
     const event = existing.rows[0];
 
     if (event.user_id !== req.user.id && req.user.role !== 'admin' && req.user.role !== 'superadmin') {
-      return res.status(403).json({ error: 'Unauthorized' });
+      return res.status(403).json({ error: 'Nicht autorisiert' });
     }
 
     await pool.query('DELETE FROM calendar_events WHERE id = $1', [id]);
@@ -744,7 +744,7 @@ router.delete('/events/:id', auth, async (req, res) => {
 
   } catch (error) {
     logger.error('Error deleting calendar event', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 
@@ -793,7 +793,7 @@ router.get('/events/statistics', auth, async (req, res) => {
 
   } catch (error) {
     logger.error('Error fetching event statistics', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 
@@ -856,7 +856,7 @@ router.post('/events/bulk', auth, async (req, res) => {
 
   } catch (error) {
     logger.error('Error creating bulk events', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 
@@ -878,13 +878,13 @@ router.post('/events/:id/duplicate', auth, async (req, res) => {
     );
 
     if (existing.rows.length === 0) {
-      return res.status(404).json({ error: 'Event not found' });
+      return res.status(404).json({ error: 'Ereignis nicht gefunden' });
     }
 
     const original = existing.rows[0];
 
     if (original.user_id !== req.user.id && req.user.role !== 'admin' && req.user.role !== 'superadmin') {
-      return res.status(403).json({ error: 'Unauthorized' });
+      return res.status(403).json({ error: 'Nicht autorisiert' });
     }
 
     // Create duplicate
@@ -921,7 +921,7 @@ router.post('/events/:id/duplicate', auth, async (req, res) => {
 
   } catch (error) {
     logger.error('Error duplicating event', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 

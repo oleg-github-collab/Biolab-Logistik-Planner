@@ -70,7 +70,7 @@ router.get('/today', auth, async (req, res) => {
 
   } catch (error) {
     logger.error('Error fetching task pool', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 
@@ -98,7 +98,7 @@ router.get('/my-tasks', auth, async (req, res) => {
 
   } catch (error) {
     logger.error('Error fetching my tasks', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 
@@ -115,7 +115,7 @@ router.post('/:taskPoolId/claim', auth, async (req, res) => {
     );
 
     if (checkResult.rows.length === 0) {
-      return res.status(400).json({ error: 'Task is not available for claiming' });
+      return res.status(400).json({ error: 'Aufgabe ist nicht zum Beanspruchen verfügbar' });
     }
 
     // Claim the task
@@ -165,7 +165,7 @@ router.post('/:taskPoolId/claim', auth, async (req, res) => {
 
   } catch (error) {
     logger.error('Error claiming task', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 
@@ -177,7 +177,7 @@ router.post('/:taskPoolId/request-help', auth, async (req, res) => {
     const { userId, message } = req.body;
 
     if (!userId) {
-      return res.status(400).json({ error: 'User ID is required' });
+      return res.status(400).json({ error: 'Benutzer-ID ist erforderlich' });
     }
 
     const client = await pool.getClient();
@@ -205,7 +205,7 @@ router.post('/:taskPoolId/request-help', auth, async (req, res) => {
       // Create help request record
       const helpRequestResult = await client.query(
         `INSERT INTO task_help_requests (
-          task_pool_id, requested_by, requested_from, message, status
+          task_pool_id, requested_by, requested_user_id, message, status
         ) VALUES ($1, $2, $3, $4, 'pending')
         RETURNING *`,
         [taskPoolId, req.user.id, userId, message]
@@ -255,7 +255,7 @@ router.post('/:taskPoolId/request-help', auth, async (req, res) => {
 
   } catch (error) {
     logger.error('Error requesting help', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 
@@ -267,17 +267,17 @@ router.post('/help-requests/:requestId/respond', auth, async (req, res) => {
     const { action, message } = req.body; // action: 'accept' or 'decline'
 
     if (!['accept', 'decline'].includes(action)) {
-      return res.status(400).json({ error: 'Invalid action. Must be "accept" or "decline"' });
+      return res.status(400).json({ error: 'Ungültige Aktion. Muss "accept" oder "decline" sein' });
     }
 
     // Check if request is for this user
     const requestCheck = await pool.query(
-      'SELECT * FROM task_help_requests WHERE id = $1 AND requested_from = $2 AND status = $3',
+      'SELECT * FROM task_help_requests WHERE id = $1 AND requested_user_id = $2 AND status = $3',
       [requestId, req.user.id, 'pending']
     );
 
     if (requestCheck.rows.length === 0) {
-      return res.status(404).json({ error: 'Help request not found or already responded' });
+      return res.status(404).json({ error: 'Hilfeanfrage nicht gefunden oder bereits beantwortet' });
     }
 
     const helpRequest = requestCheck.rows[0];
@@ -286,14 +286,13 @@ router.post('/help-requests/:requestId/respond', auth, async (req, res) => {
     try {
       await client.query('BEGIN');
 
-      // Update help request
+      // Update help request - note: response_message column doesn't exist in schema
       await client.query(
         `UPDATE task_help_requests SET
           status = $1,
-          response_message = $2,
           responded_at = CURRENT_TIMESTAMP
-        WHERE id = $3`,
-        [action === 'accept' ? 'accepted' : 'declined', message, requestId]
+        WHERE id = $2`,
+        [action === 'accept' ? 'accepted' : 'declined', requestId]
       );
 
       if (action === 'accept') {
@@ -374,7 +373,7 @@ router.post('/help-requests/:requestId/respond', auth, async (req, res) => {
 
   } catch (error) {
     logger.error('Error responding to help request', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 
@@ -393,7 +392,7 @@ router.get('/help-requests/my', auth, async (req, res) => {
       FROM task_help_requests thr
       LEFT JOIN task_pool tp ON thr.task_pool_id = tp.id
       LEFT JOIN users requester ON thr.requested_by = requester.id
-      WHERE thr.requested_from = $1
+      WHERE thr.requested_user_id = $1
     `;
 
     const params = [req.user.id];
@@ -411,7 +410,7 @@ router.get('/help-requests/my', auth, async (req, res) => {
 
   } catch (error) {
     logger.error('Error fetching help requests', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 
@@ -429,7 +428,7 @@ router.post('/:taskPoolId/complete', auth, async (req, res) => {
     );
 
     if (checkResult.rows.length === 0) {
-      return res.status(403).json({ error: 'You are not assigned to this task' });
+      return res.status(403).json({ error: 'Sie sind dieser Aufgabe nicht zugewiesen' });
     }
 
     const client = await pool.getClient();
@@ -482,7 +481,7 @@ router.post('/:taskPoolId/complete', auth, async (req, res) => {
 
       res.json({
         success: true,
-        message: 'Task marked as completed'
+        message: 'Aufgabe als abgeschlossen markiert'
       });
 
     } catch (error) {
@@ -494,7 +493,7 @@ router.post('/:taskPoolId/complete', auth, async (req, res) => {
 
   } catch (error) {
     logger.error('Error completing task', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 
@@ -503,7 +502,7 @@ router.post('/:taskPoolId/complete', auth, async (req, res) => {
 router.post('/create', auth, async (req, res) => {
   try {
     if (req.user.role !== 'admin' && req.user.role !== 'superadmin') {
-      return res.status(403).json({ error: 'Admin access required' });
+      return res.status(403).json({ error: 'Administratorzugriff erforderlich' });
     }
 
     const {
@@ -518,7 +517,7 @@ router.post('/create', auth, async (req, res) => {
     );
 
     if (taskResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Task not found' });
+      return res.status(404).json({ error: 'Aufgabe nicht gefunden' });
     }
 
     const result = await pool.query(
@@ -540,7 +539,7 @@ router.post('/create', auth, async (req, res) => {
 
   } catch (error) {
     logger.error('Error creating task pool entry', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 

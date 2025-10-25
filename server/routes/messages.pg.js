@@ -19,7 +19,7 @@ router.get('/', auth, async (req, res) => {
         recipient.name as recipient_name
       FROM messages m
       LEFT JOIN users sender ON m.sender_id = sender.id
-      LEFT JOIN users recipient ON m.recipient_id = recipient.id
+      LEFT JOIN users recipient ON m.receiver_id = recipient.id
     `;
 
     const params = [];
@@ -27,8 +27,8 @@ router.get('/', auth, async (req, res) => {
 
     // Filter by conversation if userId provided
     if (userId) {
-      query += ` WHERE (m.sender_id = $${paramIndex} AND m.recipient_id = $${paramIndex + 1})
-                 OR (m.sender_id = $${paramIndex + 1} AND m.recipient_id = $${paramIndex})`;
+      query += ` WHERE (m.sender_id = $${paramIndex} AND m.receiver_id = $${paramIndex + 1})
+                 OR (m.sender_id = $${paramIndex + 1} AND m.receiver_id = $${paramIndex})`;
       params.push(req.user.id, parseInt(userId));
       paramIndex += 2;
     }
@@ -42,7 +42,7 @@ router.get('/', auth, async (req, res) => {
 
   } catch (error) {
     logger.error('Error fetching messages', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 
@@ -61,7 +61,7 @@ router.get('/conversations', auth, async (req, res) => {
        FROM (
          SELECT
            CASE
-             WHEN m.sender_id = $1 THEN m.recipient_id
+             WHEN m.sender_id = $1 THEN m.receiver_id
              ELSE m.sender_id
            END as other_user_id,
            CASE
@@ -72,26 +72,26 @@ router.get('/conversations', auth, async (req, res) => {
              WHEN m.sender_id = $1 THEN recipient.role
              ELSE sender.role
            END as other_user_role,
-           m.content as last_message,
+           m.message as last_message,
            m.created_at as last_message_time,
-           COUNT(*) FILTER (WHERE m.recipient_id = $1 AND m.read = false) OVER (PARTITION BY
+           COUNT(*) FILTER (WHERE m.receiver_id = $1 AND m.read_status = false) OVER (PARTITION BY
              CASE
-               WHEN m.sender_id = $1 THEN m.recipient_id
+               WHEN m.sender_id = $1 THEN m.receiver_id
                ELSE m.sender_id
              END
            ) as unread_count,
            ROW_NUMBER() OVER (
              PARTITION BY
                CASE
-                 WHEN m.sender_id = $1 THEN m.recipient_id
+                 WHEN m.sender_id = $1 THEN m.receiver_id
                  ELSE m.sender_id
                END
              ORDER BY m.created_at DESC
            ) as rn
          FROM messages m
          LEFT JOIN users sender ON m.sender_id = sender.id
-         LEFT JOIN users recipient ON m.recipient_id = recipient.id
-         WHERE m.sender_id = $1 OR m.recipient_id = $1
+         LEFT JOIN users recipient ON m.receiver_id = recipient.id
+         WHERE m.sender_id = $1 OR m.receiver_id = $1
        ) conversations
        WHERE rn = 1
        ORDER BY other_user_id, last_message_time DESC`,
@@ -102,7 +102,7 @@ router.get('/conversations', auth, async (req, res) => {
 
   } catch (error) {
     logger.error('Error fetching conversations', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 
@@ -111,7 +111,7 @@ router.get('/conversations', auth, async (req, res) => {
 router.get('/unread-count', auth, async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT COUNT(*) as count FROM messages WHERE recipient_id = $1 AND read = false',
+      'SELECT COUNT(*) as count FROM messages WHERE receiver_id = $1 AND read_status = false',
       [req.user.id]
     );
 
@@ -119,7 +119,7 @@ router.get('/unread-count', auth, async (req, res) => {
 
   } catch (error) {
     logger.error('Error fetching unread count', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 
@@ -131,11 +131,11 @@ router.post('/', auth, async (req, res) => {
 
     // Validate
     if (!recipientId) {
-      return res.status(400).json({ error: 'Recipient is required' });
+      return res.status(400).json({ error: 'Empfänger ist erforderlich' });
     }
 
     if (!content && !gif) {
-      return res.status(400).json({ error: 'Message content or GIF is required' });
+      return res.status(400).json({ error: 'Nachrichteninhalt oder GIF ist erforderlich' });
     }
 
     // Check if recipient exists
@@ -145,17 +145,17 @@ router.post('/', auth, async (req, res) => {
     );
 
     if (recipientResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Recipient not found' });
+      return res.status(404).json({ error: 'Empfänger nicht gefunden' });
     }
 
     const recipient = recipientResult.rows[0];
 
     // Insert message
     const insertResult = await pool.query(
-      `INSERT INTO messages (sender_id, recipient_id, content, gif, read, created_at)
+      `INSERT INTO messages (sender_id, receiver_id, message, message_type, read_status, created_at)
        VALUES ($1, $2, $3, $4, false, CURRENT_TIMESTAMP)
        RETURNING *`,
-      [req.user.id, recipientId, content || null, gif || null]
+      [req.user.id, recipientId, content || gif || null, gif ? 'gif' : 'text']
     );
 
     const message = insertResult.rows[0];
@@ -168,7 +168,7 @@ router.post('/', auth, async (req, res) => {
          recipient.name as recipient_name
        FROM messages m
        LEFT JOIN users sender ON m.sender_id = sender.id
-       LEFT JOIN users recipient ON m.recipient_id = recipient.id
+       LEFT JOIN users recipient ON m.receiver_id = recipient.id
        WHERE m.id = $1`,
       [message.id]
     );
@@ -210,7 +210,7 @@ router.post('/', auth, async (req, res) => {
 
   } catch (error) {
     logger.error('Error sending message', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 
@@ -222,23 +222,23 @@ router.put('/:id/read', auth, async (req, res) => {
 
     // Verify message exists and user is recipient
     const messageResult = await pool.query(
-      'SELECT id, recipient_id FROM messages WHERE id = $1',
+      'SELECT id, receiver_id FROM messages WHERE id = $1',
       [id]
     );
 
     if (messageResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Message not found' });
+      return res.status(404).json({ error: 'Nachricht nicht gefunden' });
     }
 
     const message = messageResult.rows[0];
 
-    if (message.recipient_id !== req.user.id) {
-      return res.status(403).json({ error: 'Unauthorized' });
+    if (message.receiver_id !== req.user.id) {
+      return res.status(403).json({ error: 'Nicht autorisiert' });
     }
 
     // Mark as read
     await pool.query(
-      'UPDATE messages SET read = true, updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+      'UPDATE messages SET read_status = true, read_at = CURRENT_TIMESTAMP WHERE id = $1',
       [id]
     );
 
@@ -251,11 +251,11 @@ router.put('/:id/read', auth, async (req, res) => {
       });
     }
 
-    res.json({ message: 'Message marked as read' });
+    res.json({ message: 'Nachricht als gelesen markiert' });
 
   } catch (error) {
     logger.error('Error marking message as read', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 
@@ -267,8 +267,8 @@ router.put('/conversation/:userId/read-all', auth, async (req, res) => {
 
     const result = await pool.query(
       `UPDATE messages
-       SET read = true, updated_at = CURRENT_TIMESTAMP
-       WHERE sender_id = $1 AND recipient_id = $2 AND read = false
+       SET read_status = true, read_at = CURRENT_TIMESTAMP
+       WHERE sender_id = $1 AND receiver_id = $2 AND read_status = false
        RETURNING id`,
       [parseInt(userId), req.user.id]
     );
@@ -294,13 +294,13 @@ router.put('/conversation/:userId/read-all', auth, async (req, res) => {
     });
 
     res.json({
-      message: 'All messages marked as read',
+      message: 'Alle Nachrichten als gelesen markiert',
       count: markedCount
     });
 
   } catch (error) {
     logger.error('Error marking all messages as read', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 
@@ -312,12 +312,12 @@ router.delete('/:id', auth, async (req, res) => {
 
     // Verify message exists and user is sender
     const messageResult = await pool.query(
-      'SELECT id, sender_id, recipient_id FROM messages WHERE id = $1',
+      'SELECT id, sender_id, receiver_id FROM messages WHERE id = $1',
       [id]
     );
 
     if (messageResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Message not found' });
+      return res.status(404).json({ error: 'Nachricht nicht gefunden' });
     }
 
     const message = messageResult.rows[0];
@@ -326,7 +326,7 @@ router.delete('/:id', auth, async (req, res) => {
     if (message.sender_id !== req.user.id &&
         req.user.role !== 'admin' &&
         req.user.role !== 'superadmin') {
-      return res.status(403).json({ error: 'Unauthorized' });
+      return res.status(403).json({ error: 'Nicht autorisiert' });
     }
 
     // Delete message
@@ -338,7 +338,7 @@ router.delete('/:id', auth, async (req, res) => {
       io.emit('message:deleted', {
         messageId: id,
         senderId: message.sender_id,
-        recipientId: message.recipient_id
+        recipientId: message.receiver_id
       });
     }
 
@@ -347,11 +347,11 @@ router.delete('/:id', auth, async (req, res) => {
       deletedBy: req.user.id
     });
 
-    res.json({ message: 'Message deleted successfully' });
+    res.json({ message: 'Nachricht erfolgreich gelöscht' });
 
   } catch (error) {
     logger.error('Error deleting message', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 
@@ -362,7 +362,7 @@ router.post('/typing', auth, async (req, res) => {
     const { recipientId, isTyping } = req.body;
 
     if (!recipientId) {
-      return res.status(400).json({ error: 'Recipient is required' });
+      return res.status(400).json({ error: 'Empfänger ist erforderlich' });
     }
 
     const io = getIO();
@@ -379,7 +379,7 @@ router.post('/typing', auth, async (req, res) => {
 
   } catch (error) {
     logger.error('Error broadcasting typing indicator', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 

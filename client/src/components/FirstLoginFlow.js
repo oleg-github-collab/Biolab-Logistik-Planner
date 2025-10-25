@@ -121,7 +121,7 @@ const FirstLoginFlow = ({ onComplete }) => {
             <form onSubmit={handleSubmit}>
               <div className="mb-6">
                 <label htmlFor="weeklyHours" className="block text-sm font-medium text-gray-700 mb-2">
-                  Or enter custom hours per week:
+                  Oder geben Sie individuelle Stunden pro Woche ein:
                 </label>
                 <div className="relative">
                   <input
@@ -135,10 +135,10 @@ const FirstLoginFlow = ({ onComplete }) => {
                     className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-lg"
                     required
                   />
-                  <span className="absolute right-4 top-3 text-gray-500 text-lg">hours/week</span>
+                  <span className="absolute right-4 top-3 text-gray-500 text-lg">Stunden/Woche</span>
                 </div>
                 <p className="text-xs text-gray-500 mt-2">
-                  Allowed range: 1-80 hours per week
+                  Erlaubter Bereich: 1-80 Stunden pro Woche
                 </p>
               </div>
 
@@ -170,10 +170,10 @@ const FirstLoginFlow = ({ onComplete }) => {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Saving...
+                    Speichert...
                   </span>
                 ) : (
-                  'Continue to Dashboard'
+                  'Weiter zum Dashboard'
                 )}
               </button>
             </form>
@@ -181,12 +181,12 @@ const FirstLoginFlow = ({ onComplete }) => {
 
           {/* Help Text */}
           <div className="bg-gray-50 rounded-lg p-4 mt-6">
-            <h4 className="font-semibold text-gray-800 mb-2">Why do we need this?</h4>
+            <h4 className="font-semibold text-gray-800 mb-2">Warum benötigen wir das?</h4>
             <ul className="text-sm text-gray-600 space-y-1 list-disc list-inside">
-              <li>Track your scheduled vs. worked hours</li>
-              <li>Prevent over-scheduling and burnout</li>
-              <li>Help admins plan team capacity</li>
-              <li>Ensure compliance with your employment contract</li>
+              <li>Verfolgen Sie Ihre geplanten vs. geleisteten Stunden</li>
+              <li>Überbuchung und Überlastung vermeiden</li>
+              <li>Administratoren bei der Teamkapazitätsplanung unterstützen</li>
+              <li>Einhaltung Ihres Arbeitsvertrags sicherstellen</li>
             </ul>
           </div>
         </div>

@@ -30,7 +30,7 @@ const FirstSetup = () => {
         }
       } catch (err) {
         console.error('Error checking first setup:', err);
-        setError('Could not connect to server. Please try again later.');
+        setError('Verbindung zum Server konnte nicht hergestellt werden. Bitte versuchen Sie es später erneut.');
         setSetupStatus('error');
       }
     };
@@ -52,31 +52,31 @@ const FirstSetup = () => {
 
     // Validate form
     if (!formData.name.trim()) {
-      setError('Name is required');
+      setError('Name ist erforderlich');
       setLoading(false);
       return;
     }
 
     if (!formData.email.trim()) {
-      setError('Email is required');
+      setError('E-Mail ist erforderlich');
       setLoading(false);
       return;
     }
 
     if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      setError('Please enter a valid email');
+      setError('Bitte geben Sie eine gültige E-Mail-Adresse ein');
       setLoading(false);
       return;
     }
 
     if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters');
+      setError('Passwort muss mindestens 6 Zeichen lang sein');
       setLoading(false);
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
+      setError('Passwörter stimmen nicht überein');
       setLoading(false);
       return;
     }
@@ -113,7 +113,7 @@ const FirstSetup = () => {
         const message = typeof responseError === 'string'
           ? responseError
           : responseError?.message;
-        setError(message || 'Registration failed. Please try again.');
+        setError(message || 'Registrierung fehlgeschlagen. Bitte versuchen Sie es erneut.');
       }
     } finally {
       setLoading(false);

@@ -99,10 +99,10 @@ const TaskPoolView = () => {
     try {
       await completeTask(taskPoolId, notes || '');
       loadData();
-      alert('Завдання завершено!');
+      alert('Aufgabe abgeschlossen!');
     } catch (error) {
       console.error('Error completing task:', error);
-      alert('Помилка при завершенні');
+      alert('Fehler beim Abschließen');
     }
   };
 
@@ -117,11 +117,11 @@ const TaskPoolView = () => {
   };
 
   const filterOptions = [
-    { value: 'available', label: 'Доступні', count: counts.available || 0 },
-    { value: 'my', label: 'Мої', count: myTasks.length },
-    { value: 'claimed', label: 'Взяті', count: counts.claimed || 0 },
-    { value: 'completed', label: 'Завершені', count: counts.completed || 0 },
-    { value: 'all', label: 'Всі', count: Object.values(counts).reduce((a, b) => a + b, 0) }
+    { value: 'available', label: 'Verfügbar', count: counts.available || 0 },
+    { value: 'my', label: 'Meine', count: myTasks.length },
+    { value: 'claimed', label: 'Genommen', count: counts.claimed || 0 },
+    { value: 'completed', label: 'Abgeschlossen', count: counts.completed || 0 },
+    { value: 'all', label: 'Alle', count: Object.values(counts).reduce((a, b) => a + b, 0) }
   ];
 
   if (loading) {
@@ -138,8 +138,8 @@ const TaskPoolView = () => {
     <div className="p-4 sm:p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Завдання на сьогодні</h1>
-        <p className="text-gray-600">Оберіть завдання або запросіть допомогу від колег</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Aufgaben für heute</h1>
+        <p className="text-gray-600">Wählen Sie eine Aufgabe aus oder bitten Sie Kollegen um Hilfe</p>
       </div>
 
       {/* Help Requests Alert */}
@@ -147,14 +147,14 @@ const TaskPoolView = () => {
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
           <div className="flex items-center gap-2 mb-2">
             <AlertCircle className="w-5 h-5 text-yellow-600" />
-            <h3 className="font-semibold text-yellow-900">Запити допомоги ({helpRequests.length})</h3>
+            <h3 className="font-semibold text-yellow-900">Hilfeanfragen ({helpRequests.length})</h3>
           </div>
           <div className="space-y-2">
             {helpRequests.map(request => (
               <div key={request.id} className="flex items-center justify-between bg-white p-3 rounded border border-yellow-200">
                 <div>
                   <p className="font-medium text-sm">{request.task_title}</p>
-                  <p className="text-xs text-gray-600">від {request.requested_by_name}</p>
+                  <p className="text-xs text-gray-600">von {request.requested_by_name}</p>
                   {request.message && <p className="text-xs text-gray-500 mt-1">{request.message}</p>}
                 </div>
                 <div className="flex gap-2">
@@ -162,13 +162,13 @@ const TaskPoolView = () => {
                     onClick={() => handleRespondToHelp(request.id, 'accept')}
                     className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition text-sm"
                   >
-                    Прийняти
+                    Annehmen
                   </button>
                   <button
                     onClick={() => handleRespondToHelp(request.id, 'decline')}
                     className="px-3 py-1 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition text-sm"
                   >
-                    Відхилити
+                    Ablehnen
                   </button>
                 </div>
               </div>
@@ -203,7 +203,7 @@ const TaskPoolView = () => {
       {displayTasks.length === 0 ? (
         <div className="text-center py-12">
           <ClipboardCheck className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-500 text-lg">Немає завдань</p>
+          <p className="text-gray-500 text-lg">Keine Aufgaben</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -217,7 +217,7 @@ const TaskPoolView = () => {
                 {task.estimated_duration && (
                   <div className="flex items-center gap-1 text-xs text-gray-500">
                     <Clock className="w-3 h-3" />
-                    <span>{task.estimated_duration} хв</span>
+                    <span>{task.estimated_duration} Min</span>
                   </div>
                 )}
               </div>
@@ -244,12 +244,12 @@ const TaskPoolView = () => {
                       onClick={() => handleClaimTask(task.id)}
                       className="flex-1 px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition text-sm font-medium"
                     >
-                      Взяти завдання
+                      Aufgabe übernehmen
                     </button>
                     <button
                       onClick={() => setShowHelpModal(task.id)}
                       className="px-3 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition"
-                      title="Запросити допомогу"
+                      title="Hilfe anfordern"
                     >
                       <Users className="w-4 h-4" />
                     </button>
@@ -262,13 +262,13 @@ const TaskPoolView = () => {
                     className="flex-1 px-3 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition text-sm font-medium flex items-center justify-center gap-2"
                   >
                     <CheckCircle className="w-4 h-4" />
-                    <span>Завершити</span>
+                    <span>Abschließen</span>
                   </button>
                 )}
 
                 {task.status === 'completed' && (
                   <div className="flex-1 px-3 py-2 bg-gray-100 text-gray-500 rounded text-sm font-medium text-center">
-                    ✓ Завершено
+                    ✓ Abgeschlossen
                   </div>
                 )}
               </div>
@@ -281,17 +281,17 @@ const TaskPoolView = () => {
       {showHelpModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-bold mb-4">Запросити допомогу</h3>
+            <h3 className="text-lg font-bold mb-4">Hilfe anfordern</h3>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Обрати колегу</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Kollegen auswählen</label>
                 <select
                   value={selectedUser}
                   onChange={(e) => setSelectedUser(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="">-- Оберіть --</option>
+                  <option value="">-- Auswählen --</option>
                   {users.filter(u => u.id !== user.id).map(u => (
                     <option key={u.id} value={u.id}>{u.name}</option>
                   ))}
@@ -299,11 +299,11 @@ const TaskPoolView = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Повідомлення</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Nachricht</label>
                 <textarea
                   value={helpMessage}
                   onChange={(e) => setHelpMessage(e.target.value)}
-                  placeholder="Опишіть чим потрібна допомога..."
+                  placeholder="Beschreiben Sie, wobei Sie Hilfe benötigen..."
                   rows="3"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
@@ -315,7 +315,7 @@ const TaskPoolView = () => {
                 onClick={() => handleRequestHelp(showHelpModal)}
                 className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-medium"
               >
-                Надіслати
+                Senden
               </button>
               <button
                 onClick={() => {
@@ -325,7 +325,7 @@ const TaskPoolView = () => {
                 }}
                 className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
               >
-                Скасувати
+                Abbrechen
               </button>
             </div>
           </div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bell, Check, CheckCheck, X, Trash2, MessageSquare, AtSign, ThumbsUp, Calendar, ClipboardList } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { uk } from 'date-fns/locale';
+import { de } from 'date-fns/locale';
 import {
   getNotifications,
   getUnreadCount,
@@ -23,7 +23,7 @@ const NotificationDropdown = ({ socket }) => {
     if (!notification) return null;
 
     const normalizedContent = notification.content || notification.body || notification.message || '';
-    const normalizedTitle = notification.title || 'Сповіщення';
+    const normalizedTitle = notification.title || 'Benachrichtigung';
 
     return {
       ...notification,
@@ -161,11 +161,11 @@ const NotificationDropdown = ({ socket }) => {
   };
 
   const filterOptions = [
-    { value: 'all', label: 'Усі' },
-    { value: 'unread', label: 'Непрочитані' },
-    { value: 'message', label: 'Повідомлення' },
-    { value: 'mention', label: 'Згадки' },
-    { value: 'task_assigned', label: 'Завдання' }
+    { value: 'all', label: 'Alle' },
+    { value: 'unread', label: 'Ungelesen' },
+    { value: 'message', label: 'Nachrichten' },
+    { value: 'mention', label: 'Erwähnungen' },
+    { value: 'task_assigned', label: 'Aufgaben' }
   ];
 
   return (
@@ -186,14 +186,14 @@ const NotificationDropdown = ({ socket }) => {
         <div className="absolute right-0 mt-2 w-screen max-w-md sm:w-96 bg-white rounded-lg shadow-2xl border border-gray-200 z-50 max-h-[80vh] flex flex-col">
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-semibold">Сповіщення</h3>
+              <h3 className="text-lg font-semibold">Benachrichtigungen</h3>
               <div className="flex items-center gap-2">
                 {unreadCount > 0 && (
-                  <button onClick={handleMarkAllAsRead} className="text-blue-600 hover:text-blue-700 transition" title="Позначити всі">
+                  <button onClick={handleMarkAllAsRead} className="text-blue-600 hover:text-blue-700 transition" title="Alle markieren">
                     <CheckCheck className="w-5 h-5" />
                   </button>
                 )}
-                <button onClick={handleClearAll} className="text-gray-600 hover:text-gray-700 transition" title="Очистити">
+                <button onClick={handleClearAll} className="text-gray-600 hover:text-gray-700 transition" title="Löschen">
                   <Trash2 className="w-5 h-5" />
                 </button>
               </div>
@@ -218,12 +218,12 @@ const NotificationDropdown = ({ socket }) => {
             {loading ? (
               <div className="p-8 text-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-                <p className="mt-2 text-sm text-gray-500">Завантаження...</p>
+                <p className="mt-2 text-sm text-gray-500">Laden...</p>
               </div>
             ) : notifications.length === 0 ? (
               <div className="p-8 text-center">
                 <Bell className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                <p className="text-gray-500">Немає сповіщень</p>
+                <p className="text-gray-500">Keine Benachrichtigungen</p>
               </div>
             ) : (
               <div className="divide-y divide-gray-100">
@@ -258,7 +258,7 @@ const NotificationDropdown = ({ socket }) => {
 
                         <div className="flex items-center justify-between mt-2">
                           <span className="text-xs text-gray-500">
-                            {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true, locale: uk })}
+                            {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true, locale: de })}
                           </span>
 
                           {!notification.is_read && (
@@ -266,7 +266,7 @@ const NotificationDropdown = ({ socket }) => {
                               onClick={(e) => { e.stopPropagation(); handleMarkAsRead(notification.id); }}
                               className="text-xs text-blue-600 hover:text-blue-700 transition"
                             >
-                              Позначити
+                              Markieren
                             </button>
                           )}
                         </div>
@@ -285,7 +285,7 @@ const NotificationDropdown = ({ socket }) => {
           {notifications.length > 0 && (
             <div className="p-3 border-t border-gray-200 bg-gray-50">
               <p className="text-xs text-center text-gray-500">
-                {unreadCount > 0 ? `${unreadCount} непрочитан${unreadCount === 1 ? 'е' : 'их'}` : 'Всі сповіщення прочитані'}
+                {unreadCount > 0 ? `${unreadCount} ungelesen${unreadCount === 1 ? 'e' : ''}` : 'Alle Benachrichtigungen gelesen'}
               </p>
             </div>
           )}
