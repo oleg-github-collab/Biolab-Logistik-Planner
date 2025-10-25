@@ -20,7 +20,6 @@ router.get('/', auth, async (req, res) => {
       FROM notifications n
       LEFT JOIN users u ON n.related_user_id = u.id
       WHERE n.user_id = $1
-        AND (n.expires_at IS NULL OR n.expires_at > CURRENT_TIMESTAMP)
     `;
 
     const params = [req.user.id];
