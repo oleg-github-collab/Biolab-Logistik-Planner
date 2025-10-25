@@ -9,13 +9,13 @@ const FirstLoginFlow = ({ onComplete }) => {
   const [weeklyHours, setWeeklyHours] = useState(
     user?.employment_type === 'Vollzeit' ? 40 : 20
   );
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   // Don't render if no user context
   if (!state || !user) {
     return null;
   }
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
