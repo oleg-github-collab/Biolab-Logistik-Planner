@@ -8,6 +8,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Messages from './pages/Messages';
 import Waste from './pages/Waste';
+import Schedule from './pages/Schedule';
 import FirstSetup from './pages/FirstSetup';
 import UserManagement from './pages/UserManagement';
 import Admin from './pages/Admin';
@@ -146,6 +147,17 @@ const AppContent = () => {
                   <>
                     <Header />
                     <Waste />
+                  </>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/schedule"
+              element={
+                <ProtectedRoute>
+                  <>
+                    <Header />
+                    <Schedule />
                   </>
                 </ProtectedRoute>
               }

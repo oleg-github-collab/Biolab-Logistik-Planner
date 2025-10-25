@@ -70,6 +70,25 @@ const NAV_ITEMS = [
     )
   },
   {
+    to: '/schedule',
+    label: 'Stunden',
+    permission: 'schedule:read',
+    icon: (active) => (
+      <svg
+        className={active ? 'h-5 w-5 text-blue-600' : 'h-5 w-5 text-slate-400'}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <polyline points="12 6 12 12 16 14" />
+      </svg>
+    )
+  },
+  {
     to: '/users',
     label: 'Benutzer',
     permission: 'user:read',
