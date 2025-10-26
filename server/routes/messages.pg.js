@@ -52,12 +52,13 @@ router.get('/conversations', auth, async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT DISTINCT ON (other_user_id)
-         other_user_id as user_id,
+         other_user_id as id,
          other_user_name as name,
+         other_user_email as email,
          other_user_role as role,
-         last_message,
-         last_message_time,
-         unread_count
+         last_message as lastMessage,
+         last_message_time as lastMessageTime,
+         unread_count as unreadCount
        FROM (
          SELECT
            CASE
@@ -68,6 +69,10 @@ router.get('/conversations', auth, async (req, res) => {
              WHEN m.sender_id = $1 THEN recipient.name
              ELSE sender.name
            END as other_user_name,
+           CASE
+             WHEN m.sender_id = $1 THEN recipient.email
+             ELSE sender.email
+           END as other_user_email,
            CASE
              WHEN m.sender_id = $1 THEN recipient.role
              ELSE sender.role
@@ -106,6 +111,53 @@ router.get('/conversations', auth, async (req, res) => {
   }
 });
 
+// @route   GET /api/messages/conversation/:userId
+// @desc    Get all messages in a conversation with a specific user
+router.get('/conversation/:userId', auth, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const otherUserId = parseInt(userId);
+
+    const result = await pool.query(
+      `SELECT m.*,
+         sender.name as sender_name,
+         sender.role as sender_role,
+         recipient.name as recipient_name,
+         COALESCE(
+           (SELECT json_agg(json_build_object('emoji', emoji, 'count', count, 'user_ids', user_ids))
+            FROM (
+              SELECT emoji, COUNT(*) as count, array_agg(user_id) as user_ids
+              FROM message_reactions
+              WHERE message_id = m.id
+              GROUP BY emoji
+            ) reactions),
+           '[]'::json
+         ) as reactions
+       FROM messages m
+       LEFT JOIN users sender ON m.sender_id = sender.id
+       LEFT JOIN users recipient ON m.receiver_id = recipient.id
+       WHERE (m.sender_id = $1 AND m.receiver_id = $2)
+          OR (m.sender_id = $2 AND m.receiver_id = $1)
+       ORDER BY m.created_at ASC`,
+      [req.user.id, otherUserId]
+    );
+
+    // Mark messages as read
+    await pool.query(
+      `UPDATE messages
+       SET read_status = true, read_at = CURRENT_TIMESTAMP
+       WHERE sender_id = $1 AND receiver_id = $2 AND read_status = false`,
+      [otherUserId, req.user.id]
+    );
+
+    res.json(result.rows);
+
+  } catch (error) {
+    logger.error('Error fetching conversation messages', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
 // @route   GET /api/messages/unread-count
 // @desc    Get count of unread messages
 router.get('/unread-count', auth, async (req, res) => {
@@ -119,6 +171,42 @@ router.get('/unread-count', auth, async (req, res) => {
 
   } catch (error) {
     logger.error('Error fetching unread count', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// @route   POST /api/messages/start
+// @desc    Start a conversation with a user
+router.post('/start', auth, async (req, res) => {
+  try {
+    const { receiver_id } = req.body;
+
+    if (!receiver_id) {
+      return res.status(400).json({ error: 'Empfänger-ID ist erforderlich' });
+    }
+
+    // Get user info
+    const userResult = await pool.query(
+      'SELECT id, name, email, role FROM users WHERE id = $1',
+      [receiver_id]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Benutzer nicht gefunden' });
+    }
+
+    const user = userResult.rows[0];
+
+    // Return conversation object
+    res.json({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role
+    });
+
+  } catch (error) {
+    logger.error('Error starting conversation', error);
     res.status(500).json({ error: 'Serverfehler' });
   }
 });

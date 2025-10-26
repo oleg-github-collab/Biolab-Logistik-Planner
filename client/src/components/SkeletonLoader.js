@@ -1,14 +1,14 @@
 import React from 'react';
 
 /**
- * Компонент для відображення skeleton екранів під час завантаження
+ * Komponente zur Anzeige von Skeleton-Bildschirmen während des Ladens
  *
  * @param {Object} props
- * @param {string} props.variant - Тип skeleton: 'card', 'list', 'table', 'text', 'avatar', 'custom'
- * @param {number} props.count - Кількість елементів для повторення
- * @param {boolean} props.animate - Чи показувати shimmer анімацію
- * @param {string} props.className - Додаткові CSS класи
- * @param {Object} props.customConfig - Кастомна конфігурація для складних layout
+ * @param {string} props.variant - Skeleton-Typ: 'card', 'list', 'table', 'text', 'avatar', 'custom'
+ * @param {number} props.count - Anzahl der zu wiederholenden Elemente
+ * @param {boolean} props.animate - Ob Shimmer-Animation angezeigt werden soll
+ * @param {string} props.className - Zusätzliche CSS-Klassen
+ * @param {Object} props.customConfig - Benutzerdefinierte Konfiguration für komplexe Layouts
  */
 const SkeletonLoader = ({
   variant = 'card',
@@ -17,10 +17,10 @@ const SkeletonLoader = ({
   className = '',
   customConfig = null
 }) => {
-  // Базовий клас для skeleton елементів
+  // Basisklasse für Skeleton-Elemente
   const baseSkeletonClass = `bg-gray-200 rounded ${animate ? 'animate-shimmer' : ''}`;
 
-  // Shimmer ефект через градієнт
+  // Shimmer-Effekt durch Gradient
   const shimmerStyle = animate ? {
     backgroundImage: 'linear-gradient(90deg, #f0f0f0 0%, #e0e0e0 20%, #f0f0f0 40%, #f0f0f0 100%)',
     backgroundSize: '200% 100%',
@@ -105,7 +105,7 @@ const SkeletonLoader = ({
     </div>
   );
 
-  // Text skeleton (для параграфів)
+  // Text skeleton (für Absätze)
   const TextSkeleton = ({ lines = 3 }) => (
     <div className={`space-y-2 ${className}`}>
       {[...Array(lines)].map((_, index) => (
@@ -174,7 +174,7 @@ const SkeletonLoader = ({
     </div>
   );
 
-  // Custom skeleton на основі конфігурації
+  // Custom skeleton basierend auf Konfiguration
   const CustomSkeleton = () => {
     if (!customConfig) return null;
 
@@ -196,7 +196,7 @@ const SkeletonLoader = ({
     );
   };
 
-  // Вибір варіанту
+  // Auswahl der Variante
   const renderVariant = () => {
     switch (variant) {
       case 'list':
@@ -219,7 +219,7 @@ const SkeletonLoader = ({
     }
   };
 
-  // Повторення елементів якщо count > 1
+  // Wiederholung von Elementen wenn count > 1
   if (count > 1 && !['table', 'list', 'dashboard'].includes(variant)) {
     return (
       <div className="space-y-4">
@@ -235,7 +235,7 @@ const SkeletonLoader = ({
   return renderVariant();
 };
 
-// CSS для shimmer анімації (додати в global CSS або tailwind config)
+// CSS für Shimmer-Animation (in global CSS oder tailwind config hinzufügen)
 const shimmerStyles = `
 @keyframes shimmer {
   0% {

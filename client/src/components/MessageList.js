@@ -22,7 +22,7 @@ const MessageList = ({ messages, currentUserId }) => {
       {displayedMessages.length === 0 ? (
         <div className="text-center text-gray-500 py-8">
           <p>Keine Nachrichten vorhanden</p>
-          <p className="text-sm mt-2">Beginne eine Unterhaltung mit deinen Kollegen</p>
+          <p className="text-sm mt-2">Beginnen Sie eine Unterhaltung mit Ihren Kollegen</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -40,12 +40,12 @@ const MessageList = ({ messages, currentUserId }) => {
               >
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-xs font-medium">
-                    {isCurrentUser(message) ? 'Du' : message.sender_name}
+                    {isCurrentUser(message) ? 'Sie' : message.sender_name}
                   </span>
                   <span className="text-xs opacity-75">
-                    {formatDistanceToNow(new Date(message.created_at), { 
-                      addSuffix: true, 
-                      locale: de 
+                    {formatDistanceToNow(new Date(message.created_at), {
+                      addSuffix: true,
+                      locale: de
                     })}
                   </span>
                 </div>

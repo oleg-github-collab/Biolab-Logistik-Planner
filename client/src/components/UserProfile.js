@@ -86,10 +86,10 @@ const UserProfile = ({ userId, onClose }) => {
       setProfile({ ...profile, profile_photo: response.data.photo_url });
       setPhotoFile(null);
       setPhotoPreview(null);
-      alert('Фото успішно завантажено!');
+      alert('Foto erfolgreich hochgeladen!');
     } catch (error) {
       console.error('Error uploading photo:', error);
-      alert('Помилка завантаження фото');
+      alert('Fehler beim Hochladen des Fotos');
     } finally {
       setSaving(false);
     }
@@ -101,10 +101,10 @@ const UserProfile = ({ userId, onClose }) => {
       await updateUserProfile(userId, formData);
       setProfile({ ...profile, ...formData });
       setEditing(false);
-      alert('Профіль оновлено!');
+      alert('Profil aktualisiert!');
     } catch (error) {
       console.error('Error saving profile:', error);
-      alert('Помилка збереження профілю');
+      alert('Fehler beim Speichern des Profils');
     } finally {
       setSaving(false);
     }
@@ -114,10 +114,10 @@ const UserProfile = ({ userId, onClose }) => {
     try {
       setSaving(true);
       await updateUserPreferences(userId, preferences);
-      alert('Налаштування збережено!');
+      alert('Einstellungen gespeichert!');
     } catch (error) {
       console.error('Error saving preferences:', error);
-      alert('Помилка збереження налаштувань');
+      alert('Fehler beim Speichern der Einstellungen');
     } finally {
       setSaving(false);
     }
@@ -128,7 +128,7 @@ const UserProfile = ({ userId, onClose }) => {
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div className="bg-white rounded-lg p-8">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Завантаження профілю...</p>
+          <p className="mt-4 text-gray-600">Profil wird geladen...</p>
         </div>
       </div>
     );
@@ -199,7 +199,7 @@ const UserProfile = ({ userId, onClose }) => {
                 disabled={saving}
                 className="px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 disabled:opacity-50 transition text-sm"
               >
-                Зберегти фото
+                Foto speichern
               </button>
               <button
                 onClick={() => {
@@ -208,7 +208,7 @@ const UserProfile = ({ userId, onClose }) => {
                 }}
                 className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-sm"
               >
-                Скасувати
+                Abbrechen
               </button>
             </div>
           )}
@@ -218,9 +218,9 @@ const UserProfile = ({ userId, onClose }) => {
         <div className="border-b border-gray-200 bg-gray-50">
           <div className="flex overflow-x-auto">
             {[
-              { id: 'profile', label: 'Профіль', icon: <Eye className="w-4 h-4" /> },
-              { id: 'preferences', label: 'Налаштування', icon: <Bell className="w-4 h-4" /> },
-              { id: 'contact', label: 'Контакти', icon: <Globe className="w-4 h-4" /> }
+              { id: 'profile', label: 'Profil', icon: <Eye className="w-4 h-4" /> },
+              { id: 'preferences', label: 'Einstellungen', icon: <Bell className="w-4 h-4" /> },
+              { id: 'contact', label: 'Kontakte', icon: <Globe className="w-4 h-4" /> }
             ].map(tab => (
               <button
                 key={tab.id}
@@ -243,7 +243,7 @@ const UserProfile = ({ userId, onClose }) => {
           {activeTab === 'profile' && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
-                <h3 className="text-xl font-semibold">Інформація профілю</h3>
+                <h3 className="text-xl font-semibold">Profilinformationen</h3>
                 <button
                   onClick={() => editing ? handleSaveProfile() : setEditing(true)}
                   disabled={saving}
@@ -252,17 +252,17 @@ const UserProfile = ({ userId, onClose }) => {
                   {editing ? (
                     <>
                       <Save className="w-4 h-4" />
-                      <span>Зберегти</span>
+                      <span>Speichern</span>
                     </>
                   ) : (
-                    <span>Редагувати</span>
+                    <span>Bearbeiten</span>
                   )}
                 </button>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Ім'я</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
                   <input
                     type="text"
                     value={formData.name}
@@ -273,34 +273,34 @@ const UserProfile = ({ userId, onClose }) => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Статус</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
                   <select
                     value={formData.status}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                     disabled={!editing}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
                   >
-                    <option value="available">Доступний</option>
-                    <option value="busy">Зайнятий</option>
-                    <option value="away">Відсутній</option>
-                    <option value="offline">Офлайн</option>
+                    <option value="available">Verfügbar</option>
+                    <option value="busy">Beschäftigt</option>
+                    <option value="away">Abwesend</option>
+                    <option value="offline">Offline</option>
                   </select>
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Повідомлення статусу</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Statusnachricht</label>
                   <input
                     type="text"
                     value={formData.status_message}
                     onChange={(e) => setFormData({ ...formData, status_message: e.target.value })}
                     disabled={!editing}
-                    placeholder="Наприклад: На нараді до 14:00"
+                    placeholder="Zum Beispiel: In Besprechung bis 14:00"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
                   />
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Біо</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Biografie</label>
                   <textarea
                     value={formData.bio}
                     onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
@@ -311,7 +311,7 @@ const UserProfile = ({ userId, onClose }) => {
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Опис посади</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Positionsbeschreibung</label>
                   <textarea
                     value={formData.position_description}
                     onChange={(e) => setFormData({ ...formData, position_description: e.target.value })}
@@ -322,7 +322,7 @@ const UserProfile = ({ userId, onClose }) => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Телефон</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Telefon</label>
                   <input
                     type="tel"
                     value={formData.phone}
@@ -333,7 +333,7 @@ const UserProfile = ({ userId, onClose }) => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Мобільний</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Mobiltelefon</label>
                   <input
                     type="tel"
                     value={formData.phone_mobile}
@@ -344,7 +344,7 @@ const UserProfile = ({ userId, onClose }) => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Контакт екстреної ситуації</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Notfallkontakt</label>
                   <input
                     type="text"
                     value={formData.emergency_contact}
@@ -355,7 +355,7 @@ const UserProfile = ({ userId, onClose }) => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Телефон екстреної ситуації</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Notfalltelefon</label>
                   <input
                     type="tel"
                     value={formData.emergency_phone}
@@ -366,7 +366,7 @@ const UserProfile = ({ userId, onClose }) => {
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Адреса</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Adresse</label>
                   <input
                     type="text"
                     value={formData.address}
@@ -377,7 +377,7 @@ const UserProfile = ({ userId, onClose }) => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Часовий пояс</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Zeitzone</label>
                   <select
                     value={formData.timezone}
                     onChange={(e) => setFormData({ ...formData, timezone: e.target.value })}
@@ -391,7 +391,7 @@ const UserProfile = ({ userId, onClose }) => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Мова</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Sprache</label>
                   <select
                     value={formData.language}
                     onChange={(e) => setFormData({ ...formData, language: e.target.value })}
@@ -405,16 +405,16 @@ const UserProfile = ({ userId, onClose }) => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Тема</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Theme</label>
                   <select
                     value={formData.theme}
                     onChange={(e) => setFormData({ ...formData, theme: e.target.value })}
                     disabled={!editing}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
                   >
-                    <option value="light">Світла</option>
-                    <option value="dark">Темна</option>
-                    <option value="auto">Авто</option>
+                    <option value="light">Hell</option>
+                    <option value="dark">Dunkel</option>
+                    <option value="auto">Automatisch</option>
                   </select>
                 </div>
               </div>
@@ -424,26 +424,26 @@ const UserProfile = ({ userId, onClose }) => {
           {activeTab === 'preferences' && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
-                <h3 className="text-xl font-semibold">Налаштування сповіщень</h3>
+                <h3 className="text-xl font-semibold">Benachrichtigungseinstellungen</h3>
                 <button
                   onClick={handleSavePreferences}
                   disabled={saving}
                   className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 transition"
                 >
                   <Save className="w-4 h-4" />
-                  <span>Зберегти</span>
+                  <span>Speichern</span>
                 </button>
               </div>
 
               <div className="space-y-4">
                 <div className="bg-gray-50 p-4 rounded-lg">
-                  <h4 className="font-medium mb-3">Типи сповіщень</h4>
+                  <h4 className="font-medium mb-3">Benachrichtigungstypen</h4>
                   <div className="space-y-2">
                     {[
-                      { key: 'email_notifications', label: 'Email сповіщення' },
-                      { key: 'push_notifications', label: 'Push сповіщення' },
-                      { key: 'desktop_notifications', label: 'Desktop сповіщення' },
-                      { key: 'sound_enabled', label: 'Звукові сповіщення' },
+                      { key: 'email_notifications', label: 'E-Mail-Benachrichtigungen' },
+                      { key: 'push_notifications', label: 'Push-Benachrichtigungen' },
+                      { key: 'desktop_notifications', label: 'Desktop-Benachrichtigungen' },
+                      { key: 'sound_enabled', label: 'Audiobenachrichtigungen' },
                     ].map(item => (
                       <label key={item.key} className="flex items-center space-x-3 cursor-pointer">
                         <input
@@ -459,14 +459,14 @@ const UserProfile = ({ userId, onClose }) => {
                 </div>
 
                 <div className="bg-gray-50 p-4 rounded-lg">
-                  <h4 className="font-medium mb-3">Сповіщати про</h4>
+                  <h4 className="font-medium mb-3">Benachrichtigen über</h4>
                   <div className="space-y-2">
                     {[
-                      { key: 'notify_messages', label: 'Нові повідомлення' },
-                      { key: 'notify_tasks', label: 'Завдання' },
-                      { key: 'notify_mentions', label: 'Згадки (@)' },
-                      { key: 'notify_reactions', label: 'Реакції' },
-                      { key: 'notify_calendar', label: 'Події календаря' },
+                      { key: 'notify_messages', label: 'Neue Nachrichten' },
+                      { key: 'notify_tasks', label: 'Aufgaben' },
+                      { key: 'notify_mentions', label: 'Erwähnungen (@)' },
+                      { key: 'notify_reactions', label: 'Reaktionen' },
+                      { key: 'notify_calendar', label: 'Kalendertermine' },
                     ].map(item => (
                       <label key={item.key} className="flex items-center space-x-3 cursor-pointer">
                         <input
@@ -482,12 +482,12 @@ const UserProfile = ({ userId, onClose }) => {
                 </div>
 
                 <div className="bg-gray-50 p-4 rounded-lg">
-                  <h4 className="font-medium mb-3">Відображення</h4>
+                  <h4 className="font-medium mb-3">Anzeige</h4>
                   <div className="space-y-2">
                     {[
-                      { key: 'compact_view', label: 'Компактний вигляд' },
-                      { key: 'show_avatars', label: 'Показувати аватари' },
-                      { key: 'message_preview', label: 'Попередній перегляд повідомлень' },
+                      { key: 'compact_view', label: 'Kompakte Ansicht' },
+                      { key: 'show_avatars', label: 'Avatare anzeigen' },
+                      { key: 'message_preview', label: 'Nachrichtenvorschau' },
                     ].map(item => (
                       <label key={item.key} className="flex items-center space-x-3 cursor-pointer">
                         <input
@@ -510,13 +510,13 @@ const UserProfile = ({ userId, onClose }) => {
                       onChange={(e) => setPreferences({ ...preferences, quiet_hours_enabled: e.target.checked })}
                       className="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
                     />
-                    <h4 className="font-medium">Тиха година (не турбувати)</h4>
+                    <h4 className="font-medium">Ruhezeiten (Nicht stören)</h4>
                   </div>
 
                   {preferences.quiet_hours_enabled && (
                     <div className="grid grid-cols-2 gap-4 mt-3">
                       <div>
-                        <label className="block text-sm text-gray-600 mb-1">Початок</label>
+                        <label className="block text-sm text-gray-600 mb-1">Beginn</label>
                         <input
                           type="time"
                           value={preferences.quiet_hours_start}
@@ -525,7 +525,7 @@ const UserProfile = ({ userId, onClose }) => {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm text-gray-600 mb-1">Кінець</label>
+                        <label className="block text-sm text-gray-600 mb-1">Ende</label>
                         <input
                           type="time"
                           value={preferences.quiet_hours_end}
@@ -542,23 +542,23 @@ const UserProfile = ({ userId, onClose }) => {
 
           {activeTab === 'contact' && (
             <div className="space-y-4">
-              <h3 className="text-xl font-semibold">Контактна інформація</h3>
+              <h3 className="text-xl font-semibold">Kontaktinformationen</h3>
               <div className="bg-gray-50 p-4 rounded-lg space-y-3">
                 <div>
-                  <span className="text-sm text-gray-600">Email:</span>
+                  <span className="text-sm text-gray-600">E-Mail:</span>
                   <p className="font-medium">{profile?.email}</p>
                 </div>
                 <div>
-                  <span className="text-sm text-gray-600">Телефон:</span>
-                  <p className="font-medium">{profile?.phone || 'Не вказано'}</p>
+                  <span className="text-sm text-gray-600">Telefon:</span>
+                  <p className="font-medium">{profile?.phone || 'Nicht angegeben'}</p>
                 </div>
                 <div>
-                  <span className="text-sm text-gray-600">Мобільний:</span>
-                  <p className="font-medium">{profile?.phone_mobile || 'Не вказано'}</p>
+                  <span className="text-sm text-gray-600">Mobiltelefon:</span>
+                  <p className="font-medium">{profile?.phone_mobile || 'Nicht angegeben'}</p>
                 </div>
                 <div>
-                  <span className="text-sm text-gray-600">Адреса:</span>
-                  <p className="font-medium">{profile?.address || 'Не вказано'}</p>
+                  <span className="text-sm text-gray-600">Adresse:</span>
+                  <p className="font-medium">{profile?.address || 'Nicht angegeben'}</p>
                 </div>
               </div>
             </div>

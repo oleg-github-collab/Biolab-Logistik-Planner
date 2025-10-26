@@ -24,9 +24,9 @@ const MessageInput = ({ onSend, users, currentUserId }) => {
               onChange={(e) => setIsGroup(e.target.checked)}
               className="mr-2"
             />
-            <span className="text-sm font-medium">Gruppen-Nachricht</span>
+            <span className="text-sm font-medium">Gruppennachricht</span>
           </label>
-          
+
           {!isGroup && (
             <div className="mt-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -37,7 +37,7 @@ const MessageInput = ({ onSend, users, currentUserId }) => {
                 onChange={(e) => setSelectedUser(e.target.value)}
                 className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-biolab-blue focus:border-transparent"
               >
-                <option value="">-- Wähle einen Empfänger --</option>
+                <option value="">-- Empfänger auswählen --</option>
                 {users
                   .filter(user => user.id !== currentUserId)
                   .map(user => (
@@ -49,16 +49,16 @@ const MessageInput = ({ onSend, users, currentUserId }) => {
             </div>
           )}
         </div>
-        
+
         <div className="flex gap-2">
           <input
             type="text"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             placeholder={
-              isGroup 
-                ? "Schreibe eine Gruppen-Nachricht..." 
-                : "Schreibe eine Nachricht..."
+              isGroup
+                ? "Gruppennachricht eingeben..."
+                : "Nachricht eingeben..."
             }
             className="flex-1 p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-biolab-blue focus:border-transparent"
           />

@@ -90,11 +90,11 @@ const WasteDisposalPlanner = () => {
         const data = await response.json();
         setSchedules(data);
       } else {
-        toast.error('Failed to load disposal schedules');
+        toast.error('Fehler beim Laden der Entsorgungstermine');
       }
     } catch (error) {
       console.error('Error loading schedules:', error);
-      toast.error('Error loading schedules');
+      toast.error('Fehler beim Laden der Termine');
     } finally {
       setLoading(false);
     }
@@ -181,7 +181,7 @@ const WasteDisposalPlanner = () => {
   // Handle event drag and drop (reschedule)
   const handleEventDrop = async ({ event, start, end }) => {
     if (!hasPermission('waste:update')) {
-      toast.error('You do not have permission to reschedule disposals');
+      toast.error('Sie haben keine Berechtigung, Entsorgungen neu zu planen');
       return;
     }
 
@@ -200,7 +200,7 @@ const WasteDisposalPlanner = () => {
         const conflictData = await conflictResponse.json();
         if (conflictData.hasConflict) {
           const confirmReschedule = window.confirm(
-            `Warning: ${conflictData.count} disposals already scheduled for this day (max recommended: ${conflictData.maxPerDay}). Continue?`
+            `Warnung: ${conflictData.count} Entsorgungen sind bereits für diesen Tag geplant (Maximal empfohlen: ${conflictData.maxPerDay}). Fortfahren?`
           );
           if (!confirmReschedule) return;
         }
@@ -219,7 +219,7 @@ const WasteDisposalPlanner = () => {
       });
 
       if (response.ok) {
-        toast.success('Disposal rescheduled successfully');
+        toast.success('Entsorgung erfolgreich neu geplant');
         loadSchedules();
 
         // Send notification to assigned user
@@ -230,11 +230,11 @@ const WasteDisposalPlanner = () => {
           );
         }
       } else {
-        toast.error('Failed to reschedule disposal');
+        toast.error('Fehler beim Neuplanung der Entsorgung');
       }
     } catch (error) {
       console.error('Error rescheduling disposal:', error);
-      toast.error('Error rescheduling disposal');
+      toast.error('Fehler beim Neuplanung der Entsorgung');
     }
   };
 
@@ -247,7 +247,7 @@ const WasteDisposalPlanner = () => {
   // Handle slot click (create new event)
   const handleSlotClick = (slotInfo) => {
     if (!hasPermission('waste:create')) {
-      toast.error('You do not have permission to create disposal schedules');
+      toast.error('Sie haben keine Berechtigung, Entsorgungstermine zu erstellen');
       return;
     }
 
@@ -286,29 +286,29 @@ const WasteDisposalPlanner = () => {
       });
 
       if (response.ok) {
-        toast.success('Disposal schedule created successfully');
+        toast.success('Entsorgungstermin erfolgreich erstellt');
         setShowCreateModal(false);
         loadSchedules();
         resetForm();
       } else {
-        toast.error('Failed to create disposal schedule');
+        toast.error('Fehler beim Erstellen des Entsorgungstermins');
       }
     } catch (error) {
       console.error('Error creating schedule:', error);
-      toast.error('Error creating schedule');
+      toast.error('Fehler beim Erstellen des Termins');
     }
   };
 
   // Batch create schedules
   const handleBatchCreate = async () => {
     if (!hasPermission('waste:create')) {
-      toast.error('You do not have permission to create disposal schedules');
+      toast.error('Sie haben keine Berechtigung, Entsorgungstermine zu erstellen');
       return;
     }
 
     const selectedWasteItems = wasteItems.filter(item => item.selected);
     if (selectedWasteItems.length === 0) {
-      toast.error('Please select at least one waste item');
+      toast.error('Bitte wählen Sie mindestens eine Abfallart aus');
       return;
     }
 
@@ -338,11 +338,11 @@ const WasteDisposalPlanner = () => {
         }
         loadSchedules();
       } else {
-        toast.error('Failed to batch create schedules');
+        toast.error('Fehler beim Erstellen mehrerer Termine');
       }
     } catch (error) {
       console.error('Error batch creating schedules:', error);
-      toast.error('Error creating schedules');
+      toast.error('Fehler beim Erstellen der Termine');
     }
   };
 
@@ -364,15 +364,15 @@ const WasteDisposalPlanner = () => {
       });
 
       if (response.ok) {
-        toast.success('Disposal marked as completed');
+        toast.success('Entsorgung als abgeschlossen markiert');
         setShowEventModal(false);
         loadSchedules();
       } else {
-        toast.error('Failed to mark disposal as completed');
+        toast.error('Fehler beim Markieren der Entsorgung als abgeschlossen');
       }
     } catch (error) {
       console.error('Error completing disposal:', error);
-      toast.error('Error completing disposal');
+      toast.error('Fehler beim Abschließen der Entsorgung');
     }
   };
 
@@ -380,7 +380,7 @@ const WasteDisposalPlanner = () => {
   const handleDeleteSchedule = async () => {
     if (!selectedEvent) return;
 
-    if (!window.confirm('Are you sure you want to delete this disposal schedule?')) {
+    if (!window.confirm('Sind Sie sicher, dass Sie diesen Entsorgungstermin löschen möchten?')) {
       return;
     }
 
@@ -393,15 +393,15 @@ const WasteDisposalPlanner = () => {
       });
 
       if (response.ok) {
-        toast.success('Disposal schedule deleted successfully');
+        toast.success('Entsorgungstermin erfolgreich gelöscht');
         setShowEventModal(false);
         loadSchedules();
       } else {
-        toast.error('Failed to delete disposal schedule');
+        toast.error('Fehler beim Löschen des Entsorgungstermins');
       }
     } catch (error) {
       console.error('Error deleting schedule:', error);
-      toast.error('Error deleting schedule');
+      toast.error('Fehler beim Löschen des Termins');
     }
   };
 
@@ -462,7 +462,7 @@ const WasteDisposalPlanner = () => {
   }, [schedules]);
 
   if (loading) {
-    return <LoadingSpinner fullScreen text="Loading disposal planner..." />;
+    return <LoadingSpinner fullScreen text="Lade Entsorgungsplaner..." />;
   }
 
   return (
@@ -470,8 +470,8 @@ const WasteDisposalPlanner = () => {
       <div className="waste-disposal-planner p-6 bg-gray-50 min-h-screen">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Waste Disposal Planner</h1>
-          <p className="text-gray-600">Advanced scheduling and planning for waste disposal</p>
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">Entsorgungsplaner</h1>
+          <p className="text-gray-600">Erweiterte Planung und Terminierung für Abfallentsorgung</p>
         </div>
 
         {/* Quick Stats */}
@@ -479,7 +479,7 @@ const WasteDisposalPlanner = () => {
           <div className="bg-white rounded-lg shadow p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Scheduled</p>
+                <p className="text-sm text-gray-600">Gesamt Geplant</p>
                 <p className="text-2xl font-bold text-blue-600">
                   {schedules.filter(s => s.status === 'scheduled').length}
                 </p>
@@ -491,7 +491,7 @@ const WasteDisposalPlanner = () => {
           <div className="bg-white rounded-lg shadow p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Upcoming (7 days)</p>
+                <p className="text-sm text-gray-600">Anstehend (7 Tage)</p>
                 <p className="text-2xl font-bold text-green-600">{upcomingDisposals.length}</p>
               </div>
               <div className="text-3xl text-green-600">⏰</div>
@@ -501,7 +501,7 @@ const WasteDisposalPlanner = () => {
           <div className="bg-white rounded-lg shadow p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Overdue</p>
+                <p className="text-sm text-gray-600">Überfällig</p>
                 <p className="text-2xl font-bold text-red-600">{overdueDisposals.length}</p>
               </div>
               <div className="text-3xl text-red-600">⚠️</div>
@@ -511,7 +511,7 @@ const WasteDisposalPlanner = () => {
           <div className="bg-white rounded-lg shadow p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Completed</p>
+                <p className="text-sm text-gray-600">Abgeschlossen</p>
                 <p className="text-2xl font-bold text-gray-600">
                   {schedules.filter(s => s.status === 'completed').length}
                 </p>
@@ -529,11 +529,11 @@ const WasteDisposalPlanner = () => {
               onChange={(e) => setFilters({ ...filters, status: e.target.value })}
               className="border rounded px-3 py-2"
             >
-              <option value="all">All Status</option>
-              <option value="scheduled">Scheduled</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-              <option value="overdue">Overdue</option>
+              <option value="all">Alle Status</option>
+              <option value="scheduled">Geplant</option>
+              <option value="completed">Abgeschlossen</option>
+              <option value="cancelled">Storniert</option>
+              <option value="overdue">Überfällig</option>
             </select>
 
             <select
@@ -541,11 +541,11 @@ const WasteDisposalPlanner = () => {
               onChange={(e) => setFilters({ ...filters, hazardLevel: e.target.value })}
               className="border rounded px-3 py-2"
             >
-              <option value="all">All Hazard Levels</option>
-              <option value="critical">Critical</option>
-              <option value="high">High</option>
-              <option value="medium">Medium</option>
-              <option value="low">Low</option>
+              <option value="all">Alle Gefahrenstufen</option>
+              <option value="critical">Kritisch</option>
+              <option value="high">Hoch</option>
+              <option value="medium">Mittel</option>
+              <option value="low">Niedrig</option>
             </select>
 
             <select
@@ -553,12 +553,12 @@ const WasteDisposalPlanner = () => {
               onChange={(e) => setFilters({ ...filters, category: e.target.value })}
               className="border rounded px-3 py-2"
             >
-              <option value="all">All Categories</option>
-              <option value="chemical">Chemical</option>
-              <option value="heavy_metal">Heavy Metal</option>
-              <option value="aqueous">Aqueous</option>
-              <option value="hazardous">Hazardous</option>
-              <option value="general">General</option>
+              <option value="all">Alle Kategorien</option>
+              <option value="chemical">Chemikalien</option>
+              <option value="heavy_metal">Schwermetalle</option>
+              <option value="aqueous">Wässrige Lösungen</option>
+              <option value="hazardous">Gefahrstoffe</option>
+              <option value="general">Allgemein</option>
             </select>
 
             <select
@@ -566,7 +566,7 @@ const WasteDisposalPlanner = () => {
               onChange={(e) => setFilters({ ...filters, assignedTo: e.target.value })}
               className="border rounded px-3 py-2"
             >
-              <option value="all">All Assignees</option>
+              <option value="all">Alle Zugewiesenen</option>
               {users.map(user => (
                 <option key={user.id} value={user.id}>{user.name}</option>
               ))}
@@ -576,7 +576,7 @@ const WasteDisposalPlanner = () => {
               onClick={loadSchedules}
               className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition"
             >
-              Apply Filters
+              Filter anwenden
             </button>
           </div>
 
@@ -585,25 +585,25 @@ const WasteDisposalPlanner = () => {
               onClick={() => handleSlotClick({ start: new Date() })}
               className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition"
             >
-              + New Schedule
+              + Neuer Termin
             </button>
             <button
               onClick={() => handleExport('csv')}
               className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600 transition"
             >
-              Export CSV
+              CSV exportieren
             </button>
             <button
               onClick={() => handleExport('json')}
               className="bg-indigo-500 text-white px-4 py-2 rounded hover:bg-indigo-600 transition"
             >
-              Export JSON
+              JSON exportieren
             </button>
             <button
               onClick={loadSchedules}
               className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition"
             >
-              🔄 Refresh
+              🔄 Aktualisieren
             </button>
           </div>
         </div>
@@ -627,12 +627,12 @@ const WasteDisposalPlanner = () => {
             style={{ height: '100%' }}
             views={['month', 'week', 'day', 'agenda']}
             messages={{
-              next: "Next",
-              previous: "Previous",
-              today: "Today",
-              month: "Month",
-              week: "Week",
-              day: "Day",
+              next: "Weiter",
+              previous: "Zurück",
+              today: "Heute",
+              month: "Monat",
+              week: "Woche",
+              day: "Tag",
               agenda: "Agenda"
             }}
           />
@@ -640,9 +640,9 @@ const WasteDisposalPlanner = () => {
 
         {/* Upcoming Disposals Timeline */}
         <div className="bg-white rounded-lg shadow p-4">
-          <h2 className="text-xl font-bold mb-4">Upcoming Disposals (Next 7 Days)</h2>
+          <h2 className="text-xl font-bold mb-4">Anstehende Entsorgungen (Nächste 7 Tage)</h2>
           {upcomingDisposals.length === 0 ? (
-            <p className="text-gray-500">No upcoming disposals in the next 7 days</p>
+            <p className="text-gray-500">Keine anstehenden Entsorgungen in den nächsten 7 Tagen</p>
           ) : (
             <div className="space-y-3">
               {upcomingDisposals.map(disposal => (
@@ -701,7 +701,7 @@ const WasteDisposalPlanner = () => {
                 <div className="space-y-3 mb-6">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm text-gray-600">Scheduled Date</p>
+                      <p className="text-sm text-gray-600">Geplantes Datum</p>
                       <p className="font-semibold">
                         {moment(selectedEvent.scheduled_date).format('MMM D, YYYY HH:mm')}
                       </p>
@@ -717,33 +717,33 @@ const WasteDisposalPlanner = () => {
                       </p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600">Hazard Level</p>
+                      <p className="text-sm text-gray-600">Gefahrenstufe</p>
                       <p className="font-semibold">{selectedEvent.hazard_level?.toUpperCase()}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600">Category</p>
+                      <p className="text-sm text-gray-600">Kategorie</p>
                       <p className="font-semibold">{selectedEvent.category}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600">Waste Code</p>
+                      <p className="text-sm text-gray-600">Abfallschlüssel</p>
                       <p className="font-semibold">{selectedEvent.waste_code}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600">Assigned To</p>
-                      <p className="font-semibold">{selectedEvent.assigned_to_name || 'Unassigned'}</p>
+                      <p className="text-sm text-gray-600">Zugewiesen an</p>
+                      <p className="font-semibold">{selectedEvent.assigned_to_name || 'Nicht zugewiesen'}</p>
                     </div>
                   </div>
 
                   {selectedEvent.notes && (
                     <div>
-                      <p className="text-sm text-gray-600">Notes</p>
+                      <p className="text-sm text-gray-600">Notizen</p>
                       <p className="font-semibold">{selectedEvent.notes}</p>
                     </div>
                   )}
 
                   {selectedEvent.disposal_method && (
                     <div>
-                      <p className="text-sm text-gray-600">Disposal Method</p>
+                      <p className="text-sm text-gray-600">Entsorgungsmethode</p>
                       <p className="font-semibold">{selectedEvent.disposal_method}</p>
                     </div>
                   )}
@@ -755,20 +755,20 @@ const WasteDisposalPlanner = () => {
                       onClick={handleMarkComplete}
                       className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition"
                     >
-                      Mark as Complete
+                      Als abgeschlossen markieren
                     </button>
                   )}
                   <button
                     onClick={handleDeleteSchedule}
                     className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition"
                   >
-                    Delete
+                    Löschen
                   </button>
                   <button
                     onClick={() => setShowEventModal(false)}
                     className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition"
                   >
-                    Close
+                    Schließen
                   </button>
                 </div>
               </div>
@@ -782,7 +782,7 @@ const WasteDisposalPlanner = () => {
             <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6">
                 <div className="flex justify-between items-start mb-4">
-                  <h2 className="text-2xl font-bold text-gray-800">Create Disposal Schedule</h2>
+                  <h2 className="text-2xl font-bold text-gray-800">Entsorgungstermin erstellen</h2>
                   <button
                     onClick={() => setShowCreateModal(false)}
                     className="text-gray-500 hover:text-gray-700 text-2xl"
@@ -794,7 +794,7 @@ const WasteDisposalPlanner = () => {
                 <form onSubmit={handleCreateSchedule} className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Waste Item *
+                      Abfallart *
                     </label>
                     <select
                       value={eventForm.waste_item_id}
@@ -802,7 +802,7 @@ const WasteDisposalPlanner = () => {
                       className="w-full border rounded px-3 py-2"
                       required
                     >
-                      <option value="">Select Waste Item</option>
+                      <option value="">Abfallart auswählen</option>
                       {wasteItems.map(item => (
                         <option key={item.id} value={item.id}>
                           {item.name} ({item.hazard_level})
@@ -813,7 +813,7 @@ const WasteDisposalPlanner = () => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Scheduled Date & Time *
+                      Geplantes Datum & Uhrzeit *
                     </label>
                     <input
                       type="datetime-local"
@@ -826,14 +826,14 @@ const WasteDisposalPlanner = () => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Assign To
+                      Zuweisen an
                     </label>
                     <select
                       value={eventForm.assigned_to}
                       onChange={(e) => setEventForm({ ...eventForm, assigned_to: e.target.value })}
                       className="w-full border rounded px-3 py-2"
                     >
-                      <option value="">Select User</option>
+                      <option value="">Benutzer auswählen</option>
                       {users.map(user => (
                         <option key={user.id} value={user.id}>{user.name}</option>
                       ))}
@@ -843,30 +843,30 @@ const WasteDisposalPlanner = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Priority
+                        Priorität
                       </label>
                       <select
                         value={eventForm.priority}
                         onChange={(e) => setEventForm({ ...eventForm, priority: e.target.value })}
                         className="w-full border rounded px-3 py-2"
                       >
-                        <option value="low">Low</option>
-                        <option value="medium">Medium</option>
-                        <option value="high">High</option>
-                        <option value="critical">Critical</option>
+                        <option value="low">Niedrig</option>
+                        <option value="medium">Mittel</option>
+                        <option value="high">Hoch</option>
+                        <option value="critical">Kritisch</option>
                       </select>
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Disposal Method
+                        Entsorgungsmethode
                       </label>
                       <input
                         type="text"
                         value={eventForm.disposal_method}
                         onChange={(e) => setEventForm({ ...eventForm, disposal_method: e.target.value })}
                         className="w-full border rounded px-3 py-2"
-                        placeholder="e.g., Incineration"
+                        placeholder="z.B. Verbrennung"
                       />
                     </div>
                   </div>
@@ -874,27 +874,27 @@ const WasteDisposalPlanner = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Quantity
+                        Menge
                       </label>
                       <input
                         type="text"
                         value={eventForm.quantity}
                         onChange={(e) => setEventForm({ ...eventForm, quantity: e.target.value })}
                         className="w-full border rounded px-3 py-2"
-                        placeholder="e.g., 25"
+                        placeholder="z.B. 25"
                       />
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Unit
+                        Einheit
                       </label>
                       <input
                         type="text"
                         value={eventForm.unit}
                         onChange={(e) => setEventForm({ ...eventForm, unit: e.target.value })}
                         className="w-full border rounded px-3 py-2"
-                        placeholder="e.g., kg, L"
+                        placeholder="z.B. kg, L"
                       />
                     </div>
                   </div>
@@ -907,7 +907,7 @@ const WasteDisposalPlanner = () => {
                         onChange={(e) => setEventForm({ ...eventForm, is_recurring: e.target.checked })}
                         className="rounded"
                       />
-                      <span className="text-sm font-medium text-gray-700">Recurring Schedule</span>
+                      <span className="text-sm font-medium text-gray-700">Wiederkehrender Termin</span>
                     </label>
                   </div>
 
@@ -915,25 +915,25 @@ const WasteDisposalPlanner = () => {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Recurrence Pattern
+                          Wiederholungsmuster
                         </label>
                         <select
                           value={eventForm.recurrence_pattern}
                           onChange={(e) => setEventForm({ ...eventForm, recurrence_pattern: e.target.value })}
                           className="w-full border rounded px-3 py-2"
                         >
-                          <option value="daily">Daily</option>
-                          <option value="weekly">Weekly</option>
-                          <option value="biweekly">Bi-weekly</option>
-                          <option value="monthly">Monthly</option>
-                          <option value="quarterly">Quarterly</option>
-                          <option value="yearly">Yearly</option>
+                          <option value="daily">Täglich</option>
+                          <option value="weekly">Wöchentlich</option>
+                          <option value="biweekly">Alle 2 Wochen</option>
+                          <option value="monthly">Monatlich</option>
+                          <option value="quarterly">Vierteljährlich</option>
+                          <option value="yearly">Jährlich</option>
                         </select>
                       </div>
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          End Date (Optional)
+                          Enddatum (Optional)
                         </label>
                         <input
                           type="date"
@@ -947,14 +947,14 @@ const WasteDisposalPlanner = () => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Notes
+                      Notizen
                     </label>
                     <textarea
                       value={eventForm.notes}
                       onChange={(e) => setEventForm({ ...eventForm, notes: e.target.value })}
                       className="w-full border rounded px-3 py-2"
                       rows="3"
-                      placeholder="Additional notes..."
+                      placeholder="Zusätzliche Notizen..."
                     />
                   </div>
 
@@ -963,14 +963,14 @@ const WasteDisposalPlanner = () => {
                       type="submit"
                       className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition"
                     >
-                      Create Schedule
+                      Termin erstellen
                     </button>
                     <button
                       type="button"
                       onClick={() => setShowCreateModal(false)}
                       className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition"
                     >
-                      Cancel
+                      Abbrechen
                     </button>
                   </div>
                 </form>
