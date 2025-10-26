@@ -326,11 +326,26 @@ CREATE TABLE IF NOT EXISTS calendar_templates (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Task templates with more flexibility (already exists in 003, adding more fields)
-ALTER TABLE task_templates ADD COLUMN IF NOT EXISTS category VARCHAR(100);
-ALTER TABLE task_templates ADD COLUMN IF NOT EXISTS estimated_duration INTEGER; -- minutes
-ALTER TABLE task_templates ADD COLUMN IF NOT EXISTS required_skills TEXT[];
-ALTER TABLE task_templates ADD COLUMN IF NOT EXISTS auto_assign_rules JSONB;
+-- Task templates with more flexibility (create table if not exists, then add columns)
+CREATE TABLE IF NOT EXISTS task_templates (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  created_by INTEGER REFERENCES users(id),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Safely add columns using DO block
+DO $$
+BEGIN
+  ALTER TABLE task_templates ADD COLUMN IF NOT EXISTS category VARCHAR(100);
+  ALTER TABLE task_templates ADD COLUMN IF NOT EXISTS estimated_duration INTEGER; -- minutes
+  ALTER TABLE task_templates ADD COLUMN IF NOT EXISTS required_skills TEXT[];
+  ALTER TABLE task_templates ADD COLUMN IF NOT EXISTS auto_assign_rules JSONB;
+EXCEPTION
+  WHEN undefined_table THEN
+    RAISE NOTICE 'task_templates table does not exist, skipping column additions';
+END $$;
 /* Example auto_assign_rules:
 {
   "by_skill": true,
