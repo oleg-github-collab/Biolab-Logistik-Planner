@@ -24,6 +24,9 @@ CREATE TABLE users (
   -- First login setup
   first_login_completed BOOLEAN DEFAULT FALSE,
 
+  -- Active status
+  is_active BOOLEAN DEFAULT TRUE,
+
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

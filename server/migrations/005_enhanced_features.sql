@@ -6,6 +6,7 @@
 -- ============================================
 
 -- User profile settings
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_photo VARCHAR(500);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS status VARCHAR(100) DEFAULT 'available'; -- available, busy, away, offline
 ALTER TABLE users ADD COLUMN IF NOT EXISTS status_message VARCHAR(500);
