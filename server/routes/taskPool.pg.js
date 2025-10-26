@@ -225,7 +225,7 @@ router.post('/:taskPoolId/request-help', auth, async (req, res) => {
       await client.query(
         `INSERT INTO notifications (
           user_id, type, title, content, related_user_id, task_id, priority
-        ) VALUES ($1, 'task_assigned', 'Help Requested', $2, $3, $4, 'high')`,
+        ) VALUES ($1, 'task_assigned', 'Hilfe angefordert', $2, $3, $4, 'high')`,
         [
           userId,
           `${req.user.name} needs help with: ${poolResult.rows[0].task_title}`,
@@ -345,8 +345,8 @@ router.post('/help-requests/:requestId/respond', auth, async (req, res) => {
         ) VALUES ($1, 'task_assigned', $2, $3, $4, 'normal')`,
         [
           helpRequest.requested_by,
-          action === 'accept' ? 'Help Request Accepted' : 'Help Request Declined',
-          `${req.user.name} ${action === 'accept' ? 'accepted' : 'declined'} your help request`,
+          action === 'accept' ? 'Hilfeanfrage akzeptiert' : 'Hilfeanfrage abgelehnt',
+          `${req.user.name} hat deine Hilfeanfrage ${action === 'accept' ? 'angenommen' : 'abgelehnt'}`,
           req.user.id
         ]
       );

@@ -110,6 +110,7 @@ CREATE TABLE messages (
   message_type VARCHAR(50) DEFAULT 'text' CHECK (message_type IN ('text', 'gif', 'file', 'system')),
   is_group BOOLEAN DEFAULT FALSE,
   read_status BOOLEAN DEFAULT FALSE,
+  delivered_status BOOLEAN DEFAULT TRUE,
   read_at TIMESTAMP,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

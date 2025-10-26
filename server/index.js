@@ -6,6 +6,8 @@ const path = require('path');
 const http = require('http');
 const schedule = require('node-schedule');
 const { initializeSocket } = require('./websocket');
+const logger = require('./utils/logger');
+const redisService = require('./services/redisService');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -115,6 +117,18 @@ const server = http.createServer(app);
 // Initialize WebSocket
 initializeSocket(server);
 
+redisService.connect()
+  .then((connected) => {
+    if (!connected) {
+      logger.warn('Redis connection could not be established. Continuing without cache/pub-sub features.');
+    } else {
+      logger.info('Redis connected and ready');
+    }
+  })
+  .catch((error) => {
+    logger.error('Redis startup connection failed', { error: error.message });
+  });
+
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV}`);
@@ -134,10 +148,11 @@ const shutdown = async (signal) => {
     try {
       const { shutdown: shutdownDB } = require('./config/database');
       await shutdownDB();
-      console.log('Database connection closed');
+      await redisService.disconnect();
+      console.log('Database and Redis connections closed');
       process.exit(0);
     } catch (err) {
-      console.error('Error closing database:', err);
+      console.error('Error during graceful shutdown:', err);
       process.exit(1);
     }
   });

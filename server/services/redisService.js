@@ -1,19 +1,49 @@
 const Redis = require('ioredis');
 const logger = require('../utils/logger');
 
+const REDIS_URL =
+  process.env.REDIS_URL ||
+  process.env.REDIS_TLS_URL ||
+  process.env.UPSTASH_REDIS_URL ||
+  process.env.REDISCLOUD_URL ||
+  null;
+
+const buildConfigFromUrl = (urlString) => {
+  try {
+    const url = new URL(urlString);
+    const isTls = url.protocol === 'rediss:' || process.env.REDIS_USE_TLS === 'true';
+    const dbPath = url.pathname?.replace('/', '') || '0';
+
+    return {
+      host: url.hostname,
+      port: url.port ? parseInt(url.port, 10) : 6379,
+      password: url.password || undefined,
+      username: url.username || undefined,
+      db: parseInt(dbPath, 10) || 0,
+      tls: isTls ? { rejectUnauthorized: false } : undefined
+    };
+  } catch (error) {
+    logger.error('Failed to parse REDIS_URL, falling back to manual config', { error: error.message });
+    return null;
+  }
+};
+
 // Redis configuration
+const baseConfig = REDIS_URL ? buildConfigFromUrl(REDIS_URL) : null;
 const redisConfig = {
-  host: process.env.REDIS_HOST || 'localhost',
-  port: parseInt(process.env.REDIS_PORT) || 6379,
-  password: process.env.REDIS_PASSWORD || undefined,
-  db: parseInt(process.env.REDIS_DB) || 0,
+  host: process.env.REDIS_HOST || baseConfig?.host || 'localhost',
+  port: parseInt(process.env.REDIS_PORT || baseConfig?.port || 6379, 10),
+  password: process.env.REDIS_PASSWORD || baseConfig?.password || undefined,
+  username: process.env.REDIS_USERNAME || baseConfig?.username || undefined,
+  db: parseInt(process.env.REDIS_DB || baseConfig?.db || 0, 10),
   retryStrategy: (times) => {
-    const delay = Math.min(times * 50, 2000);
+    const delay = Math.min(times * 100, 3000);
     return delay;
   },
-  maxRetriesPerRequest: 3,
+  maxRetriesPerRequest: 5,
   enableReadyCheck: true,
-  lazyConnect: true
+  lazyConnect: true,
+  tls: baseConfig?.tls
 };
 
 // Create Redis client

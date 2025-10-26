@@ -24,7 +24,8 @@ const ModernMessenger = () => {
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [contactSearchTerm, setContactSearchTerm] = useState('');
+  const [conversationSearchTerm, setConversationSearchTerm] = useState('');
   const [messageSearchTerm, setMessageSearchTerm] = useState('');
   const [showUserList, setShowUserList] = useState(false);
   const [showMessageSearch, setShowMessageSearch] = useState(false);
@@ -291,7 +292,7 @@ const ModernMessenger = () => {
 
   const loadUsers = async () => {
     try {
-      const response = await fetch('/api/admin/users', {
+      const response = await fetch('/api/messages/contacts', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -305,7 +306,7 @@ const ModernMessenger = () => {
       setUsers(data.filter(u => u.id !== user.id));
     } catch (err) {
       console.error('Error loading users:', err);
-      showError('Fehler beim Laden der Benutzer');
+      showError('Fehler beim Laden der Kontakte');
     }
   };
 
@@ -370,6 +371,7 @@ const ModernMessenger = () => {
       const conversation = await response.json();
       setSelectedConversation(conversation);
       setShowUserList(false);
+      setContactSearchTerm('');
       setSidebarOpen(false);
       loadConversations();
       showSuccess('Unterhaltung gestartet');
@@ -512,8 +514,8 @@ const ModernMessenger = () => {
   };
 
   const filteredUsers = users.filter(u =>
-    u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    u.email.toLowerCase().includes(searchTerm.toLowerCase())
+    u.name.toLowerCase().includes(contactSearchTerm.toLowerCase()) ||
+    u.email.toLowerCase().includes(contactSearchTerm.toLowerCase())
   );
 
   const groupedUsers = groupUsersByRole(filteredUsers);
@@ -546,6 +548,23 @@ const ModernMessenger = () => {
     if (isToday(date)) return 'Heute';
     if (isYesterday(date)) return 'Gestern';
     return format(date, 'dd. MMMM yyyy', { locale: de });
+  };
+
+  const openConversationWithUser = (contact) => {
+    const existing = conversations.find(conv => conv.id === contact.id);
+
+    if (existing) {
+      setSelectedConversation({
+        ...existing,
+        name: existing.name || existing.user_name || contact.name,
+        email: existing.email || existing.user_email || contact.email
+      });
+      setSidebarOpen(false);
+      setMessageSearchTerm('');
+      return;
+    }
+
+    startConversation(contact.id);
   };
 
   const UserAvatar = ({ user: avatarUser, size = 'w-10 h-10', showOnline = false, fontSize = 'text-sm' }) => {
@@ -744,8 +763,8 @@ const ModernMessenger = () => {
           <div className="relative">
             <input
               type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              value={conversationSearchTerm}
+              onChange={(e) => setConversationSearchTerm(e.target.value)}
               placeholder="Unterhaltungen durchsuchen..."
               className="w-full bg-gray-50 border-0 rounded-xl px-4 py-2.5 pl-11 focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all duration-200"
             />
@@ -755,95 +774,175 @@ const ModernMessenger = () => {
           </div>
         </div>
 
-        {/* Conversations List */}
+        {/* Contacts + Conversations */}
         <div className="flex-1 overflow-y-auto overscroll-contain">
-          {loading ? (
-            <div className="flex items-center justify-center h-full">
-              <LoadingSpinner variant="dots" size="md" text="Lade Unterhaltungen..." />
-            </div>
-          ) : conversations.length === 0 ? (
-            <EmptyState
-              icon={
-                <svg className="w-10 h-10 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
-              }
-              title="Keine Unterhaltungen"
-              description="Starten Sie eine neue Unterhaltung, um loszulegen"
-              action={
+          <div className="pb-6">
+            <div className="px-4 pt-4 pb-3 border-b border-gray-100 bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/90">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Kontakte</p>
+                  <p className="text-xs text-gray-400">{users.length} registrierte Benutzer</p>
+                </div>
                 <button
-                  onClick={() => setShowUserList(true)}
-                  className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-medium shadow-lg shadow-blue-600/30 hover:shadow-xl hover:shadow-blue-600/40 transition-all duration-200 transform hover:scale-105"
+                  onClick={loadUsers}
+                  className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-all duration-200"
+                  title="Kontakte aktualisieren"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                   </svg>
-                  Neue Unterhaltung
                 </button>
-              }
-            />
-          ) : (
-            conversations
-              .filter(conv =>
-                !searchTerm ||
-                (conv.name || conv.user_name || '').toLowerCase().includes(searchTerm.toLowerCase())
-              )
-              .map(conversation => {
-                const conversationUser = {
-                  id: conversation.id,
-                  name: conversation.name || conversation.user_name,
-                  email: conversation.email || conversation.user_email
-                };
+              </div>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={contactSearchTerm}
+                  onChange={(e) => setContactSearchTerm(e.target.value)}
+                  placeholder="Kontakte durchsuchen..."
+                  className="w-full bg-gray-50 border-0 rounded-xl px-4 py-2.5 pl-11 focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all duration-200 text-sm"
+                />
+                <svg className="w-5 h-5 absolute left-3.5 top-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+            </div>
 
-                const isSelected = selectedConversation?.id === conversation.id;
+            <div className="divide-y divide-gray-100">
+              {filteredUsers.length === 0 ? (
+                <div className="px-4 py-6 text-center text-gray-500 text-sm">
+                  Keine Kontakte gefunden
+                </div>
+              ) : (
+                filteredUsers.map((contact) => {
+                  const conversation = conversations.find(conv => conv.id === contact.id);
+                  const isSelected = selectedConversation?.id === contact.id;
+                  const unreadCount = conversation?.unreadCount || 0;
 
-                return (
-                  <div
-                    key={conversation.id}
-                    onClick={() => {
-                      setSelectedConversation(conversationUser);
-                      setSidebarOpen(false);
-                      setMessageSearchTerm('');
-                    }}
-                    className={`px-4 py-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-all duration-200 ${
-                      isSelected ? 'bg-blue-50 border-l-4 border-l-blue-600' : 'border-l-4 border-l-transparent'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <UserAvatar user={conversationUser} size="w-12 h-12" showOnline fontSize="text-base" />
+                  return (
+                    <div
+                      key={contact.id}
+                      onClick={() => openConversationWithUser(contact)}
+                      className={`px-4 py-3 flex items-center gap-3 cursor-pointer transition-all duration-200 border-l-4 ${
+                        isSelected ? 'bg-blue-50 border-blue-600' : 'border-transparent hover:bg-gray-50'
+                      }`}
+                    >
+                      <UserAvatar user={contact} size="w-11 h-11" showOnline fontSize="text-base" />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-1">
-                          <p className={`text-sm font-semibold truncate ${
-                            isSelected ? 'text-blue-900' : 'text-gray-900'
-                          } ${conversation.unreadCount > 0 ? 'font-bold' : ''}`}>
-                            {conversationUser.name}
+                          <p className={`text-sm font-semibold truncate ${isSelected ? 'text-blue-900' : 'text-gray-900'}`}>
+                            {contact.name}
                           </p>
-                          {conversation.lastMessageTime && (
-                            <span className={`text-xs flex-shrink-0 ml-2 ${
-                              conversation.unreadCount > 0 ? 'text-blue-600 font-semibold' : 'text-gray-500'
-                            }`}>
+                          {conversation?.lastMessageTime && (
+                            <span className="text-xs text-gray-400 flex-shrink-0 ml-2">
                               {formatLastMessageTime(conversation.lastMessageTime)}
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center justify-between gap-2">
-                          <p className={`text-sm truncate flex-1 ${
-                            conversation.unreadCount > 0 ? 'text-gray-900 font-medium' : 'text-gray-500'
-                          }`}>
-                            {conversation.lastMessage || 'Keine Nachrichten'}
-                          </p>
-                          {conversation.unreadCount > 0 && (
-                            <div className="bg-blue-600 text-white text-xs rounded-full min-w-[20px] h-5 px-2 flex items-center justify-center font-semibold flex-shrink-0">
-                              {conversation.unreadCount}
+                        <p className="text-xs text-gray-500 truncate">
+                          {conversation?.lastMessage || contact.status_message || 'Noch keine Nachrichten'}
+                        </p>
+                      </div>
+                      {unreadCount > 0 && (
+                        <div className="bg-blue-600 text-white text-xs rounded-full min-w-[20px] h-5 px-2 flex items-center justify-center font-semibold flex-shrink-0">
+                          {unreadCount}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="mt-6">
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <LoadingSpinner variant="dots" size="md" text="Lade Unterhaltungen..." />
+                </div>
+              ) : conversations.length === 0 ? (
+                <EmptyState
+                  icon={
+                    <svg className="w-10 h-10 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                  }
+                  title="Keine Unterhaltungen"
+                  description="Starten Sie eine neue Unterhaltung, um loszulegen"
+                  action={
+                    <button
+                      onClick={() => setShowUserList(true)}
+                      className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-medium shadow-lg shadow-blue-600/30 hover:shadow-xl hover:shadow-blue-600/40 transition-all duration-200 transform hover:scale-105"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      Neue Unterhaltung
+                    </button>
+                  }
+                />
+              ) : (
+                conversations
+                  .filter(conv =>
+                    !conversationSearchTerm ||
+                    (conv.name || conv.user_name || '').toLowerCase().includes(conversationSearchTerm.toLowerCase())
+                  )
+                  .map(conversation => {
+                    const conversationUser = {
+                      id: conversation.id,
+                      name: conversation.name || conversation.user_name,
+                      email: conversation.email || conversation.user_email
+                    };
+
+                    const isSelected = selectedConversation?.id === conversation.id;
+
+                    return (
+                      <div
+                        key={conversation.id}
+                        onClick={() => {
+                          setSelectedConversation(conversationUser);
+                          setSidebarOpen(false);
+                          setMessageSearchTerm('');
+                        }}
+                        className={`px-4 py-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-all duration-200 ${
+                          isSelected ? 'bg-blue-50 border-l-4 border-l-blue-600' : 'border-l-4 border-l-transparent'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <UserAvatar user={conversationUser} size="w-12 h-12" showOnline fontSize="text-base" />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <p className={`text-sm font-semibold truncate ${
+                                isSelected ? 'text-blue-900' : 'text-gray-900'
+                              } ${conversation.unreadCount > 0 ? 'font-bold' : ''}`}>
+                                {conversationUser.name}
+                              </p>
+                              {conversation.lastMessageTime && (
+                                <span className={`text-xs flex-shrink-0 ml-2 ${
+                                  conversation.unreadCount > 0 ? 'text-blue-600 font-semibold' : 'text-gray-500'
+                                }`}>
+                                  {formatLastMessageTime(conversation.lastMessageTime)}
+                                </span>
+                              )}
                             </div>
-                          )}
+                            <div className="flex items-center justify-between gap-2">
+                              <p className={`text-sm truncate flex-1 ${
+                                conversation.unreadCount > 0 ? 'text-gray-900 font-medium' : 'text-gray-500'
+                              }`}>
+                                {conversation.lastMessage || 'Keine Nachrichten'}
+                              </p>
+                              {conversation.unreadCount > 0 && (
+                                <div className="bg-blue-600 text-white text-xs rounded-full min-w-[20px] h-5 px-2 flex items-center justify-center font-semibold flex-shrink-0">
+                                  {conversation.unreadCount}
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </div>
-                );
-              })
-          )}
+                    );
+                  })
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1058,7 +1157,7 @@ const ModernMessenger = () => {
                 <button
                   onClick={() => {
                     setShowUserList(false);
-                    setSearchTerm('');
+                    setContactSearchTerm('');
                   }}
                   className="text-white hover:bg-white/20 p-2 rounded-full transition-all duration-200"
                 >
@@ -1070,8 +1169,8 @@ const ModernMessenger = () => {
               <div className="relative">
                 <input
                   type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  value={contactSearchTerm}
+                  onChange={(e) => setContactSearchTerm(e.target.value)}
                   placeholder="Benutzer suchen..."
                   className="w-full border-0 rounded-xl px-4 py-2.5 pl-11 focus:ring-2 focus:ring-blue-300 text-sm"
                   autoFocus

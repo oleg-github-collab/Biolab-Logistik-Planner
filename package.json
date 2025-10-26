@@ -17,7 +17,8 @@
     "migrate:pg": "node server/runMigrations.js",
     "seed": "node server/database/seeds.js",
     "seed:clear": "node server/database/seeds.js --clear",
-    "db:reset": "npm run migrate:rollback && npm run migrate && npm run seed"
+    "db:reset": "npm run migrate:rollback && npm run migrate && npm run seed",
+    "db:rebuild": "node server/scripts/resetDatabase.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

@@ -1,5 +1,4 @@
 const jwt = require('jsonwebtoken');
-const db = require('../database');
 const { pool } = require('../config/database');
 const { createError, asyncHandler } = require('./errorHandler');
 const logger = require('../utils/logger');
@@ -84,24 +83,6 @@ const getUserFromPostgres = async (userId) => {
   }
 };
 
-const getUserFromSQLite = (userId) => {
-  return new Promise((resolve, reject) => {
-    db.get(
-      'SELECT id, name, email, role, employment_type FROM users WHERE id = ?',
-      [userId],
-      (err, user) => {
-        if (err) {
-          logger.error('SQLite lookup failed during auth', {
-            userId,
-            error: err.message
-          });
-          return reject(err);
-        }
-        resolve(user || null);
-      }
-    );
-  });
-};
 
 const auth = async (req, res, next) => {
   const token = req.header('Authorization')?.replace('Bearer ', '');
@@ -112,32 +93,20 @@ const auth = async (req, res, next) => {
       userAgent: req.get('User-Agent'),
       url: req.originalUrl,
     });
-    return res.status(401).json({ error: 'Access denied. No token provided.' });
+    return res.status(401).json({ error: 'Zugriff verweigert. Kein Token vorhanden.' });
   }
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'biolab-logistik-secret-key');
 
-    let user = null;
-
-    // Prefer PostgreSQL users (new stack)
-    try {
-      user = await getUserFromPostgres(decoded.user.id);
-    } catch (pgError) {
-      // Already logged inside helper, continue to fallback
-    }
-
-    // Fallback to legacy SQLite users if Postgres not available / empty
-    if (!user) {
-      user = await getUserFromSQLite(decoded.user.id);
-    }
+    const user = await getUserFromPostgres(decoded.user.id);
 
     if (!user) {
       logger.security('Authentication with non-existent user', {
         userId: decoded.user.id,
         ip: req.ip,
       });
-      return res.status(401).json({ error: 'User not found. Please login again.' });
+      return res.status(401).json({ error: 'Benutzer nicht gefunden. Bitte erneut anmelden.' });
     }
 
     req.user = {
@@ -161,14 +130,14 @@ const auth = async (req, res, next) => {
         ip: req.ip,
         error: error.message,
       });
-      return res.status(401).json({ error: 'Invalid token.' });
+      return res.status(401).json({ error: 'Ungültiges Token.' });
     }
     if (error.name === 'TokenExpiredError') {
       logger.security('Expired token attempt', { ip: req.ip });
-      return res.status(401).json({ error: 'Token expired. Please login again.' });
+      return res.status(401).json({ error: 'Token abgelaufen. Bitte erneut anmelden.' });
     }
     logger.error('Authentication error', error);
-    return res.status(500).json({ error: 'Authentication failed' });
+    return res.status(500).json({ error: 'Authentifizierung fehlgeschlagen' });
   }
 };
 

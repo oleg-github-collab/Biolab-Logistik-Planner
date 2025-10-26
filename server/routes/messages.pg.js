@@ -3,6 +3,7 @@ const pool = require('../config/database');
 const { auth } = require('../middleware/auth');
 const { getIO, sendNotificationToUser } = require('../websocket');
 const logger = require('../utils/logger');
+const { getOnlineUsers } = require('../services/redisService');
 
 const router = express.Router();
 
@@ -42,6 +43,66 @@ router.get('/', auth, async (req, res) => {
 
   } catch (error) {
     logger.error('Error fetching messages', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// @route   GET /api/messages/conversations
+// @desc    Get list of conversations for current user
+router.get('/contacts', auth, async (req, res) => {
+  try {
+    const { search = '', includeSelf = 'false', limit } = req.query;
+    const conditions = [];
+    const params = [];
+
+    if (includeSelf !== 'true') {
+      params.push(req.user.id);
+      conditions.push(`id <> $${params.length}`);
+    }
+
+    if (search) {
+      const searchParam = `%${search.toLowerCase()}%`;
+      const nameIndex = params.push(searchParam);
+      const emailIndex = params.push(searchParam);
+      conditions.push(`(LOWER(name) LIKE $${nameIndex} OR LOWER(email) LIKE $${emailIndex})`);
+    }
+
+    let query = `
+      SELECT id, name, email, role, profile_photo, status, status_message, last_seen_at
+      FROM users
+    `;
+
+    if (conditions.length > 0) {
+      query += ` WHERE ${conditions.join(' AND ')}`;
+    }
+
+    query += ' ORDER BY name ASC';
+
+    if (limit) {
+      params.push(parseInt(limit, 10));
+      query += ` LIMIT $${params.length}`;
+    }
+
+    const result = await pool.query(query, params);
+
+    let onlineSet = new Set();
+    try {
+      const onlineUsers = await getOnlineUsers();
+      if (Array.isArray(onlineUsers) && onlineUsers.length > 0) {
+        onlineSet = new Set(onlineUsers.map(user => parseInt(user.userId, 10)));
+      }
+    } catch (redisError) {
+      logger.warn('Konnte Online-Status aus Redis nicht laden', { error: redisError.message });
+    }
+
+    const contacts = result.rows.map((user) => ({
+      ...user,
+      is_online: onlineSet.has(user.id)
+    }));
+
+    res.json(contacts);
+  } catch (error) {
+    logger.error('Error fetching contacts list', error);
     res.status(500).json({ error: 'Serverfehler' });
   }
 });

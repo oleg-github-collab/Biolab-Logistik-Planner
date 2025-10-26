@@ -23,7 +23,7 @@ router.get('/users', [auth, adminAuth], async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT id, name, email, role, employment_type, auto_schedule,
-              default_start_time, default_end_time, weekly_hours,
+              default_start_time, default_end_time, weekly_hours_quota,
               first_login_completed, created_at, updated_at
        FROM users
        ORDER BY name`
@@ -39,7 +39,7 @@ router.get('/users', [auth, adminAuth], async (req, res) => {
 // @desc    Update user (admin only)
 router.put('/users/:id', [auth, adminAuth], async (req, res) => {
   const { id } = req.params;
-  const { name, email, role, password, employment_type, auto_schedule, default_start_time, default_end_time, weekly_hours } = req.body;
+  const { name, email, role, password, employment_type, auto_schedule, default_start_time, default_end_time, weekly_hours_quota } = req.body;
 
   try {
     // 1. Check if user exists
@@ -185,12 +185,12 @@ router.put('/users/:id', [auth, adminAuth], async (req, res) => {
       paramIndex++;
     }
 
-    if (weekly_hours !== undefined) {
-      const hours = parseInt(weekly_hours);
+    if (weekly_hours_quota !== undefined) {
+      const hours = parseInt(weekly_hours_quota, 10);
       if (isNaN(hours) || hours < 0 || hours > 168) {
         return res.status(400).json({ error: 'Wochenstunden müssen zwischen 0 und 168 liegen' });
       }
-      updateFields.push(`weekly_hours = $${paramIndex}`);
+      updateFields.push(`weekly_hours_quota = $${paramIndex}`);
       updateValues.push(hours);
       paramIndex++;
     }
@@ -217,7 +217,7 @@ router.put('/users/:id', [auth, adminAuth], async (req, res) => {
     updateFields.push(`updated_at = NOW()`);
 
     // 6. Build and execute the final update query
-    const query = `UPDATE users SET ${updateFields.join(', ')} WHERE id = $${paramIndex} RETURNING id, name, email, role, employment_type, auto_schedule, default_start_time, default_end_time, weekly_hours, created_at, updated_at`;
+    const query = `UPDATE users SET ${updateFields.join(', ')} WHERE id = $${paramIndex} RETURNING id, name, email, role, employment_type, auto_schedule, default_start_time, default_end_time, weekly_hours_quota, created_at, updated_at`;
     updateValues.push(id);
 
     const updateResult = await pool.query(query, updateValues);
@@ -240,7 +240,7 @@ router.put('/users/:id', [auth, adminAuth], async (req, res) => {
 // @route   POST /api/admin/users
 // @desc    Create new user (admin only)
 router.post('/users', [auth, adminAuth], async (req, res) => {
-  const { name, email, password, role = 'employee', employment_type = 'Werkstudent', default_start_time = '08:00', default_end_time = '17:00', weekly_hours = 20 } = req.body;
+  const { name, email, password, role = 'employee', employment_type = 'Werkstudent', default_start_time = '08:00', default_end_time = '17:00', weekly_hours_quota = 20 } = req.body;
 
   try {
     // Validate required fields
@@ -301,7 +301,7 @@ router.post('/users', [auth, adminAuth], async (req, res) => {
     }
 
     // Validate weekly hours
-    const validWeeklyHours = parseInt(weekly_hours);
+    const validWeeklyHours = parseInt(weekly_hours_quota, 10);
     if (isNaN(validWeeklyHours) || validWeeklyHours < 0 || validWeeklyHours > 168) {
       return res.status(400).json({ error: 'Wochenstunden müssen zwischen 0 und 168 liegen' });
     }
@@ -332,9 +332,9 @@ router.post('/users', [auth, adminAuth], async (req, res) => {
 
     // Create user
     const insertResult = await pool.query(
-      `INSERT INTO users (name, email, password, role, employment_type, auto_schedule, default_start_time, default_end_time, weekly_hours, created_at, updated_at)
+      `INSERT INTO users (name, email, password, role, employment_type, auto_schedule, default_start_time, default_end_time, weekly_hours_quota, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
-       RETURNING id, name, email, role, employment_type, auto_schedule, default_start_time, default_end_time, weekly_hours, created_at, updated_at`,
+       RETURNING id, name, email, role, employment_type, auto_schedule, default_start_time, default_end_time, weekly_hours_quota, created_at, updated_at`,
       [sanitizedName, sanitizedEmail, hashedPassword, role, employment_type, auto_schedule, default_start_time, default_end_time, validWeeklyHours]
     );
 

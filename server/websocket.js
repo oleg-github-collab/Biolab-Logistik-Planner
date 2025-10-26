@@ -1,12 +1,53 @@
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
-const db = require('./database');
+const database = require('./config/database');
 const logger = require('./utils/logger');
+const {
+  setUserOnline,
+  setUserOffline,
+  getOnlineUsers
+} = require('./services/redisService');
 
 let io;
 
 // Active users tracking
 const activeUsers = new Map(); // userId -> {socketId, userInfo, lastSeen}
+
+const buildOnlinePayload = (users) => users.map((entry) => ({
+  userId: entry.userInfo ? entry.userInfo.id : parseInt(entry.userId, 10),
+  name: entry.userInfo ? entry.userInfo.name : entry.name,
+  lastSeen: entry.lastSeen || entry.lastSeenAt || new Date().toISOString()
+}));
+
+const emitOnlineUsers = async (targetSocket = null) => {
+  const fallback = buildOnlinePayload(Array.from(activeUsers.values()));
+
+  try {
+    const redisUsers = await getOnlineUsers();
+    if (Array.isArray(redisUsers) && redisUsers.length > 0) {
+      const payload = redisUsers.map((user) => ({
+        userId: parseInt(user.userId, 10),
+        name: user.name,
+        lastSeen: user.lastSeen
+      }));
+
+      if (targetSocket) {
+        targetSocket.emit('online_users', payload);
+      } else if (io) {
+        io.emit('online_users', payload);
+      }
+      return;
+    }
+  } catch (error) {
+    logger.warn('Redis online user broadcast failed, falling back to local state', { error: error.message });
+  }
+
+  if (targetSocket) {
+    targetSocket.emit('online_users', fallback);
+  } else if (io) {
+    io.emit('online_users', fallback);
+  }
+};
 
 const initializeSocket = (server) => {
   io = new Server(server, {
@@ -38,20 +79,19 @@ const initializeSocket = (server) => {
       // Verify token
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'biolab-logistik-secret-key');
 
-      // Get user info from database
-      db.get(
-        "SELECT id, name, email, role FROM users WHERE id = ?",
-        [decoded.user.id],
-        (err, user) => {
-          if (err || !user) {
-            return next(new Error('User not found'));
-          }
-
-          socket.userId = user.id;
-          socket.userInfo = user;
-          next();
-        }
+      const userResult = await database.query(
+        'SELECT id, name, email, role FROM users WHERE id = $1',
+        [decoded.user.id]
       );
+
+      if (userResult.rows.length === 0) {
+        return next(new Error('Benutzer nicht gefunden'));
+      }
+
+      const user = userResult.rows[0];
+      socket.userId = user.id;
+      socket.userInfo = user;
+      next();
     } catch (error) {
       logger.error('Socket authentication error:', error);
       next(new Error('Authentication failed'));
@@ -75,6 +115,11 @@ const initializeSocket = (server) => {
       lastSeen: new Date()
     });
 
+    // Track user presence globally
+    setUserOnline(userId, { name: userInfo.name }).catch((error) => {
+      logger.warn('Failed to store user presence in Redis', { userId, error: error.message });
+    });
+
     // Join user-specific room
     socket.join(`user_${userId}`);
 
@@ -84,12 +129,9 @@ const initializeSocket = (server) => {
       userInfo: { id: userInfo.id, name: userInfo.name }
     });
 
-    // Send current online users
-    socket.emit('online_users', Array.from(activeUsers.values()).map(user => ({
-      userId: user.userInfo.id,
-      name: user.userInfo.name,
-      lastSeen: user.lastSeen
-    })));
+    // Send current online users (global if Redis available)
+    emitOnlineUsers(socket);
+    emitOnlineUsers();
 
     // Handle private message - Optimized for instant delivery
     socket.on('send_message', async (data) => {
@@ -97,7 +139,7 @@ const initializeSocket = (server) => {
         const { receiverId, message, messageType = 'text' } = data;
 
         if (!message || message.trim().length === 0) {
-          socket.emit('message_error', { error: 'Message cannot be empty' });
+          socket.emit('message_error', { error: 'Nachricht darf nicht leer sein' });
           return;
         }
 
@@ -113,8 +155,8 @@ const initializeSocket = (server) => {
           message_type: messageType,
           sender_name: userInfo.name,
           created_at: new Date().toISOString(),
-          read_status: 0,
-          delivered_status: receiverConnection ? 1 : 0,
+          read_status: false,
+          delivered_status: !!receiverConnection,
           isOptimistic: true
         };
 
@@ -127,83 +169,78 @@ const initializeSocket = (server) => {
           io.to(receiverData.socketId).emit('new_message', optimisticMessage);
         }
 
-        // Save to database asynchronously
-        db.run(
-          `INSERT INTO messages (sender_id, receiver_id, message, message_type, is_group, read_status, delivered_status)
-           VALUES (?, ?, ?, ?, 0, 0, ?)`,
-          [userId, receiverId, message.trim(), messageType, receiverConnection ? 1 : 0],
-          function(err) {
-            if (err) {
-              logger.error('Error saving message:', err);
-              socket.emit('message_error', {
-                error: 'Failed to send message',
-                tempId: optimisticMessage.id
-              });
-              // Notify receiver to remove optimistic message
-              if (receiverConnection) {
-                const [, receiverData] = receiverConnection;
-                io.to(receiverData.socketId).emit('message_failed', {
-                  tempId: optimisticMessage.id
-                });
-              }
-              return;
-            }
+        try {
+          const insertResult = await database.query(
+            `INSERT INTO messages (
+              sender_id, receiver_id, message, message_type, is_group, read_status, delivered_status
+            ) VALUES ($1, $2, $3, $4, false, false, $5)
+            RETURNING id, created_at`,
+            [userId, receiverId, message.trim(), messageType, receiverConnection ? true : false]
+          );
 
-            const messageId = this.lastID;
+          const savedMessage = insertResult.rows[0];
+          const confirmedMessage = {
+            ...optimisticMessage,
+            id: savedMessage.id,
+            created_at: savedMessage.created_at,
+            isOptimistic: false
+          };
 
-            // Update with real ID
-            const confirmedMessage = {
-              ...optimisticMessage,
-              id: messageId,
-              isOptimistic: false
-            };
+          socket.emit('message_confirmed', {
+            tempId: optimisticMessage.id,
+            message: confirmedMessage
+          });
 
-            // Send real ID update to both parties
-            socket.emit('message_confirmed', {
+          if (receiverConnection) {
+            const [, receiverData] = receiverConnection;
+            io.to(receiverData.socketId).emit('message_confirmed', {
               tempId: optimisticMessage.id,
               message: confirmedMessage
             });
 
-            if (receiverConnection) {
-              const [, receiverData] = receiverConnection;
-              io.to(receiverData.socketId).emit('message_confirmed', {
-                tempId: optimisticMessage.id,
-                message: confirmedMessage
-              });
+            const messagePreview = message.length > 50 ? `${message.substring(0, 50)}...` : message;
+            const notificationPayload = {
+              type: 'new_message',
+              title: `Neue Nachricht von ${userInfo.name}`,
+              body: messagePreview,
+              icon: '/favicon.ico',
+              tag: `message_${savedMessage.id}`,
+              timestamp: new Date().toISOString(),
+              data: {
+                messageId: savedMessage.id,
+                senderId: userId,
+                senderName: userInfo.name,
+                messagePreview,
+                messageType,
+                url: '/messages'
+              }
+            };
+            io.to(receiverData.socketId).emit('notification', notificationPayload);
+            io.to(receiverData.socketId).emit('notification:new', notificationPayload);
+          }
 
-              // Send enhanced browser notification to receiver
-              const messagePreview = message.length > 50 ? message.substring(0, 50) + '...' : message;
-              const notificationPayload = {
-                type: 'new_message',
-                title: `Neue Nachricht von ${userInfo.name}`,
-                body: messagePreview,
-                icon: '/favicon.ico',
-                tag: `message_${messageId}`,
-                timestamp: new Date().toISOString(),
-                data: {
-                  messageId,
-                  senderId: userId,
-                  senderName: userInfo.name,
-                  messagePreview,
-                  messageType,
-                  url: '/messages'
-                }
-              };
-              io.to(receiverData.socketId).emit('notification', notificationPayload);
-              io.to(receiverData.socketId).emit('notification:new', notificationPayload);
-            }
-
-            logger.info('Message saved successfully', {
-              messageId,
-              senderId: userId,
-              receiverId,
-              deliveryTime: Date.now() - new Date(optimisticMessage.created_at).getTime()
+          logger.info('Message saved successfully', {
+            messageId: savedMessage.id,
+            senderId: userId,
+            receiverId,
+            deliveryTime: Date.now() - new Date(optimisticMessage.created_at).getTime()
+          });
+        } catch (error) {
+          logger.error('Error saving message:', error);
+          socket.emit('message_error', {
+            error: 'Nachricht konnte nicht gesendet werden',
+            tempId: optimisticMessage.id
+          });
+          if (receiverConnection) {
+            const [, receiverData] = receiverConnection;
+            io.to(receiverData.socketId).emit('message_failed', {
+              tempId: optimisticMessage.id
             });
           }
-        );
+        }
       } catch (error) {
         logger.error('Error handling send_message:', error);
-        socket.emit('message_error', { error: 'Failed to send message' });
+        socket.emit('message_error', { error: 'Nachricht konnte nicht verarbeitet werden' });
       }
     });
 
@@ -211,37 +248,34 @@ const initializeSocket = (server) => {
     socket.on('mark_as_read', async (data) => {
       try {
         const { messageId } = data;
-
-        db.run(
-          "UPDATE messages SET read_status = 1 WHERE id = ? AND receiver_id = ?",
-          [messageId, userId],
-          function(err) {
-            if (err) {
-              logger.error('Error marking message as read:', err);
-              return;
-            }
-
-            // Notify sender that message was read
-            db.get(
-              "SELECT sender_id FROM messages WHERE id = ?",
-              [messageId],
-              (err, result) => {
-                if (!err && result) {
-                  const senderConnection = Array.from(activeUsers.entries())
-                    .find(([id]) => id == result.sender_id);
-
-                  if (senderConnection) {
-                    const [, senderData] = senderConnection;
-                    io.to(senderData.socketId).emit('message_read', {
-                      messageId,
-                      readBy: userId
-                    });
-                  }
-                }
-              }
-            );
-          }
+        const updateResult = await database.query(
+          'UPDATE messages SET read_status = true, read_at = CURRENT_TIMESTAMP WHERE id = $1 AND receiver_id = $2',
+          [messageId, userId]
         );
+
+        if (updateResult.rowCount === 0) {
+          return;
+        }
+
+        const senderResult = await database.query(
+          'SELECT sender_id FROM messages WHERE id = $1',
+          [messageId]
+        );
+
+        if (senderResult.rows.length === 0) {
+          return;
+        }
+
+        const senderConnection = Array.from(activeUsers.entries())
+          .find(([id]) => id == senderResult.rows[0].sender_id);
+
+        if (senderConnection) {
+          const [, senderData] = senderConnection;
+          io.to(senderData.socketId).emit('message_read', {
+            messageId,
+            readBy: userId
+          });
+        }
       } catch (error) {
         logger.error('Error handling mark_as_read:', error);
       }
@@ -396,6 +430,12 @@ const initializeSocket = (server) => {
         userId,
         lastSeen: new Date()
       });
+
+      setUserOffline(userId).catch((error) => {
+        logger.warn('Failed to clear user presence in Redis', { userId, error: error.message });
+      });
+
+      emitOnlineUsers();
     });
 
     // Error handling

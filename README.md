@@ -128,6 +128,28 @@ node scripts/cleanup-test-data.js
 
 ---
 
+## 🗄️ PostgreSQL vollständig neu aufsetzen
+
+```bash
+# Kompletten Datenbestand löschen und Schema + Demo-Daten auf Deutsch neu anlegen
+npm run db:rebuild
+```
+
+> ⚠️ Dieser Befehl löscht **alle** Datenbanken-Tabellen und erstellt sie anschließend mit den aktuellen SQL-Migrationen sowie deutschen Standarddaten neu. Ideal für frische Setups oder um defekte Umgebungen zu bereinigen.
+
+---
+
+## 🚂 Railway Umgebung
+
+| Variable | Beschreibung |
+|----------|--------------|
+| `DATABASE_URL` | Wird von Railway/PostgreSQL bereitgestellt. Enthält Benutzer, Passwort, Host und DB-Namen. |
+| `REDIS_URL`    | Redis-Connection-String (`redis://default:pass@host:port`). TLS-Varianten (`rediss://`) werden automatisch erkannt. |
+
+Beide Services werden beim Start automatisch verbunden. Schlägt die Redis-Verbindung fehl, läuft die App weiter und protokolliert eine Warnung.
+
+---
+
 ## 📊 Архітектура
 
 ```

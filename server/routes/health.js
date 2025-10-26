@@ -4,10 +4,10 @@
 
 const express = require('express');
 const router = express.Router();
-const db = require('../database');
+const database = require('../config/database');
 const logger = require('../utils/logger');
 const auditLogger = require('../utils/auditLog');
-const fs = require('fs');
+const { healthCheck: redisHealthCheck } = require('../services/redisService');
 const os = require('os');
 
 /**
@@ -42,7 +42,17 @@ router.get('/detailed', async (req, res) => {
     checks.checks.memory = checkMemory();
 
     // Disk check
-    checks.checks.disk = checkDisk();
+    checks.checks.disk = await checkDisk();
+
+    // Redis check
+    try {
+      checks.checks.redis = await redisHealthCheck();
+    } catch (redisError) {
+      checks.checks.redis = {
+        status: 'warning',
+        error: redisError.message
+      };
+    }
 
     // WebSocket check
     checks.checks.websocket = checkWebSocket();
@@ -140,7 +150,8 @@ router.get('/metrics', async (req, res) => {
         cpuUsage: process.cpuUsage()
       },
       database: await getDatabaseMetrics(),
-      audit: await auditLogger.getStatistics(1)
+      audit: await auditLogger.getStatistics(1),
+      redis: await redisHealthCheck()
     };
 
     res.status(200).json(metrics);
@@ -188,19 +199,14 @@ async function checkDatabase() {
   try {
     const start = Date.now();
 
-    await new Promise((resolve, reject) => {
-      db.get('SELECT 1 as test', (err, row) => {
-        if (err) reject(err);
-        else resolve(row);
-      });
-    });
+    await database.query('SELECT 1');
 
     const responseTime = Date.now() - start;
 
     return {
       status: 'healthy',
       responseTime,
-      type: 'sqlite'
+      type: 'postgresql'
     };
   } catch (error) {
     return {
@@ -241,32 +247,30 @@ function checkMemory() {
 }
 
 /**
- * Check disk usage
+ * Check database / tablespace usage
  */
-function checkDisk() {
+async function checkDisk() {
   try {
-    const dbPath = './data/database.sqlite';
-    const dbExists = fs.existsSync(dbPath);
+    const sizeResult = await database.query(`
+      SELECT
+        pg_database_size(current_database()) AS db_size,
+        pg_tablespace_size('pg_default') AS tablespace_size
+    `);
 
-    if (!dbExists) {
-      return {
-        status: 'warning',
-        message: 'Database file not found'
-      };
-    }
-
-    const stats = fs.statSync(dbPath);
-    const sizeInMB = Math.round(stats.size / 1024 / 1024);
+    const dbSizeMb = Math.round(sizeResult.rows[0].db_size / 1024 / 1024);
+    const tablespaceMb = Math.round(sizeResult.rows[0].tablespace_size / 1024 / 1024);
 
     let status = 'healthy';
-    if (sizeInMB > 1000) {
+    if (dbSizeMb > 4096) {
+      status = 'critical';
+    } else if (dbSizeMb > 2048) {
       status = 'warning';
     }
 
     return {
       status,
-      databaseSize: sizeInMB + ' MB',
-      lastModified: stats.mtime
+      databaseSize: `${dbSizeMb} MB`,
+      tablespace: `${tablespaceMb} MB`
     };
   } catch (error) {
     return {
@@ -309,22 +313,18 @@ function checkProcess() {
  */
 async function getDatabaseMetrics() {
   try {
-    const counts = await new Promise((resolve, reject) => {
-      db.all(`
-        SELECT
-          (SELECT COUNT(*) FROM users) as users,
-          (SELECT COUNT(*) FROM messages) as messages,
-          (SELECT COUNT(*) FROM tasks) as tasks,
-          (SELECT COUNT(*) FROM schedules) as schedules
-      `, (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows[0]);
-      });
-    });
+    const result = await database.query(`
+      SELECT
+        (SELECT COUNT(*) FROM users) AS users,
+        (SELECT COUNT(*) FROM messages) AS messages,
+        (SELECT COUNT(*) FROM tasks) AS tasks,
+        (SELECT COUNT(*) FROM weekly_schedules) AS weekly_schedules,
+        (SELECT COUNT(*) FROM waste_items) AS waste_items
+    `);
 
     return {
       status: 'healthy',
-      tables: counts
+      tables: result.rows[0]
     };
   } catch (error) {
     return {
