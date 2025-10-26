@@ -57,11 +57,15 @@ app.use('/api/kb', require('./routes/knowledgeBase.pg'));
 app.use('/api/profile', require('./routes/userProfile.pg'));
 app.use('/api/notifications', require('./routes/notifications.pg'));
 
-// Common routes (work with both databases)
-app.use('/api/waste', require('./routes/waste'));
-app.use('/api/waste', require('./routes/wasteTemplates'));
-app.use('/api/waste', require('./routes/wasteSchedule'));
-app.use('/api/admin', require('./routes/admin'));
+// Waste management routes (PostgreSQL)
+app.use('/api/waste', require('./routes/waste.pg'));
+app.use('/api/waste', require('./routes/wasteTemplates.pg'));
+app.use('/api/waste', require('./routes/wasteSchedule.pg'));
+
+// Admin routes (PostgreSQL)
+app.use('/api/admin', require('./routes/admin.pg'));
+
+// Health check route
 app.use('/api/health', require('./routes/health'));
 
 // Serve static assets if in production
