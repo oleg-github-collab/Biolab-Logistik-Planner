@@ -19,11 +19,6 @@ BEGIN
     FOR r IN (SELECT sequence_name FROM information_schema.sequences WHERE sequence_schema = 'public') LOOP
         EXECUTE 'DROP SEQUENCE IF EXISTS ' || quote_ident(r.sequence_name) || ' CASCADE';
     END LOOP;
-
-    -- Drop all functions
-    FOR r IN (SELECT routine_name FROM information_schema.routines WHERE routine_schema = 'public' AND routine_type = 'FUNCTION') LOOP
-        EXECUTE 'DROP FUNCTION IF EXISTS ' || quote_ident(r.routine_name) || ' CASCADE';
-    END LOOP;
 END $$;
 
-SELECT 'All tables, views, sequences, and functions dropped successfully' AS status;
+SELECT 'All tables, views, and sequences dropped successfully' AS status;
