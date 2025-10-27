@@ -4,8 +4,53 @@ const { auth } = require('../middleware/auth');
 const { getIO, sendNotificationToUser } = require('../websocket');
 const logger = require('../utils/logger');
 const { getOnlineUsers } = require('../services/redisService');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
 const router = express.Router();
+
+// Stelle sicher, dass uploads-Ordner existiert
+const uploadsDir = path.join(__dirname, '../../uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Multer-Konfiguration für File-Upload
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadsDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit
+  },
+  fileFilter: function (req, file, cb) {
+    const allowedMimes = [
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+      'audio/mpeg',
+      'audio/wav',
+      'audio/ogg',
+      'audio/webm'
+    ];
+
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Ungültiger Dateityp. Nur Bilder und Audio-Dateien sind erlaubt.'));
+    }
+  }
+});
 
 // @route   GET /api/messages
 // @desc    Get all messages
@@ -537,6 +582,65 @@ router.post('/typing', auth, async (req, res) => {
   } catch (error) {
     logger.error('Error broadcasting typing indicator', error);
     res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// @route   POST /api/messages/upload
+// @desc    Upload file and send as message
+router.post('/upload', auth, upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Keine Datei hochgeladen' });
+    }
+
+    const { receiverId, messageType } = req.body;
+
+    if (!receiverId || receiverId == req.user.id) {
+      // Lösche hochgeladene Datei bei Fehler
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({ error: 'Ungültiger Empfänger' });
+    }
+
+    // Erstelle öffentliche URL für die Datei
+    const fileUrl = `/uploads/${req.file.filename}`;
+
+    // Speichere Nachricht in DB
+    const result = await pool.query(
+      `INSERT INTO messages (sender_id, receiver_id, message, message_type, is_group, read_status, created_at)
+       VALUES ($1, $2, $3, $4, false, false, CURRENT_TIMESTAMP)
+       RETURNING *`,
+      [req.user.id, parseInt(receiverId), fileUrl, messageType]
+    );
+
+    const message = result.rows[0];
+
+    // Hole Sender-Info
+    const senderResult = await pool.query(
+      'SELECT name FROM users WHERE id = $1',
+      [req.user.id]
+    );
+
+    // Sende via WebSocket
+    const io = getIO();
+    if (io) {
+      io.emit('new_message', {
+        ...message,
+        sender_name: senderResult.rows[0].name
+      });
+    }
+
+    res.json({
+      ...message,
+      fileUrl: fileUrl
+    });
+
+  } catch (error) {
+    logger.error('Upload error:', error);
+    // Lösche hochgeladene Datei bei Fehler
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    res.status(500).json({ error: 'Upload fehlgeschlagen' });
   }
 });
 
