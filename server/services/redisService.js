@@ -73,6 +73,30 @@ redis.on('reconnecting', () => {
   logger.info('Redis client reconnecting...');
 });
 
+/**
+ * Production-safe method to get keys using SCAN instead of KEYS
+ * @param {string} pattern - Pattern to match
+ * @returns {Promise<string[]>} Array of matching keys
+ */
+async function scanKeys(pattern) {
+  const keys = [];
+  let cursor = '0';
+
+  do {
+    const [newCursor, matchedKeys] = await redis.scan(
+      cursor,
+      'MATCH',
+      pattern,
+      'COUNT',
+      100 // Process 100 keys at a time
+    );
+    cursor = newCursor;
+    keys.push(...matchedKeys);
+  } while (cursor !== '0');
+
+  return keys;
+}
+
 // Connect to Redis
 async function connect() {
   try {
@@ -161,7 +185,7 @@ async function deleteSession(sessionId) {
 async function getUserSessions(userId) {
   try {
     const pattern = `${SESSION_PREFIX}*`;
-    const keys = await redis.keys(pattern);
+    const keys = await scanKeys(pattern);
     const sessions = [];
 
     for (const key of keys) {
@@ -236,7 +260,7 @@ async function deleteCache(key) {
 async function deleteCachePattern(pattern) {
   try {
     const cachePattern = `${CACHE_PREFIX}${pattern}`;
-    const keys = await redis.keys(cachePattern);
+    const keys = await scanKeys(cachePattern);
 
     if (keys.length > 0) {
       await redis.del(...keys);
@@ -345,7 +369,7 @@ async function isUserOnline(userId) {
 async function getOnlineUsers() {
   try {
     const pattern = `${ONLINE_PREFIX}*`;
-    const keys = await redis.keys(pattern);
+    const keys = await scanKeys(pattern);
     const users = [];
 
     for (const key of keys) {

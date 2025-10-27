@@ -13,6 +13,19 @@ let io;
 // Active users tracking
 const activeUsers = new Map(); // userId -> {socketId, userInfo, lastSeen}
 
+// Cleanup stale connections every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  const staleTimeout = 5 * 60 * 1000; // 5 minutes
+
+  for (const [userId, userData] of activeUsers.entries()) {
+    if (userData.lastSeen && (now - userData.lastSeen.getTime()) > staleTimeout) {
+      logger.info('Removing stale user connection', { userId });
+      activeUsers.delete(userId);
+    }
+  }
+}, 5 * 60 * 1000);
+
 const buildOnlinePayload = (users) => users.map((entry) => ({
   userId: entry.userInfo ? entry.userInfo.id : parseInt(entry.userId, 10),
   name: entry.userInfo ? entry.userInfo.name : entry.name,
@@ -77,7 +90,12 @@ const initializeSocket = (server) => {
       }
 
       // Verify token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'biolab-logistik-secret-key');
+      const jwtSecret = process.env.JWT_SECRET;
+      if (!jwtSecret) {
+        logger.error('JWT_SECRET not configured for WebSocket');
+        return next(new Error('Server configuration error'));
+      }
+      const decoded = jwt.verify(token, jwtSecret);
 
       const userResult = await database.query(
         'SELECT id, name, email, role FROM users WHERE id = $1',
@@ -425,6 +443,9 @@ const initializeSocket = (server) => {
       // Remove user from active users
       activeUsers.delete(userId);
 
+      // Leave user-specific room
+      socket.leave(`user_${userId}`);
+
       // Notify other users about offline status
       socket.broadcast.emit('user_offline', {
         userId,
@@ -436,6 +457,9 @@ const initializeSocket = (server) => {
       });
 
       emitOnlineUsers();
+
+      // Clean up all event listeners to prevent memory leaks
+      socket.removeAllListeners();
     });
 
     // Error handling

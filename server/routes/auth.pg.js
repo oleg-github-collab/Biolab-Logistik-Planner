@@ -5,6 +5,7 @@ const pool = require('../config/database');
 const { auth } = require('../middleware/auth');
 const logger = require('../utils/logger');
 const auditLogger = require('../utils/auditLog');
+const { schemas, validate } = require('../validators');
 
 const router = express.Router();
 
@@ -52,7 +53,7 @@ router.get('/first-setup', async (req, res) => {
 
 // @route   POST /api/auth/register
 // @desc    Register a new user
-router.post('/register', async (req, res) => {
+router.post('/register', validate(schemas.register), async (req, res) => {
   const {
     name,
     email,
@@ -101,7 +102,12 @@ router.post('/register', async (req, res) => {
       let decoded;
 
       try {
-        decoded = jwt.verify(token, process.env.JWT_SECRET || 'biolab-logistik-secret-key');
+        const jwtSecret = process.env.JWT_SECRET;
+        if (!jwtSecret) {
+          logger.error('JWT_SECRET not configured');
+          return res.status(500).json({ error: 'Server configuration error' });
+        }
+        decoded = jwt.verify(token, jwtSecret);
       } catch (error) {
         return res.status(401).json({ error: 'Invalid or expired token' });
       }
@@ -188,9 +194,15 @@ router.post('/register', async (req, res) => {
         }
       };
 
+      const jwtSecret = process.env.JWT_SECRET;
+      if (!jwtSecret) {
+        logger.error('JWT_SECRET not configured');
+        return res.status(500).json({ error: 'Server configuration error' });
+      }
+
       token = jwt.sign(
         payload,
-        process.env.JWT_SECRET || 'biolab-logistik-secret-key',
+        jwtSecret,
         { expiresIn: '7d' }
       );
     }
@@ -228,7 +240,7 @@ router.post('/register', async (req, res) => {
 
 // @route   POST /api/auth/login
 // @desc    Authenticate user & get token
-router.post('/login', async (req, res) => {
+router.post('/login', validate(schemas.login), async (req, res) => {
   const { email, password } = req.body;
 
   try {
@@ -293,9 +305,15 @@ router.post('/login', async (req, res) => {
     };
 
     // Sign token
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) {
+      logger.error('JWT_SECRET not configured');
+      return res.status(500).json({ error: 'Server configuration error' });
+    }
+
     const token = jwt.sign(
       payload,
-      process.env.JWT_SECRET || 'biolab-logistik-secret-key',
+      jwtSecret,
       { expiresIn: '7d' }
     );
 
@@ -361,7 +379,7 @@ router.get('/user', auth, async (req, res) => {
 
 // @route   POST /api/auth/complete-first-login
 // @desc    Complete first login and set weekly hours quota
-router.post('/complete-first-login', auth, async (req, res) => {
+router.post('/complete-first-login', auth, validate(schemas.completeFirstLogin), async (req, res) => {
   const { weekly_hours_quota } = req.body;
 
   try {

@@ -4,6 +4,7 @@ const { auth } = require('../middleware/auth');
 const { getIO } = require('../websocket');
 const auditLogger = require('../utils/auditLog');
 const logger = require('../utils/logger');
+const { schemas, validate } = require('../validators');
 
 const router = express.Router();
 
@@ -48,7 +49,7 @@ router.get('/', auth, async (req, res) => {
 
 // @route   POST /api/tasks
 // @desc    Create a new task
-router.post('/', auth, async (req, res) => {
+router.post('/', auth, validate(schemas.createTask), async (req, res) => {
   try {
     const {
       title,
@@ -152,7 +153,7 @@ router.post('/', auth, async (req, res) => {
 
 // @route   PUT /api/tasks/:id
 // @desc    Update a task
-router.put('/:id', auth, async (req, res) => {
+router.put('/:id', auth, validate(schemas.updateTask), async (req, res) => {
   try {
     const { id } = req.params;
     const {

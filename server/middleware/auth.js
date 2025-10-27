@@ -97,7 +97,14 @@ const auth = async (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'biolab-logistik-secret-key');
+    // Ensure JWT_SECRET is set in production
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) {
+      logger.error('JWT_SECRET not configured in environment');
+      return res.status(500).json({ error: 'Server configuration error' });
+    }
+
+    const decoded = jwt.verify(token, jwtSecret);
 
     const user = await getUserFromPostgres(decoded.user.id);
 

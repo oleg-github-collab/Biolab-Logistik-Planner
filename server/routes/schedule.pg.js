@@ -4,6 +4,7 @@ const { auth } = require('../middleware/auth');
 const { getIO } = require('../websocket');
 const auditLogger = require('../utils/auditLog');
 const logger = require('../utils/logger');
+const { schemas, validate } = require('../validators');
 
 const router = express.Router();
 
@@ -574,7 +575,7 @@ router.get('/events', auth, async (req, res) => {
 
 // @route   POST /api/schedule/events
 // @desc    Create new calendar event
-router.post('/events', auth, async (req, res) => {
+router.post('/events', auth, validate(schemas.createEvent), async (req, res) => {
   try {
     const { title, description, event_date, start_time, end_time, event_type, priority, location, attendees } = req.body;
 
