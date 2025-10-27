@@ -518,7 +518,19 @@ router.get('/users', auth, async (req, res) => {
 router.get('/events', auth, async (req, res) => {
   try {
     console.log('GET /events request with query:', req.query);
-    const { startDate, endDate, userId, type, priority } = req.query;
+    // Accept both start/end and startDate/endDate for backward compatibility
+    const {
+      startDate,
+      endDate,
+      start,
+      end,
+      userId,
+      type,
+      priority
+    } = req.query;
+
+    const actualStartDate = startDate || start;
+    const actualEndDate = endDate || end;
 
     let targetUserId = req.user.id;
     if (userId && (req.user.role === 'admin' || req.user.role === 'superadmin')) {
@@ -538,15 +550,15 @@ router.get('/events', auth, async (req, res) => {
     const params = [targetUserId];
     let paramIndex = 2;
 
-    if (startDate) {
+    if (actualStartDate) {
       query += ` AND e.event_date >= $${paramIndex}`;
-      params.push(startDate);
+      params.push(actualStartDate);
       paramIndex++;
     }
 
-    if (endDate) {
+    if (actualEndDate) {
       query += ` AND e.event_date <= $${paramIndex}`;
-      params.push(endDate);
+      params.push(actualEndDate);
       paramIndex++;
     }
 

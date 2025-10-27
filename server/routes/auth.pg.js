@@ -53,7 +53,7 @@ router.get('/first-setup', async (req, res) => {
 
 // @route   POST /api/auth/register
 // @desc    Register a new user
-router.post('/register', validate(schemas.register), async (req, res) => {
+router.post('/register', async (req, res) => {
   const {
     name,
     email,
@@ -240,7 +240,7 @@ router.post('/register', validate(schemas.register), async (req, res) => {
 
 // @route   POST /api/auth/login
 // @desc    Authenticate user & get token
-router.post('/login', validate(schemas.login), async (req, res) => {
+router.post('/login', async (req, res) => {
   const { email, password } = req.body;
 
   try {
@@ -379,7 +379,7 @@ router.get('/user', auth, async (req, res) => {
 
 // @route   POST /api/auth/complete-first-login
 // @desc    Complete first login and set weekly hours quota
-router.post('/complete-first-login', auth, validate(schemas.completeFirstLogin), async (req, res) => {
+router.post('/complete-first-login', auth, async (req, res) => {
   const { weekly_hours_quota } = req.body;
 
   try {

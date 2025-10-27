@@ -284,7 +284,7 @@ router.get('/unread-count', auth, async (req, res) => {
 
 // @route   POST /api/messages/start
 // @desc    Start a conversation with a user
-router.post('/start', auth, validate(schemas.startConversation), async (req, res) => {
+router.post('/start', auth, async (req, res) => {
   try {
     const { receiver_id } = req.body;
 
@@ -320,7 +320,7 @@ router.post('/start', auth, validate(schemas.startConversation), async (req, res
 
 // @route   POST /api/messages
 // @desc    Send a new message
-router.post('/', auth, validate(schemas.sendMessage), async (req, res) => {
+router.post('/', auth, async (req, res) => {
   try {
     const { recipientId, content, gif } = req.body;
 
@@ -560,7 +560,7 @@ router.delete('/:id', auth, async (req, res) => {
 
 // @route   POST /api/messages/typing
 // @desc    Broadcast typing indicator
-router.post('/typing', auth, validate(schemas.typingIndicator), async (req, res) => {
+router.post('/typing', auth, async (req, res) => {
   try {
     const { recipientId, isTyping } = req.body;
 
