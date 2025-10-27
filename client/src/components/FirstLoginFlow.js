@@ -1,10 +1,10 @@
-import React, { useState, useContext } from 'react';
-import { AuthContext } from '../context/AuthContext';
+import React, { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
 
 const FirstLoginFlow = ({ onComplete }) => {
-  const { state = {}, dispatch } = useContext(AuthContext) || {};
-  const { user } = state;
+  const auth = useAuth();
+  const user = auth?.user;
 
   const [weeklyHours, setWeeklyHours] = useState(
     user?.employment_type === 'Vollzeit' ? 40 : 20
@@ -13,7 +13,7 @@ const FirstLoginFlow = ({ onComplete }) => {
   const [error, setError] = useState(null);
 
   // Don't render if no user context
-  if (!state || !user) {
+  if (!auth || !user) {
     return null;
   }
 
@@ -33,11 +33,8 @@ const FirstLoginFlow = ({ onComplete }) => {
         weekly_hours_quota: weeklyHours
       });
 
-      // Update user in context
-      dispatch({
-        type: 'LOAD_USER',
-        payload: response.data.user
-      });
+      // Update user in context - for now just reload page to get fresh data
+      window.location.reload();
 
       if (onComplete) {
         onComplete();

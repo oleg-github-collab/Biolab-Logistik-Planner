@@ -81,8 +81,8 @@ export const getArchivedSchedules = () =>
 // Event endpoints
 export const getEvents = (start, end, type, priority) => {
   const params = new URLSearchParams();
-  if (start) params.append('start', start);
-  if (end) params.append('end', end);
+  if (start) params.append('startDate', start);
+  if (end) params.append('endDate', end);
   if (type) params.append('type', type);
   if (priority) params.append('priority', priority);
 
