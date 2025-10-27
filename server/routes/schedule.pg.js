@@ -517,6 +517,7 @@ router.get('/users', auth, async (req, res) => {
 // @desc    Get all calendar events with optional filters
 router.get('/events', auth, async (req, res) => {
   try {
+    console.log('GET /events request with query:', req.query);
     const { startDate, endDate, userId, type, priority } = req.query;
 
     let targetUserId = req.user.id;
@@ -568,14 +569,15 @@ router.get('/events', auth, async (req, res) => {
     res.json(result.rows);
 
   } catch (error) {
+    console.error('GET /events error:', error);
     logger.error('Error fetching calendar events', error);
-    res.status(500).json({ error: 'Serverfehler' });
+    res.status(500).json({ error: error.message || 'Serverfehler' });
   }
 });
 
 // @route   POST /api/schedule/events
 // @desc    Create new calendar event
-router.post('/events', auth, validate(schemas.createEvent), async (req, res) => {
+router.post('/events', auth, async (req, res) => {
   try {
     const { title, description, event_date, start_time, end_time, event_type, priority, location, attendees } = req.body;
 
