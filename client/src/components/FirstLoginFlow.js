@@ -33,11 +33,16 @@ const FirstLoginFlow = ({ onComplete }) => {
         weekly_hours_quota: weeklyHours
       });
 
-      // Update user in context - for now just reload page to get fresh data
-      window.location.reload();
-
-      if (onComplete) {
-        onComplete();
+      // Check if response is valid
+      if (response && response.data) {
+        // Call onComplete callback if provided
+        if (onComplete) {
+          onComplete();
+        }
+        // Reload page to refresh user data
+        setTimeout(() => {
+          window.location.reload();
+        }, 100);
       }
 
     } catch (err) {
