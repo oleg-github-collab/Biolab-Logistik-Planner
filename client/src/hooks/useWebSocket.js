@@ -3,7 +3,9 @@ import { useAuth } from '../context/AuthContext';
 import io from 'socket.io-client';
 
 const useWebSocket = () => {
-  const { token, isAuthenticated } = useAuth();
+  const auth = useAuth();
+  const token = auth?.token;
+  const isAuthenticated = auth?.isAuthenticated;
   const socketRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
   const reconnectAttemptsRef = useRef(0);

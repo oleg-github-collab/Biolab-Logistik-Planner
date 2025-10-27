@@ -4,7 +4,7 @@ import { de } from 'date-fns/locale';
 import { useAuth } from '../context/AuthContext';
 
 const SmartTimeEntry = ({ onSave, initialData = null }) => {
-  const { user } = useAuth();
+  const auth = useAuth(); const user = auth?.user;
   const [mode, setMode] = useState('quick'); // quick, detailed, voice
   const [timeData, setTimeData] = useState({
     type: 'work', // work, break, overtime

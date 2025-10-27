@@ -11,7 +11,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 
 const QuickWasteEntry = ({ onSave }) => {
-  const { user } = useAuth();
+  const auth = useAuth(); const user = auth?.user;
   const [mode, setMode] = useState('quick'); // quick, search, scan
   const [wasteData, setWasteData] = useState({
     wasteCode: null,

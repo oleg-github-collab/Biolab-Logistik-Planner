@@ -181,7 +181,7 @@ const Toast = memo(({ toast, onClose }) => {
 });
 
 const Dashboard = () => {
-  const { user } = useAuth();
+  const auth = useAuth(); const user = auth?.user;
   const [currentWeek, setCurrentWeek] = useState(null);
   const [mySchedule, setMySchedule] = useState([]);
   const [teamSchedule, setTeamSchedule] = useState([]);

@@ -15,12 +15,19 @@ const NAV_ITEMS = [
 ];
 
 const Header = ({ socket }) => {
-  const { state, logout } = useAuth();
-  const { user } = state;
+  const authContext = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const { hasPermission } = usePermissions();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Безпечна перевірка контексту
+  if (!authContext || !authContext.state) {
+    return null;
+  }
+
+  const { state, logout } = authContext;
+  const { user } = state || {};
 
   const roleTranslations = {
     superadmin: 'Superadmin',

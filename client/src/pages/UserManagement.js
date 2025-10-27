@@ -87,7 +87,7 @@ const UserRow = memo(({ userItem, currentUserId, onEdit, onDelete }) => {
 UserRow.displayName = 'UserRow';
 
 const UserManagement = () => {
-  const { user } = useAuth();
+  const auth = useAuth(); const user = auth?.user;
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

@@ -18,7 +18,9 @@ import UserProfilePage from './pages/UserProfilePage';
 
 // Protected Route component with First Login check
 const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, user } = useAuth();
+  const auth = useAuth();
+  const isAuthenticated = auth?.isAuthenticated;
+  const user = auth?.user;
   const [showFirstLogin, setShowFirstLogin] = useState(false);
 
   useEffect(() => {
@@ -47,7 +49,9 @@ const ProtectedRoute = ({ children }) => {
 
 // Admin Route component
 const AdminRoute = ({ children }) => {
-  const { isAuthenticated, user } = useAuth();
+  const auth = useAuth();
+  const isAuthenticated = auth?.isAuthenticated;
+  const user = auth?.user;
   
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
@@ -62,7 +66,8 @@ const AdminRoute = ({ children }) => {
 
 // Main App component
 const AppContent = () => {
-  const { loading } = useAuth();
+  const auth = useAuth();
+  const loading = auth?.loading;
 
   if (loading) {
     return (

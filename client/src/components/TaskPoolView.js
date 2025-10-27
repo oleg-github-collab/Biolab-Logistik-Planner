@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { getTodayTaskPool, getMyTasks, claimTask, requestTaskHelp, respondToHelpRequest, getMyHelpRequests, completeTask } from '../utils/apiEnhanced';
 
 const TaskPoolView = () => {
-  const { user } = useAuth();
+  const auth = useAuth(); const user = auth?.user;
   const [tasks, setTasks] = useState([]);
   const [myTasks, setMyTasks] = useState([]);
   const [helpRequests, setHelpRequests] = useState([]);

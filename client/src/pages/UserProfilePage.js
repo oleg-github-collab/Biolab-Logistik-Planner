@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import UserProfile from '../components/UserProfile';
 
 const UserProfilePage = () => {
-  const { user } = useAuth();
+  const auth = useAuth(); const user = auth?.user;
   const { userId } = useParams();
   const navigate = useNavigate();
 

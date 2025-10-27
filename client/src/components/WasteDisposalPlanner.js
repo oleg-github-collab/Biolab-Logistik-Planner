@@ -16,7 +16,7 @@ const localizer = momentLocalizer(moment);
 const DragAndDropCalendar = withDragAndDrop(Calendar);
 
 const WasteDisposalPlanner = () => {
-  const { token } = useAuth();
+  const auth = useAuth(); const token = auth?.token;
   const { hasPermission } = usePermissions();
   const { showNotification, isConnected } = useWebSocket();
 

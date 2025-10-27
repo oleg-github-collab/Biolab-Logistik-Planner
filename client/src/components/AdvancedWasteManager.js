@@ -4,7 +4,7 @@ import { de } from 'date-fns/locale';
 import { useAuth } from '../context/AuthContext';
 
 const AdvancedWasteManager = () => {
-  const { user } = useAuth();
+  const auth = useAuth(); const user = auth?.user;
   const [wasteItems, setWasteItems] = useState([]);
   const [users, setUsers] = useState([]);
   const [notifications, setNotifications] = useState([]);

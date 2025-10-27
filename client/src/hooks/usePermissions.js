@@ -58,7 +58,7 @@ export const PERMISSIONS = {
  * @returns {Object} Permission checking utilities
  */
 export const usePermissions = () => {
-  const { user } = useAuth();
+  const auth = useAuth(); const user = auth?.user;
 
   /**
    * Check if user has a specific permission

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 
 const EventModal_ENHANCED = ({ isOpen, onClose, onSave, event = null, date = null }) => {
-  const { user } = useAuth();
+  const auth = useAuth(); const user = auth?.user;
   const [activeTab, setActiveTab] = useState('meeting');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});

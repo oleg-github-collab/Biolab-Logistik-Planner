@@ -15,7 +15,8 @@ const FirstSetup = () => {
   const [loading, setLoading] = useState(false);
   const [setupStatus, setSetupStatus] = useState('checking');
   const navigate = useNavigate();
-  const { login: authLogin } = useAuth();
+  const auth = useAuth();
+  const authLogin = auth?.login;
 
   // Check if first setup is really required
   useEffect(() => {

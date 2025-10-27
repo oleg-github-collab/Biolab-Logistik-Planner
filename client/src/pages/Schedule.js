@@ -4,7 +4,7 @@ import HoursCalendar from '../components/HoursCalendar';
 import MonthlyHoursCalculator from '../components/MonthlyHoursCalculator';
 
 const Schedule = () => {
-  const { user } = useAuth();
+  const auth = useAuth(); const user = auth?.user;
   const [activeTab, setActiveTab] = useState('calendar');
 
   return (

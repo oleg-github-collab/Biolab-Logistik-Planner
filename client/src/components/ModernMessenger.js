@@ -14,7 +14,7 @@ import { showTypedNotification, NotificationTypes, getNotificationPermission } f
 import io from 'socket.io-client';
 
 const ModernMessenger = () => {
-  const { user } = useAuth();
+  const auth = useAuth(); const user = auth?.user;
   const { isAdmin } = usePermissions();
   const location = useLocation();
   const [conversations, setConversations] = useState([]);

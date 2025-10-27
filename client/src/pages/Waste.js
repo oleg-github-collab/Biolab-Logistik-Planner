@@ -10,7 +10,7 @@ import {
 } from '../utils/api';
 
 const Waste = () => {
-  const { user } = useAuth();
+  const auth = useAuth(); const user = auth?.user;
   const [wasteItems, setWasteItems] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
