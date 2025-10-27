@@ -38,7 +38,8 @@ echo "✅ Railway project linked"
 echo ""
 
 echo "📋 Step 3: Getting DATABASE_URL..."
-DATABASE_URL=$(railway variables get DATABASE_URL)
+# New Railway CLI syntax
+DATABASE_URL=$(railway variables --json | grep DATABASE_URL | cut -d'"' -f4)
 
 if [ -z "$DATABASE_URL" ]; then
     echo "❌ DATABASE_URL not found in Railway variables"
