@@ -50,24 +50,10 @@ echo "✅ DATABASE_URL found"
 echo ""
 
 echo "🗑️  Step 4: Dropping all tables..."
-# First, run the drop script
-PGPASSWORD=$(echo $DATABASE_URL | sed -n 's/.*:\([^@]*\)@.*/\1/p') \
-psql "$DATABASE_URL" -f server/migrations/000_drop_all_tables.sql
+# Use Railway run to execute within Railway context
+railway run npm run migrate:pg
 
-echo "✅ All tables dropped"
-echo ""
-
-echo "🏗️  Step 5: Creating fresh schema..."
-# Run the complete schema migration
-PGPASSWORD=$(echo $DATABASE_URL | sed -n 's/.*:\([^@]*\)@.*/\1/p') \
-psql "$DATABASE_URL" -f server/migrations/001_complete_schema.sql
-
-echo "✅ Schema created successfully"
-echo ""
-
-echo "🔍 Step 6: Verifying tables..."
-PGPASSWORD=$(echo $DATABASE_URL | sed -n 's/.*:\([^@]*\)@.*/\1/p') \
-psql "$DATABASE_URL" -c "\dt"
+echo "✅ Database migration completed"
 
 echo ""
 echo "✅ DATABASE REBUILD COMPLETE!"
