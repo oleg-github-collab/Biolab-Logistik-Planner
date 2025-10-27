@@ -5,7 +5,7 @@ const logger = require('./utils/logger');
 const {
   setUserOnline,
   setUserOffline,
-  getOnlineUsers
+  getOnlineUsers: getOnlineUsersFromRedis
 } = require('./services/redisService');
 
 let io;
@@ -23,7 +23,7 @@ const emitOnlineUsers = async (targetSocket = null) => {
   const fallback = buildOnlinePayload(Array.from(activeUsers.values()));
 
   try {
-    const redisUsers = await getOnlineUsers();
+    const redisUsers = await getOnlineUsersFromRedis();
     if (Array.isArray(redisUsers) && redisUsers.length > 0) {
       const payload = redisUsers.map((user) => ({
         userId: parseInt(user.userId, 10),

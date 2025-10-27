@@ -40,6 +40,7 @@ const ModernMessenger = () => {
   const typingTimeoutRef = useRef(null);
   const audioRef = useRef(null);
   const textareaRef = useRef(null);
+  const fileInputRef = useRef(null);
   const [reactionRefreshMap, setReactionRefreshMap] = useState({});
 
   // Initialize notification sound
@@ -443,6 +444,74 @@ const ModernMessenger = () => {
     setShowGifPicker(false);
   };
 
+  const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Größenbeschränkung 5MB
+    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+    if (file.size > maxSize) {
+      showError('Datei ist zu groß! Maximale Größe: 5MB');
+      event.target.value = '';
+      return;
+    }
+
+    // Prüfe Dateityp
+    const isImage = file.type.startsWith('image/');
+    const isAudio = file.type.startsWith('audio/');
+
+    if (!isImage && !isAudio) {
+      showError('Nur Bilder und Audio-Dateien sind erlaubt');
+      event.target.value = '';
+      return;
+    }
+
+    try {
+      setSending(true);
+
+      // Erstelle FormData für Upload
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('receiverId', selectedConversation.id);
+      formData.append('messageType', isImage ? 'image' : 'audio');
+
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/messages/upload', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload fehlgeschlagen');
+      }
+
+      const data = await response.json();
+      showSuccess(isImage ? 'Bild gesendet!' : 'Audio gesendet!');
+
+      // Socket-Event für neue Nachricht
+      if (socket) {
+        socket.emit('send_message', {
+          senderId: user.id,
+          receiverId: selectedConversation.id,
+          content: data.fileUrl,
+          messageType: isImage ? 'image' : 'audio'
+        });
+      }
+
+      // Input zurücksetzen
+      event.target.value = '';
+
+    } catch (error) {
+      console.error('Upload error:', error);
+      showError('Upload fehlgeschlagen. Bitte versuchen Sie es erneut.');
+    } finally {
+      setSending(false);
+    }
+  };
+
   const handleTyping = () => {
     setIsTyping(true);
 
@@ -612,6 +681,9 @@ const ModernMessenger = () => {
     } : null;
 
     const isGif = message.message_type === 'gif' || message.type === 'gif';
+    const isImage = message.message_type === 'image' || message.type === 'image';
+    const isAudio = message.message_type === 'audio' || message.type === 'audio';
+    const isMedia = isGif || isImage || isAudio;
     const isHighlighted = messageSearchTerm &&
       message.message.toLowerCase().includes(messageSearchTerm.toLowerCase());
 
@@ -632,7 +704,7 @@ const ModernMessenger = () => {
           )}
 
           <div className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
-            <div className={`${isGif ? 'p-1' : 'px-3 py-2'} shadow-sm transition-all duration-200 ${
+            <div className={`${isMedia ? 'p-1' : 'px-3 py-2'} shadow-sm transition-all duration-200 ${
               isOwn
                 ? 'bg-[#3B82F6] text-white rounded-2xl rounded-br-md hover:shadow-md'
                 : 'bg-[#F3F4F6] text-gray-900 rounded-2xl rounded-bl-md hover:shadow-md'
@@ -646,13 +718,34 @@ const ModernMessenger = () => {
                     loading="lazy"
                   />
                 </div>
+              ) : isImage ? (
+                <div className="relative rounded-xl overflow-hidden">
+                  <img
+                    src={message.message}
+                    alt="Bild"
+                    className="max-w-[250px] max-h-64 object-contain cursor-pointer hover:opacity-95 transition-opacity"
+                    loading="lazy"
+                    onClick={() => window.open(message.message, '_blank')}
+                  />
+                </div>
+              ) : isAudio ? (
+                <div className="p-2">
+                  <audio
+                    controls
+                    className="max-w-[250px]"
+                    src={message.message}
+                    preload="metadata"
+                  >
+                    Ihr Browser unterstützt keine Audio-Wiedergabe.
+                  </audio>
+                </div>
               ) : (
                 <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words">
                   {message.message}
                 </p>
               )}
 
-              <div className={`flex items-center justify-end gap-1 mt-1 ${isGif ? 'px-2 pb-1' : ''}`}>
+              <div className={`flex items-center justify-end gap-1 mt-1 ${isMedia ? 'px-2 pb-1' : ''}`}>
                 <span className={`text-[11px] ${isOwn ? 'text-blue-100' : 'text-gray-500'}`}>
                   {format(new Date(message.created_at), 'HH:mm')}
                 </span>
@@ -1075,6 +1168,26 @@ const ModernMessenger = () => {
             {/* Message Input */}
             <div className="bg-white border-t border-gray-200 px-4 py-3 flex-shrink-0">
               <form onSubmit={sendMessage} className="flex items-end gap-2">
+                <input
+                  type="file"
+                  ref={(ref) => fileInputRef.current = ref}
+                  accept="image/*,audio/*"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  id="file-upload"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => document.getElementById('file-upload').click()}
+                  className="p-2.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-full transition-all duration-200 flex-shrink-0 transform hover:scale-110"
+                  title="Foto oder Audio senden (max 5MB)"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                  </svg>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => setShowGifPicker(true)}

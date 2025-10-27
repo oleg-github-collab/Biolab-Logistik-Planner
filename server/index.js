@@ -70,6 +70,9 @@ app.use('/api/admin', require('./routes/admin.pg'));
 // Health check route
 app.use('/api/health', require('./routes/health'));
 
+// Serve uploaded files
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+
 // Serve static assets if in production
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '..', 'client', 'build')));
