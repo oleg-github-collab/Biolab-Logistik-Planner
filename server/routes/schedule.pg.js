@@ -538,25 +538,30 @@ router.get('/events', auth, async (req, res) => {
 
     let query = `
       SELECT e.*,
-        u.name as user_name,
         creator.name as created_by_name
       FROM calendar_events e
-      LEFT JOIN users u ON e.user_id = u.id
       LEFT JOIN users creator ON e.created_by = creator.id
-      WHERE e.user_id = $1
+      WHERE 1=1
     `;
 
-    const params = [targetUserId];
-    let paramIndex = 2;
+    const params = [];
+    let paramIndex = 1;
+
+    // Filter by created_by if userId parameter is provided
+    if (userId && (req.user.role === 'admin' || req.user.role === 'superadmin')) {
+      query += ` AND e.created_by = $${paramIndex}`;
+      params.push(targetUserId);
+      paramIndex++;
+    }
 
     if (actualStartDate) {
-      query += ` AND e.event_date >= $${paramIndex}`;
+      query += ` AND e.start_time >= $${paramIndex}`;
       params.push(actualStartDate);
       paramIndex++;
     }
 
     if (actualEndDate) {
-      query += ` AND e.event_date <= $${paramIndex}`;
+      query += ` AND e.end_time <= $${paramIndex}`;
       params.push(actualEndDate);
       paramIndex++;
     }
@@ -573,7 +578,7 @@ router.get('/events', auth, async (req, res) => {
       paramIndex++;
     }
 
-    query += ' ORDER BY e.event_date, e.start_time';
+    query += ' ORDER BY e.start_time, e.end_time';
 
     const result = await pool.query(query, params);
 

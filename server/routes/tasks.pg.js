@@ -17,10 +17,10 @@ router.get('/', auth, async (req, res) => {
     let query = `
       SELECT t.*,
         u.name as assignee_name,
-        updater.name as last_updated_by_name
+        creator.name as created_by_name
       FROM tasks t
-      LEFT JOIN users u ON t.assignee_id = u.id
-      LEFT JOIN users updater ON t.last_updated_by = updater.id
+      LEFT JOIN users u ON t.assigned_to = u.id
+      LEFT JOIN users creator ON t.created_by = creator.id
     `;
 
     const params = [];
@@ -58,7 +58,8 @@ router.post('/', auth, async (req, res) => {
       priority = 'medium',
       assigneeId,
       dueDate,
-      tags = []
+      tags = [],
+      category
     } = req.body;
 
     // Validate inputs
@@ -67,7 +68,7 @@ router.post('/', auth, async (req, res) => {
     }
 
     // Validate status
-    const validStatuses = ['todo', 'inprogress', 'review', 'done'];
+    const validStatuses = ['todo', 'in_progress', 'done', 'cancelled'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ error: 'Invalid status' });
     }
@@ -81,7 +82,7 @@ router.post('/', auth, async (req, res) => {
     // Insert task
     const insertResult = await pool.query(
       `INSERT INTO tasks (
-        title, description, status, priority, assignee_id, due_date, tags, last_updated_by, created_at, updated_at
+        title, description, status, priority, assigned_to, due_date, category, created_by, created_at, updated_at
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       RETURNING id`,
       [
@@ -91,7 +92,7 @@ router.post('/', auth, async (req, res) => {
         priority,
         assigneeId || null,
         dueDate || null,
-        JSON.stringify(tags),
+        category || null,
         req.user.id
       ]
     );
@@ -102,10 +103,10 @@ router.post('/', auth, async (req, res) => {
     const taskResult = await pool.query(
       `SELECT t.*,
         u.name as assignee_name,
-        updater.name as last_updated_by_name
+        updater.name as created_by_name
        FROM tasks t
-       LEFT JOIN users u ON t.assignee_id = u.id
-       LEFT JOIN users updater ON t.last_updated_by = updater.id
+       LEFT JOIN users u ON t.assigned_to = u.id
+       LEFT JOIN users updater ON t.created_by = updater.id
        WHERE t.id = $1`,
       [taskId]
     );
@@ -194,7 +195,7 @@ router.put('/:id', auth, async (req, res) => {
     }
 
     if (status !== undefined) {
-      const validStatuses = ['todo', 'inprogress', 'review', 'done'];
+      const validStatuses = ['todo', 'in_progress', 'done', 'cancelled'];
       if (!validStatuses.includes(status)) {
         return res.status(400).json({ error: 'Invalid status' });
       }
@@ -212,7 +213,7 @@ router.put('/:id', auth, async (req, res) => {
     }
 
     if (assigneeId !== undefined) {
-      updates.push(`assignee_id = $${paramIndex++}`);
+      updates.push(`assigned_to = $${paramIndex++}`);
       values.push(assigneeId || null);
     }
 
@@ -231,8 +232,6 @@ router.put('/:id', auth, async (req, res) => {
     }
 
     updates.push(`updated_at = CURRENT_TIMESTAMP`);
-    updates.push(`last_updated_by = $${paramIndex++}`);
-    values.push(req.user.id);
 
     values.push(id);
     const query = `UPDATE tasks SET ${updates.join(', ')} WHERE id = $${paramIndex}`;
@@ -243,10 +242,10 @@ router.put('/:id', auth, async (req, res) => {
     const taskResult = await pool.query(
       `SELECT t.*,
         u.name as assignee_name,
-        updater.name as last_updated_by_name
+        updater.name as created_by_name
        FROM tasks t
-       LEFT JOIN users u ON t.assignee_id = u.id
-       LEFT JOIN users updater ON t.last_updated_by = updater.id
+       LEFT JOIN users u ON t.assigned_to = u.id
+       LEFT JOIN users updater ON t.created_by = updater.id
        WHERE t.id = $1`,
       [id]
     );
@@ -312,10 +311,10 @@ router.delete('/:id', auth, async (req, res) => {
     const taskResult = await pool.query(
       `SELECT t.*,
         u.name as assignee_name,
-        updater.name as last_updated_by_name
+        updater.name as created_by_name
        FROM tasks t
-       LEFT JOIN users u ON t.assignee_id = u.id
-       LEFT JOIN users updater ON t.last_updated_by = updater.id
+       LEFT JOIN users u ON t.assigned_to = u.id
+       LEFT JOIN users updater ON t.created_by = updater.id
        WHERE t.id = $1`,
       [id]
     );
