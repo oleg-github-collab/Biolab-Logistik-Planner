@@ -35,10 +35,16 @@ const FirstLoginFlow = ({ onComplete }) => {
 
       // Check if response is valid
       if (response && response.data) {
+        // Update auth context with updated user
+        if (auth.login && response.data.user && auth.token) {
+          auth.login(auth.token, response.data.user);
+        }
+
         // Call onComplete callback if provided
-        if (onComplete) {
+        if (typeof onComplete === 'function') {
           onComplete();
         }
+
         // Reload page to refresh user data
         setTimeout(() => {
           window.location.reload();
