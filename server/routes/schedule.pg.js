@@ -517,7 +517,6 @@ router.get('/users', auth, async (req, res) => {
 // @desc    Get all calendar events with optional filters
 router.get('/events', auth, async (req, res) => {
   try {
-    console.log('GET /events request with query:', req.query);
     // Accept both start/end and startDate/endDate for backward compatibility
     const {
       startDate,
@@ -581,9 +580,8 @@ router.get('/events', auth, async (req, res) => {
     res.json(result.rows);
 
   } catch (error) {
-    console.error('GET /events error:', error);
     logger.error('Error fetching calendar events', error);
-    res.status(500).json({ error: error.message || 'Serverfehler' });
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 
