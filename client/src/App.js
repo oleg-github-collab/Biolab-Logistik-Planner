@@ -16,6 +16,7 @@ import FirstLoginFlow from './components/FirstLoginFlow';
 import TaskPoolView from './components/TaskPoolView';
 import UserProfilePage from './pages/UserProfilePage';
 import Kanban from './pages/Kanban';
+import WasteTemplatesAdmin from './pages/WasteTemplatesAdmin';
 
 // Protected Route component with First Login check
 const ProtectedRoute = ({ children }) => {
@@ -232,6 +233,17 @@ const AppContent = () => {
                   <>
                     <Header />
                     <Admin />
+                  </>
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/waste-templates"
+              element={
+                <AdminRoute>
+                  <>
+                    <Header />
+                    <WasteTemplatesAdmin />
                   </>
                 </AdminRoute>
               }

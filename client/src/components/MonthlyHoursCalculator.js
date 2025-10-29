@@ -23,7 +23,7 @@ const MonthlyHoursCalculator = () => {
       setSummary(response.data);
     } catch (error) {
       console.error('Error loading monthly summary:', error);
-      toast.error('Failed to load monthly summary');
+      toast.error('Fehler beim Laden der Monatsübersicht');
     } finally {
       setLoading(false);
     }

@@ -48,7 +48,7 @@ const HoursCalendar = () => {
       setHoursSummary(summaryRes.data);
     } catch (error) {
       console.error('Error loading schedule:', error);
-      toast.error('Failed to load schedule');
+      toast.error('Fehler beim Laden des Stundenplans');
     } finally {
       setLoading(false);
     }
@@ -102,10 +102,10 @@ const HoursCalendar = () => {
       const summaryRes = await api.get(`/schedule/hours-summary/${weekStart}`);
       setHoursSummary(summaryRes.data);
 
-      toast.success('Schedule updated');
+      toast.success('Stundenplan aktualisiert');
     } catch (error) {
       console.error('Error updating day:', error);
-      toast.error(error.response?.data?.error || 'Failed to update schedule');
+      toast.error(error.response?.data?.error || 'Fehler beim Aktualisieren des Stundenplans');
     } finally {
       setSaving(false);
     }
