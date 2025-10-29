@@ -9,10 +9,11 @@ const pool = new Pool({
 
 async function applyMigration() {
   try {
-    const migrationPath = path.join(__dirname, 'server/migrations/002_fix_task_pool.sql');
+    const migrationFile = process.argv[2] || 'server/migrations/002_fix_task_pool.sql';
+    const migrationPath = path.join(__dirname, migrationFile);
     const sql = fs.readFileSync(migrationPath, 'utf8');
 
-    console.log('Applying migration: 002_fix_task_pool.sql');
+    console.log(`Applying migration: ${path.basename(migrationFile)}`);
     await pool.query(sql);
     console.log('✓ Migration applied successfully');
 

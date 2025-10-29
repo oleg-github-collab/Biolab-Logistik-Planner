@@ -220,11 +220,8 @@ router.get('/contacts/all', auth, async (req, res) => {
       SELECT
         u.id, u.name, u.email, u.role, u.profile_photo,
         u.status, u.status_message, u.position_description,
-        u.last_seen_at, u.created_at,
-        uc.is_favorite, uc.nickname, uc.notes, uc.groups,
-        uc.is_blocked, uc.is_muted
+        u.last_seen_at, u.created_at
       FROM users u
-      LEFT JOIN user_contacts uc ON u.id = uc.contact_user_id AND uc.user_id = $1
       WHERE u.is_active = TRUE AND u.id != $1
     `;
 
