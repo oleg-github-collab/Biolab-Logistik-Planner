@@ -24,6 +24,115 @@ router.get('/templates', auth, async (req, res) => {
   }
 });
 
+// @route   POST /api/waste/templates
+// @desc    Create a new waste template (Admin only)
+router.post('/templates', auth, adminAuth, async (req, res) => {
+  try {
+    const {
+      name, category, hazard_level, disposal_frequency_days,
+      disposal_instructions, default_frequency, waste_code,
+      color, icon, description, safety_instructions
+    } = req.body;
+
+    if (!name || !category || !hazard_level) {
+      return res.status(400).json({ error: 'Name, Kategorie und Gefahrenstufe sind erforderlich' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO waste_templates (
+        name, category, hazard_level, disposal_frequency_days,
+        disposal_instructions, default_frequency, waste_code,
+        color, icon, description, safety_instructions, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
+      RETURNING *`,
+      [
+        sanitizeInput(name), sanitizeInput(category), hazard_level,
+        disposal_frequency_days, sanitizeInput(disposal_instructions),
+        default_frequency, sanitizeInput(waste_code), color, icon,
+        sanitizeInput(description), sanitizeInput(safety_instructions)
+      ]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Fehler beim Erstellen der Vorlage:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// @route   PUT /api/waste/templates/:id
+// @desc    Update waste template (Admin only)
+router.put('/templates/:id', auth, adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      name, category, hazard_level, disposal_frequency_days,
+      disposal_instructions, default_frequency, waste_code,
+      color, icon, description, safety_instructions
+    } = req.body;
+
+    const result = await pool.query(
+      `UPDATE waste_templates SET
+        name = $1, category = $2, hazard_level = $3,
+        disposal_frequency_days = $4, disposal_instructions = $5,
+        default_frequency = $6, waste_code = $7, color = $8,
+        icon = $9, description = $10, safety_instructions = $11,
+        updated_at = NOW()
+      WHERE id = $12
+      RETURNING *`,
+      [
+        sanitizeInput(name), sanitizeInput(category), hazard_level,
+        disposal_frequency_days, sanitizeInput(disposal_instructions),
+        default_frequency, sanitizeInput(waste_code), color, icon,
+        sanitizeInput(description), sanitizeInput(safety_instructions), id
+      ]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Vorlage nicht gefunden' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Fehler beim Aktualisieren der Vorlage:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// @route   DELETE /api/waste/templates/:id
+// @desc    Delete waste template (Admin only)
+router.delete('/templates/:id', auth, adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if template is in use
+    const usage = await pool.query(
+      'SELECT COUNT(*) as count FROM waste_items WHERE template_id = $1',
+      [id]
+    );
+
+    if (parseInt(usage.rows[0].count) > 0) {
+      return res.status(400).json({
+        error: 'Diese Vorlage wird noch verwendet und kann nicht gelöscht werden'
+      });
+    }
+
+    const result = await pool.query(
+      'DELETE FROM waste_templates WHERE id = $1 RETURNING id',
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Vorlage nicht gefunden' });
+    }
+
+    res.json({ message: 'Vorlage erfolgreich gelöscht', id: result.rows[0].id });
+  } catch (error) {
+    console.error('Fehler beim Löschen der Vorlage:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
 // @route   GET /api/waste/items
 // @desc    Get all waste items with template data
 router.get('/items', auth, async (req, res) => {

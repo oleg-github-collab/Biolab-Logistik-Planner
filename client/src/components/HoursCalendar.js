@@ -121,14 +121,36 @@ const HoursCalendar = () => {
     });
   };
 
-  // Update time
+  // Update time with debounce
+  const [timeoutIds, setTimeoutIds] = useState({});
+
   const updateTime = (dayIndex, field, value) => {
     const day = schedule[dayIndex];
-    updateDay(dayIndex, {
-      is_working: day.is_working,
-      start_time: field === 'start_time' ? value : day.start_time,
-      end_time: field === 'end_time' ? value : day.end_time
-    });
+
+    // Update local state immediately
+    const newSchedule = [...schedule];
+    newSchedule[dayIndex] = {
+      ...day,
+      [field]: value
+    };
+    setSchedule(newSchedule);
+
+    // Clear previous timeout for this field
+    const key = `${dayIndex}-${field}`;
+    if (timeoutIds[key]) {
+      clearTimeout(timeoutIds[key]);
+    }
+
+    // Set new timeout to save after 1 second
+    const timeoutId = setTimeout(() => {
+      updateDay(dayIndex, {
+        is_working: day.is_working,
+        start_time: field === 'start_time' ? value : day.start_time,
+        end_time: field === 'end_time' ? value : day.end_time
+      });
+    }, 1000);
+
+    setTimeoutIds({ ...timeoutIds, [key]: timeoutId });
   };
 
   // Calculate hours for a day

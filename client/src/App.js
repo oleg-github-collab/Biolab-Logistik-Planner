@@ -15,6 +15,7 @@ import Admin from './pages/Admin';
 import FirstLoginFlow from './components/FirstLoginFlow';
 import TaskPoolView from './components/TaskPoolView';
 import UserProfilePage from './pages/UserProfilePage';
+import Kanban from './pages/Kanban';
 
 // Protected Route component with First Login check
 const ProtectedRoute = ({ children }) => {
@@ -176,6 +177,17 @@ const AppContent = () => {
                   <>
                     <Header />
                     <TaskPoolView />
+                  </>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/kanban"
+              element={
+                <ProtectedRoute>
+                  <>
+                    <Header />
+                    <Kanban />
                   </>
                 </ProtectedRoute>
               }
