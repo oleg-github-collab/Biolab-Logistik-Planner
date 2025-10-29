@@ -137,9 +137,22 @@ const TaskPoolView = () => {
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Aufgaben für heute</h1>
-        <p className="text-gray-600">Wählen Sie eine Aufgabe aus oder bitten Sie Kollegen um Hilfe</p>
+      <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Aufgaben für heute</h1>
+          <p className="text-gray-600">Wählen Sie eine Aufgabe aus oder bitten Sie Kollegen um Hilfe</p>
+        </div>
+
+        {/* Admin: Add New Task Button */}
+        {(user?.role === 'admin' || user?.role === 'superadmin') && (
+          <button
+            onClick={() => window.location.href = '/kanban'}
+            className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition font-medium shadow-md"
+          >
+            <Plus className="w-5 h-5" />
+            Neue Aufgabe erstellen
+          </button>
+        )}
       </div>
 
       {/* Help Requests Alert */}
@@ -237,21 +250,22 @@ const TaskPoolView = () => {
               )}
 
               {/* Actions */}
-              <div className="flex gap-2 mt-4">
+              <div className="flex flex-col gap-2 mt-4">
                 {task.status === 'available' && !task.assigned_to && (
                   <>
                     <button
                       onClick={() => handleClaimTask(task.id)}
-                      className="flex-1 px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition text-sm font-medium"
+                      className="w-full px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition text-sm font-medium flex items-center justify-center gap-2"
                     >
-                      Aufgabe übernehmen
+                      <User className="w-4 h-4" />
+                      Ich übernehme diese Aufgabe
                     </button>
                     <button
                       onClick={() => setShowHelpModal(task.id)}
-                      className="px-3 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition"
-                      title="Hilfe anfordern"
+                      className="w-full px-3 py-2 bg-purple-100 text-purple-700 border border-purple-300 rounded hover:bg-purple-200 transition text-sm font-medium flex items-center justify-center gap-2"
                     >
                       <Users className="w-4 h-4" />
+                      Kollegen um Hilfe bitten
                     </button>
                   </>
                 )}
@@ -281,17 +295,29 @@ const TaskPoolView = () => {
       {showHelpModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-bold mb-4">Hilfe anfordern</h3>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <Users className="w-6 h-6 text-purple-600" />
+              </div>
+              <h3 className="text-lg font-bold">Kollegen um Hilfe bitten</h3>
+            </div>
+
+            <p className="text-sm text-gray-600 mb-4">
+              Diese Aufgabe wird einem Kollegen zugewiesen, der sie für Sie übernehmen kann.
+            </p>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Kollegen auswählen</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Welchen Kollegen möchten Sie um Hilfe bitten? <span className="text-red-500">*</span>
+                </label>
                 <select
                   value={selectedUser}
                   onChange={(e) => setSelectedUser(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  required
                 >
-                  <option value="">-- Auswählen --</option>
+                  <option value="">-- Bitte wählen --</option>
                   {users.filter(u => u.id !== user.id).map(u => (
                     <option key={u.id} value={u.id}>{u.name}</option>
                   ))}
@@ -299,13 +325,16 @@ const TaskPoolView = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Nachricht</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Nachricht <span className="text-red-500">*</span>
+                </label>
                 <textarea
                   value={helpMessage}
                   onChange={(e) => setHelpMessage(e.target.value)}
-                  placeholder="Beschreiben Sie, wobei Sie Hilfe benötigen..."
-                  rows="3"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="Erklären Sie, warum Sie Hilfe benötigen und was zu tun ist..."
+                  rows="4"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  required
                 />
               </div>
             </div>
@@ -313,9 +342,10 @@ const TaskPoolView = () => {
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => handleRequestHelp(showHelpModal)}
-                className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-medium"
+                disabled={!selectedUser || !helpMessage}
+                className="flex-1 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Senden
+                Anfrage senden
               </button>
               <button
                 onClick={() => {
