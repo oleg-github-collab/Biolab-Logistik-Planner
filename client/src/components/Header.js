@@ -11,7 +11,7 @@ const NAV_ITEMS = [
   { to: '/waste', label: 'Abfall', icon: '♻️', permission: 'waste:read' },
   { to: '/schedule', label: 'Stunden', icon: '⏰', permission: 'schedule:read' },
   { to: '/users', label: 'Benutzer', icon: '👥', permission: 'user:read' },
-  { to: '/admin', label: 'Admin', icon: '⚙️', permission: 'admin:access' }
+  { to: '/admin', label: 'Admin', icon: '⚙️', permission: 'system:settings' }
 ];
 
 const Header = ({ socket }) => {

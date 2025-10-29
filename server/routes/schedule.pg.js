@@ -594,27 +594,37 @@ router.get('/events', auth, async (req, res) => {
 // @desc    Create new calendar event
 router.post('/events', auth, async (req, res) => {
   try {
-    const { title, description, event_date, start_time, end_time, event_type, priority, location, attendees } = req.body;
+    const { title, description, startDate, endDate, startTime, endTime, event_type, priority, location, attendees, all_day, color } = req.body;
 
-    if (!title || !event_date) {
-      return res.status(400).json({ error: 'Titel und Datum sind erforderlich' });
+    if (!title || !startDate) {
+      return res.status(400).json({ error: 'Titel und Startdatum sind erforderlich' });
+    }
+
+    // Build timestamp from date + time or use date at midnight
+    let startTimestamp, endTimestamp;
+
+    if (all_day) {
+      startTimestamp = new Date(startDate).toISOString();
+      endTimestamp = endDate ? new Date(endDate).toISOString() : startTimestamp;
+    } else {
+      startTimestamp = startDate; // Already ISO from frontend
+      endTimestamp = endDate || startDate;
     }
 
     const result = await pool.query(
       `INSERT INTO calendar_events (
-        user_id, title, description, event_date, start_time, end_time,
-        event_type, priority, location, attendees, created_by, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        title, description, start_time, end_time, all_day,
+        event_type, color, location, attendees, created_by, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       RETURNING *`,
       [
-        req.user.id,
         title,
         description || null,
-        event_date,
-        start_time || null,
-        end_time || null,
-        event_type || 'other',
-        priority || 'medium',
+        startTimestamp,
+        endTimestamp,
+        all_day || false,
+        event_type || 'meeting',
+        color || null,
         location || null,
         attendees ? JSON.stringify(attendees) : null,
         req.user.id
@@ -654,7 +664,7 @@ router.post('/events', auth, async (req, res) => {
 router.put('/events/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, event_date, start_time, end_time, event_type, priority, location, attendees } = req.body;
+    const { title, description, startDate, endDate, startTime, endTime, event_type, priority, location, attendees, all_day, color } = req.body;
 
     // Check if event exists and user has permission
     const existing = await pool.query(
@@ -668,19 +678,30 @@ router.put('/events/:id', auth, async (req, res) => {
 
     const event = existing.rows[0];
 
-    if (event.user_id !== req.user.id && req.user.role !== 'admin' && req.user.role !== 'superadmin') {
+    if (event.created_by !== req.user.id && req.user.role !== 'admin' && req.user.role !== 'superadmin') {
       return res.status(403).json({ error: 'Nicht autorisiert' });
+    }
+
+    // Build timestamp from date + time or use date at midnight
+    let startTimestamp, endTimestamp;
+
+    if (all_day) {
+      startTimestamp = new Date(startDate).toISOString();
+      endTimestamp = endDate ? new Date(endDate).toISOString() : startTimestamp;
+    } else {
+      startTimestamp = startDate; // Already ISO from frontend
+      endTimestamp = endDate || startDate;
     }
 
     const result = await pool.query(
       `UPDATE calendar_events SET
         title = $1,
         description = $2,
-        event_date = $3,
-        start_time = $4,
-        end_time = $5,
+        start_time = $3,
+        end_time = $4,
+        all_day = $5,
         event_type = $6,
-        priority = $7,
+        color = $7,
         location = $8,
         attendees = $9,
         updated_at = CURRENT_TIMESTAMP
@@ -689,11 +710,12 @@ router.put('/events/:id', auth, async (req, res) => {
       [
         title,
         description,
-        event_date,
-        start_time,
-        end_time,
+        startTimestamp,
+        endTimestamp,
+        all_day !== undefined ? all_day : event.all_day,
         event_type,
-        priority,
+        color || event.color,
+        location,
         attendees ? JSON.stringify(attendees) : event.attendees,
         id
       ]
@@ -744,7 +766,7 @@ router.delete('/events/:id', auth, async (req, res) => {
 
     const event = existing.rows[0];
 
-    if (event.user_id !== req.user.id && req.user.role !== 'admin' && req.user.role !== 'superadmin') {
+    if (event.created_by !== req.user.id && req.user.role !== 'admin' && req.user.role !== 'superadmin') {
       return res.status(403).json({ error: 'Nicht autorisiert' });
     }
 
@@ -808,11 +830,11 @@ router.get('/events/statistics', auth, async (req, res) => {
         COUNT(CASE WHEN event_type = 'meeting' THEN 1 END) as meetings,
         COUNT(CASE WHEN event_type = 'vacation' THEN 1 END) as vacations,
         COUNT(CASE WHEN event_type = 'sick' THEN 1 END) as sick_days,
-        COUNT(CASE WHEN priority = 'high' THEN 1 END) as high_priority
+        COUNT(CASE WHEN event_type = 'urgent' THEN 1 END) as high_priority
       FROM calendar_events
-      WHERE user_id = $1
-        AND event_date >= $2
-        AND event_date <= $3`,
+      WHERE created_by = $1
+        AND start_time >= $2
+        AND start_time <= $3`,
       [req.user.id, formatDateForDB(startDate), formatDateForDB(endDate)]
     );
 
