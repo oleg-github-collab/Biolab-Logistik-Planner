@@ -13,7 +13,6 @@ import FirstSetup from './pages/FirstSetup';
 import UserManagement from './pages/UserManagement';
 import Admin from './pages/Admin';
 import FirstLoginFlow from './components/FirstLoginFlow';
-import TaskPoolView from './components/TaskPoolView';
 import UserProfilePage from './pages/UserProfilePage';
 import Kanban from './pages/Kanban';
 import WasteTemplatesAdmin from './pages/WasteTemplatesAdmin';
@@ -177,7 +176,7 @@ const AppContent = () => {
                 <ProtectedRoute>
                   <>
                     <Header />
-                    <TaskPoolView />
+                    <Kanban />
                   </>
                 </ProtectedRoute>
               }

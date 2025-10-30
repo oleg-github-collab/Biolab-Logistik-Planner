@@ -4,7 +4,7 @@ import SimpleCalendar from '../components/SimpleCalendar';
 import EventDetailsPanel from '../components/EventDetailsPanel';
 import EventModal from '../components/EventModal';
 import AbsenceModal from '../components/AbsenceModal';
-import ImprovedKanbanBoard from '../components/ImprovedKanbanBoard';
+import UnifiedTaskBoard from '../components/UnifiedTaskBoard';
 import WasteTemplateManager from '../components/WasteTemplateManager';
 import AdvancedWasteManager from '../components/AdvancedWasteManager';
 import EnhancedWasteManager from '../components/EnhancedWasteManager';
@@ -788,7 +788,7 @@ const Dashboard = () => {
 
       {/* Kanban Board */}
       {activeTab === 'kanban' && (
-        <ImprovedKanbanBoard />
+        <UnifiedTaskBoard />
       )}
 
       {/* Waste Manager */}

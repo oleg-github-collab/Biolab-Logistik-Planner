@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Calendar, momentLocalizer } from 'react-big-calendar';
 import moment from 'moment';
+import 'moment/locale/de';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -12,6 +13,7 @@ import useWebSocket from '../hooks/useWebSocket';
 import LoadingSpinner from './LoadingSpinner';
 import toast from 'react-hot-toast';
 
+moment.locale('de');
 const localizer = momentLocalizer(moment);
 const DragAndDropCalendar = withDragAndDrop(Calendar);
 
@@ -226,7 +228,7 @@ const WasteDisposalPlanner = () => {
         if (event.resource.assigned_to) {
           showNotification(
             'Disposal Rescheduled',
-            `${event.resource.waste_name} has been rescheduled to ${moment(start).format('MMM D, YYYY')}`
+            `${event.resource.waste_name} has been rescheduled to ${moment(start).format('DD.MM.YYYY')}`
           );
         }
       } else {
@@ -317,7 +319,7 @@ const WasteDisposalPlanner = () => {
       scheduled_date: selectedDate.toISOString(),
       assigned_to: eventForm.assigned_to,
       priority: item.hazard_level === 'critical' ? 'critical' : 'medium',
-      notes: `Batch scheduled for ${moment(selectedDate).format('MMM D, YYYY')}`
+      notes: `Batch scheduled for ${moment(selectedDate).format('DD.MM.YYYY')}`
     }));
 
     try {
@@ -662,7 +664,7 @@ const WasteDisposalPlanner = () => {
                     <div>
                       <p className="font-semibold">{disposal.waste_name}</p>
                       <p className="text-sm text-gray-600">
-                        {moment(disposal.scheduled_date).format('MMM D, YYYY HH:mm')}
+                        {moment(disposal.scheduled_date).format('DD.MM.YYYY HH:mm')}
                         {disposal.assigned_to_name && ` • Assigned to: ${disposal.assigned_to_name}`}
                       </p>
                     </div>
@@ -703,7 +705,7 @@ const WasteDisposalPlanner = () => {
                     <div>
                       <p className="text-sm text-gray-600">Geplantes Datum</p>
                       <p className="font-semibold">
-                        {moment(selectedEvent.scheduled_date).format('MMM D, YYYY HH:mm')}
+                        {moment(selectedEvent.scheduled_date).format('DD.MM.YYYY HH:mm')}
                       </p>
                     </div>
                     <div>

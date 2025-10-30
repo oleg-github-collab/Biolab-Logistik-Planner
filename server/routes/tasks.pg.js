@@ -47,6 +47,160 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
+// @route   GET /api/tasks/board
+// @desc    Unified data set for Kanban + Task Pool board
+router.get('/board', auth, async (req, res) => {
+  try {
+    const { date } = req.query;
+    const targetDate = date || new Date().toISOString().split('T')[0];
+
+    const result = await pool.query(
+      `
+      SELECT
+        t.*,
+        task_assignee.name AS task_assignee_name,
+        creator.name AS created_by_name,
+        tp_data.task_pool_id,
+        tp_data.pool_status,
+        tp_data.pool_available_date,
+        tp_data.estimated_duration,
+        tp_data.claimed_by,
+        claim_user.name AS pool_claimed_by_name,
+        tp_data.assigned_to AS pool_assigned_to,
+        pool_assignee.name AS pool_assigned_to_name,
+        tp_data.help_request_status,
+        tp_data.help_requested_from,
+        help_user.name AS help_requested_from_name,
+        tp_data.help_request_message,
+        tp_data.help_requested_at,
+        tp_data.created_at AS pool_created_at,
+        tp_data.updated_at AS pool_updated_at
+      FROM tasks t
+      LEFT JOIN users task_assignee ON t.assigned_to = task_assignee.id
+      LEFT JOIN users creator ON t.created_by = creator.id
+      LEFT JOIN LATERAL (
+        SELECT
+          tp.id AS task_pool_id,
+          tp.status AS pool_status,
+          tp.available_date AS pool_available_date,
+          tp.estimated_duration,
+          tp.claimed_by,
+          tp.assigned_to,
+          tp.help_request_status,
+          tp.help_requested_from,
+          tp.help_request_message,
+          tp.help_requested_at,
+          tp.created_at,
+          tp.updated_at
+        FROM task_pool tp
+        WHERE tp.task_id = t.id
+          AND tp.available_date = $1
+        ORDER BY tp.updated_at DESC
+        LIMIT 1
+      ) tp_data ON TRUE
+      LEFT JOIN users claim_user ON tp_data.claimed_by = claim_user.id
+      LEFT JOIN users pool_assignee ON tp_data.assigned_to = pool_assignee.id
+      LEFT JOIN users help_user ON tp_data.help_requested_from = help_user.id
+      ORDER BY
+        CASE
+          WHEN t.priority = 'urgent' THEN 1
+          WHEN t.priority = 'high' THEN 2
+          WHEN t.priority = 'medium' THEN 3
+          ELSE 4
+        END,
+        t.due_date NULLS LAST,
+        t.updated_at DESC
+      `,
+      [targetDate]
+    );
+
+    const counts = {
+      backlog: 0,
+      poolAvailable: 0,
+      inProgress: 0,
+      needsHelp: 0,
+      completed: 0
+    };
+
+    const tasks = result.rows.map((row) => {
+      const task = {
+        id: row.id,
+        title: row.title,
+        description: row.description,
+        status: row.status,
+        priority: row.priority || 'medium',
+        category: row.category,
+        dueDate: row.due_date,
+        assigneeId: row.assigned_to,
+        assigneeName: row.task_assignee_name,
+        createdById: row.created_by,
+        createdByName: row.created_by_name,
+        estimatedHours: row.estimated_hours,
+        tags: row.tags || [],
+        completedAt: row.completed_at,
+        updatedAt: row.updated_at,
+        pool: row.task_pool_id
+          ? {
+              id: row.task_pool_id,
+              status: row.pool_status,
+              availableDate: row.pool_available_date,
+              estimatedDuration: row.estimated_duration,
+              claimedBy: row.claimed_by,
+              claimedByName: row.pool_claimed_by_name,
+              assignedTo: row.pool_assigned_to,
+              assignedToName: row.pool_assigned_to_name,
+              helpStatus: row.help_request_status,
+              helpRequestedFrom: row.help_requested_from,
+              helpRequestedFromName: row.help_requested_from_name,
+              helpMessage: row.help_request_message,
+              helpRequestedAt: row.help_requested_at,
+              createdAt: row.pool_created_at,
+              updatedAt: row.pool_updated_at
+            }
+          : null
+      };
+
+      const poolStatus = task.pool?.status || null;
+      const taskStatus = task.status;
+
+      if (!poolStatus && (taskStatus === 'todo' || taskStatus === 'backlog')) {
+        counts.backlog += 1;
+      }
+
+      if (poolStatus === 'available') {
+        counts.poolAvailable += 1;
+      }
+
+      if (
+        poolStatus === 'claimed' ||
+        poolStatus === 'assigned' ||
+        taskStatus === 'in_progress'
+      ) {
+        counts.inProgress += 1;
+      }
+
+      if (task.pool?.helpStatus === 'pending') {
+        counts.needsHelp += 1;
+      }
+
+      if (poolStatus === 'completed' || taskStatus === 'done') {
+        counts.completed += 1;
+      }
+
+      return task;
+    });
+
+    res.json({
+      date: targetDate,
+      counts,
+      tasks
+    });
+  } catch (error) {
+    logger.error('Error building unified task board', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
 // @route   POST /api/tasks
 // @desc    Create a new task
 router.post('/', auth, async (req, res) => {

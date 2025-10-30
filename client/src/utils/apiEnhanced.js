@@ -132,6 +132,9 @@ export const getMyHelpRequests = (status = null) =>
 export const completeTask = (taskPoolId, notes = '') =>
   api.post(`/task-pool/${taskPoolId}/complete`, { notes });
 
+export const getUnifiedTaskBoard = (params = {}) =>
+  api.get('/tasks/board', { params });
+
 export const createTaskPoolEntry = (taskData) =>
   api.post('/task-pool/create', taskData);
 
