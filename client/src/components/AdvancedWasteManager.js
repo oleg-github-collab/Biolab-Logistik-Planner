@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { format, addDays, differenceInDays, parseISO, startOfDay, endOfDay } from 'date-fns';
+import { format, addDays, differenceInDays, startOfDay, endOfDay } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useAuth } from '../context/AuthContext';
 

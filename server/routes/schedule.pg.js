@@ -32,6 +32,224 @@ function calculateHours(startTime, endTime) {
   return (endMinutes - startMinutes) / 60;
 }
 
+function parseBoolean(value, fallback = false) {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (['true', '1', 'yes', 'y'].includes(normalized)) return true;
+    if (['false', '0', 'no', 'n'].includes(normalized)) return false;
+  }
+  return fallback;
+}
+
+function toDate(value) {
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  if (!value && value !== 0) return null;
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function combineDateAndTime(dateInput, timeInput) {
+  if (!dateInput && dateInput !== 0) return null;
+
+  if (dateInput instanceof Date) {
+    return Number.isNaN(dateInput.getTime()) ? null : dateInput;
+  }
+
+  const dateAsString = String(dateInput).trim();
+  if (!dateAsString) return null;
+
+  if (dateAsString.includes('T')) {
+    const parsed = new Date(dateAsString);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  const sanitizedTime = typeof timeInput === 'string' && timeInput
+    ? (timeInput.length === 5 ? `${timeInput}:00` : timeInput)
+    : '00:00:00';
+
+  const parsed = new Date(`${dateAsString}T${sanitizedTime}`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function resolveEventTimestamps({ allDay, startDate, endDate, startTime, endTime }) {
+  const isAllDay = parseBoolean(allDay, false);
+
+  if (isAllDay) {
+    const start = toDate(startDate);
+    if (!start) return { startTimestamp: null, endTimestamp: null };
+
+    const end = toDate(endDate) || start;
+    return {
+      startTimestamp: start.toISOString(),
+      endTimestamp: (end && end >= start ? end : start).toISOString()
+    };
+  }
+
+  const start = combineDateAndTime(startDate, startTime);
+  if (!start) return { startTimestamp: null, endTimestamp: null };
+
+  const end = combineDateAndTime(endDate || startDate, endTime);
+  const finalEnd = end && end >= start ? end : start;
+
+  return {
+    startTimestamp: start.toISOString(),
+    endTimestamp: finalEnd.toISOString()
+  };
+}
+
+function normalizeAttachments(rawAttachments) {
+  if (!rawAttachments && rawAttachments !== 0) return [];
+
+  let list = rawAttachments;
+
+  if (typeof list === 'string') {
+    try {
+      list = JSON.parse(list);
+    } catch (error) {
+      return [];
+    }
+  }
+
+  if (!Array.isArray(list)) return [];
+
+  return list
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      if (!item.url) return null;
+
+      const mime = item.mimeType || item.mimetype || '';
+      const inferredType = typeof item.type === 'string'
+        ? item.type
+        : mime.startsWith('image/')
+          ? 'image'
+          : mime.startsWith('audio/')
+            ? 'audio'
+            : 'file';
+
+      return {
+        ...item,
+        type: inferredType,
+        name: item.name || item.filename || null
+      };
+    })
+    .filter(Boolean);
+}
+
+function normalizeTags(rawTags) {
+  if (!rawTags && rawTags !== 0) return [];
+
+  if (Array.isArray(rawTags)) {
+    return rawTags.map((tag) => String(tag).trim()).filter(Boolean);
+  }
+
+  if (typeof rawTags === 'string') {
+    const trimmed = rawTags.trim();
+    if (!trimmed) return [];
+
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed.map((tag) => String(tag).trim()).filter(Boolean);
+      }
+    } catch (error) {
+      // Ignore JSON parse error and fall back to manual split
+    }
+
+    return trimmed
+      .split(/[;,]/)
+      .map((tag) => tag.trim().replace(/^#+/, ''))
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
+function normalizeAttendees(rawAttendees) {
+  if (!rawAttendees && rawAttendees !== 0) return [];
+
+  if (Array.isArray(rawAttendees)) {
+    return rawAttendees.map((entry) => String(entry).trim()).filter(Boolean);
+  }
+
+  if (typeof rawAttendees === 'object') {
+    return Object.values(rawAttendees)
+      .map((entry) => String(entry).trim())
+      .filter(Boolean);
+  }
+
+  if (typeof rawAttendees === 'string') {
+    const trimmed = rawAttendees.trim();
+    if (!trimmed) return [];
+
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed.map((entry) => String(entry).trim()).filter(Boolean);
+      }
+    } catch (error) {
+      // Ignore parse error and fall back to manual split
+    }
+
+    return trimmed
+      .split(/[;,]/)
+      .map((entry) => entry.trim().replace(/^"+|"+$/g, ''))
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
+function normalizeReminder(value, fallback = 15) {
+  if (value === null) return null;
+  if (value === undefined || value === '') return fallback;
+
+  const parsed = Number.parseInt(value, 10);
+  if (Number.isNaN(parsed) || parsed < 0) {
+    return fallback;
+  }
+
+  return parsed;
+}
+
+function normalizeIsoDate(value) {
+  if (!value && value !== 0) return null;
+  const parsed = toDate(value);
+  return parsed ? parsed.toISOString() : null;
+}
+
+function firstImageUrl(attachments) {
+  return attachments.find((file) => file?.type === 'image')?.url || null;
+}
+
+function transformEventRow(row) {
+  if (!row) return row;
+
+  const attachments = normalizeAttachments(row.attachments);
+  const tags = normalizeTags(row.tags);
+  const attendees = normalizeAttendees(row.attendees);
+
+  return {
+    ...row,
+    attachments,
+    tags,
+    attendees,
+    all_day: parseBoolean(row.all_day, false),
+    is_recurring: parseBoolean(row.is_recurring, false),
+    reminder: row.reminder === null || row.reminder === undefined ? null : Number(row.reminder),
+    start_time: normalizeIsoDate(row.start_time) || row.start_time,
+    end_time: normalizeIsoDate(row.end_time) || row.end_time,
+    recurrence_end_date: normalizeIsoDate(row.recurrence_end_date) || row.recurrence_end_date,
+    created_at: normalizeIsoDate(row.created_at) || row.created_at,
+    updated_at: normalizeIsoDate(row.updated_at) || row.updated_at
+  };
+}
+
 // @route   GET /api/schedule/week/:weekStart
 // @desc    Get schedule for a specific week
 router.get('/week/:weekStart', auth, async (req, res) => {
@@ -82,7 +300,16 @@ router.get('/week/:weekStart', auth, async (req, res) => {
       return res.json(days);
     }
 
-    res.json(result.rows);
+    const events = result.rows.map((row) => ({
+      ...row,
+      attachments: typeof row.attachments === 'string'
+        ? JSON.parse(row.attachments || '[]')
+        : Array.isArray(row.attachments)
+          ? row.attachments
+          : []
+    }));
+
+    res.json(events);
 
   } catch (error) {
     logger.error('Error fetching week schedule', error);
@@ -581,8 +808,9 @@ router.get('/events', auth, async (req, res) => {
     query += ' ORDER BY e.start_time, e.end_time';
 
     const result = await pool.query(query, params);
+    const events = result.rows.map(transformEventRow);
 
-    res.json(result.rows);
+    res.json(events);
 
   } catch (error) {
     logger.error('Error fetching calendar events', error);
@@ -594,44 +822,139 @@ router.get('/events', auth, async (req, res) => {
 // @desc    Create new calendar event
 router.post('/events', auth, async (req, res) => {
   try {
-    const { title, description, startDate, endDate, startTime, endTime, event_type, priority, location, attendees, all_day, color } = req.body;
+    const {
+      title,
+      description,
+      startDate,
+      endDate,
+      startTime,
+      endTime,
+      start,
+      end,
+      event_type,
+      type,
+      location,
+      attendees,
+      all_day,
+      isAllDay,
+      color,
+      attachments = [],
+      priority,
+      status,
+      category,
+      reminder,
+      notes,
+      tags,
+      is_recurring,
+      isRecurring,
+      recurrence_pattern,
+      recurrencePattern,
+      recurrence_end_date,
+      recurrenceEndDate
+    } = req.body;
 
-    if (!title || !startDate) {
+    if (!title || !(startDate || start)) {
       return res.status(400).json({ error: 'Titel und Startdatum sind erforderlich' });
     }
 
-    // Build timestamp from date + time or use date at midnight
-    let startTimestamp, endTimestamp;
-
-    if (all_day) {
-      startTimestamp = new Date(startDate).toISOString();
-      endTimestamp = endDate ? new Date(endDate).toISOString() : startTimestamp;
-    } else {
-      startTimestamp = startDate; // Already ISO from frontend
-      endTimestamp = endDate || startDate;
+    const normalizedTitle = title.trim();
+    if (!normalizedTitle) {
+      return res.status(400).json({ error: 'Titel darf nicht leer sein' });
     }
+
+    const computedAllDay = parseBoolean(all_day ?? isAllDay, false);
+
+    const { startTimestamp, endTimestamp } = resolveEventTimestamps({
+      allDay: computedAllDay,
+      startDate: startDate || start,
+      endDate: endDate || end,
+      startTime,
+      endTime
+    });
+
+    if (!startTimestamp) {
+      return res.status(400).json({ error: 'Ungültiges Startdatum oder Startzeit' });
+    }
+
+    const normalizedAttachments = normalizeAttachments(attachments);
+    const normalizedTags = normalizeTags(tags);
+    const normalizedAttendees = normalizeAttendees(attendees);
+    const coverImage = firstImageUrl(normalizedAttachments);
+
+    const normalizedPriority = priority ? String(priority).trim() || 'medium' : 'medium';
+    const normalizedStatus = status ? String(status).trim() || 'confirmed' : 'confirmed';
+    const normalizedCategory = category ? String(category).trim() || 'work' : 'work';
+    const normalizedReminder = normalizeReminder(reminder, 15);
+    const sanitizedNotes = notes !== undefined && notes !== null
+      ? (String(notes).trim() || null)
+      : null;
+
+    const recurringFlag = parseBoolean(is_recurring ?? isRecurring, false);
+    const recurrencePatternValue = recurringFlag
+      ? (recurrence_pattern || recurrencePattern || null)
+      : null;
+    const recurrenceEndValue = recurringFlag
+      ? normalizeIsoDate(recurrence_end_date || recurrenceEndDate)
+      : null;
+
+    const eventType = (() => {
+      const candidate = event_type ?? type;
+      if (!candidate) return 'meeting';
+      const cleaned = String(candidate).trim();
+      return cleaned || 'meeting';
+    })();
 
     const result = await pool.query(
       `INSERT INTO calendar_events (
         title, description, start_time, end_time, all_day,
-        event_type, color, location, attendees, created_by, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        event_type, color, location, attendees, attachments, cover_image,
+        priority, status, category, reminder, notes, tags,
+        is_recurring, recurrence_pattern, recurrence_end_date,
+        created_by, created_at, updated_at
+      ) VALUES (
+        $1, $2, $3, $4, $5,
+        $6, $7, $8, $9::jsonb, $10::jsonb, $11,
+        $12, $13, $14, $15, $16, $17::jsonb,
+        $18, $19, $20,
+        $21, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+      )
       RETURNING *`,
       [
-        title,
-        description || null,
+        normalizedTitle,
+        description ? String(description).trim() : null,
         startTimestamp,
         endTimestamp,
-        all_day || false,
-        event_type || 'meeting',
-        color || null,
-        location || null,
-        attendees ? JSON.stringify(attendees) : null,
+        computedAllDay,
+        eventType,
+        color ? String(color).trim() : null,
+        location ? String(location).trim() : null,
+        JSON.stringify(normalizedAttendees),
+        JSON.stringify(normalizedAttachments),
+        coverImage,
+        normalizedPriority,
+        normalizedStatus,
+        normalizedCategory,
+        normalizedReminder,
+        sanitizedNotes,
+        JSON.stringify(normalizedTags),
+        recurringFlag,
+        recurrencePatternValue ? String(recurrencePatternValue).trim() || null : null,
+        recurrenceEndValue,
         req.user.id
       ]
     );
 
-    const newEvent = result.rows[0];
+    const newEvent = transformEventRow(result.rows[0]);
+
+    auditLogger.logDataChange('create', req.user.id, 'calendar_event', newEvent.id, {
+      title: newEvent.title,
+      start_time: startTimestamp,
+      end_time: endTimestamp,
+      priority: normalizedPriority,
+      status: normalizedStatus,
+      is_recurring: recurringFlag,
+      attachments: normalizedAttachments.length
+    });
 
     // Broadcast to connected clients
     const io = getIO();
@@ -648,7 +971,9 @@ router.post('/events', auth, async (req, res) => {
     logger.info('Calendar event created', {
       eventId: newEvent.id,
       userId: req.user.id,
-      eventType: event_type
+      eventType,
+      priority: normalizedPriority,
+      isRecurring: recurringFlag
     });
 
     res.status(201).json(newEvent);
@@ -664,7 +989,36 @@ router.post('/events', auth, async (req, res) => {
 router.put('/events/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, startDate, endDate, startTime, endTime, event_type, priority, location, attendees, all_day, color } = req.body;
+    const {
+      title,
+      description,
+      startDate,
+      endDate,
+      startTime,
+      endTime,
+      start,
+      end,
+      event_type,
+      type,
+      location,
+      attendees,
+      all_day,
+      isAllDay,
+      color,
+      attachments = [],
+      priority,
+      status,
+      category,
+      reminder,
+      notes,
+      tags,
+      is_recurring,
+      isRecurring,
+      recurrence_pattern,
+      recurrencePattern,
+      recurrence_end_date,
+      recurrenceEndDate
+    } = req.body;
 
     // Check if event exists and user has permission
     const existing = await pool.query(
@@ -676,22 +1030,74 @@ router.put('/events/:id', auth, async (req, res) => {
       return res.status(404).json({ error: 'Ereignis nicht gefunden' });
     }
 
-    const event = existing.rows[0];
+    const event = transformEventRow(existing.rows[0]);
 
     if (event.created_by !== req.user.id && req.user.role !== 'admin' && req.user.role !== 'superadmin') {
       return res.status(403).json({ error: 'Nicht autorisiert' });
     }
 
-    // Build timestamp from date + time or use date at midnight
-    let startTimestamp, endTimestamp;
+    const computedAllDay = parseBoolean(all_day ?? isAllDay, event.all_day);
 
-    if (all_day) {
-      startTimestamp = new Date(startDate).toISOString();
-      endTimestamp = endDate ? new Date(endDate).toISOString() : startTimestamp;
-    } else {
-      startTimestamp = startDate; // Already ISO from frontend
-      endTimestamp = endDate || startDate;
+    const existingStartIso = event.start_time;
+    const existingEndIso = event.end_time;
+
+    const derivedStartTime = existingStartIso ? existingStartIso.substring(11, 16) : null;
+    const derivedEndTime = existingEndIso ? existingEndIso.substring(11, 16) : null;
+
+    const { startTimestamp, endTimestamp } = resolveEventTimestamps({
+      allDay: computedAllDay,
+      startDate: startDate || start || existingStartIso,
+      endDate: endDate || end || existingEndIso,
+      startTime: startTime ?? derivedStartTime,
+      endTime: endTime ?? derivedEndTime
+    });
+
+    if (!startTimestamp) {
+      return res.status(400).json({ error: 'Ungültiges Startdatum oder Startzeit' });
     }
+
+    const normalizedAttachments = normalizeAttachments(
+      attachments === undefined ? event.attachments : attachments
+    );
+    const normalizedTags = normalizeTags(tags === undefined ? event.tags : tags);
+    const normalizedAttendees = normalizeAttendees(
+      attendees === undefined ? event.attendees : attendees
+    );
+    const coverImage = firstImageUrl(normalizedAttachments);
+
+    const normalizedTitle = title !== undefined ? String(title).trim() : event.title;
+    if (!normalizedTitle) {
+      return res.status(400).json({ error: 'Titel darf nicht leer sein' });
+    }
+
+    const eventTypeCandidate = event_type ?? type ?? event.event_type ?? 'meeting';
+    const eventTypeNormalized = String(eventTypeCandidate).trim() || 'meeting';
+
+    const normalizedPriority = priority !== undefined
+      ? (String(priority).trim() || event.priority || 'medium')
+      : (event.priority || 'medium');
+
+    const normalizedStatus = status !== undefined
+      ? (String(status).trim() || event.status || 'confirmed')
+      : (event.status || 'confirmed');
+
+    const normalizedCategory = category !== undefined
+      ? (String(category).trim() || event.category || 'work')
+      : (event.category || 'work');
+
+    const normalizedReminder = normalizeReminder(reminder, event.reminder ?? 15);
+
+    const sanitizedNotes = notes !== undefined
+      ? (notes === null ? null : (String(notes).trim() || null))
+      : (event.notes || null);
+
+    const recurringFlag = parseBoolean(is_recurring ?? isRecurring, event.is_recurring);
+    const recurrencePatternValue = recurringFlag
+      ? (recurrence_pattern || recurrencePattern || event.recurrence_pattern || null)
+      : null;
+    const recurrenceEndValue = recurringFlag
+      ? (normalizeIsoDate(recurrence_end_date || recurrenceEndDate) || event.recurrence_end_date || null)
+      : null;
 
     const result = await pool.query(
       `UPDATE calendar_events SET
@@ -703,25 +1109,57 @@ router.put('/events/:id', auth, async (req, res) => {
         event_type = $6,
         color = $7,
         location = $8,
-        attendees = $9,
+        attendees = $9::jsonb,
+        attachments = $10::jsonb,
+        cover_image = $11,
+        priority = $12,
+        status = $13,
+        category = $14,
+        reminder = $15,
+        notes = $16,
+        tags = $17::jsonb,
+        is_recurring = $18,
+        recurrence_pattern = $19,
+        recurrence_end_date = $20,
         updated_at = CURRENT_TIMESTAMP
-      WHERE id = $10
+      WHERE id = $21
       RETURNING *`,
       [
-        title,
-        description,
+        normalizedTitle,
+        description !== undefined ? (description ? String(description).trim() : null) : (event.description || null),
         startTimestamp,
         endTimestamp,
-        all_day !== undefined ? all_day : event.all_day,
-        event_type,
-        color || event.color,
-        location,
-        attendees ? JSON.stringify(attendees) : event.attendees,
+        computedAllDay,
+        eventTypeNormalized,
+        color !== undefined ? (color ? String(color).trim() : null) : (event.color || null),
+        location !== undefined ? (location ? String(location).trim() : null) : (event.location || null),
+        JSON.stringify(normalizedAttendees),
+        JSON.stringify(normalizedAttachments),
+        coverImage,
+        normalizedPriority,
+        normalizedStatus,
+        normalizedCategory,
+        normalizedReminder,
+        sanitizedNotes,
+        JSON.stringify(normalizedTags),
+        recurringFlag,
+        recurrencePatternValue ? String(recurrencePatternValue).trim() || null : null,
+        recurrenceEndValue,
         id
       ]
     );
 
-    const updatedEvent = result.rows[0];
+    const updatedEvent = transformEventRow(result.rows[0]);
+
+    auditLogger.logDataChange('update', req.user.id, 'calendar_event', updatedEvent.id, {
+      title: updatedEvent.title,
+      start_time: startTimestamp,
+      end_time: endTimestamp,
+      priority: normalizedPriority,
+      status: normalizedStatus,
+      is_recurring: recurringFlag,
+      attachments: normalizedAttachments.length
+    });
 
     // Broadcast
     const io = getIO();
@@ -737,7 +1175,9 @@ router.put('/events/:id', auth, async (req, res) => {
 
     logger.info('Calendar event updated', {
       eventId: id,
-      userId: req.user.id
+      userId: req.user.id,
+      priority: normalizedPriority,
+      isRecurring: recurringFlag
     });
 
     res.json(updatedEvent);
@@ -788,6 +1228,8 @@ router.delete('/events/:id', auth, async (req, res) => {
       eventId: id,
       userId: req.user.id
     });
+
+    auditLogger.logDataChange('delete', req.user.id, 'calendar_event', parseInt(id, 10), {});
 
     res.json({ message: 'Event deleted successfully', deletedId: id });
 
@@ -863,28 +1305,94 @@ router.post('/events/bulk', auth, async (req, res) => {
       const createdEvents = [];
 
       for (const event of events) {
+        const title = event.title ? String(event.title).trim() : '';
+        if (!title) {
+          throw new Error('Event title is required for bulk creation');
+        }
+
+        const computedAllDay = parseBoolean(event.all_day ?? event.isAllDay, false);
+
+        const { startTimestamp, endTimestamp } = resolveEventTimestamps({
+          allDay: computedAllDay,
+          startDate: event.startDate || event.start || event.start_date || event.event_date,
+          endDate: event.endDate || event.end || event.end_date || event.event_date,
+          startTime: event.startTime || event.start_time,
+          endTime: event.endTime || event.end_time
+        });
+
+        if (!startTimestamp) {
+          throw new Error(`Invalid start date for event "${title}"`);
+        }
+
+        const normalizedAttachments = normalizeAttachments(event.attachments);
+        const normalizedTags = normalizeTags(event.tags);
+        const normalizedAttendees = normalizeAttendees(event.attendees);
+        const coverImage = firstImageUrl(normalizedAttachments);
+
+        const normalizedPriority = event.priority ? String(event.priority).trim() || 'medium' : 'medium';
+        const normalizedStatus = event.status ? String(event.status).trim() || 'confirmed' : 'confirmed';
+        const normalizedCategory = event.category ? String(event.category).trim() || 'work' : 'work';
+        const normalizedReminder = normalizeReminder(event.reminder, 15);
+        const sanitizedNotes = event.notes !== undefined && event.notes !== null
+          ? (String(event.notes).trim() || null)
+          : null;
+
+        const recurringFlag = parseBoolean(event.is_recurring ?? event.isRecurring, false);
+        const recurrencePatternValue = recurringFlag
+          ? (event.recurrence_pattern || event.recurrencePattern || null)
+          : null;
+        const recurrenceEndValue = recurringFlag
+          ? normalizeIsoDate(event.recurrence_end_date || event.recurrenceEndDate)
+          : null;
+
+        const eventType = (() => {
+          const candidate = event.event_type || event.type;
+          if (!candidate) return 'meeting';
+          const cleaned = String(candidate).trim();
+          return cleaned || 'meeting';
+        })();
+
         const result = await client.query(
           `INSERT INTO calendar_events (
-            user_id, title, description, event_date, start_time, end_time,
-            event_type, priority, location, attendees, created_by, created_at, updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            title, description, start_time, end_time, all_day,
+            event_type, color, location, attendees, attachments, cover_image,
+            priority, status, category, reminder, notes, tags,
+            is_recurring, recurrence_pattern, recurrence_end_date,
+            created_by, created_at, updated_at
+          ) VALUES (
+            $1, $2, $3, $4, $5,
+            $6, $7, $8, $9::jsonb, $10::jsonb, $11,
+            $12, $13, $14, $15, $16, $17::jsonb,
+            $18, $19, $20,
+            $21, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+          )
           RETURNING *`,
           [
-            req.user.id,
-            event.title,
-            event.description || null,
-            event.event_date,
-            event.start_time || null,
-            event.end_time || null,
-            event.event_type || 'other',
-            event.priority || 'medium',
-            event.location || null,
-            event.attendees ? JSON.stringify(event.attendees) : null,
+            title,
+            event.description ? String(event.description).trim() : null,
+            startTimestamp,
+            endTimestamp,
+            computedAllDay,
+            eventType,
+            event.color ? String(event.color).trim() : null,
+            event.location ? String(event.location).trim() : null,
+            JSON.stringify(normalizedAttendees),
+            JSON.stringify(normalizedAttachments),
+            coverImage,
+            normalizedPriority,
+            normalizedStatus,
+            normalizedCategory,
+            normalizedReminder,
+            sanitizedNotes,
+            JSON.stringify(normalizedTags),
+            recurringFlag,
+            recurrencePatternValue ? String(recurrencePatternValue).trim() || null : null,
+            recurrenceEndValue,
             req.user.id
           ]
         );
 
-        createdEvents.push(result.rows[0]);
+        createdEvents.push(transformEventRow(result.rows[0]));
       }
 
       await client.query('COMMIT');
@@ -930,40 +1438,123 @@ router.post('/events/:id/duplicate', auth, async (req, res) => {
       return res.status(404).json({ error: 'Ereignis nicht gefunden' });
     }
 
-    const original = existing.rows[0];
+    const original = transformEventRow(existing.rows[0]);
 
-    if (original.user_id !== req.user.id && req.user.role !== 'admin' && req.user.role !== 'superadmin') {
+    if (original.created_by !== req.user.id && req.user.role !== 'admin' && req.user.role !== 'superadmin') {
       return res.status(403).json({ error: 'Nicht autorisiert' });
     }
 
-    // Create duplicate
+    const newDateObj = toDate(newDate);
+    if (!newDateObj) {
+      return res.status(400).json({ error: 'Ungültiges Datum für die Duplizierung' });
+    }
+
+    const originalStart = toDate(original.start_time);
+    const originalEnd = toDate(original.end_time) || originalStart;
+    const durationMs = originalStart && originalEnd ? originalEnd.getTime() - originalStart.getTime() : 0;
+
+    let startTimestamp;
+    let endTimestamp;
+
+    if (parseBoolean(original.all_day, false)) {
+      const baseStart = combineDateAndTime(newDate, '00:00:00') || toDate(newDate);
+      if (!baseStart) {
+        return res.status(400).json({ error: 'Ungültiges Startdatum für die Duplizierung' });
+      }
+      const duplicateEnd = new Date(baseStart.getTime() + Math.max(durationMs, 0));
+      startTimestamp = baseStart.toISOString();
+      endTimestamp = duplicateEnd.toISOString();
+    } else {
+      const originalStartTime = originalStart ? originalStart.toISOString().substring(11, 16) : null;
+      const originalEndTime = originalEnd ? originalEnd.toISOString().substring(11, 16) : null;
+
+      const duplicateStart = combineDateAndTime(newDate, originalStartTime) || toDate(newDate);
+      if (!duplicateStart) {
+        return res.status(400).json({ error: 'Ungültiges Startdatum für die Duplizierung' });
+      }
+
+      let duplicateEnd = originalEndTime
+        ? combineDateAndTime(newDate, originalEndTime)
+        : null;
+
+      if (!duplicateEnd) {
+        duplicateEnd = new Date(duplicateStart.getTime() + Math.max(durationMs, 0));
+      }
+
+      startTimestamp = duplicateStart.toISOString();
+      endTimestamp = duplicateEnd.toISOString();
+    }
+
+    const normalizedAttachments = normalizeAttachments(original.attachments);
+    const normalizedTags = normalizeTags(original.tags);
+    const normalizedAttendees = normalizeAttendees(original.attendees);
+    const coverImage = firstImageUrl(normalizedAttachments) || original.cover_image || null;
+
     const result = await pool.query(
       `INSERT INTO calendar_events (
-        user_id, title, description, event_date, start_time, end_time,
-        event_type, priority, location, attendees, created_by, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        title, description, start_time, end_time, all_day,
+        event_type, color, location, attendees, attachments, cover_image,
+        priority, status, category, reminder, notes, tags,
+        is_recurring, recurrence_pattern, recurrence_end_date,
+        created_by, created_at, updated_at
+      ) VALUES (
+        $1, $2, $3, $4, $5,
+        $6, $7, $8, $9::jsonb, $10::jsonb, $11,
+        $12, $13, $14, $15, $16, $17::jsonb,
+        $18, $19, $20,
+        $21, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+      )
       RETURNING *`,
       [
-        req.user.id,
         original.title,
         original.description,
-        newDate,
-        original.start_time,
-        original.end_time,
+        startTimestamp,
+        endTimestamp,
+        original.all_day,
         original.event_type,
-        original.priority,
+        original.color,
         original.location,
-        original.attendees,
+        JSON.stringify(normalizedAttendees),
+        JSON.stringify(normalizedAttachments),
+        coverImage,
+        original.priority || 'medium',
+        original.status || 'confirmed',
+        original.category || 'work',
+        original.reminder ?? 15,
+        original.notes || null,
+        JSON.stringify(normalizedTags),
+        original.is_recurring || false,
+        original.recurrence_pattern || null,
+        original.recurrence_end_date || null,
         req.user.id
       ]
     );
 
-    const duplicatedEvent = result.rows[0];
+    const duplicatedEvent = transformEventRow(result.rows[0]);
+
+    const io = getIO();
+    if (io) {
+      io.emit('schedule:event_created', {
+        event: duplicatedEvent,
+        user: {
+          id: req.user.id,
+          name: req.user.name
+        }
+      });
+    }
 
     logger.info('Event duplicated', {
       originalId: id,
       newId: duplicatedEvent.id,
-      userId: req.user.id
+      userId: req.user.id,
+      targetDate: newDate
+    });
+
+    auditLogger.logDataChange('create', req.user.id, 'calendar_event', duplicatedEvent.id, {
+      action: 'duplicate',
+      originalId: Number(id),
+      start_time: startTimestamp,
+      end_time: endTimestamp
     });
 
     res.status(201).json(duplicatedEvent);

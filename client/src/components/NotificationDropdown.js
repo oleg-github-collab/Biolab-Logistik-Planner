@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Bell, Check, CheckCheck, X, Trash2, MessageSquare, AtSign, ThumbsUp, Calendar, ClipboardList } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
@@ -35,6 +35,28 @@ const NotificationDropdown = ({ socket }) => {
     };
   };
 
+  const loadUnreadCount = useCallback(async () => {
+    try {
+      const response = await getUnreadCount();
+      setUnreadCount(parseInt(response.data.total) || 0);
+    } catch (error) {
+      console.error('Error loading unread count:', error);
+    }
+  }, []);
+
+  const loadNotifications = useCallback(async () => {
+    try {
+      setLoading(true);
+      const params = filter === 'unread' ? { is_read: false } : filter !== 'all' ? { type: filter } : {};
+      const response = await getNotifications(params);
+      setNotifications(response.data.notifications);
+    } catch (error) {
+      console.error('Error loading notifications:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [filter]);
+
   useEffect(() => {
     loadUnreadCount();
     loadNotifications();
@@ -47,25 +69,9 @@ const NotificationDropdown = ({ socket }) => {
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [loadUnreadCount, loadNotifications]);
 
-  useEffect(() => {
-    if (!socket) return;
-
-    socket.on('notification:new', handleNewNotification);
-    socket.on('notification', handleNewNotification);
-
-    return () => {
-      socket.off('notification:new', handleNewNotification);
-      socket.off('notification', handleNewNotification);
-    };
-  }, [socket]);
-
-  useEffect(() => {
-    if (isOpen) loadNotifications();
-  }, [filter, isOpen]);
-
-  const handleNewNotification = (notification) => {
+  const handleNewNotification = useCallback((notification) => {
     const normalized = normalizeNotification(notification);
     if (!normalized) return;
 
@@ -81,29 +87,23 @@ const NotificationDropdown = ({ socket }) => {
         icon: normalized.icon
       });
     }
-  };
+  }, [loadUnreadCount]);
 
-  const loadUnreadCount = async () => {
-    try {
-      const response = await getUnreadCount();
-      setUnreadCount(parseInt(response.data.total) || 0);
-    } catch (error) {
-      console.error('Error loading unread count:', error);
-    }
-  };
+  useEffect(() => {
+    if (!socket) return;
 
-  const loadNotifications = async () => {
-    try {
-      setLoading(true);
-      const params = filter === 'unread' ? { is_read: false } : filter !== 'all' ? { type: filter } : {};
-      const response = await getNotifications(params);
-      setNotifications(response.data.notifications);
-    } catch (error) {
-      console.error('Error loading notifications:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    socket.on('notification:new', handleNewNotification);
+    socket.on('notification', handleNewNotification);
+
+    return () => {
+      socket.off('notification:new', handleNewNotification);
+      socket.off('notification', handleNewNotification);
+    };
+  }, [socket, handleNewNotification]);
+
+  useEffect(() => {
+    if (isOpen) loadNotifications();
+  }, [filter, isOpen, loadNotifications]);
 
   const handleMarkAsRead = async (notificationId) => {
     try {

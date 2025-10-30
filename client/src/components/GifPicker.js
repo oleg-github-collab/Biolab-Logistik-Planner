@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import LoadingSpinner from './LoadingSpinner';
 import { showError } from '../utils/toast';
 
-const TENOR_API_KEY = 'AIzaSyDCTq7o-lL1b3gC5ZEYbQNgN9hx7DqR0iE';
+const TENOR_API_KEY = process.env.REACT_APP_TENOR_API_KEY || 'AIzaSyDCTq7o-lL1b3gC5ZEYbQNgN9hx7DqR0iE';
 const TENOR_API_BASE = 'https://tenor.googleapis.com/v2';
 
 const POPULAR_CATEGORIES = [
@@ -24,24 +24,7 @@ const GifPicker = ({ onSelectGif, onClose }) => {
   const [hoveredGif, setHoveredGif] = useState(null);
 
   // Debounce search
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      if (searchTerm.trim()) {
-        searchGifs(searchTerm);
-      } else if (!selectedCategory) {
-        loadTrendingGifs();
-      }
-    }, 500);
-
-    return () => clearTimeout(delayDebounceFn);
-  }, [searchTerm]);
-
-  // Load trending GIFs on mount
-  useEffect(() => {
-    loadTrendingGifs();
-  }, []);
-
-  const loadTrendingGifs = async () => {
+  const loadTrendingGifs = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(
@@ -61,9 +44,9 @@ const GifPicker = ({ onSelectGif, onClose }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const searchGifs = async (query) => {
+  const searchGifs = useCallback(async (query) => {
     try {
       setLoading(true);
       const response = await fetch(
@@ -83,7 +66,23 @@ const GifPicker = ({ onSelectGif, onClose }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      if (searchTerm.trim()) {
+        searchGifs(searchTerm);
+      } else if (!selectedCategory) {
+        loadTrendingGifs();
+      }
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchTerm, selectedCategory, searchGifs, loadTrendingGifs]);
+
+  useEffect(() => {
+    loadTrendingGifs();
+  }, [loadTrendingGifs]);
 
   const handleCategoryClick = (category) => {
     setSelectedCategory(category);

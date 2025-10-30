@@ -1,12 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
 import { Trash2, Edit2, Plus, AlertTriangle, Info } from 'lucide-react';
 
 const WasteTemplatesAdmin = () => {
-  const { state } = useAuth();
-  const { user } = state;
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);

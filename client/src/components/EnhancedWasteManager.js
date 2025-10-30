@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
-import { format, addDays, isToday, isPast, isBefore, differenceInDays } from 'date-fns';
+import { format, addDays, differenceInDays } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useAuth } from '../context/AuthContext';
 
@@ -110,7 +110,6 @@ const EnhancedWasteManager = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showTemplatesModal, setShowTemplatesModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [selectedWaste, setSelectedWaste] = useState(null);
   const [filter, setFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -140,7 +139,7 @@ const EnhancedWasteManager = () => {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   // ✅ OPTIMIZED: useCallback for data loading and notification functions
   const showError = useCallback((message) => {
@@ -363,19 +362,6 @@ const EnhancedWasteManager = () => {
     } catch (err) {
       console.error('Error sending notifications:', err);
     }
-  };
-
-  const getStatusColor = (nextDisposalDate, hazardLevel) => {
-    if (!nextDisposalDate) return 'gray';
-
-    const date = new Date(nextDisposalDate);
-    const today = new Date();
-    const daysUntil = Math.ceil((date - today) / (1000 * 60 * 60 * 24));
-
-    if (hazardLevel === 'critical' && daysUntil <= 1) return 'red';
-    if (hazardLevel === 'high' && daysUntil <= 3) return 'orange';
-    if (daysUntil <= 7) return 'yellow';
-    return 'green';
   };
 
   // ✅ OPTIMIZED: useCallback for utility functions

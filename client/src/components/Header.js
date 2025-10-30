@@ -2,16 +2,17 @@ import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import usePermissions from '../hooks/usePermissions';
+import { useLocale } from '../context/LocaleContext';
 import NotificationDropdown from './NotificationDropdown';
 
 const NAV_ITEMS = [
-  { to: '/dashboard', label: 'Übersicht', icon: '📊', permission: 'schedule:read' },
-  { to: '/messages', label: 'Nachrichten', icon: '💬', permission: 'message:read' },
-  { to: '/task-pool', label: 'Aufgaben', icon: '✓', permission: 'task:read' },
-  { to: '/waste', label: 'Abfall', icon: '♻️', permission: 'waste:read' },
-  { to: '/schedule', label: 'Stunden', icon: '⏰', permission: 'schedule:read' },
-  { to: '/users', label: 'Benutzer', icon: '👥', permission: 'user:read' },
-  { to: '/admin', label: 'Admin', icon: '⚙️', permission: 'system:settings' }
+  { to: '/dashboard', labelKey: 'navigation.dashboard', icon: '📊', permission: 'schedule:read' },
+  { to: '/messages', labelKey: 'navigation.messages', icon: '💬', permission: 'message:read' },
+  { to: '/task-pool', labelKey: 'navigation.tasks', icon: '✓', permission: 'task:read' },
+  { to: '/waste', labelKey: 'navigation.waste', icon: '♻️', permission: 'waste:read' },
+  { to: '/schedule', labelKey: 'navigation.schedule', icon: '⏰', permission: 'schedule:read' },
+  { to: '/users', labelKey: 'navigation.users', icon: '👥', permission: 'user:read' },
+  { to: '/admin', labelKey: 'navigation.admin', icon: '⚙️', permission: 'system:settings' }
 ];
 
 const Header = ({ socket }) => {
@@ -20,6 +21,7 @@ const Header = ({ socket }) => {
   const navigate = useNavigate();
   const { hasPermission } = usePermissions();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { t } = useLocale();
 
   // Безпечна перевірка контексту
   if (!authContext || !authContext.state) {
@@ -29,11 +31,7 @@ const Header = ({ socket }) => {
   const { state, logout } = authContext;
   const { user } = state || {};
 
-  const roleTranslations = {
-    superadmin: 'Superadmin',
-    admin: 'Administrator',
-    employee: 'Mitarbeiter'
-  };
+  const getRoleLabel = (role) => t(`roles.${role}`) || role;
 
   const handleLogout = () => {
     logout();
@@ -76,7 +74,7 @@ const Header = ({ socket }) => {
                   `}
                 >
                   <span className="mr-2">{item.icon}</span>
-                  {item.label}
+                  {t(item.labelKey)}
                 </Link>
               );
             })}
@@ -91,12 +89,12 @@ const Header = ({ socket }) => {
             <div className="hidden sm:flex items-center space-x-3 pl-3 border-l border-gray-200">
               <div className="text-right">
                 <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                <p className="text-xs text-gray-500">{roleTranslations[user.role] || user.role}</p>
+                <p className="text-xs text-gray-500">{getRoleLabel(user.role)}</p>
               </div>
               <button
                 onClick={handleLogout}
                 className="px-3 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors"
-                title="Abmelden"
+                title={t('navigation.logout')}
               >
                 🚪
               </button>
@@ -106,6 +104,7 @@ const Header = ({ socket }) => {
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              aria-label={t('mobile.nav.toggle')}
             >
               <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 {mobileMenuOpen ? (
@@ -126,7 +125,7 @@ const Header = ({ socket }) => {
             {/* User Info */}
             <div className="sm:hidden pb-3 mb-3 border-b border-gray-200">
               <p className="text-sm font-medium text-gray-900">{user.name}</p>
-              <p className="text-xs text-gray-500">{user.role}</p>
+              <p className="text-xs text-gray-500">{getRoleLabel(user.role)}</p>
             </div>
 
             {/* Navigation Items */}
@@ -145,7 +144,7 @@ const Header = ({ socket }) => {
                   `}
                 >
                   <span className="mr-3 text-lg">{item.icon}</span>
-                  {item.label}
+                  {t(item.labelKey)}
                 </Link>
               );
             })}
@@ -159,7 +158,7 @@ const Header = ({ socket }) => {
               className="w-full flex items-center px-4 py-3 mt-2 text-red-600 bg-red-50 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors"
             >
               <span className="mr-3 text-lg">🚪</span>
-              Abmelden
+              {t('navigation.logout')}
             </button>
           </div>
         </div>

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Camera, Save, X, Bell, Eye, Clock, Globe } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Camera, Save, X, Bell, Eye, Globe } from 'lucide-react';
 import {
   getUserProfile,
   updateUserProfile,
@@ -18,11 +18,7 @@ const UserProfile = ({ userId, onClose }) => {
   const [preferences, setPreferences] = useState({});
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    loadProfile();
-  }, [userId]);
-
-  const loadProfile = async () => {
+  const loadProfile = useCallback(async () => {
     try {
       setLoading(true);
       const response = await getUserProfile(userId);
@@ -64,7 +60,11 @@ const UserProfile = ({ userId, onClose }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId]);
+
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
 
   const handlePhotoSelect = (e) => {
     const file = e.target.files[0];

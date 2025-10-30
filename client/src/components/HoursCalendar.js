@@ -1,12 +1,8 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { AuthContext } from '../context/AuthContext';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
 
 const HoursCalendar = () => {
-  const { state } = useContext(AuthContext);
-  const { user } = state;
-
   const [currentWeekStart, setCurrentWeekStart] = useState(getMonday(new Date()));
   const [schedule, setSchedule] = useState([]);
   const [hoursSummary, setHoursSummary] = useState(null);
@@ -34,7 +30,7 @@ const HoursCalendar = () => {
   }
 
   // Load schedule for current week
-  const loadSchedule = async () => {
+  const loadSchedule = useCallback(async () => {
     try {
       setLoading(true);
       const weekStart = formatDateForAPI(currentWeekStart);
@@ -52,11 +48,11 @@ const HoursCalendar = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentWeekStart]);
 
   useEffect(() => {
     loadSchedule();
-  }, [currentWeekStart]);
+  }, [loadSchedule]);
 
   // Navigate weeks
   const previousWeek = () => {

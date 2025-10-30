@@ -14,6 +14,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useLocale } from '../context/LocaleContext';
 import {
   getUnifiedTaskBoard,
   createTaskPoolEntry,
@@ -22,39 +23,39 @@ import {
 } from '../utils/apiEnhanced';
 import { showSuccess, showError, showInfo } from '../utils/toast';
 
-const COLUMN_META = {
+const buildColumnMeta = (t) => ({
   backlog: {
-    title: 'Ideen & Backlog',
-    description: 'Noch nicht im heutigen Task Pool, bereit zur Planung',
+    title: t('board.column.backlog'),
+    description: t('board.column.backlog.desc'),
     icon: ClipboardList,
     accent: 'bg-slate-100 border-slate-300'
   },
   pool: {
-    title: 'Task Pool',
-    description: 'Offene Aufgaben, die sofort übernommen werden können',
+    title: t('board.column.pool'),
+    description: t('board.column.pool.desc'),
     icon: Sparkles,
     accent: 'bg-indigo-50 border-indigo-200'
   },
   inProgress: {
-    title: 'In Arbeit',
-    description: 'Aktive Aufgaben, die einem Teammitglied gehören',
+    title: t('board.column.progress'),
+    description: t('board.column.progress.desc'),
     icon: Activity,
     accent: 'bg-emerald-50 border-emerald-200'
   },
   completed: {
-    title: 'Erledigt',
-    description: 'Gratulation – sauber abgeschlossen',
+    title: t('board.column.done'),
+    description: t('board.column.done.desc'),
     icon: CheckCircle,
     accent: 'bg-stone-50 border-stone-200'
   }
-};
+});
 
-const PRIORITY_META = {
-  urgent: { label: 'Urgent', className: 'bg-red-100 text-red-700 border-red-300' },
-  high: { label: 'Hoch', className: 'bg-orange-100 text-orange-700 border-orange-300' },
-  medium: { label: 'Mittel', className: 'bg-amber-100 text-amber-700 border-amber-300' },
-  low: { label: 'Niedrig', className: 'bg-emerald-100 text-emerald-700 border-emerald-300' }
-};
+const buildPriorityMeta = (t) => ({
+  urgent: { label: t('board.task.priority.urgent'), className: 'bg-red-100 text-red-700 border-red-300' },
+  high: { label: t('board.task.priority.high'), className: 'bg-orange-100 text-orange-700 border-orange-300' },
+  medium: { label: t('board.task.priority.medium'), className: 'bg-amber-100 text-amber-700 border-amber-300' },
+  low: { label: t('board.task.priority.low'), className: 'bg-emerald-100 text-emerald-700 border-emerald-300' }
+});
 
 const formatDateTime = (value) => {
   if (!value) return null;
@@ -100,6 +101,7 @@ const buildBoardState = (tasks) => {
 
 const UnifiedTaskBoard = () => {
   const auth = useAuth();
+  const { t } = useLocale();
   const user = auth?.user;
 
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
@@ -110,7 +112,29 @@ const UnifiedTaskBoard = () => {
   const [error, setError] = useState(null);
   const [actionBusy, setActionBusy] = useState({});
 
+  const columnMeta = useMemo(() => buildColumnMeta(t), [t]);
+  const priorityMeta = useMemo(() => buildPriorityMeta(t), [t]);
   const isAdmin = useMemo(() => user?.role === 'admin' || user?.role === 'superadmin', [user]);
+  const selectedDateObj = useMemo(() => {
+    if (!selectedDate) return new Date();
+    try {
+      return parseISO(selectedDate);
+    } catch (error) {
+      return new Date();
+    }
+  }, [selectedDate]);
+
+  const subtitle = useMemo(() => {
+    if (!selectedDateObj || Number.isNaN(selectedDateObj.getTime())) {
+      return t('board.subtitle.today');
+    }
+    if (isToday(selectedDateObj)) {
+      return t('board.subtitle.today');
+    }
+    return t('board.subtitle.date', {
+      date: format(selectedDateObj, 'dd.MM.yyyy', { locale: de })
+    });
+  }, [selectedDateObj, t]);
 
   const loadBoard = useCallback(async (date, { silent } = { silent: false }) => {
     try {
@@ -128,12 +152,12 @@ const UnifiedTaskBoard = () => {
       setError(null);
     } catch (err) {
       console.error('Error loading unified task board', err);
-      setError(err.response?.data?.error || 'Fehler beim Laden des Task Boards');
+      setError(err.response?.data?.error || t('board.error.load'));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     loadBoard(selectedDate);
@@ -186,7 +210,7 @@ const UnifiedTaskBoard = () => {
 
   const handleCreatePoolEntry = async (taskId, { skipRefresh = false } = {}) => {
     if (!isAdmin) {
-      showInfo('Nur Administratoren können Aufgaben in den Pool schieben.');
+      showInfo(t('board.help.adminOnly'));
       return;
     }
 
@@ -201,13 +225,13 @@ const UnifiedTaskBoard = () => {
         isRecurring: false,
         recurrencePattern: null
       });
-      showSuccess('Aufgabe in den heutigen Pool verschoben');
+      showSuccess(t('board.actions.publish.success'));
       if (!skipRefresh) {
         await refresh();
       }
     } catch (err) {
       console.error('Error creating task pool entry', err);
-      showError(err.response?.data?.error || 'Konnte Aufgabe nicht in den Pool verschieben');
+      showError(err.response?.data?.error || t('board.actions.publish.error'));
       await refresh();
     } finally {
       setActionBusy((prev) => ({ ...prev, [taskId]: false }));
@@ -217,20 +241,20 @@ const UnifiedTaskBoard = () => {
   const handleClaimTask = async (taskId, { skipRefresh = false } = {}) => {
     const poolId = boardState.taskMap[taskId]?.pool?.id;
     if (!poolId) {
-      showError('Aufgabe kann nicht übernommen werden – keine Pool-ID gefunden.');
+      showError(t('board.actions.missingPool'));
       return;
     }
 
     setActionBusy((prev) => ({ ...prev, [taskId]: true }));
     try {
       await claimTask(poolId);
-      showSuccess('Aufgabe übernommen!');
+      showSuccess(t('board.actions.claim.success'));
       if (!skipRefresh) {
         await refresh();
       }
     } catch (err) {
       console.error('Error claiming task', err);
-      showError(err.response?.data?.error || 'Fehler beim Übernehmen der Aufgabe');
+      showError(err.response?.data?.error || t('board.actions.claim.error'));
       await refresh();
     } finally {
       setActionBusy((prev) => ({ ...prev, [taskId]: false }));
@@ -240,20 +264,20 @@ const UnifiedTaskBoard = () => {
   const handleCompleteTask = async (taskId, { skipRefresh = false } = {}) => {
     const poolId = boardState.taskMap[taskId]?.pool?.id;
     if (!poolId) {
-      showError('Aufgabe kann nicht abgeschlossen werden – keine Pool-ID gefunden.');
+      showError(t('board.actions.missingPool'));
       return;
     }
 
     setActionBusy((prev) => ({ ...prev, [taskId]: true }));
     try {
       await completeTask(poolId, '');
-      showSuccess('Aufgabe abgeschlossen – stark!');
+      showSuccess(t('board.actions.complete.success'));
       if (!skipRefresh) {
         await refresh();
       }
     } catch (err) {
       console.error('Error completing task', err);
-      showError(err.response?.data?.error || 'Fehler beim Abschließen der Aufgabe');
+      showError(err.response?.data?.error || t('board.actions.complete.error'));
       await refresh();
     } finally {
       setActionBusy((prev) => ({ ...prev, [taskId]: false }));
@@ -290,7 +314,7 @@ const UnifiedTaskBoard = () => {
     const action = determineMoveAction(source.droppableId, destination.droppableId);
 
     if (!action) {
-      showInfo('Diese Umsortierung ist aktuell nicht erlaubt.');
+      showInfo(t('board.actions.notAllowed'));
       return;
     }
 
@@ -331,7 +355,7 @@ const UnifiedTaskBoard = () => {
     const task = boardState.taskMap[taskId];
     if (!task) return null;
 
-    const priority = PRIORITY_META[task.priority] || PRIORITY_META.medium;
+    const priority = priorityMeta[task.priority] || priorityMeta.medium;
     const isMine =
       task.assigneeId === user?.id ||
       task.pool?.claimedBy === user?.id ||
@@ -393,12 +417,12 @@ const UnifiedTaskBoard = () => {
               )}
               {task.estimatedHours && (
                 <span className="px-2 py-1 bg-emerald-50 rounded-full border border-emerald-200 text-emerald-600">
-                  ⏱ {task.estimatedHours}h
+                  ⏱ {t('board.task.estimated', { hours: task.estimatedHours })}
                 </span>
               )}
               {isMine && (
                 <span className="px-2 py-1 bg-emerald-100 rounded-full border border-emerald-300 text-emerald-700">
-                  Mir zugewiesen
+                  {t('board.task.mine')}
                 </span>
               )}
             </div>
@@ -407,28 +431,28 @@ const UnifiedTaskBoard = () => {
               {task.pool?.assignedToName && (
                 <div className="flex items-center gap-2">
                   <Users className="w-3 h-3" />
-                  <span>Zugewiesen an {task.pool.assignedToName}</span>
+                  <span>{t('board.task.assignedTo', { name: task.pool.assignedToName })}</span>
                 </div>
               )}
 
               {task.pool?.claimedByName && (
                 <div className="flex items-center gap-2">
                   <Flame className="w-3 h-3 text-rose-500" />
-                  <span>In Arbeit von {task.pool.claimedByName}</span>
+                  <span>{t('board.task.claimedBy', { name: task.pool.claimedByName })}</span>
                 </div>
               )}
 
               {poolUpdated && (
                 <div className="flex items-center gap-2">
                   <RefreshCw className="w-3 h-3" />
-                  <span>Aktualisiert {poolUpdated}</span>
+                  <span>{t('board.task.updated', { date: poolUpdated })}</span>
                 </div>
               )}
 
               {isHelpNeeded && (
                 <div className="flex items-center gap-2 text-orange-600 bg-orange-50 border border-orange-200 rounded-lg p-2">
                   <AlertCircle className="w-4 h-4" />
-                  <span>Hilfe angefragt – bitte unterstützen!</span>
+                  <span>{t('board.task.help')}</span>
                 </div>
               )}
             </div>
@@ -440,7 +464,7 @@ const UnifiedTaskBoard = () => {
                   disabled={actionBusy[taskId]}
                   className="flex-1 px-3 py-2 text-[12px] font-semibold bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition disabled:opacity-60"
                 >
-                  In Pool aufnehmen
+                  {t('board.task.assign')}
                 </button>
               )}
 
@@ -450,7 +474,7 @@ const UnifiedTaskBoard = () => {
                   disabled={actionBusy[taskId]}
                   className="flex-1 px-3 py-2 text-[12px] font-semibold bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition disabled:opacity-60"
                 >
-                  Ich übernehme das
+                  {t('board.task.claim')}
                 </button>
               )}
 
@@ -460,7 +484,7 @@ const UnifiedTaskBoard = () => {
                   disabled={actionBusy[taskId]}
                   className="flex-1 px-3 py-2 text-[12px] font-semibold bg-slate-800 text-white rounded-lg hover:bg-slate-900 transition disabled:opacity-60"
                 >
-                  Erledigt markieren
+                  {t('board.task.complete')}
                 </button>
               )}
             </div>
@@ -471,7 +495,8 @@ const UnifiedTaskBoard = () => {
   };
 
   const renderColumn = (columnId) => {
-    const meta = COLUMN_META[columnId];
+    const meta = columnMeta[columnId];
+    if (!meta) return null;
     const Icon = meta.icon;
     const tasksInColumn = boardState.columns[columnId];
 
@@ -502,7 +527,7 @@ const UnifiedTaskBoard = () => {
               }`}
             >
               {tasksInColumn.length === 0
-                ? renderEmptyState('Noch keine Tasks hier – schnapp dir etwas!')
+                ? renderEmptyState(t('board.empty'))
                 : tasksInColumn.map((taskId, index) => renderTaskCard(taskId, index, columnId))}
               {provided.placeholder}
             </div>
@@ -527,12 +552,8 @@ const UnifiedTaskBoard = () => {
     <div className="p-4 sm:p-6 space-y-6">
       <div className="flex flex-wrap items-center gap-4 justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Unified Task Board</h1>
-          <p className="text-sm text-slate-500">
-            {isToday(parseISO(selectedDate))
-              ? 'Heute im Fokus: Was muss sofort passieren?'
-              : `Planung für ${format(parseISO(selectedDate), 'dd.MM.yyyy', { locale: de })}`}
-          </p>
+          <h1 className="text-2xl font-bold text-slate-900">{t('board.title')}</h1>
+          <p className="text-sm text-slate-500">{subtitle}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <input
@@ -547,7 +568,7 @@ const UnifiedTaskBoard = () => {
             className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-semibold rounded-lg hover:bg-slate-800 transition disabled:opacity-60"
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            Aktualisieren
+            {t('app.refresh')}
           </button>
         </div>
       </div>
@@ -556,7 +577,7 @@ const UnifiedTaskBoard = () => {
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 flex items-start gap-3">
           <AlertCircle className="w-4 h-4 mt-0.5" />
           <div>
-            <p className="font-semibold">Ladeproblem</p>
+            <p className="font-semibold">{t('board.error.title')}</p>
             <p>{error}</p>
           </div>
         </div>
@@ -564,30 +585,30 @@ const UnifiedTaskBoard = () => {
 
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
         <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-xs text-slate-500 uppercase">Backlog</p>
+          <p className="text-xs text-slate-500 uppercase">{t('board.metrics.backlog')}</p>
           <p className="text-2xl font-semibold text-slate-900">{counts.backlog}</p>
         </div>
         <div className="rounded-2xl border border-indigo-200 bg-indigo-50 p-4">
-          <p className="text-xs text-indigo-600 uppercase">Task Pool</p>
+          <p className="text-xs text-indigo-600 uppercase">{t('board.metrics.pool')}</p>
           <p className="text-2xl font-semibold text-indigo-700">{counts.poolAvailable}</p>
         </div>
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-          <p className="text-xs text-emerald-600 uppercase">Aktiv</p>
+          <p className="text-xs text-emerald-600 uppercase">{t('board.metrics.active')}</p>
           <p className="text-2xl font-semibold text-emerald-700">{counts.inProgress}</p>
         </div>
         <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4">
-          <p className="text-xs text-orange-600 uppercase">Braucht Hilfe</p>
+          <p className="text-xs text-orange-600 uppercase">{t('board.metrics.help')}</p>
           <p className="text-2xl font-semibold text-orange-600">{counts.needsHelp}</p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-          <p className="text-xs text-slate-500 uppercase">Abgeschlossen</p>
+          <p className="text-xs text-slate-500 uppercase">{t('board.metrics.completed')}</p>
           <p className="text-2xl font-semibold text-slate-800">{counts.completed}</p>
         </div>
       </div>
 
       <DragDropContext onDragEnd={onDragEnd}>
         <div className="flex gap-4 overflow-x-auto pb-4">
-          {Object.keys(COLUMN_META).map((columnId) => renderColumn(columnId))}
+          {Object.keys(columnMeta).map((columnId) => renderColumn(columnId))}
         </div>
       </DragDropContext>
     </div>

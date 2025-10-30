@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
+import React, { useState, useEffect, useCallback, memo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getAllUsers, updateUser, deleteUser, register } from '../utils/api';
 
@@ -104,12 +104,6 @@ const UserManagement = () => {
     confirmPassword: ''
   });
 
-  useEffect(() => {
-    if (['admin', 'superadmin'].includes(user.role)) {
-      loadUsers();
-    }
-  }, [user.role]);
-
   // ✅ OPTIMIZED: useCallback to memoize loadUsers function
   const loadUsers = useCallback(async () => {
     try {
@@ -124,6 +118,12 @@ const UserManagement = () => {
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (['admin', 'superadmin'].includes(user.role)) {
+      loadUsers();
+    }
+  }, [user.role, loadUsers]);
 
   const handleAddUser = async (e) => {
     e.preventDefault();

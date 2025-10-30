@@ -7,6 +7,18 @@ const {
   setUserOffline,
   getOnlineUsers: getOnlineUsersFromRedis
 } = require('./services/redisService');
+const {
+  ensureDirectConversation,
+  fetchConversationById,
+  getConversationMembers,
+  listUserConversations,
+  CONVERSATION_TYPES
+} = require('./services/conversationService');
+const {
+  normalizeMessageRow,
+  enrichMessages,
+  createMessageRecord
+} = require('./services/messageService');
 
 let io;
 
@@ -141,6 +153,20 @@ const initializeSocket = (server) => {
     // Join user-specific room
     socket.join(`user_${userId}`);
 
+    (async () => {
+      try {
+        const conversations = await listUserConversations(userId);
+        conversations.forEach((conversation) => {
+          socket.join(`conversation_${conversation.id}`);
+        });
+      } catch (error) {
+        logger.warn('Failed to preload conversation rooms for user', {
+          userId,
+          error: error.message
+        });
+      }
+    })();
+
     // Notify other users about online status
     socket.broadcast.emit('user_online', {
       userId,
@@ -151,115 +177,254 @@ const initializeSocket = (server) => {
     emitOnlineUsers(socket);
     emitOnlineUsers();
 
-    // Handle private message - Optimized for instant delivery
-    socket.on('send_message', async (data) => {
-      try {
-        const { receiverId, message, messageType = 'text' } = data;
+    // Handle unified message sending (direct/group/topic)
+    socket.on('send_message', async (data = {}) => {
+      const {
+        conversationId,
+        receiverId,
+        message,
+        messageType = 'text',
+        attachments = [],
+        gif,
+        quotedMessageId,
+        mentionedUserIds = [],
+        metadata = {}
+      } = data;
 
-        if (!message || message.trim().length === 0) {
-          socket.emit('message_error', { error: 'Nachricht darf nicht leer sein' });
-          return;
+      const trimmedMessage = typeof message === 'string' ? message.trim() : '';
+      const hasAttachments = Array.isArray(attachments) && attachments.length > 0;
+      const payloadText = gif || trimmedMessage;
+
+      if (!payloadText && !hasAttachments) {
+        socket.emit('message_error', { error: 'Nachricht darf nicht leer sein' });
+        return;
+      }
+
+      const sanitizedContent = payloadText ? payloadText.replace(/<script[^>]*>.*?<\/script>/gi, '').trim() : null;
+      const attachmentPayload = hasAttachments ? attachments : [];
+      const messageContent = sanitizedContent || gif || (attachmentPayload.length ? '[attachment]' : null);
+
+      const client = await database.getClient();
+      let targetConversationId = conversationId ? parseInt(conversationId, 10) : null;
+      let resolvedRecipientId = receiverId ? parseInt(receiverId, 10) : null;
+
+      try {
+        await client.query('BEGIN');
+
+        let conversation;
+        if (targetConversationId) {
+          conversation = await fetchConversationById(client, targetConversationId);
+          if (!conversation) {
+            throw new Error('Konversation nicht gefunden');
+          }
+
+          const membership = await client.query(
+            `SELECT role FROM message_conversation_members WHERE conversation_id = $1 AND user_id = $2`,
+            [targetConversationId, userId]
+          );
+
+          if (membership.rows.length === 0) {
+            throw new Error('Kein Zugriff auf diese Konversation');
+          }
+
+          if (conversation.conversation_type === CONVERSATION_TYPES.DIRECT && !resolvedRecipientId) {
+            const otherMember = await client.query(
+              `SELECT user_id FROM message_conversation_members WHERE conversation_id = $1 AND user_id <> $2 LIMIT 1`,
+              [targetConversationId, userId]
+            );
+            resolvedRecipientId = otherMember.rows[0]?.user_id || null;
+          }
+        } else {
+          if (!resolvedRecipientId) {
+            throw new Error('Empfänger ist erforderlich');
+          }
+
+          const recipientResult = await client.query(
+            'SELECT id FROM users WHERE id = $1',
+            [resolvedRecipientId]
+          );
+
+          if (recipientResult.rows.length === 0) {
+            throw new Error('Empfänger nicht gefunden');
+          }
+
+          conversation = await ensureDirectConversation(client, userId, resolvedRecipientId);
+          targetConversationId = conversation.id;
         }
 
-        const receiverConnection = Array.from(activeUsers.entries())
-          .find(([id]) => id == receiverId);
+        socket.join(`conversation_${targetConversationId}`);
 
-        // Prepare optimistic message for instant UI update
+        const normalizedQuotedId = quotedMessageId ? parseInt(quotedMessageId, 10) : null;
+        const uniqueMentions = Array.from(new Set(
+          (Array.isArray(mentionedUserIds) ? mentionedUserIds : [])
+            .map((id) => parseInt(id, 10))
+            .filter((id) => Number.isInteger(id) && id !== userId)
+        ));
+
         const optimisticMessage = {
-          id: 'temp_' + Date.now(),
+          id: `temp_${Date.now()}`,
+          conversation_id: targetConversationId,
           sender_id: userId,
-          receiver_id: receiverId,
-          message: message.trim(),
-          message_type: messageType,
+          receiver_id: resolvedRecipientId,
+          message: messageContent,
+          message_type: gif ? 'gif' : messageType,
+          attachments: attachmentPayload,
+          metadata,
+          quote: Number.isInteger(normalizedQuotedId) ? { quoted_message_id: normalizedQuotedId } : null,
+          reactions: [],
+          mentions: [],
+          calendar_refs: [],
+          task_refs: [],
           sender_name: userInfo.name,
           created_at: new Date().toISOString(),
           read_status: false,
-          delivered_status: !!receiverConnection,
+          delivered_status: false,
           isOptimistic: true
         };
 
-        // Send immediate confirmation to sender (optimistic update)
         socket.emit('message_sent', optimisticMessage);
+        socket.to(`conversation_${targetConversationId}`).emit('conversation:new_message', {
+          conversationId: targetConversationId,
+          message: optimisticMessage
+        });
 
-        // Send to receiver instantly if online (before DB save)
-        if (receiverConnection) {
-          const [, receiverData] = receiverConnection;
-          io.to(receiverData.socketId).emit('new_message', optimisticMessage);
+        const rawMessage = await createMessageRecord(client, {
+          senderId: userId,
+          conversationId: targetConversationId,
+          receiverId: resolvedRecipientId,
+          messageContent,
+          messageType: gif ? 'gif' : messageType,
+          attachments: attachmentPayload,
+          metadata,
+          quotedMessageId: Number.isInteger(normalizedQuotedId) ? normalizedQuotedId : null,
+          mentionedUserIds: uniqueMentions
+        });
+
+        await client.query(
+          'UPDATE message_conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+          [targetConversationId]
+        );
+
+        if (conversation) {
+          conversation.updated_at = new Date().toISOString();
         }
 
-        try {
-          const insertResult = await database.query(
-            `INSERT INTO messages (
-              sender_id, receiver_id, message, message_type, is_group, read_status, delivered_status
-            ) VALUES ($1, $2, $3, $4, false, false, $5)
-            RETURNING id, created_at`,
-            [userId, receiverId, message.trim(), messageType, receiverConnection ? true : false]
-          );
+        await client.query(
+          `UPDATE message_conversation_members
+              SET last_read_at = CURRENT_TIMESTAMP
+            WHERE conversation_id = $1 AND user_id = $2`,
+          [targetConversationId, userId]
+        );
 
-          const savedMessage = insertResult.rows[0];
-          const confirmedMessage = {
-            ...optimisticMessage,
-            id: savedMessage.id,
-            created_at: savedMessage.created_at,
-            isOptimistic: false
-          };
+        const messageResult = await client.query(
+          `SELECT
+              m.*,
+              sender.name AS sender_name,
+              sender.profile_photo AS sender_photo
+            FROM messages m
+            LEFT JOIN users sender ON m.sender_id = sender.id
+           WHERE m.id = $1`,
+          [rawMessage.id]
+        );
 
-          socket.emit('message_confirmed', {
-            tempId: optimisticMessage.id,
-            message: confirmedMessage
-          });
+        const membersResult = await client.query(
+          `SELECT user_id FROM message_conversation_members WHERE conversation_id = $1`,
+          [targetConversationId]
+        );
 
-          if (receiverConnection) {
-            const [, receiverData] = receiverConnection;
-            io.to(receiverData.socketId).emit('message_confirmed', {
-              tempId: optimisticMessage.id,
-              message: confirmedMessage
-            });
+        await client.query('COMMIT');
 
-            const messagePreview = message.length > 50 ? `${message.substring(0, 50)}...` : message;
-            const notificationPayload = {
-              type: 'new_message',
-              title: `Neue Nachricht von ${userInfo.name}`,
-              body: messagePreview,
+        const enriched = await enrichMessages(client, messageResult.rows);
+        const enrichedMessage = {
+          ...(enriched[0] || normalizeMessageRow(messageResult.rows[0])),
+          isOptimistic: false
+        };
+
+        const memberIds = membersResult.rows.map((row) => row.user_id);
+
+        socket.emit('message_confirmed', {
+          tempId: optimisticMessage.id,
+          message: enrichedMessage
+        });
+
+        socket.to(`conversation_${targetConversationId}`).emit('conversation:message_confirmed', {
+          tempId: optimisticMessage.id,
+          message: enrichedMessage
+        });
+
+        const payload = {
+          conversationId: targetConversationId,
+          message: enrichedMessage
+        };
+
+        memberIds
+          .filter((memberId) => memberId !== userId)
+          .forEach((memberId) => {
+            io.to(`user_${memberId}`).emit('conversation:new_message', payload);
+
+            const preview = messageContent && messageContent.length > 50
+              ? `${messageContent.substring(0, 50)}...`
+              : (messageContent || 'Neue Nachricht');
+
+            sendNotificationToUser(memberId, {
+              title: `${userInfo.name} hat eine neue Nachricht gesendet`,
+              message: preview,
               icon: '/favicon.ico',
-              tag: `message_${savedMessage.id}`,
-              timestamp: new Date().toISOString(),
+              tag: `conversation_${targetConversationId}`,
               data: {
-                messageId: savedMessage.id,
-                senderId: userId,
-                senderName: userInfo.name,
-                messagePreview,
-                messageType,
-                url: '/messages'
+                url: '/messages',
+                conversationId: targetConversationId,
+                messageId: enrichedMessage.id
               }
-            };
-            io.to(receiverData.socketId).emit('notification', notificationPayload);
-            io.to(receiverData.socketId).emit('notification:new', notificationPayload);
-          }
-
-          logger.info('Message saved successfully', {
-            messageId: savedMessage.id,
-            senderId: userId,
-            receiverId,
-            deliveryTime: Date.now() - new Date(optimisticMessage.created_at).getTime()
-          });
-        } catch (error) {
-          logger.error('Error saving message:', error);
-          socket.emit('message_error', {
-            error: 'Nachricht konnte nicht gesendet werden',
-            tempId: optimisticMessage.id
-          });
-          if (receiverConnection) {
-            const [, receiverData] = receiverConnection;
-            io.to(receiverData.socketId).emit('message_failed', {
-              tempId: optimisticMessage.id
             });
-          }
-        }
+          });
+
+        uniqueMentions.forEach((mentionedId) => {
+          io.to(`user_${mentionedId}`).emit('message:mentioned', {
+            messageId: enrichedMessage.id,
+            mentionedBy: {
+              id: userId,
+              name: userInfo.name
+            }
+          });
+        });
+
+        logger.info('Message saved successfully', {
+          messageId: enrichedMessage.id,
+          senderId: userId,
+          conversationId: targetConversationId
+        });
       } catch (error) {
+        await client.query('ROLLBACK');
         logger.error('Error handling send_message:', error);
         socket.emit('message_error', { error: 'Nachricht konnte nicht verarbeitet werden' });
+      } finally {
+        client.release();
       }
+    });
+
+    socket.on('conversation:join', async ({ conversationId }) => {
+      const targetConversationId = parseInt(conversationId, 10);
+      if (!targetConversationId) return;
+
+      try {
+        const membership = await database.query(
+          `SELECT 1 FROM message_conversation_members WHERE conversation_id = $1 AND user_id = $2`,
+          [targetConversationId, userId]
+        );
+
+        if (membership.rows.length > 0) {
+          socket.join(`conversation_${targetConversationId}`);
+        }
+      } catch (error) {
+        logger.error('Failed to join conversation room', { userId, conversationId: targetConversationId, error: error.message });
+      }
+    });
+
+    socket.on('conversation:leave', ({ conversationId }) => {
+      const targetConversationId = parseInt(conversationId, 10);
+      if (!targetConversationId) return;
+      socket.leave(`conversation_${targetConversationId}`);
     });
 
     // Handle message read status

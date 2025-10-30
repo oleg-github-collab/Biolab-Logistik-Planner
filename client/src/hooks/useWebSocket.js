@@ -7,7 +7,6 @@ const useWebSocket = () => {
   const token = auth?.token;
   const isAuthenticated = auth?.isAuthenticated;
   const socketRef = useRef(null);
-  const reconnectTimeoutRef = useRef(null);
   const reconnectAttemptsRef = useRef(0);
   const [isConnected, setIsConnected] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -15,6 +14,7 @@ const useWebSocket = () => {
   const [notifications, setNotifications] = useState([]);
   const [taskEvents, setTaskEvents] = useState([]);
   const taskEventHandlersRef = useRef(new Map());
+  const conversationEventHandlersRef = useRef(new Map());
 
   // Initialize WebSocket connection with auto-reconnect
   useEffect(() => {
@@ -187,6 +187,41 @@ const useWebSocket = () => {
           }
         });
 
+        const emitConversationEvent = (eventType, payload) => {
+          const handlers = conversationEventHandlersRef.current.get(eventType);
+          if (handlers) {
+            handlers.forEach(handler => handler(payload));
+          }
+        };
+
+        socket.on('conversation:new_message', (payload) => {
+          emitConversationEvent('conversation:new_message', payload);
+        });
+
+        socket.on('conversation:message_confirmed', (payload) => {
+          emitConversationEvent('conversation:message_confirmed', payload);
+        });
+
+        socket.on('conversation:members_updated', (payload) => {
+          emitConversationEvent('conversation:members_updated', payload);
+        });
+
+        socket.on('conversation:created', (payload) => {
+          emitConversationEvent('conversation:created', payload);
+        });
+
+        socket.on('conversation:removed', (payload) => {
+          emitConversationEvent('conversation:removed', payload);
+        });
+
+        socket.on('message:reaction', (payload) => {
+          emitConversationEvent('message:reaction', payload);
+        });
+
+        socket.on('message:mentioned', (payload) => {
+          emitConversationEvent('message:mentioned', payload);
+        });
+
         socketRef.current = socket;
       } catch (error) {
         console.error('WebSocket setup error:', error);
@@ -204,31 +239,12 @@ const useWebSocket = () => {
         socketRef.current.disconnect();
         socketRef.current = null;
       }
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
       setIsConnected(false);
     };
   }, [isAuthenticated, token]);
 
-  // Send message
-  const sendMessage = useCallback((receiverId, message, messageType = 'text') => {
-    if (socketRef.current && socketRef.current.connected) {
-      socketRef.current.emit('send_message', {
-        receiverId,
-        message,
-        messageType
-      });
-      return true;
-    } else {
-      console.warn('WebSocket not connected, falling back to HTTP');
-      // Fallback to HTTP API
-      return sendMessageHttp(receiverId, message);
-    }
-  }, []);
-
   // Fallback HTTP message sending
-  const sendMessageHttp = async (receiverId, message) => {
+  const sendMessageHttp = useCallback(async (receiverId, message) => {
     try {
       const response = await fetch('/api/messages', {
         method: 'POST',
@@ -245,7 +261,6 @@ const useWebSocket = () => {
 
       if (response.ok) {
         const messageData = await response.json();
-        // Add to local messages
         setMessages(prev => [...prev, messageData]);
         return true;
       }
@@ -254,7 +269,22 @@ const useWebSocket = () => {
       console.error('HTTP message send error:', error);
       return false;
     }
-  };
+  }, [token]);
+
+  // Send message
+  const sendMessage = useCallback((receiverId, message, messageType = 'text') => {
+    if (socketRef.current && socketRef.current.connected) {
+      socketRef.current.emit('send_message', {
+        receiverId,
+        message,
+        messageType
+      });
+      return true;
+    }
+
+    console.warn('WebSocket not connected, falling back to HTTP');
+    return sendMessageHttp(receiverId, message);
+  }, [sendMessageHttp]);
 
   // Mark message as read
   const markAsRead = useCallback((messageId) => {
@@ -356,6 +386,40 @@ const useWebSocket = () => {
     };
   }, []);
 
+  const onConversationEvent = useCallback((eventType, handler) => {
+    if (!conversationEventHandlersRef.current.has(eventType)) {
+      conversationEventHandlersRef.current.set(eventType, new Set());
+    }
+    conversationEventHandlersRef.current.get(eventType).add(handler);
+
+    return () => {
+      const handlers = conversationEventHandlersRef.current.get(eventType);
+      if (handlers) {
+        handlers.delete(handler);
+      }
+    };
+  }, []);
+
+  const joinConversationRoom = useCallback((conversationId) => {
+    if (socketRef.current && socketRef.current.connected) {
+      socketRef.current.emit('conversation:join', { conversationId });
+    }
+  }, []);
+
+  const leaveConversationRoom = useCallback((conversationId) => {
+    if (socketRef.current && socketRef.current.connected) {
+      socketRef.current.emit('conversation:leave', { conversationId });
+    }
+  }, []);
+
+  const sendConversationMessage = useCallback((payload) => {
+    if (socketRef.current && socketRef.current.connected) {
+      socketRef.current.emit('send_message', payload);
+      return true;
+    }
+    return false;
+  }, []);
+
   // Emit task editing status
   const emitTaskEditing = useCallback((taskId) => {
     if (socketRef.current && socketRef.current.connected) {
@@ -382,8 +446,12 @@ const useWebSocket = () => {
     showNotification,
     requestNotificationPermission,
     onTaskEvent,
+    onConversationEvent,
     emitTaskEditing,
-    emitTaskStopEditing
+    emitTaskStopEditing,
+    joinConversationRoom,
+    leaveConversationRoom,
+    sendConversationMessage
   };
 };
 

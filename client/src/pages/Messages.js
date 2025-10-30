@@ -1,10 +1,10 @@
 import React from 'react';
-import ModernMessenger from '../components/ModernMessenger';
+import UnifiedMessenger from '../components/UnifiedMessenger';
 
 const Messages = () => {
   return (
     <div className="h-screen">
-      <ModernMessenger />
+      <UnifiedMessenger />
     </div>
   );
 };

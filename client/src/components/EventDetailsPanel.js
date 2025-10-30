@@ -1,6 +1,36 @@
-import React, { useState, useEffect } from 'react';
-import { format, parseISO, addDays, subDays } from 'date-fns';
+import React, { useState, useEffect, useCallback } from 'react';
+import { format, parseISO, addDays } from 'date-fns';
 import { de } from 'date-fns/locale';
+
+const EVENT_TYPES = [
+  { value: 'Arbeit', label: 'Arbeit', color: '#10b981' },
+  { value: 'Meeting', label: 'Meeting', color: '#3b82f6' },
+  { value: 'Urlaub', label: 'Urlaub', color: '#8b5cf6' },
+  { value: 'Krankheit', label: 'Krankheit', color: '#ef4444' },
+  { value: 'Training', label: 'Training', color: '#f59e0b' },
+  { value: 'Projekt', label: 'Projekt', color: '#f97316' },
+  { value: 'Termin', label: 'Termin', color: '#06b6d4' },
+  { value: 'Deadline', label: 'Deadline', color: '#dc2626' },
+  { value: 'Personal', label: 'Personal', color: '#84cc16' }
+];
+
+const PRIORITY_LEVELS = [
+  { value: 'low', label: 'Niedrig', color: '#10b981' },
+  { value: 'medium', label: 'Mittel', color: '#f59e0b' },
+  { value: 'high', label: 'Hoch', color: '#ef4444' },
+  { value: 'urgent', label: 'Dringend', color: '#dc2626' }
+];
+
+const REMINDER_OPTIONS = [
+  { value: 0, label: 'Keine Erinnerung' },
+  { value: 5, label: '5 Minuten' },
+  { value: 15, label: '15 Minuten' },
+  { value: 30, label: '30 Minuten' },
+  { value: 60, label: '1 Stunde' },
+  { value: 120, label: '2 Stunden' },
+  { value: 1440, label: '1 Tag' },
+  { value: 2880, label: '2 Tage' }
+];
 
 const EventDetailsPanel = ({
   event,
@@ -37,38 +67,12 @@ const EventDetailsPanel = ({
   const [isEditing, setIsEditing] = useState(mode === 'edit' || mode === 'create');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  // Event types with colors
-  const eventTypes = [
-    { value: 'Arbeit', label: 'Arbeit', color: '#10b981' },
-    { value: 'Meeting', label: 'Meeting', color: '#3b82f6' },
-    { value: 'Urlaub', label: 'Urlaub', color: '#8b5cf6' },
-    { value: 'Krankheit', label: 'Krankheit', color: '#ef4444' },
-    { value: 'Training', label: 'Training', color: '#f59e0b' },
-    { value: 'Projekt', label: 'Projekt', color: '#f97316' },
-    { value: 'Termin', label: 'Termin', color: '#06b6d4' },
-    { value: 'Deadline', label: 'Deadline', color: '#dc2626' },
-    { value: 'Personal', label: 'Personal', color: '#84cc16' }
-  ];
-
-  const priorityLevels = [
-    { value: 'low', label: 'Niedrig', color: '#10b981' },
-    { value: 'medium', label: 'Mittel', color: '#f59e0b' },
-    { value: 'high', label: 'Hoch', color: '#ef4444' },
-    { value: 'urgent', label: 'Dringend', color: '#dc2626' }
-  ];
-
-  const reminderOptions = [
-    { value: 0, label: 'Keine Erinnerung' },
-    { value: 5, label: '5 Minuten' },
-    { value: 15, label: '15 Minuten' },
-    { value: 30, label: '30 Minuten' },
-    { value: 60, label: '1 Stunde' },
-    { value: 120, label: '2 Stunden' },
-    { value: 1440, label: '1 Tag' },
-    { value: 2880, label: '2 Tage' }
-  ];
-
   // Initialize form data when event changes
+  const getColorForType = useCallback((type) => {
+    const eventType = EVENT_TYPES.find(t => t.value === type);
+    return eventType ? eventType.color : '#3b82f6';
+  }, []);
+
   useEffect(() => {
     if (event) {
       setFormData({
@@ -101,12 +105,8 @@ const EventDetailsPanel = ({
         end_time: format(addDays(now, 0), 'HH:mm')
       }));
     }
-  }, [event, mode]);
+  }, [event, mode, getColorForType]);
 
-  const getColorForType = (type) => {
-    const eventType = eventTypes.find(t => t.value === type);
-    return eventType ? eventType.color : '#3b82f6';
-  };
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -302,7 +302,7 @@ const EventDetailsPanel = ({
                   onChange={(e) => handleInputChange('type', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  {eventTypes.map(type => (
+                  {EVENT_TYPES.map(type => (
                     <option key={type.value} value={type.value}>
                       {type.label}
                     </option>
@@ -329,7 +329,7 @@ const EventDetailsPanel = ({
                   onChange={(e) => handleInputChange('priority', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  {priorityLevels.map(level => (
+                  {PRIORITY_LEVELS.map(level => (
                     <option key={level.value} value={level.value}>
                       {level.label}
                     </option>
@@ -339,9 +339,9 @@ const EventDetailsPanel = ({
                 <div className="flex items-center space-x-2">
                   <div
                     className="w-2 h-2 rounded-full"
-                    style={{ backgroundColor: priorityLevels.find(p => p.value === formData.priority)?.color }}
+                    style={{ backgroundColor: PRIORITY_LEVELS.find(p => p.value === formData.priority)?.color }}
                   />
-                  <span>{priorityLevels.find(p => p.value === formData.priority)?.label}</span>
+                  <span>{PRIORITY_LEVELS.find(p => p.value === formData.priority)?.label}</span>
                 </div>
               )}
             </div>
@@ -469,6 +469,41 @@ const EventDetailsPanel = ({
             )}
           </div>
 
+          {/* Attachments */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Anhänge
+            </label>
+            {event?.attachments?.length > 0 ? (
+              <div className="flex flex-wrap gap-3">
+                {event.attachments.map((attachment) => (
+                  <div key={attachment.id || attachment.url} className="rounded-xl border border-gray-200 bg-gray-50 p-2 text-xs text-gray-700">
+                    {attachment.type === 'image' ? (
+                      <img
+                        src={attachment.url}
+                        alt={attachment.name || 'Anhang'}
+                        className="h-20 w-20 rounded-lg object-cover"
+                      />
+                    ) : attachment.type === 'audio' ? (
+                      <audio controls src={attachment.url} className="w-48" />
+                    ) : (
+                      <a
+                        href={attachment.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 text-blue-600 underline"
+                      >
+                        📎 {attachment.name || 'Datei öffnen'}
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500 text-sm">Keine Anhänge</p>
+            )}
+          </div>
+
           {/* Location */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -498,7 +533,7 @@ const EventDetailsPanel = ({
                 onChange={(e) => handleInputChange('reminder', parseInt(e.target.value))}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                {reminderOptions.map(option => (
+                {REMINDER_OPTIONS.map(option => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>

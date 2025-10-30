@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { format, addDays } from 'date-fns';
+import { format } from 'date-fns';
 
 const AbsenceModal = ({ isOpen, onClose, onSave, selectedDate }) => {
   const [formData, setFormData] = useState({

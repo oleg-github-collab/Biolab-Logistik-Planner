@@ -163,4 +163,37 @@ export const getKanbanViews = () =>
 export const deleteKanbanView = (viewId) =>
   api.delete(`/tasks/views/${viewId}`);
 
+// ============================================
+// MESSENGER THREAD APIs
+// ============================================
+
+export const getMessageThreads = () =>
+  api.get('/messages/threads');
+
+export const createConversationThread = (payload) =>
+  api.post('/messages/conversations', payload);
+
+export const getConversationThread = (conversationId) =>
+  api.get(`/messages/conversations/${conversationId}`);
+
+export const getConversationMessages = (conversationId) =>
+  api.get(`/messages/conversations/${conversationId}/messages`);
+
+export const sendConversationMessage = (conversationId, payload) =>
+  api.post(`/messages/conversations/${conversationId}/messages`, payload);
+
+export const addConversationMembers = (conversationId, memberIds) =>
+  api.post(`/messages/conversations/${conversationId}/members`, { memberIds });
+
+export const removeConversationMember = (conversationId, memberId) =>
+  api.delete(`/messages/conversations/${conversationId}/members/${memberId}`);
+
+export const markConversationAsRead = (conversationId) =>
+  api.post(`/messages/conversations/${conversationId}/read`);
+
+export const uploadAttachment = (formData) =>
+  api.post('/uploads', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+
 export default api;

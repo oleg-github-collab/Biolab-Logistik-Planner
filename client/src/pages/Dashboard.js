@@ -1,26 +1,20 @@
 import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
+import { CalendarDays, LayoutDashboard, Recycle, Plus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import SimpleCalendar from '../components/SimpleCalendar';
 import EventDetailsPanel from '../components/EventDetailsPanel';
 import EventModal from '../components/EventModal';
 import AbsenceModal from '../components/AbsenceModal';
 import UnifiedTaskBoard from '../components/UnifiedTaskBoard';
-import WasteTemplateManager from '../components/WasteTemplateManager';
-import AdvancedWasteManager from '../components/AdvancedWasteManager';
 import EnhancedWasteManager from '../components/EnhancedWasteManager';
 import {
-  getCurrentWeek,
-  getMySchedule,
-  getTeamSchedule,
-  getArchivedSchedules,
-  createWasteItem,
   getEvents,
   createEvent,
   updateEvent,
   deleteEvent,
   createAbsenceEvent
 } from '../utils/api';
-import { format, addDays, addMinutes, parseISO, startOfWeek, endOfWeek, formatISO } from 'date-fns';
+import { format, addDays, addMinutes, startOfWeek, endOfWeek, formatISO } from 'date-fns';
 
 const EVENT_COLOR_MAP = {
   Arbeit: '#0EA5E9',
@@ -51,20 +45,58 @@ const parseDbDateTime = (value) => {
 };
 
 const safeParseJson = (value, fallback = []) => {
-  if (!value || typeof value !== 'string') return fallback;
-  try {
-    const parsed = JSON.parse(value);
-    return Array.isArray(parsed) ? parsed : fallback;
-  } catch (error) {
+  if (!value) return fallback;
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
+    } catch (error) {
+      const split = value
+        .split(/[;,]/)
+        .map((entry) => entry.trim())
+        .filter(Boolean);
+      if (split.length > 0) {
+        return split;
+      }
+    }
     return fallback;
   }
+  return fallback;
+};
+
+const normalizeAttachmentList = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      return [];
+    }
+  }
+  return [];
 };
 
 const mapApiEventToUi = (event) => {
-  const start = parseDbDateTime(event.start_date) ?? new Date();
-  const end = parseDbDateTime(event.end_date) ?? addMinutes(start, event.duration ?? 60);
-  const allDay = Boolean(event.is_all_day) || !event.start_time;
-  const type = event.type || 'Termin';
+  const start = parseDbDateTime(event.start_time) ?? new Date();
+  const end = parseDbDateTime(event.end_time) ?? addMinutes(start, 60);
+  const allDay = Boolean(event.all_day);
+  const type = event.event_type || event.type || 'Termin';
+
+  const attachments = normalizeAttachmentList(event.attachments);
+  const attendeeList = Array.isArray(event.attendees)
+    ? event.attendees
+    : safeParseJson(event.attendees);
+  const tags = Array.isArray(event.tags) ? event.tags : safeParseJson(event.tags);
+
+  const recurring = Boolean(event.is_recurring);
+  const recurrenceEnd = recurring && event.recurrence_end_date
+    ? format(parseDbDateTime(event.recurrence_end_date), 'yyyy-MM-dd')
+    : '';
 
   return {
     id: event.id,
@@ -74,24 +106,24 @@ const mapApiEventToUi = (event) => {
     end,
     start_date: format(start, 'yyyy-MM-dd'),
     end_date: format(end, 'yyyy-MM-dd'),
-    start_time: allDay ? '' : (event.start_time || format(start, 'HH:mm')),
-    end_time: allDay ? '' : (event.end_time || format(end, 'HH:mm')),
+    start_time: allDay ? '' : format(start, 'HH:mm'),
+    end_time: allDay ? '' : format(end, 'HH:mm'),
     all_day: allDay,
     type,
     priority: event.priority || 'medium',
     location: event.location || '',
-    attendees: event.attendees
-      ? event.attendees.split(',').map((entry) => entry.trim()).filter(Boolean)
-      : [],
+    attendees: attendeeList,
     reminder: event.reminder ?? 15,
     status: event.status || 'confirmed',
     color: event.color || getEventColor(type),
     notes: event.notes || '',
     category: event.category || 'work',
-    recurring: Boolean(event.is_recurring),
-    recurring_pattern: event.recurrence_pattern || 'weekly',
-    recurring_end: event.recurrence_end_date ? format(parseDbDateTime(event.recurrence_end_date), 'yyyy-MM-dd') : '',
-    tags: safeParseJson(event.tags),
+    recurring,
+    recurring_pattern: recurring ? (event.recurrence_pattern || 'weekly') : null,
+    recurring_end: recurrenceEnd,
+    tags,
+    attachments,
+    cover_image: event.cover_image || null,
     raw: event
   };
 };
@@ -107,6 +139,15 @@ const combineDateAndTime = (dateStr, timeStr, allDay = false) => {
 const buildEventPayload = (event) => {
   const startDate = combineDateAndTime(event.start_date, event.start_time, event.all_day);
   const endDate = combineDateAndTime(event.end_date || event.start_date, event.end_time || event.start_time, event.all_day);
+  const recurring = Boolean(event.recurring);
+  const eventType = event.type || event.event_type || 'Termin';
+  const recurrencePattern = recurring ? (event.recurring_pattern || event.recurrence_pattern || null) : null;
+  const recurrenceEndIso = recurring && (event.recurring_end || event.recurrence_end)
+    ? new Date(event.recurring_end || event.recurrence_end).toISOString()
+    : null;
+  const attendees = Array.isArray(event.attendees) ? event.attendees : [];
+  const tags = Array.isArray(event.tags) ? event.tags : [];
+  const attachments = Array.isArray(event.attachments) ? event.attachments : [];
 
   return {
     title: event.title,
@@ -115,18 +156,27 @@ const buildEventPayload = (event) => {
     endDate: endDate?.toISOString(),
     startTime: event.all_day ? null : (event.start_time || (startDate ? format(startDate, 'HH:mm') : null)),
     endTime: event.all_day ? null : (event.end_time || (endDate ? format(endDate, 'HH:mm') : null)),
-    type: event.type || 'Termin',
+    event_type: eventType,
+    type: eventType,
+    all_day: Boolean(event.all_day),
     isAllDay: Boolean(event.all_day),
-    isRecurring: Boolean(event.recurring),
-    recurrencePattern: event.recurring ? event.recurring_pattern : null,
-    recurrenceEndDate: event.recurring && event.recurring_end
-      ? new Date(event.recurring_end).toISOString()
-      : null,
+    is_recurring: recurring,
+    isRecurring: recurring,
+    recurrence_pattern: recurrencePattern,
+    recurrencePattern,
+    recurrence_end_date: recurrenceEndIso,
+    recurrenceEndDate: recurrenceEndIso,
     priority: event.priority || 'medium',
+    status: event.status || 'confirmed',
+    category: event.category || 'work',
     location: event.location || '',
-    attendees: Array.isArray(event.attendees) ? event.attendees.join(',') : (event.attendees || ''),
+    attendees,
     reminder: event.reminder ?? 15,
-    category: event.category || 'work'
+    notes: event.notes || '',
+    color: event.color || null,
+    tags,
+    attachments,
+    cover_image: event.cover_image || null
   };
 };
 
@@ -144,6 +194,12 @@ const PRIORITY_FILTERS = [
   { value: 'low', label: '⏱️ Locker', badgeClass: 'bg-emerald-100 text-emerald-700' },
   { value: 'medium', label: '⚡ Normal', badgeClass: 'bg-amber-100 text-amber-700' },
   { value: 'high', label: '🔥 Hoch', badgeClass: 'bg-rose-100 text-rose-700' }
+];
+
+const MOBILE_NAV_TABS = [
+  { id: 'calendar', label: 'Kalender', icon: CalendarDays },
+  { id: 'kanban', label: 'Kanban', icon: LayoutDashboard },
+  { id: 'waste-manager', label: 'Abfall', icon: Recycle }
 ];
 
 // ✅ OPTIMIZED: Memoized Toast component to prevent unnecessary re-renders
@@ -182,17 +238,8 @@ const Toast = memo(({ toast, onClose }) => {
 
 const Dashboard = () => {
   const auth = useAuth(); const user = auth?.user;
-  const [currentWeek, setCurrentWeek] = useState(null);
-  const [mySchedule, setMySchedule] = useState([]);
-  const [teamSchedule, setTeamSchedule] = useState([]);
-  const [archivedSchedules, setArchivedSchedules] = useState([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [activeTab, setActiveTab] = useState('calendar');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [calendarView, setCalendarView] = useState('week');
-  const [tasks, setTasks] = useState([]);
-  const [wasteTemplates, setWasteTemplates] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [eventPanelMode, setEventPanelMode] = useState('view');
   const [showEventPanel, setShowEventPanel] = useState(false);
@@ -201,6 +248,9 @@ const Dashboard = () => {
   const [events, setEvents] = useState([]);
   const [eventsLoading, setEventsLoading] = useState(false);
   const [toast, setToast] = useState(null);
+  const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined'
+    ? window.matchMedia('(max-width: 767px)').matches
+    : false));
   const [eventTypeFilter, setEventTypeFilter] = useState(EVENT_TYPES[0].value);
   const [priorityFilter, setPriorityFilter] = useState(PRIORITY_FILTERS[0].value);
   const [eventRange, setEventRange] = useState(() => {
@@ -222,92 +272,30 @@ const Dashboard = () => {
     return () => clearTimeout(timer);
   }, [toast]);
 
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError('');
-      
-      const [weekRes, scheduleRes, teamRes, archivedRes] = await Promise.all([
-        getCurrentWeek(),
-        getMySchedule(),
-        // FIX: Replaced invalid JavaScript syntax { [] } with a valid object { data: [] }
-        ['admin', 'superadmin'].includes(user.role) ? getTeamSchedule() : Promise.resolve({ data: [] }),
-        getArchivedSchedules()
-      ]);
-      
-      setCurrentWeek(weekRes.data);
-      setMySchedule(scheduleRes.data || []);
-      setTeamSchedule(teamRes.data || []);
-      setArchivedSchedules(archivedRes.data || []);
-      
-      setTasks([
-        {
-          id: 1,
-          title: 'Wochenplanung abschließen',
-          description: 'Stelle sicher, dass alle Arbeitszeiten für die kommende Woche eingetragen sind',
-          status: 'todo',
-          priority: 'high',
-          assignee: user.name,
-          dueDate: new Date(),
-          tags: ['planung', 'dringend']
-        },
-        {
-          id: 2,
-          title: 'Abfallentsorgung planen',
-          description: 'Überprüfe die nächsten Entsorgungstermine für alle Abfallarten',
-          status: 'inprogress',
-          priority: 'medium',
-          assignee: user.name,
-          dueDate: addDays(new Date(), 3),
-          tags: ['abfall', 'logistik']
-        }
-      ]);
-      
-      setWasteTemplates([
-        {
-          id: 1,
-          name: 'Bioabfall',
-          description: 'Organische Abfälle aus Küche und Garten',
-          disposalInstructions: 'Bioabfallbehälter alle 2 Wochen am Dienstag rausstellen.\nNicht erlaubt: Plastik, Metall, Glas.',
-          color: '#A9D08E',
-          icon: 'bio',
-          defaultFrequency: 'biweekly',
-          defaultNextDate: format(addDays(new Date(), 7), 'yyyy-MM-dd')
-        },
-        {
-          id: 2,
-          name: 'Papiermüll',
-          description: 'Altpapier und Kartonagen',
-          disposalInstructions: 'Papiertonnen monatlich am Freitag rausstellen.\nNicht erlaubt: verschmutztes Papier, Tapeten, Foto- und Faxpapier.',
-          color: '#D9E1F2',
-          icon: 'paper',
-          defaultFrequency: 'monthly',
-          defaultNextDate: format(addDays(new Date(), 14), 'yyyy-MM-dd')
-        },
-        {
-          id: 3,
-          name: 'Restmüll',
-          description: 'Nicht-recyclebare Abfälle',
-          disposalInstructions: 'Restmülltonnen wöchentlich am Montag rausstellen.\nNicht erlaubt: Wertstoffe, Elektroschrott, Sondermüll.',
-          color: '#F4B084',
-          icon: 'trash',
-          defaultFrequency: 'weekly',
-          defaultNextDate: format(new Date(), 'yyyy-MM-dd')
-        }
-      ]);
-    } catch (err) {
-      console.error('Error loading data:', err);
-      setError('Fehler beim Laden der Daten. Bitte versuche es später erneut.');
-    } finally {
-      setLoading(false);
-    }
-  }, [user?.role]);
-
   useEffect(() => {
-    if (user) {
-      loadData();
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return undefined;
     }
-  }, [loadData, user]);
+
+    const mediaQuery = window.matchMedia('(max-width: 767px)');
+    const handleChange = (event) => setIsMobile(event.matches);
+
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', handleChange);
+    } else if (typeof mediaQuery.addListener === 'function') {
+      mediaQuery.addListener(handleChange);
+    }
+
+    setIsMobile(mediaQuery.matches);
+
+    return () => {
+      if (typeof mediaQuery.removeEventListener === 'function') {
+        mediaQuery.removeEventListener('change', handleChange);
+      } else if (typeof mediaQuery.removeListener === 'function') {
+        mediaQuery.removeListener(handleChange);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -342,7 +330,12 @@ const Dashboard = () => {
   // ✅ OPTIMIZED: useCallback for date and event selection handlers
   const handleDateSelect = useCallback((date) => {
     setSelectedDate(date);
-  }, []);
+    setEventRange((prev) => ({
+      start: startOfWeek(date, { weekStartsOn: 1 }),
+      end: endOfWeek(date, { weekStartsOn: 1 }),
+      view: prev?.view || 'week'
+    }));
+  }, [setEventRange]);
 
   const handleEventClick = useCallback((event, mode = 'view') => {
     setSelectedEvent(event);
@@ -416,39 +409,7 @@ const Dashboard = () => {
     }
   }, [showToast]);
 
-  const handleCreateNewEvent = (defaults = {}) => {
-    console.log('handleCreateNewEvent called with:', defaults);
-    const start = defaults.start ? new Date(defaults.start) : new Date();
-    const end = defaults.end ? new Date(defaults.end) : addMinutes(start, 60);
-
-    const newEvent = {
-      title: defaults.title || '',
-      description: defaults.description || '',
-      start_date: format(start, 'yyyy-MM-dd'),
-      end_date: format(end, 'yyyy-MM-dd'),
-      start_time: defaults.all_day ? '' : format(start, 'HH:mm'),
-      end_time: defaults.all_day ? '' : format(end, 'HH:mm'),
-      all_day: Boolean(defaults.all_day),
-      type: defaults.type || 'Termin',
-      priority: defaults.priority || 'medium',
-      attendees: defaults.attendees || [],
-      reminder: defaults.reminder ?? 15,
-      status: defaults.status || 'confirmed',
-      color: getEventColor(defaults.type || 'Termin'),
-      tags: defaults.tags || [],
-      location: defaults.location || ''
-    };
-
-    console.log('Setting selectedEvent to:', newEvent);
-    setSelectedEvent(newEvent);
-    setEventPanelMode('create');
-    setShowEventPanel(true);
-    console.log('Event panel should now be open');
-  };
-
   const handleCalendarEventCreate = async (details = {}) => {
-    console.log('handleCalendarEventCreate called with:', details);
-
     // Set selected event for the modal
     const start = details.start ? new Date(details.start) : selectedDate || new Date();
     const end = details.end ? new Date(details.end) : addMinutes(start, 60);
@@ -473,67 +434,7 @@ const Dashboard = () => {
 
     setEventPanelMode('create');
     setShowEventModal(true);
-    console.log('EventModal should now be open');
   };
-
-  // ✅ OPTIMIZED: useCallback to memoize task handlers - prevents child re-renders
-  const handleTaskUpdate = useCallback((taskId, updates) => {
-    setTasks(prev => prev.map(task =>
-      task.id === taskId ? { ...task, ...updates } : task
-    ));
-  }, []);
-
-  const handleTaskCreate = useCallback((newTask) => {
-    setTasks(prev => [...prev, { ...newTask, id: Date.now() }]);
-  }, []);
-
-  const handleTaskDelete = useCallback((taskId) => {
-    setTasks(prev => prev.filter(task => task.id !== taskId));
-  }, []);
-
-  // ✅ OPTIMIZED: useCallback to memoize range change handler
-  const handleRangeChange = useCallback((range) => {
-    if (!range) return;
-
-    const normaliseDate = (value) => {
-      if (!value) return null;
-      return value instanceof Date ? value : new Date(value);
-    };
-
-    const sameTimestamp = (a, b) => {
-      if (!a && !b) return true;
-      if (!a || !b) return false;
-      return a.getTime() === b.getTime();
-    };
-
-    const nextStart = normaliseDate(range.start);
-    const nextEnd = normaliseDate(range.end);
-    const nextView = range.view || calendarView;
-
-    setEventRange((prev) => {
-      const sameStart = sameTimestamp(prev?.start, nextStart);
-      const sameEnd = sameTimestamp(prev?.end, nextEnd);
-      const sameView = (prev?.view || calendarView) === nextView;
-
-      if (sameStart && sameEnd && sameView) {
-        return prev;
-      }
-
-      return {
-        start: nextStart,
-        end: nextEnd,
-        view: nextView
-      };
-    });
-
-    if (range.view && range.view !== calendarView) {
-      setCalendarView(range.view);
-    }
-
-    if (nextStart) {
-      setSelectedDate((prev) => (sameTimestamp(prev, nextStart) ? prev : nextStart));
-    }
-  }, [calendarView]);
 
   // ✅ OPTIMIZED: useCallback for filter change handlers
   const handleTypeFilterChange = useCallback((value) => {
@@ -546,41 +447,6 @@ const Dashboard = () => {
 
   const activeType = useMemo(() => EVENT_TYPES.find((type) => type.value === eventTypeFilter), [eventTypeFilter]);
   const activePriority = useMemo(() => PRIORITY_FILTERS.find((priority) => priority.value === priorityFilter), [priorityFilter]);
-
-  // ✅ OPTIMIZED: useCallback for template handlers
-  const handleTemplateCreate = useCallback((newTemplate) => {
-    setWasteTemplates(prev => [...prev, { ...newTemplate, id: Date.now() }]);
-  }, []);
-
-  const handleTemplateUpdate = useCallback((updatedTemplate) => {
-    setWasteTemplates(prev =>
-      prev.map(template =>
-        template.id === updatedTemplate.id ? updatedTemplate : template
-      )
-    );
-  }, []);
-
-  const handleTemplateDelete = useCallback((templateId) => {
-    setWasteTemplates(prev => prev.filter(template => template.id !== templateId));
-  }, []);
-
-  const handleTemplateApply = async (template) => {
-    try {
-      // Create waste item from template
-      await createWasteItem(
-        template.name,
-        template.description,
-        template.disposalInstructions,
-        template.defaultNextDate
-      );
-
-      // Show success message
-      alert(`Vorlage "${template.name}" erfolgreich angewendet!`);
-    } catch (err) {
-      console.error('Error applying template:', err);
-      setError('Fehler beim Anwenden der Vorlage.');
-    }
-  };
 
   const handleAbsenceSave = async (absenceData) => {
     try {
@@ -613,29 +479,8 @@ const Dashboard = () => {
     setShowAbsenceModal(false);
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="mt-4 text-gray-600">Daten werden geladen...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md">
-          {error}
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div className={`mx-auto max-w-7xl px-3 sm:px-6 lg:px-8 ${isMobile ? 'pt-5 pb-24' : 'py-6'}`}>
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-800 mb-2">
           Dashboard
@@ -647,14 +492,14 @@ const Dashboard = () => {
 
       {/* Navigation Tabs */}
       <div className="mb-6 border-b border-gray-200">
-        <nav className="flex space-x-8">
+        <nav className={`flex ${isMobile ? 'flex-nowrap gap-2 overflow-x-auto pb-2 -mx-1 px-1' : 'space-x-8'}`}>
           <button
             onClick={() => setActiveTab('calendar')}
             className={`py-4 px-1 font-medium text-sm border-b-2 transition-colors ${
               activeTab === 'calendar'
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
+            } ${isMobile ? 'flex-shrink-0 px-3' : ''}`}
           >
             Kalender
           </button>
@@ -664,7 +509,7 @@ const Dashboard = () => {
               activeTab === 'kanban'
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
+            } ${isMobile ? 'flex-shrink-0 px-3' : ''}`}
           >
             Kanban Board
           </button>
@@ -674,7 +519,7 @@ const Dashboard = () => {
               activeTab === 'waste-manager'
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
+            } ${isMobile ? 'flex-shrink-0 px-3' : ''}`}
           >
             Abfallmanagement
           </button>
@@ -683,7 +528,7 @@ const Dashboard = () => {
 
       {/* Calendar View */}
       {activeTab === 'calendar' && (
-        <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-lg">
+        <div className={`relative overflow-hidden rounded-3xl border border-slate-200 bg-white/90 shadow-lg ${isMobile ? 'p-4' : 'p-6'}`}>
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <h2 className="text-2xl font-bold text-slate-900">Fortgeschrittener Kalender</h2>
@@ -692,10 +537,9 @@ const Dashboard = () => {
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className={`${isMobile ? 'hidden' : 'flex items-center gap-2'}`}>
               <button
                 onClick={() => {
-                  console.log('Neuer Termin button clicked, selectedDate:', selectedDate);
                   handleCalendarEventCreate({ start: selectedDate });
                 }}
                 className="rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-blue-500"
@@ -704,7 +548,7 @@ const Dashboard = () => {
               </button>
 
               {/* Show absence button only for Vollzeit employees */}
-              {user.employment_type === 'Vollzeit' && (
+              {user?.employment_type === 'Vollzeit' && (
                 <button
                   onClick={() => setShowAbsenceModal(true)}
                   className="rounded-full bg-orange-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-orange-500"
@@ -716,7 +560,7 @@ const Dashboard = () => {
           </div>
 
           <div className="mt-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="flex flex-wrap gap-2">
+            <div className={`${isMobile ? 'flex flex-nowrap gap-2 overflow-x-auto pb-1 -mx-1 px-1' : 'flex flex-wrap gap-2'}`}>
               {EVENT_TYPES.map((type) => (
                 <button
                   key={type.label}
@@ -730,7 +574,7 @@ const Dashboard = () => {
               ))}
             </div>
 
-            <div className="flex items-center gap-2 overflow-x-auto">
+            <div className={`${isMobile ? 'flex flex-nowrap gap-2 overflow-x-auto pb-1 -mx-1 px-1' : 'flex items-center gap-2 overflow-x-auto'}`}>
               {PRIORITY_FILTERS.map((priority) => (
                 <button
                   key={priority.label}
@@ -746,6 +590,15 @@ const Dashboard = () => {
               ))}
             </div>
           </div>
+
+          {isMobile && user?.employment_type === 'Vollzeit' && (
+            <button
+              onClick={() => setShowAbsenceModal(true)}
+              className="mt-1 w-full rounded-2xl border border-orange-200 bg-orange-50 px-4 py-2 text-sm font-semibold text-orange-700 shadow-sm"
+            >
+              🏖️ Abwesenheit melden
+            </button>
+          )}
 
           {(activeType?.value || activePriority?.value) && (
             <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-500">
@@ -768,7 +621,7 @@ const Dashboard = () => {
             </div>
           )}
 
-          <div className="relative mt-6 h-[720px]">
+          <div className={`relative mt-6 ${isMobile ? 'h-[520px]' : 'h-[720px]'}`}>
             {eventsLoading && (
               <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70 backdrop-blur-sm">
                 <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-200 border-t-blue-500" />
@@ -824,6 +677,37 @@ const Dashboard = () => {
         onSave={handleAbsenceSave}
         selectedDate={selectedDate}
       />
+
+      {isMobile && (
+        <>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('calendar');
+              handleCalendarEventCreate({ start: selectedDate });
+            }}
+            className="fixed bottom-20 right-5 z-[1200] flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-xl shadow-blue-500/30 transition hover:bg-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-200"
+            aria-label="Neuen Termin erstellen"
+          >
+            <Plus className="h-6 w-6" />
+          </button>
+          <nav className="fixed bottom-4 left-1/2 z-[1190] flex w-[calc(100%-2.5rem)] max-w-md -translate-x-1/2 items-center justify-around rounded-2xl border border-slate-200 bg-white/95 px-4 py-3 shadow-xl backdrop-blur">
+            {MOBILE_NAV_TABS.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                onClick={() => setActiveTab(id)}
+                className={`flex flex-col items-center gap-1 text-xs font-medium transition ${
+                  activeTab === id ? 'text-blue-600' : 'text-slate-500'
+                }`}
+                aria-label={label}
+              >
+                <Icon className={`h-5 w-5 ${activeTab === id ? 'text-blue-600' : 'text-slate-400'}`} />
+                <span>{label}</span>
+              </button>
+            ))}
+          </nav>
+        </>
+      )}
 
       <Toast toast={toast} onClose={() => setToast(null)} />
     </div>

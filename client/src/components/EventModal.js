@@ -1,5 +1,22 @@
-import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
 import { format } from 'date-fns';
+import { Paperclip, Mic, StopCircle, Trash2, Loader2 } from 'lucide-react';
+import { uploadAttachment } from '../utils/apiEnhanced';
+import { showError } from '../utils/toast';
+
+const normalizeAttachmentList = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      return [];
+    }
+  }
+  return [];
+};
 
 // ✅ OPTIMIZED: Main EventModal component wrapped with memo to prevent unnecessary re-renders
 const EventModal = memo(({ isOpen, onClose, onSave, selectedDate, event = null, mode = 'create' }) => {
@@ -25,6 +42,16 @@ const EventModal = memo(({ isOpen, onClose, onSave, selectedDate, event = null, 
   });
 
   const [errors, setErrors] = useState({});
+  const [attachments, setAttachments] = useState([]);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+
+  const fileInputRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const recordingStreamRef = useRef(null);
+  const recordingChunksRef = useRef([]);
+  const recordingTimerRef = useRef(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -73,6 +100,10 @@ const EventModal = memo(({ isOpen, onClose, onSave, selectedDate, event = null, 
         });
       }
       setErrors({});
+      setAttachments(mode === 'edit' ? normalizeAttachmentList(event?.attachments) : []);
+    } else {
+      setAttachments([]);
+      setErrors({});
     }
   }, [isOpen, selectedDate, event, mode]);
 
@@ -100,6 +131,131 @@ const EventModal = memo(({ isOpen, onClose, onSave, selectedDate, event = null, 
     const attendees = value.split(',').map(email => email.trim()).filter(Boolean);
     setFormData(prev => ({ ...prev, attendees }));
   }, []);
+
+  const uploadEventAttachment = useCallback(async (file) => {
+    if (!file) return null;
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('context', 'calendar');
+    if (event?.id) {
+      formData.append('eventId', String(event.id));
+    }
+
+    try {
+      setUploadingAttachment(true);
+      const response = await uploadAttachment(formData);
+      return response.data;
+    } catch (error) {
+      console.error('Attachment upload failed', error);
+      showError('Anhang konnte nicht hochgeladen werden.');
+      return null;
+    } finally {
+      setUploadingAttachment(false);
+    }
+  }, [event?.id]);
+
+  const handleAttachmentUpload = useCallback(async (fileList) => {
+    const files = Array.from(fileList || []);
+    for (const file of files) {
+      const metadata = await uploadEventAttachment(file);
+      if (metadata) {
+        setAttachments((prev) => [...prev, metadata]);
+      }
+    }
+  }, [uploadEventAttachment]);
+
+  const handleFileInputChange = useCallback((event) => {
+    const files = event.target.files;
+    if (files && files.length) {
+      handleAttachmentUpload(files).catch(() => undefined);
+    }
+    event.target.value = '';
+  }, [handleAttachmentUpload]);
+
+  const removeAttachment = useCallback((attachmentKey) => {
+    setAttachments((prev) => prev.filter((attachment) => (attachment.id ?? attachment.url) !== attachmentKey));
+  }, []);
+
+  const formattedRecordingTime = useMemo(() => {
+    const minutes = String(Math.floor(recordingTime / 60)).padStart(2, '0');
+    const seconds = String(recordingTime % 60).padStart(2, '0');
+    return `${minutes}:${seconds}`;
+  }, [recordingTime]);
+
+  const resetRecordingState = useCallback(() => {
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    if (recordingStreamRef.current) {
+      recordingStreamRef.current.getTracks().forEach((track) => track.stop());
+      recordingStreamRef.current = null;
+    }
+    recordingChunksRef.current = [];
+    mediaRecorderRef.current = null;
+    setIsRecording(false);
+    setRecordingTime(0);
+  }, []);
+
+  const stopRecording = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    } else {
+      resetRecordingState();
+    }
+  }, [resetRecordingState]);
+
+  const startRecording = useCallback(async () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      showError('Audio-Aufnahme wird von diesem Browser nicht unterstützt.');
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      recordingStreamRef.current = stream;
+      const mediaRecorder = new MediaRecorder(stream);
+      recordingChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          recordingChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        try {
+          const blob = new Blob(recordingChunksRef.current, { type: 'audio/webm' });
+          const file = new File([blob], `event-voice-${Date.now()}.webm`, { type: 'audio/webm' });
+          const metadata = await uploadEventAttachment(file);
+          if (metadata) {
+            setAttachments((prev) => [...prev, metadata]);
+          }
+        } catch (error) {
+          console.error('Voice note upload failed', error);
+          showError('Sprachaufnahme konnte nicht gespeichert werden.');
+        } finally {
+          resetRecordingState();
+        }
+      };
+
+      mediaRecorder.start();
+      mediaRecorderRef.current = mediaRecorder;
+      setIsRecording(true);
+      setRecordingTime(0);
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingTime((prev) => prev + 1);
+      }, 1000);
+    } catch (error) {
+      console.error('Unable to start recording', error);
+      showError('Aufnahme konnte nicht gestartet werden.');
+      resetRecordingState();
+    }
+  }, [resetRecordingState, uploadEventAttachment]);
+
+  useEffect(() => () => {
+    resetRecordingState();
+  }, [resetRecordingState]);
 
   // ✅ OPTIMIZED: useCallback for validation and submit
   const validateForm = useCallback(() => {
@@ -142,11 +298,12 @@ const EventModal = memo(({ isOpen, onClose, onSave, selectedDate, event = null, 
     if (validateForm()) {
       const eventData = {
         ...formData,
-        id: event?.id
+        id: event?.id,
+        attachments
       };
       onSave(eventData);
     }
-  }, [formData, event?.id, onSave, validateForm]);
+  }, [formData, event?.id, attachments, onSave, validateForm]);
 
   if (!isOpen) return null;
 
@@ -199,6 +356,99 @@ const EventModal = memo(({ isOpen, onClose, onSave, selectedDate, event = null, 
                 rows="3"
                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Zusätzliche Details..."
+              />
+            </div>
+
+            {/* Attachments */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Anhänge
+                </label>
+                {uploadingAttachment && (
+                  <span className="inline-flex items-center gap-1 text-xs text-blue-600">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Wird hochgeladen...
+                  </span>
+                )}
+              </div>
+
+              {attachments.length > 0 && (
+                <div className="mb-3 flex flex-wrap gap-3">
+                  {attachments.map((attachment) => (
+                    <div key={attachment.id || attachment.url} className="relative">
+                      {attachment.type === 'image' ? (
+                        <img
+                          src={attachment.url}
+                          alt={attachment.name || 'Anhang'}
+                          className="h-24 w-24 rounded-xl object-cover border border-gray-200"
+                        />
+                      ) : attachment.type === 'audio' ? (
+                        <div className="flex w-60 flex-col gap-1 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700">
+                          <span className="font-semibold text-gray-600">{attachment.name || 'Audio'}</span>
+                          <audio controls src={attachment.url} className="w-full" />
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700">
+                          <Paperclip className="w-3 h-3" />
+                          <span>{attachment.name || 'Datei'}</span>
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => removeAttachment(attachment.id || attachment.url)}
+                        className="absolute -top-2 -right-2 rounded-full bg-rose-600 p-1 text-white shadow hover:bg-rose-500"
+                        aria-label="Anhang entfernen"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {isRecording && (
+                <div className="mb-2 flex items-center gap-2 text-sm text-rose-600">
+                  <span className="inline-flex h-2 w-2 animate-pulse rounded-full bg-rose-500" />
+                  <span>Aufnahme läuft · {formattedRecordingTime}</span>
+                  <button
+                    type="button"
+                    onClick={stopRecording}
+                    className="inline-flex items-center gap-1 rounded-lg bg-rose-100 px-3 py-1 text-sm font-semibold text-rose-700 hover:bg-rose-200"
+                  >
+                    <StopCircle className="w-4 h-4" />
+                    Aufnahme stoppen
+                  </button>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  <Paperclip className="w-4 h-4" />
+                  Datei anhängen
+                </button>
+                <button
+                  type="button"
+                  onClick={isRecording ? stopRecording : startRecording}
+                  className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                    isRecording ? 'border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  {isRecording ? <StopCircle className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                  {isRecording ? 'Aufnahme stoppen' : 'Sprachmemo aufnehmen'}
+                </button>
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,audio/*"
+                multiple
+                className="hidden"
+                onChange={handleFileInputChange}
               />
             </div>
 

@@ -3,7 +3,6 @@ import { useAuth } from '../context/AuthContext';
 import WasteTemplateManager from '../components/WasteTemplateManager';
 import { 
   getWasteItems, 
-  createWasteItem, 
   updateWasteItem, 
   deleteWasteItem,
   createWasteItem as createWasteFromTemplate
@@ -77,16 +76,6 @@ const Waste = () => {
       setError('Fehler beim Laden der Abfallarten. Bitte versuche es später erneut.');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleCreateWasteItem = async (name, description, disposalInstructions, nextDisposalDate) => {
-    try {
-      const response = await createWasteItem(name, description, disposalInstructions, nextDisposalDate);
-      setWasteItems(prev => [...prev, response.data]);
-    } catch (err) {
-      console.error('Error creating waste item:', err);
-      setError('Fehler beim Erstellen der Abfallart. Bitte versuche es erneut.');
     }
   };
 

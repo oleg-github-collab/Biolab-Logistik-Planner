@@ -1,6 +1,8 @@
 const express = require('express');
 const pool = require('../config/database');
 const { auth, adminAuth } = require('../middleware/auth');
+const auditLogger = require('../utils/auditLog');
+const logger = require('../utils/logger');
 const router = express.Router();
 
 // XSS Protection Helper
@@ -19,7 +21,7 @@ router.get('/templates', auth, async (req, res) => {
 
     res.json(result.rows);
   } catch (error) {
-    console.error('Datenbankfehler:', error);
+    logger.error('Failed to fetch waste templates', { error: error.message });
     res.status(500).json({ error: 'Serverfehler' });
   }
 });
@@ -46,7 +48,7 @@ router.get('/templates/:id', auth, async (req, res) => {
 
     res.json(result.rows[0]);
   } catch (error) {
-    console.error('Datenbankfehler:', error);
+    logger.error('Failed to fetch waste template by id', { error: error.message });
     res.status(500).json({ error: 'Serverfehler' });
   }
 });
@@ -114,9 +116,17 @@ router.post('/templates', [auth, adminAuth], async (req, res) => {
       ]
     );
 
-    res.status(201).json(result.rows[0]);
+    const createdTemplate = result.rows[0];
+
+    auditLogger.logDataChange('create', req.user.id, 'waste_template', createdTemplate.id, {
+      name: createdTemplate.name,
+      category: createdTemplate.category,
+      hazard_level: createdTemplate.hazard_level
+    });
+
+    res.status(201).json(createdTemplate);
   } catch (error) {
-    console.error('Datenbankfehler:', error);
+    logger.error('Failed to fetch waste templates by category', { error: error.message });
     res.status(500).json({ error: 'Serverfehler' });
   }
 });
@@ -232,9 +242,16 @@ router.put('/templates/:id', [auth, adminAuth], async (req, res) => {
 
     const result = await pool.query(query, values);
 
-    res.json(result.rows[0]);
+    const updatedTemplate = result.rows[0];
+
+    auditLogger.logDataChange('update', req.user.id, 'waste_template', parseInt(id, 10), {
+      name: updatedTemplate.name,
+      category: updatedTemplate.category
+    });
+
+    res.json(updatedTemplate);
   } catch (error) {
-    console.error('Datenbankfehler:', error);
+    logger.error('Failed to update waste template', { error: error.message });
     res.status(500).json({ error: 'Serverfehler' });
   }
 });
@@ -271,9 +288,11 @@ router.delete('/templates/:id', [auth, adminAuth], async (req, res) => {
       return res.status(404).json({ error: 'Template nicht gefunden' });
     }
 
+    auditLogger.logDataChange('delete', req.user.id, 'waste_template', parseInt(id, 10), {});
+
     res.json({ message: 'Template erfolgreich gelöscht' });
   } catch (error) {
-    console.error('Datenbankfehler:', error);
+    logger.error('Failed to delete waste template', { error: error.message });
     res.status(500).json({ error: 'Serverfehler' });
   }
 });
@@ -295,7 +314,7 @@ router.get('/templates/category/:category', auth, async (req, res) => {
 
     res.json(result.rows);
   } catch (error) {
-    console.error('Datenbankfehler:', error);
+    logger.error('Failed to create waste template', { error: error.message });
     res.status(500).json({ error: 'Serverfehler' });
   }
 });
@@ -318,7 +337,7 @@ router.get('/templates/hazard/:level', auth, async (req, res) => {
 
     res.json(result.rows);
   } catch (error) {
-    console.error('Datenbankfehler:', error);
+    logger.error('Failed to fetch waste templates by hazard level', { error: error.message });
     res.status(500).json({ error: 'Serverfehler' });
   }
 });

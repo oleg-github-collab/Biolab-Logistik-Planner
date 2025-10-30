@@ -5,6 +5,21 @@ const { getIO, sendNotificationToUser } = require('../websocket');
 const logger = require('../utils/logger');
 const { getOnlineUsers } = require('../services/redisService');
 const { schemas, validate } = require('../validators');
+const {
+  ensureDirectConversation,
+  createConversation,
+  addMembersToConversation,
+  removeMemberFromConversation,
+  getConversationMembers,
+  fetchConversationById,
+  listUserConversations,
+  CONVERSATION_TYPES
+} = require('../services/conversationService');
+const {
+  normalizeMessageRow,
+  enrichMessages,
+  createMessageRecord
+} = require('../services/messageService');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -52,6 +67,7 @@ const upload = multer({
     }
   }
 });
+
 
 // @route   GET /api/messages
 // @desc    Get all messages
@@ -218,6 +234,460 @@ router.get('/conversations', auth, async (req, res) => {
   }
 });
 
+// @route   GET /api/messages/threads
+// @desc    Get unified conversations (direct, groups, topics) for current user
+router.get('/threads', auth, async (req, res) => {
+  try {
+    const conversations = await listUserConversations(req.user.id);
+
+    const formatted = conversations.map((conversation) => ({
+      id: conversation.id,
+      name: conversation.name,
+      description: conversation.description,
+      type: conversation.conversation_type,
+      isTemporary: conversation.is_temporary,
+      expiresAt: conversation.expires_at,
+      updatedAt: conversation.updated_at,
+      participantCount: Number(conversation.participant_count) || 0,
+      unreadCount: Number(conversation.unread_count) || 0,
+      lastMessage: conversation.last_message_id
+        ? {
+            id: conversation.last_message_id,
+            content: conversation.last_message,
+            messageType: conversation.last_message_type,
+            createdAt: conversation.last_message_at,
+            senderId: conversation.last_message_sender
+          }
+        : null,
+      myRole: conversation.my_role,
+      myLastReadAt: conversation.my_last_read_at,
+      isMuted: conversation.my_muted,
+      members: conversation.member_snapshot || []
+    }));
+
+    res.json(formatted);
+  } catch (error) {
+    logger.error('Error fetching unified conversation threads', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// @route   POST /api/messages/conversations
+// @desc    Create a new group/topic conversation
+router.post('/conversations', auth, async (req, res) => {
+  const {
+    name,
+    description,
+    memberIds = [],
+    type = CONVERSATION_TYPES.GROUP,
+    isTemporary = false,
+    expiresAt = null
+  } = req.body;
+
+  if (![CONVERSATION_TYPES.GROUP, CONVERSATION_TYPES.TOPIC, CONVERSATION_TYPES.DIRECT].includes(type)) {
+    return res.status(400).json({ error: 'Ungültiger Konversationstyp' });
+  }
+
+  if (type === CONVERSATION_TYPES.DIRECT) {
+    return res.status(400).json({ error: 'Direkte Konversationen werden automatisch erstellt' });
+  }
+
+  const cleanedMemberIds = Array.isArray(memberIds)
+    ? Array.from(new Set(memberIds.map((id) => parseInt(id, 10)).filter((id) => Number.isInteger(id) && id !== req.user.id)))
+    : [];
+
+  if (cleanedMemberIds.length === 0) {
+    return res.status(400).json({ error: 'Mindestens ein weiterer Teilnehmer ist erforderlich' });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const conversation = await createConversation(client, {
+      name,
+      description,
+      type,
+      createdBy: req.user.id,
+      memberIds: cleanedMemberIds,
+      isTemporary,
+      expiresAt,
+      settings: {}
+    });
+
+    const members = await getConversationMembers(client, conversation.id);
+
+    await client.query('COMMIT');
+
+    const io = getIO();
+    if (io) {
+      const payload = {
+        conversation: {
+          id: conversation.id,
+          name: conversation.name,
+          description: conversation.description,
+          type: conversation.conversation_type,
+          isTemporary: conversation.is_temporary,
+          expiresAt: conversation.expires_at,
+          createdAt: conversation.created_at,
+          updatedAt: conversation.updated_at
+        },
+        members
+      };
+
+      members.forEach((member) => {
+        io.to(`user_${member.user_id}`).emit('conversation:created', payload);
+      });
+    }
+
+    res.status(201).json({
+      id: conversation.id,
+      name: conversation.name,
+      description: conversation.description,
+      type: conversation.conversation_type,
+      isTemporary: conversation.is_temporary,
+      expiresAt: conversation.expires_at,
+      createdAt: conversation.created_at,
+      updatedAt: conversation.updated_at,
+      members
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    logger.error('Error creating conversation', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  } finally {
+    client.release();
+  }
+});
+
+// @route   GET /api/messages/conversations/:conversationId
+// @desc    Fetch conversation details with members
+router.get('/conversations/:conversationId', auth, async (req, res) => {
+  const conversationId = parseInt(req.params.conversationId, 10);
+
+  if (!conversationId) {
+    return res.status(400).json({ error: 'Ungültige Konversations-ID' });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    const conversation = await fetchConversationById(client, conversationId);
+
+    if (!conversation) {
+      return res.status(404).json({ error: 'Konversation nicht gefunden' });
+    }
+
+    const membership = await client.query(
+      `SELECT role, last_read_at, is_muted
+         FROM message_conversation_members
+        WHERE conversation_id = $1 AND user_id = $2`,
+      [conversationId, req.user.id]
+    );
+
+    if (membership.rows.length === 0) {
+      return res.status(403).json({ error: 'Kein Zugriff auf diese Konversation' });
+    }
+
+    const members = await getConversationMembers(client, conversationId);
+
+    res.json({
+      id: conversation.id,
+      name: conversation.name,
+      description: conversation.description,
+      type: conversation.conversation_type,
+      isTemporary: conversation.is_temporary,
+      expiresAt: conversation.expires_at,
+      createdAt: conversation.created_at,
+      updatedAt: conversation.updated_at,
+      myRole: membership.rows[0].role,
+      myLastReadAt: membership.rows[0].last_read_at,
+      isMuted: membership.rows[0].is_muted,
+      members
+    });
+  } catch (error) {
+    logger.error('Error fetching conversation detail', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  } finally {
+    client.release();
+  }
+});
+
+// @route   GET /api/messages/conversations/:conversationId/messages
+// @desc    Fetch messages for a conversation
+router.get('/conversations/:conversationId/messages', auth, async (req, res) => {
+  const conversationId = parseInt(req.params.conversationId, 10);
+
+  if (!conversationId) {
+    return res.status(400).json({ error: 'Ungültige Konversations-ID' });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    const conversation = await fetchConversationById(client, conversationId);
+
+    if (!conversation) {
+      return res.status(404).json({ error: 'Konversation nicht gefunden' });
+    }
+
+    const membership = await client.query(
+      `SELECT role, last_read_at
+         FROM message_conversation_members
+        WHERE conversation_id = $1 AND user_id = $2`,
+      [conversationId, req.user.id]
+    );
+
+    if (membership.rows.length === 0) {
+      return res.status(403).json({ error: 'Kein Zugriff auf diese Konversation' });
+    }
+
+    const messagesResult = await client.query(
+      `SELECT
+          m.*,
+          sender.name AS sender_name,
+          sender.profile_photo AS sender_photo
+        FROM messages m
+        LEFT JOIN users sender ON m.sender_id = sender.id
+       WHERE m.conversation_id = $1
+       ORDER BY m.created_at ASC`,
+      [conversationId]
+    );
+
+    await client.query(
+      `UPDATE message_conversation_members
+          SET last_read_at = CURRENT_TIMESTAMP
+        WHERE conversation_id = $1 AND user_id = $2`,
+      [conversationId, req.user.id]
+    );
+
+    if (conversation.conversation_type === CONVERSATION_TYPES.DIRECT) {
+      await client.query(
+        `UPDATE messages
+            SET read_status = true, read_at = CURRENT_TIMESTAMP
+          WHERE conversation_id = $1 AND receiver_id = $2 AND read_status = false`,
+        [conversationId, req.user.id]
+      );
+    }
+
+    const messages = await enrichMessages(client, messagesResult.rows);
+
+    res.json(messages);
+  } catch (error) {
+    logger.error('Error fetching conversation messages', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  } finally {
+    client.release();
+  }
+});
+
+// @route   POST /api/messages/conversations/:conversationId/members
+// @desc    Add members to a conversation
+router.post('/conversations/:conversationId/members', auth, async (req, res) => {
+  const conversationId = parseInt(req.params.conversationId, 10);
+  const { memberIds = [] } = req.body;
+
+  if (!conversationId) {
+    return res.status(400).json({ error: 'Ungültige Konversations-ID' });
+  }
+
+  const cleanedMemberIds = Array.isArray(memberIds)
+    ? Array.from(new Set(memberIds.map((id) => parseInt(id, 10)).filter((id) => Number.isInteger(id) && id !== req.user.id)))
+    : [];
+
+  if (cleanedMemberIds.length === 0) {
+    return res.status(400).json({ error: 'Mindestens ein Teilnehmer erforderlich' });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    const conversation = await fetchConversationById(client, conversationId);
+
+    if (!conversation) {
+      return res.status(404).json({ error: 'Konversation nicht gefunden' });
+    }
+
+    const membership = await client.query(
+      `SELECT role FROM message_conversation_members WHERE conversation_id = $1 AND user_id = $2`,
+      [conversationId, req.user.id]
+    );
+
+    if (membership.rows.length === 0) {
+      return res.status(403).json({ error: 'Kein Zugriff auf diese Konversation' });
+    }
+
+    const myRole = membership.rows[0].role;
+    if (myRole !== 'owner' && myRole !== 'moderator' && !['admin', 'superadmin'].includes(req.user.role)) {
+      return res.status(403).json({ error: 'Keine Berechtigung zum Hinzufügen von Teilnehmern' });
+    }
+
+    await addMembersToConversation(client, conversationId, cleanedMemberIds);
+
+    const members = await getConversationMembers(client, conversationId);
+
+    const io = getIO();
+    if (io) {
+      const payload = {
+        conversationId,
+        members,
+        addedMemberIds: cleanedMemberIds
+      };
+
+      members.forEach((member) => {
+        io.to(`user_${member.user_id}`).emit('conversation:members_updated', payload);
+      });
+    }
+
+    res.json({
+      conversationId,
+      members
+    });
+  } catch (error) {
+    logger.error('Error adding members to conversation', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  } finally {
+    client.release();
+  }
+});
+
+// @route   DELETE /api/messages/conversations/:conversationId/members/:userId
+// @desc    Remove a member or leave a conversation
+router.delete('/conversations/:conversationId/members/:userId', auth, async (req, res) => {
+  const conversationId = parseInt(req.params.conversationId, 10);
+  const memberId = parseInt(req.params.userId, 10);
+
+  if (!conversationId || !memberId) {
+    return res.status(400).json({ error: 'Ungültige Parameter' });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    const conversation = await fetchConversationById(client, conversationId);
+
+    if (!conversation) {
+      return res.status(404).json({ error: 'Konversation nicht gefunden' });
+    }
+
+    const membership = await client.query(
+      `SELECT role FROM message_conversation_members WHERE conversation_id = $1 AND user_id = $2`,
+      [conversationId, req.user.id]
+    );
+
+    if (membership.rows.length === 0) {
+      return res.status(403).json({ error: 'Kein Zugriff auf diese Konversation' });
+    }
+
+    const targetMembership = await client.query(
+      `SELECT role FROM message_conversation_members WHERE conversation_id = $1 AND user_id = $2`,
+      [conversationId, memberId]
+    );
+
+    if (targetMembership.rows.length === 0) {
+      return res.status(404).json({ error: 'Teilnehmer nicht gefunden' });
+    }
+
+    const actingRole = membership.rows[0].role;
+    const targetRole = targetMembership.rows[0].role;
+
+    const isSelf = memberId === req.user.id;
+    const hasAdminPrivileges = actingRole === 'owner' || actingRole === 'moderator' || ['admin', 'superadmin'].includes(req.user.role);
+
+    if (!isSelf && !hasAdminPrivileges) {
+      return res.status(403).json({ error: 'Keine Berechtigung zum Entfernen von Teilnehmern' });
+    }
+
+    if (!isSelf && targetRole === 'owner' && actingRole !== 'owner') {
+      return res.status(403).json({ error: 'Der Besitzer der Konversation kann nicht entfernt werden' });
+    }
+
+    await removeMemberFromConversation(client, conversationId, memberId);
+
+    const members = await getConversationMembers(client, conversationId);
+
+    const io = getIO();
+    if (io) {
+      const payload = {
+        conversationId,
+        members,
+        removedMemberId: memberId
+      };
+
+      members.forEach((member) => {
+        io.to(`user_${member.user_id}`).emit('conversation:members_updated', payload);
+      });
+
+      io.to(`user_${memberId}`).emit('conversation:removed', {
+        conversationId
+      });
+    }
+
+    res.json({
+      conversationId,
+      members
+    });
+  } catch (error) {
+    logger.error('Error removing conversation member', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  } finally {
+    client.release();
+  }
+});
+
+// @route   POST /api/messages/conversations/:conversationId/read
+// @desc    Mark conversation as read for the current user
+router.post('/conversations/:conversationId/read', auth, async (req, res) => {
+  const conversationId = parseInt(req.params.conversationId, 10);
+
+  if (!conversationId) {
+    return res.status(400).json({ error: 'Ungültige Konversations-ID' });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    const conversation = await fetchConversationById(client, conversationId);
+
+    if (!conversation) {
+      return res.status(404).json({ error: 'Konversation nicht gefunden' });
+    }
+
+    const membership = await client.query(
+      `SELECT role FROM message_conversation_members WHERE conversation_id = $1 AND user_id = $2`,
+      [conversationId, req.user.id]
+    );
+
+    if (membership.rows.length === 0) {
+      return res.status(403).json({ error: 'Kein Zugriff auf diese Konversation' });
+    }
+
+    await client.query(
+      `UPDATE message_conversation_members
+          SET last_read_at = CURRENT_TIMESTAMP
+        WHERE conversation_id = $1 AND user_id = $2`,
+      [conversationId, req.user.id]
+    );
+
+    if (conversation.conversation_type === CONVERSATION_TYPES.DIRECT) {
+      await client.query(
+        `UPDATE messages
+            SET read_status = true, read_at = CURRENT_TIMESTAMP
+          WHERE conversation_id = $1 AND receiver_id = $2 AND read_status = false`,
+        [conversationId, req.user.id]
+      );
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Error marking conversation as read', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  } finally {
+    client.release();
+  }
+});
+
 // @route   GET /api/messages/conversation/:userId
 // @desc    Get all messages in a conversation with a specific user
 router.get('/conversation/:userId', auth, async (req, res) => {
@@ -320,100 +790,700 @@ router.post('/start', auth, async (req, res) => {
 
 // @route   POST /api/messages
 // @desc    Send a new message
-router.post('/', auth, async (req, res) => {
+const sendMessageHandler = async (req, res) => {
+  const {
+    recipientId,
+    conversationId,
+    content,
+    gif,
+    attachments = [],
+    messageType,
+    quotedMessageId,
+    mentionedUserIds = [],
+    metadata = {}
+  } = req.body;
+
+  if (!recipientId && !conversationId) {
+    return res.status(400).json({ error: 'Empfänger oder Konversation ist erforderlich' });
+  }
+
+  if (!content && !gif && (!attachments || attachments.length === 0)) {
+    return res.status(400).json({ error: 'Nachrichteninhalt erforderlich' });
+  }
+
+  if (content && content.length > 5000) {
+    return res.status(400).json({ error: 'Nachricht zu lang (max 5000 Zeichen)' });
+  }
+
+  const sanitizedContent = content ? content.replace(/<script[^>]*>.*?<\/script>/gi, '').trim() : null;
+  const attachmentPayload = Array.isArray(attachments) ? attachments : [];
+  const messageContent = sanitizedContent || gif || (attachmentPayload.length ? '[attachment]' : null);
+  const client = await pool.connect();
+
   try {
-    const { recipientId, content, gif } = req.body;
+    await client.query('BEGIN');
 
-    // Validate recipient
-    if (!recipientId) {
-      return res.status(400).json({ error: 'Empfänger ist erforderlich' });
+    let targetConversationId = conversationId ? parseInt(conversationId, 10) : null;
+    let resolvedRecipientId = recipientId ? parseInt(recipientId, 10) : null;
+    let conversation;
+
+    if (targetConversationId) {
+      conversation = await fetchConversationById(client, targetConversationId);
+      if (!conversation) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Konversation nicht gefunden' });
+      }
+
+      const memberCheck = await client.query(
+        `SELECT role FROM message_conversation_members WHERE conversation_id = $1 AND user_id = $2`,
+        [targetConversationId, req.user.id]
+      );
+
+      if (memberCheck.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ error: 'Kein Zugriff auf diese Konversation' });
+      }
+
+      if (conversation.conversation_type === 'direct' && !resolvedRecipientId) {
+        const otherMember = await client.query(
+          `SELECT user_id FROM message_conversation_members WHERE conversation_id = $1 AND user_id <> $2 LIMIT 1`,
+          [targetConversationId, req.user.id]
+        );
+        resolvedRecipientId = otherMember.rows[0]?.user_id || null;
+      }
+    } else {
+      if (!resolvedRecipientId) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Empfänger ist erforderlich' });
+      }
+
+      const recipientCheck = await client.query(
+        'SELECT id, name FROM users WHERE id = $1',
+        [resolvedRecipientId]
+      );
+
+      if (recipientCheck.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Empfänger nicht gefunden' });
+      }
+
+      conversation = await ensureDirectConversation(client, req.user.id, resolvedRecipientId);
+      targetConversationId = conversation.id;
     }
 
-    // Validate message content
-    if (!content && !gif) {
-      return res.status(400).json({ error: 'Nachrichteninhalt oder GIF ist erforderlich' });
+    const normalizedQuotedId = quotedMessageId ? parseInt(quotedMessageId, 10) : null;
+    const rawMessage = await createMessageRecord(client, {
+      senderId: req.user.id,
+      conversationId: targetConversationId,
+      receiverId: resolvedRecipientId,
+      messageContent,
+      messageType: gif ? 'gif' : (messageType || 'text'),
+      attachments: attachmentPayload,
+      metadata,
+      quotedMessageId: Number.isInteger(normalizedQuotedId) ? normalizedQuotedId : null,
+      mentionedUserIds
+    });
+
+    await client.query(
+      'UPDATE message_conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+      [targetConversationId]
+    );
+    if (conversation) {
+      conversation.updated_at = new Date().toISOString();
     }
 
-    if (content && content.length > 5000) {
-      return res.status(400).json({ error: 'Nachricht zu lang (max 5000 Zeichen)' });
-    }
-
-    // Basic XSS protection - remove script tags
-    const sanitizedContent = content ? content.replace(/<script[^>]*>.*?<\/script>/gi, '').trim() : null;
-
-    // Check if recipient exists
-    const recipientResult = await pool.query(
-      'SELECT id, name FROM users WHERE id = $1',
-      [recipientId]
+    await client.query(
+      `UPDATE message_conversation_members
+         SET last_read_at = CURRENT_TIMESTAMP
+       WHERE conversation_id = $1 AND user_id = $2`,
+      [targetConversationId, req.user.id]
     );
 
-    if (recipientResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Empfänger nicht gefunden' });
-    }
+    const enriched = await enrichMessages(client, [rawMessage]);
+    const enrichedMessage = enriched[0] || normalizeMessageRow(rawMessage);
 
-    const recipient = recipientResult.rows[0];
+    await client.query('COMMIT');
 
-    // Insert message
-    const insertResult = await pool.query(
-      `INSERT INTO messages (sender_id, receiver_id, message, message_type, read_status, created_at)
-       VALUES ($1, $2, $3, $4, false, CURRENT_TIMESTAMP)
-       RETURNING *`,
-      [req.user.id, recipientId, sanitizedContent || gif || null, gif ? 'gif' : 'text']
+    const membersResult = await pool.query(
+      `SELECT user_id FROM message_conversation_members WHERE conversation_id = $1`,
+      [targetConversationId]
     );
+    const memberIds = membersResult.rows.map((row) => row.user_id);
 
-    const message = insertResult.rows[0];
+    const payloadMessage = {
+      ...enrichedMessage,
+      conversation_name: conversation?.name || null,
+      conversation_type: conversation?.conversation_type || (resolvedRecipientId ? 'direct' : 'group'),
+      conversation_is_temporary: conversation?.is_temporary || false,
+      conversation_updated_at: conversation?.updated_at || new Date().toISOString()
+    };
 
-    // Fetch with joined data
-    const messageResult = await pool.query(
-      `SELECT m.*,
-         sender.name as sender_name,
-         sender.role as sender_role,
-         recipient.name as recipient_name
-       FROM messages m
-       LEFT JOIN users sender ON m.sender_id = sender.id
-       LEFT JOIN users recipient ON m.receiver_id = recipient.id
-       WHERE m.id = $1`,
-      [message.id]
-    );
-
-    const formattedMessage = messageResult.rows[0];
-
-    // Broadcast to WebSocket
     const io = getIO();
     if (io) {
-      io.emit('message:new', {
-        message: formattedMessage,
-        sender: {
-          id: req.user.id,
-          name: req.user.name
+      const payload = {
+        conversationId: targetConversationId,
+        message: payloadMessage
+      };
+
+      io.to(`conversation_${targetConversationId}`).emit('conversation:new_message', payload);
+
+      memberIds.forEach((memberId) => {
+        if (memberId !== req.user.id) {
+          io.to(`user_${memberId}`).emit('conversation:new_message', payload);
         }
       });
     }
 
-    // Send notification to recipient
-    sendNotificationToUser(recipientId, {
-      title: `New message from ${req.user.name}`,
-      body: sanitizedContent || 'Sent a GIF',
-      icon: '/favicon.ico',
-      tag: `message_${message.id}`,
-      data: {
-        url: '/messenger',
-        messageId: message.id,
-        senderId: req.user.id
-      }
-    });
+    memberIds
+      .filter((memberId) => memberId !== req.user.id)
+      .forEach((memberId) => {
+        sendNotificationToUser(memberId, {
+          type: 'message',
+          title: `${req.user.name} hat eine neue Nachricht gesendet`,
+          message: messageContent || 'Neue Aktivität in der Konversation',
+          data: {
+            url: '/messages',
+            conversationId: targetConversationId,
+            messageId: payloadMessage.id
+          }
+        });
+      });
 
     logger.info('Message sent', {
-      messageId: message.id,
+      messageId: payloadMessage.id,
       senderId: req.user.id,
-      recipientId
+      conversationId: targetConversationId,
+      recipientId: resolvedRecipientId
     });
 
-    res.status(201).json(formattedMessage);
-
+    res.status(201).json({
+      conversationId: targetConversationId,
+      message: payloadMessage,
+      conversation,
+      members: memberIds
+    });
   } catch (error) {
+    await client.query('ROLLBACK');
     logger.error('Error sending message', error);
     res.status(500).json({ error: 'Serverfehler' });
+  } finally {
+    client.release();
+  }
+};
+
+router.post('/', auth, sendMessageHandler);
+
+router.post('/conversations/:conversationId/messages', auth, async (req, res) => {
+  req.body.conversationId = req.params.conversationId;
+  return sendMessageHandler(req, res);
+});
+
+// @route   POST /api/messages/:messageId/react
+// @desc    Add or remove a reaction on a message
+router.post('/:messageId/react', auth, async (req, res) => {
+  const messageId = parseInt(req.params.messageId, 10);
+  const { emoji } = req.body;
+
+  if (!Number.isInteger(messageId)) {
+    return res.status(400).json({ error: 'Ungültige Nachrichten-ID' });
+  }
+
+  if (!emoji || typeof emoji !== 'string' || !emoji.trim()) {
+    return res.status(400).json({ error: 'Emoji ist erforderlich' });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const messageCheck = await client.query(
+      `SELECT id, sender_id, receiver_id, conversation_id
+         FROM messages
+        WHERE id = $1`,
+      [messageId]
+    );
+
+    if (messageCheck.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Nachricht nicht gefunden' });
+    }
+
+    const messageRow = messageCheck.rows[0];
+    let memberIds = [];
+
+    if (messageRow.conversation_id) {
+      const membership = await client.query(
+        `SELECT user_id
+           FROM message_conversation_members
+          WHERE conversation_id = $1`,
+        [messageRow.conversation_id]
+      );
+
+      memberIds = membership.rows.map((row) => row.user_id);
+
+      if (!memberIds.includes(req.user.id) && !['admin', 'superadmin'].includes(req.user.role)) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ error: 'Kein Zugriff auf diese Konversation' });
+      }
+    } else {
+      const participants = [messageRow.sender_id, messageRow.receiver_id].filter(Boolean);
+      if (!participants.includes(req.user.id)) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ error: 'Keine Berechtigung für diese Nachricht' });
+      }
+      memberIds = participants;
+    }
+
+    const existing = await client.query(
+      `SELECT id
+         FROM message_reactions
+        WHERE message_id = $1 AND user_id = $2 AND emoji = $3`,
+      [messageId, req.user.id, emoji]
+    );
+
+    let action;
+
+    if (existing.rows.length > 0) {
+      await client.query(
+        'DELETE FROM message_reactions WHERE id = $1',
+        [existing.rows[0].id]
+      );
+      action = 'removed';
+    } else {
+      await client.query(
+        `INSERT INTO message_reactions (message_id, user_id, emoji)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (message_id, user_id, emoji) DO NOTHING`,
+        [messageId, req.user.id, emoji]
+      );
+      action = 'added';
+    }
+
+    const messageDetail = await client.query(
+      `SELECT
+          m.*,
+          sender.name AS sender_name,
+          sender.profile_photo AS sender_photo
+        FROM messages m
+        LEFT JOIN users sender ON m.sender_id = sender.id
+       WHERE m.id = $1`,
+      [messageId]
+    );
+
+    const enriched = await enrichMessages(client, messageDetail.rows);
+    const enrichedMessage = enriched[0] || normalizeMessageRow(messageDetail.rows[0]);
+    const reactions = enrichedMessage?.reactions || [];
+
+    await client.query('COMMIT');
+
+    const io = getIO();
+    if (io) {
+      const payload = {
+        messageId,
+        conversationId: messageRow.conversation_id || null,
+        reactions,
+        action,
+        user: {
+          id: req.user.id,
+          name: req.user.name
+        }
+      };
+
+      if (messageRow.conversation_id) {
+        io.to(`conversation_${messageRow.conversation_id}`).emit('message:reaction', payload);
+        memberIds
+          .filter((memberId) => memberId !== req.user.id)
+          .forEach((memberId) => io.to(`user_${memberId}`).emit('message:reaction', payload));
+      } else {
+        memberIds.forEach((memberId) => {
+          io.to(`user_${memberId}`).emit('message:reaction', payload);
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      action,
+      reactions
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    logger.error('Error toggling message reaction', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  } finally {
+    client.release();
+  }
+});
+
+// @route   GET /api/messages/:messageId/reactions
+// @desc    Retrieve aggregated reactions for a message
+router.get('/:messageId/reactions', auth, async (req, res) => {
+  const messageId = parseInt(req.params.messageId, 10);
+
+  if (!Number.isInteger(messageId)) {
+    return res.status(400).json({ error: 'Ungültige Nachrichten-ID' });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    const messageResult = await client.query(
+      `SELECT
+          m.*,
+          sender.name AS sender_name,
+          sender.profile_photo AS sender_photo
+        FROM messages m
+        LEFT JOIN users sender ON m.sender_id = sender.id
+       WHERE m.id = $1`,
+      [messageId]
+    );
+
+    if (messageResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Nachricht nicht gefunden' });
+    }
+
+    const hydrated = await enrichMessages(client, messageResult.rows);
+    const message = hydrated[0] || normalizeMessageRow(messageResult.rows[0]);
+
+    res.json(message.reactions || []);
+  } catch (error) {
+    logger.error('Error fetching message reactions', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  } finally {
+    client.release();
+  }
+});
+
+// @route   POST /api/messages/:messageId/quote
+// @desc    Create a reply that quotes an existing message
+router.post('/:messageId/quote', auth, async (req, res) => {
+  const messageId = parseInt(req.params.messageId, 10);
+  const { content, conversationId, receiverId, attachments = [], metadata = {}, mentionedUserIds = [] } = req.body;
+
+  if (!Number.isInteger(messageId)) {
+    return res.status(400).json({ error: 'Ungültige Nachrichten-ID' });
+  }
+
+  if (!content || typeof content !== 'string' || !content.trim()) {
+    return res.status(400).json({ error: 'Inhalt ist erforderlich' });
+  }
+
+  try {
+    const originalResult = await pool.query(
+      `SELECT id, sender_id, receiver_id, conversation_id
+         FROM messages
+        WHERE id = $1`,
+      [messageId]
+    );
+
+    if (originalResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Originalnachricht nicht gefunden' });
+    }
+
+    const original = originalResult.rows[0];
+    const fallbackRecipient = original.sender_id === req.user.id ? original.receiver_id : original.sender_id;
+
+    req.body = {
+      recipientId: receiverId || fallbackRecipient,
+      conversationId: conversationId || original.conversation_id || null,
+      content,
+      attachments,
+      metadata,
+      mentionedUserIds,
+      quotedMessageId: messageId
+    };
+
+    return sendMessageHandler(req, res);
+  } catch (error) {
+    logger.error('Error creating quoted message', error);
+    return res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// @route   POST /api/messages/:messageId/mention
+// @desc    Attach mention metadata to a message
+router.post('/:messageId/mention', auth, async (req, res) => {
+  const messageId = parseInt(req.params.messageId, 10);
+  const { mentionedUserIds } = req.body;
+
+  if (!Number.isInteger(messageId)) {
+    return res.status(400).json({ error: 'Ungültige Nachrichten-ID' });
+  }
+
+  if (!Array.isArray(mentionedUserIds) || mentionedUserIds.length === 0) {
+    return res.status(400).json({ error: 'mentionedUserIds ist erforderlich' });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const messageResult = await client.query(
+      `SELECT id, sender_id, receiver_id, conversation_id
+         FROM messages
+        WHERE id = $1`,
+      [messageId]
+    );
+
+    if (messageResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Nachricht nicht gefunden' });
+    }
+
+    const message = messageResult.rows[0];
+
+    if (message.conversation_id) {
+      const membership = await client.query(
+        `SELECT user_id
+           FROM message_conversation_members
+          WHERE conversation_id = $1`,
+        [message.conversation_id]
+      );
+
+      const memberIds = membership.rows.map((row) => row.user_id);
+      if (!memberIds.includes(req.user.id) && !['admin', 'superadmin'].includes(req.user.role)) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ error: 'Keine Berechtigung zum Markieren' });
+      }
+    } else if (message.sender_id !== req.user.id && message.receiver_id !== req.user.id) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'Keine Berechtigung zum Markieren' });
+    }
+
+    const uniqueMentions = Array.from(new Set(
+      mentionedUserIds
+        .map((id) => parseInt(id, 10))
+        .filter((id) => Number.isInteger(id) && id !== req.user.id)
+    ));
+
+    const createdMentions = [];
+
+    for (const mentionedId of uniqueMentions) {
+      const result = await client.query(
+        `INSERT INTO message_mentions (message_id, mentioned_user_id, mentioned_by)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (message_id, mentioned_user_id) DO NOTHING
+         RETURNING *`,
+        [messageId, mentionedId, req.user.id]
+      );
+      if (result.rows.length > 0) {
+        createdMentions.push(result.rows[0]);
+      }
+    }
+
+    const mentionDetails = await client.query(
+      `SELECT
+         mm.*,
+         mentioned.name AS mentioned_user_name,
+         mentioned.profile_photo AS mentioned_user_photo,
+         author.name AS mentioned_by_name
+       FROM message_mentions mm
+       LEFT JOIN users mentioned ON mm.mentioned_user_id = mentioned.id
+       LEFT JOIN users author ON mm.mentioned_by = author.id
+       WHERE mm.message_id = $1
+       ORDER BY mm.created_at ASC`,
+      [messageId]
+    );
+
+    await client.query('COMMIT');
+
+    const io = getIO();
+    if (io) {
+      createdMentions.forEach((mention) => {
+        io.to(`user_${mention.mentioned_user_id}`).emit('message:mentioned', {
+          messageId,
+          mentionedBy: {
+            id: req.user.id,
+            name: req.user.name
+          }
+        });
+      });
+    }
+
+    res.json({
+      success: true,
+      mentions: mentionDetails.rows
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    logger.error('Error creating mentions', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  } finally {
+    client.release();
+  }
+});
+
+// @route   GET /api/messages/mentions/my
+// @desc    Fetch mentions for the current user
+router.get('/mentions/my', auth, async (req, res) => {
+  const { is_read, limit = 20, offset = 0 } = req.query;
+
+  const params = [req.user.id];
+  const conditions = ['mm.mentioned_user_id = $1'];
+
+  if (is_read !== undefined) {
+    params.push(is_read === 'true');
+    conditions.push(`mm.is_read = $${params.length}`);
+  }
+
+  params.push(parseInt(limit, 10) || 20);
+  params.push(parseInt(offset, 10) || 0);
+
+  try {
+    const { rows } = await pool.query(
+      `SELECT
+         mm.*,
+         mentioned.name AS mentioned_user_name,
+         mentioned.profile_photo AS mentioned_user_photo,
+         author.name AS mentioned_by_name,
+         m.id AS message_id,
+         m.message,
+         m.message_type,
+         m.conversation_id,
+         sender.name AS sender_name,
+         sender.profile_photo AS sender_photo,
+         m.created_at AS message_created_at
+       FROM message_mentions mm
+       LEFT JOIN users mentioned ON mm.mentioned_user_id = mentioned.id
+       LEFT JOIN users author ON mm.mentioned_by = author.id
+       LEFT JOIN messages m ON mm.message_id = m.id
+       LEFT JOIN users sender ON m.sender_id = sender.id
+       WHERE ${conditions.join(' AND ')}
+       ORDER BY mm.created_at DESC
+       LIMIT $${params.length - 1}
+       OFFSET $${params.length}`,
+      params
+    );
+
+    res.json(rows);
+  } catch (error) {
+    logger.error('Error fetching mentions', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// @route   PUT /api/messages/mentions/:mentionId/read
+// @desc    Mark a mention as read
+router.put('/mentions/:mentionId/read', auth, async (req, res) => {
+  const mentionId = parseInt(req.params.mentionId, 10);
+
+  if (!Number.isInteger(mentionId)) {
+    return res.status(400).json({ error: 'Ungültige Mention-ID' });
+  }
+
+  try {
+    const result = await pool.query(
+      `UPDATE message_mentions
+          SET is_read = TRUE,
+              read_at = CURRENT_TIMESTAMP
+        WHERE id = $1 AND mentioned_user_id = $2
+        RETURNING *`,
+      [mentionId, req.user.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Mention nicht gefunden' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    logger.error('Error marking mention as read', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// @route   POST /api/messages/:messageId/calendar-ref
+// @desc    Link a calendar event to a message
+router.post('/:messageId/calendar-ref', auth, async (req, res) => {
+  const messageId = parseInt(req.params.messageId, 10);
+  const { eventId, refType = 'mention' } = req.body;
+
+  if (!Number.isInteger(messageId) || !Number.isInteger(eventId)) {
+    return res.status(400).json({ error: 'Ungültige Parameter' });
+  }
+
+  try {
+    const result = await pool.query(
+      `INSERT INTO message_calendar_refs (message_id, event_id, ref_type)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (message_id, event_id) DO UPDATE SET ref_type = EXCLUDED.ref_type
+       RETURNING *`,
+      [messageId, eventId, refType]
+    );
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    logger.error('Error creating calendar reference', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// @route   POST /api/messages/:messageId/task-ref
+// @desc    Link a task to a message
+router.post('/:messageId/task-ref', auth, async (req, res) => {
+  const messageId = parseInt(req.params.messageId, 10);
+  const { taskId, refType = 'mention' } = req.body;
+
+  if (!Number.isInteger(messageId) || !Number.isInteger(taskId)) {
+    return res.status(400).json({ error: 'Ungültige Parameter' });
+  }
+
+  try {
+    const result = await pool.query(
+      `INSERT INTO message_task_refs (message_id, task_id, ref_type)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (message_id, task_id) DO UPDATE SET ref_type = EXCLUDED.ref_type
+       RETURNING *`,
+      [messageId, taskId, refType]
+    );
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    logger.error('Error creating task reference', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// @route   GET /api/messages/:messageId/full
+// @desc    Retrieve message with all related metadata
+router.get('/:messageId/full', auth, async (req, res) => {
+  const messageId = parseInt(req.params.messageId, 10);
+
+  if (!Number.isInteger(messageId)) {
+    return res.status(400).json({ error: 'Ungültige Nachrichten-ID' });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    const messageResult = await client.query(
+      `SELECT
+          m.*,
+          sender.name AS sender_name,
+          sender.profile_photo AS sender_photo,
+          receiver.name AS receiver_name
+        FROM messages m
+        LEFT JOIN users sender ON m.sender_id = sender.id
+        LEFT JOIN users receiver ON m.receiver_id = receiver.id
+       WHERE m.id = $1`,
+      [messageId]
+    );
+
+    if (messageResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Nachricht nicht gefunden' });
+    }
+
+    const enriched = await enrichMessages(client, messageResult.rows);
+    const message = enriched[0] || normalizeMessageRow(messageResult.rows[0]);
+
+    res.json(message);
+  } catch (error) {
+    logger.error('Error fetching full message', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  } finally {
+    client.release();
   }
 });
 

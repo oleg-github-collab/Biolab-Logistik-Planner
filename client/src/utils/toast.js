@@ -103,7 +103,7 @@ export const showCustom = (message, action) => {
   );
 };
 
-export default {
+const toastUtils = {
   success: showSuccess,
   error: showError,
   info: showInfo,
@@ -111,5 +111,7 @@ export default {
   loading: showLoading,
   dismiss: dismissToast,
   promise: showPromise,
-  custom: showCustom,
+  custom: showCustom
 };
+
+export default toastUtils;

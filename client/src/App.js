@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { LocaleProvider, useLocale } from './context/LocaleContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import Header from './components/Header';
+import MobileBottomNav from './components/MobileBottomNav';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Messages from './pages/Messages';
@@ -68,6 +70,7 @@ const AdminRoute = ({ children }) => {
 // Main App component
 const AppContent = () => {
   const auth = useAuth();
+  const { t } = useLocale();
   const loading = auth?.loading;
 
   if (loading) {
@@ -75,7 +78,7 @@ const AppContent = () => {
       <div className="min-h-screen bg-gradient-to-br from-blue-600 to-blue-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-          <p className="text-white text-lg">System lädt...</p>
+          <p className="text-white text-lg">{t('app.loading')}</p>
         </div>
       </div>
     );
@@ -84,7 +87,7 @@ const AppContent = () => {
   return (
     <ErrorBoundary>
       <Router>
-        <div className="min-h-screen flex flex-col">
+        <div className="min-h-screen flex flex-col pb-16 lg:pb-0">
           <Toaster
             position="top-right"
             toastOptions={{
@@ -252,6 +255,7 @@ const AppContent = () => {
               element={<Navigate to="/dashboard" replace />}
             />
           </Routes>
+          <MobileBottomNav />
         </div>
       </Router>
     </ErrorBoundary>
@@ -261,9 +265,11 @@ const AppContent = () => {
 // App wrapper with AuthProvider
 function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <LocaleProvider>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </LocaleProvider>
   );
 }
 
