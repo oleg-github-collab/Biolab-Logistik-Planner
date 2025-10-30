@@ -15,6 +15,6 @@ cmds = [
 [phases.cache]
 paths = ["node_modules", "client/node_modules"]
 
-[env]
-NODE_ENV = "production"
-PORT = "8080"
+[start]
+cmd = "npm start"
+
