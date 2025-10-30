@@ -8,6 +8,7 @@ const schedule = require('node-schedule');
 const { initializeSocket } = require('./websocket');
 const logger = require('./utils/logger');
 const redisService = require('./services/redisService');
+const { ensureMessageSchema } = require('./services/messageService');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -120,24 +121,35 @@ const server = http.createServer(app);
 // Initialize WebSocket
 initializeSocket(server);
 
-redisService.connect()
-  .then((connected) => {
-    if (!connected) {
-      logger.warn('Redis connection could not be established. Continuing without cache/pub-sub features.');
-    } else {
-      logger.info('Redis connected and ready');
-    }
-  })
-  .catch((error) => {
-    logger.error('Redis startup connection failed', { error: error.message });
-  });
+const startServer = async () => {
+  try {
+    await ensureMessageSchema();
 
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV}`);
-  console.log(`API Base URL: ${process.env.NODE_ENV === 'production' ? 'https://your-app.railway.app/api' : 'http://localhost:5000/api'}`);
-  console.log(`WebSocket server enabled`);
-});
+    redisService.connect()
+      .then((connected) => {
+        if (!connected) {
+          logger.warn('Redis connection could not be established. Continuing without cache/pub-sub features.');
+        } else {
+          logger.info('Redis connected and ready');
+        }
+      })
+      .catch((error) => {
+        logger.error('Redis startup connection failed', { error: error.message });
+      });
+
+    server.listen(PORT, '0.0.0.0', () => {
+      console.log(`Server running on port ${PORT}`);
+      console.log(`Environment: ${process.env.NODE_ENV}`);
+      console.log(`API Base URL: ${process.env.NODE_ENV === 'production' ? 'https://your-app.railway.app/api' : 'http://localhost:5000/api'}`);
+      console.log(`WebSocket server enabled`);
+    });
+  } catch (error) {
+    logger.error('Failed to start server', { error: error.message });
+    process.exit(1);
+  }
+};
+
+startServer();
 
 // Graceful shutdown
 const shutdown = async (signal) => {
