@@ -59,7 +59,7 @@ const AdminDashboard = () => {
 
       setLoading(false);
     } catch (error) {
-      console.error('Failed to fetch admin data:', error);
+      console.error('Fehler beim Laden der Admin-Daten:', error);
       toast.error('Fehler beim Laden der Administrator-Daten');
       setLoading(false);
     }

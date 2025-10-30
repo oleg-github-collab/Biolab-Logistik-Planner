@@ -43,7 +43,7 @@ router.get('/', auth, async (req, res) => {
 
   } catch (error) {
     logger.error('Error fetching tasks', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 
@@ -64,19 +64,19 @@ router.post('/', auth, async (req, res) => {
 
     // Validate inputs
     if (!title?.trim()) {
-      return res.status(400).json({ error: 'Title is required' });
+      return res.status(400).json({ error: 'Titel ist erforderlich' });
     }
 
     // Validate status
     const validStatuses = ['todo', 'in_progress', 'done', 'cancelled'];
     if (!validStatuses.includes(status)) {
-      return res.status(400).json({ error: 'Invalid status' });
+      return res.status(400).json({ error: 'Ungültiger Status' });
     }
 
     // Validate priority
     const validPriorities = ['low', 'medium', 'high'];
     if (!validPriorities.includes(priority)) {
-      return res.status(400).json({ error: 'Invalid priority' });
+      return res.status(400).json({ error: 'Ungültige Priorität' });
     }
 
     // Insert task
@@ -148,7 +148,7 @@ router.post('/', auth, async (req, res) => {
 
   } catch (error) {
     logger.error('Error creating task', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 
@@ -174,7 +174,7 @@ router.put('/:id', auth, async (req, res) => {
     );
 
     if (existingResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Task not found' });
+      return res.status(404).json({ error: 'Aufgabe nicht gefunden' });
     }
 
     const previousStatus = existingResult.rows[0].status;
@@ -197,7 +197,7 @@ router.put('/:id', auth, async (req, res) => {
     if (status !== undefined) {
       const validStatuses = ['todo', 'in_progress', 'done', 'cancelled'];
       if (!validStatuses.includes(status)) {
-        return res.status(400).json({ error: 'Invalid status' });
+        return res.status(400).json({ error: 'Ungültiger Status' });
       }
       updates.push(`status = $${paramIndex++}`);
       values.push(status);
@@ -206,7 +206,7 @@ router.put('/:id', auth, async (req, res) => {
     if (priority !== undefined) {
       const validPriorities = ['low', 'medium', 'high'];
       if (!validPriorities.includes(priority)) {
-        return res.status(400).json({ error: 'Invalid priority' });
+        return res.status(400).json({ error: 'Ungültige Priorität' });
       }
       updates.push(`priority = $${paramIndex++}`);
       values.push(priority);
@@ -228,7 +228,7 @@ router.put('/:id', auth, async (req, res) => {
     }
 
     if (updates.length === 0) {
-      return res.status(400).json({ error: 'No fields to update' });
+      return res.status(400).json({ error: 'Keine Felder zum Aktualisieren' });
     }
 
     updates.push(`updated_at = CURRENT_TIMESTAMP`);
@@ -297,7 +297,7 @@ router.put('/:id', auth, async (req, res) => {
 
   } catch (error) {
     logger.error('Error updating task', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 
@@ -320,7 +320,7 @@ router.delete('/:id', auth, async (req, res) => {
     );
 
     if (taskResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Task not found' });
+      return res.status(404).json({ error: 'Aufgabe nicht gefunden' });
     }
 
     const task = taskResult.rows[0];
@@ -361,7 +361,7 @@ router.delete('/:id', auth, async (req, res) => {
 
   } catch (error) {
     logger.error('Error deleting task', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 
