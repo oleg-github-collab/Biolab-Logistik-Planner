@@ -123,7 +123,15 @@ initializeSocket(server);
 
 const startServer = async () => {
   try {
-    await ensureMessageSchema();
+    try {
+      await ensureMessageSchema();
+      console.log('✅ Messaging schema verified');
+    } catch (schemaError) {
+      console.error('⚠️  Failed to verify messaging schema on startup:', schemaError);
+      logger.warn('Messaging schema verification failed during startup', {
+        error: schemaError.message
+      });
+    }
 
     redisService.connect()
       .then((connected) => {
@@ -145,6 +153,7 @@ const startServer = async () => {
     });
   } catch (error) {
     logger.error('Failed to start server', { error: error.message });
+    console.error('Failed to start server:', error);
     process.exit(1);
   }
 };
