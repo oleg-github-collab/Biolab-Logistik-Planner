@@ -8,7 +8,7 @@
     "server": "nodemon server/index.js",
     "client": "cd client && npm start",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
-    "build": "cd client && npm install && npm run build",
+    "build": "cd client && npm run build",
     "heroku-postbuild": "npm run build",
     "migrate": "node server/database/migrations.js migrate",
     "migrate:rollback": "node server/database/migrations.js rollback",
