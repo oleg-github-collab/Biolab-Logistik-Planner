@@ -487,14 +487,21 @@ router.put('/day/:id', auth, async (req, res) => {
         return res.status(400).json({ error: 'Start- und Endzeit sind erforderlich' });
       }
 
-      // Support both H:MM and HH:MM formats
+      // Support both H:MM and HH:MM formats, and handle various input types
       const flexibleTimeRegex = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
 
-      const startMatch = startTime.match(flexibleTimeRegex);
-      const endMatch = endTime.match(flexibleTimeRegex);
+      // Ensure times are strings and trim whitespace
+      const cleanStartTime = String(startTime || '').trim();
+      const cleanEndTime = String(endTime || '').trim();
+
+      const startMatch = cleanStartTime.match(flexibleTimeRegex);
+      const endMatch = cleanEndTime.match(flexibleTimeRegex);
 
       if (!startMatch || !endMatch) {
-        return res.status(400).json({ error: 'Ungültiges Zeitformat (HH:MM erforderlich)' });
+        return res.status(400).json({
+          error: 'Ungültiges Zeitformat (HH:MM erforderlich)',
+          details: `Start: "${cleanStartTime}", End: "${cleanEndTime}"`
+        });
       }
 
       // Normalize to HH:MM format
@@ -508,6 +515,10 @@ router.put('/day/:id', auth, async (req, res) => {
       if (hours > 24) {
         return res.status(400).json({ error: 'Arbeitszeit kann nicht mehr als 24 Stunden betragen' });
       }
+    } else {
+      // When not working, explicitly set times to null
+      normalizedStartTime = null;
+      normalizedEndTime = null;
     }
 
     // Update day
