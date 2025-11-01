@@ -3,8 +3,8 @@ nixPkgs = ["nodejs", "yarn"]
 
 [phases.install]
 cmds = [
-  "NPM_CONFIG_PRODUCTION=false npm ci --omit=dev",
-  "cd client && NPM_CONFIG_PRODUCTION=false npm ci --omit=dev"
+  "npm ci",
+  "cd client && npm ci"
 ]
 
 [phases.build]
@@ -12,12 +12,5 @@ cmds = [
   "cd client && npm run build"
 ]
 
-[phases.cache]
-paths = ["node_modules", "client/node_modules"]
-
-[env]
-NODE_ENV = "production"
-NPM_CONFIG_PRODUCTION = "false"
-
 [start]
-cmd = "npm start"
+cmd = "npm run migrate:pg && npm start"
