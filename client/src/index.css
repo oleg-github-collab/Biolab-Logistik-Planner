@@ -1,12 +1,13 @@
 @tailwind base;
 @tailwind components;
-@tailwind utilities;
 
 /* Import Advanced Calendar Styles */
 @import './styles/advanced-calendar.css';
 
-/* Import Mobile-Native Design System */
+/* Import Mobile-Native Design System (BEFORE utilities to allow override) */
 @import './styles/mobile-native.css';
+
+@tailwind utilities;
 
 /* Notification Animation */
 @keyframes fadeIn {

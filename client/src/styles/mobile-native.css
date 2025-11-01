@@ -73,60 +73,75 @@
 
 /* ========================================
    MOBILE VIEWPORT OPTIMIZATION
+   Застосовується тільки на мобільних пристроях
 ======================================== */
 
-/* Prevent zoom on input focus (iOS Safari) */
-@viewport {
-  width: device-width;
-  zoom: 1;
-  user-zoom: fixed;
-}
+/* Mobile-only viewport fixes */
+@media (max-width: 768px) {
+  /* Prevent zoom on input focus (iOS Safari) */
+  @viewport {
+    width: device-width;
+    zoom: 1;
+    user-zoom: fixed;
+  }
 
-/* Lock viewport for app-like experience */
-html {
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  position: fixed;
-  -webkit-text-size-adjust: 100%;
-  -ms-text-size-adjust: 100%;
-  text-size-adjust: 100%;
-  touch-action: manipulation;
-}
+  /* Lock viewport for app-like experience */
+  html {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    touch-action: manipulation;
+  }
 
-/* Body as full-height container */
-body {
-  width: 100%;
-  height: 100vh;
-  height: 100dvh; /* Dynamic viewport height - respects iOS bottom bar */
-  overflow: hidden;
-  position: fixed;
-  margin: 0;
-  padding: 0;
-  overscroll-behavior: none; /* Prevent pull-to-refresh */
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
-}
-
-/* Root container */
-#root {
-  width: 100%;
-  height: 100vh;
-  height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-/* iOS Safari specific fixes */
-@supports (-webkit-touch-callout: none) {
+  /* Body as full-height container */
   body {
-    height: -webkit-fill-available;
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+    height: 100vh;
+    height: 100dvh; /* Dynamic viewport height - respects iOS bottom bar */
+    overscroll-behavior: none; /* Prevent pull-to-refresh */
+  }
+
+  /* Root container */
+  #root {
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* iOS Safari specific fixes */
+  @supports (-webkit-touch-callout: none) {
+    body {
+      height: -webkit-fill-available;
+    }
+
+    #root {
+      height: -webkit-fill-available;
+    }
+  }
+}
+
+/* Desktop - нормальний scroll */
+@media (min-width: 769px) {
+  html,
+  body {
+    overflow: auto;
+    position: relative;
+    height: auto;
+    min-height: 100vh;
   }
 
   #root {
-    height: -webkit-fill-available;
+    min-height: 100vh;
+    overflow: visible;
   }
 }
 
@@ -798,6 +813,7 @@ input[type="radio"] {
 /* Animations */
 .animate-spring { animation: springBounce var(--transition-spring); }
 .animate-shake { animation: shake 0.5s; }
+.animate-slideInRight { animation: slideInRight var(--transition-base); }
 
 /* Haptic feedback simulation */
 .haptic-light:active {
