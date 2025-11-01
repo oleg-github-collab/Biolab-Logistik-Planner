@@ -5,4 +5,4 @@ nixPkgs = ["nodejs-18_x"]
 cmds = ["npm ci"]
 
 [start]
-cmd = "node server/index.js"
+cmd = "node server-minimal.js"
