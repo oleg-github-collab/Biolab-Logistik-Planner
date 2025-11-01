@@ -43,11 +43,18 @@ class ErrorBoundary extends React.Component {
   };
 
   handleReset = () => {
+    // Clear any stored error states
+    sessionStorage.removeItem('lastError');
+    localStorage.removeItem('errorCount');
+
     this.setState({
       hasError: false,
       error: null,
       errorInfo: null,
     });
+
+    // Navigate to dashboard
+    window.location.href = '/dashboard';
   };
 
   handleReload = () => {

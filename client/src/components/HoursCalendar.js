@@ -182,16 +182,16 @@ const HoursCalendar = () => {
       <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h2 className="text-2xl font-bold mb-1">Work Hours Calendar</h2>
+            <h2 className="text-2xl font-bold mb-1">Arbeitsstunden Kalender</h2>
             <p className="text-blue-100 text-sm">
-              Plan your weekly work schedule
+              Planen Sie Ihren wöchentlichen Arbeitsplan
             </p>
           </div>
 
           {/* Hours Summary */}
           {hoursSummary && (
             <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-lg px-4 py-3 min-w-[200px]">
-              <div className="text-xs text-blue-100 mb-1">This Week</div>
+              <div className="text-xs text-blue-100 mb-1">Diese Woche</div>
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl font-bold">{hoursSummary.totalBooked.toFixed(1)}h</span>
                 <span className="text-sm">/ {hoursSummary.weeklyQuota}h</span>
@@ -201,7 +201,7 @@ const HoursCalendar = () => {
                   hoursSummary.status === 'over' ? 'text-red-200' : 'text-yellow-200'
                 }`}>
                   {hoursSummary.status === 'over' ? '+' : ''}{hoursSummary.difference.toFixed(1)}h
-                  {hoursSummary.status === 'over' ? ' over' : ' remaining'}
+                  {hoursSummary.status === 'over' ? ' über' : ' verbleibend'}
                 </div>
               )}
             </div>
@@ -230,7 +230,7 @@ const HoursCalendar = () => {
               onClick={goToCurrentWeek}
               className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
             >
-              Go to current week
+              Zur aktuellen Woche
             </button>
           </div>
 

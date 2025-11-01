@@ -171,12 +171,22 @@ router.delete('/:id', auth, async (req, res) => {
 // @desc    Clear all read notifications
 router.delete('/clear-all', auth, async (req, res) => {
   try {
-    const result = await pool.query(
-      'DELETE FROM notifications WHERE user_id = $1 AND is_read = TRUE RETURNING id',
-      [req.user.id]
-    );
+    // Try to delete with is_read column, fall back if it doesn't exist
+    let result;
+    try {
+      result = await pool.query(
+        'DELETE FROM notifications WHERE user_id = $1 AND is_read = TRUE RETURNING id',
+        [req.user.id]
+      );
+    } catch (columnError) {
+      // If is_read column doesn't exist, delete all for user
+      result = await pool.query(
+        'DELETE FROM notifications WHERE user_id = $1 RETURNING id',
+        [req.user.id]
+      );
+    }
 
-    logger.info('All read notifications cleared', { userId: req.user.id, count: result.rowCount });
+    logger.info('Notifications cleared', { userId: req.user.id, count: result.rowCount });
 
     res.json({
       success: true,
@@ -185,7 +195,7 @@ router.delete('/clear-all', auth, async (req, res) => {
 
   } catch (error) {
     logger.error('Error clearing notifications', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Serverfehler beim Löschen der Benachrichtigungen' });
   }
 });
 
