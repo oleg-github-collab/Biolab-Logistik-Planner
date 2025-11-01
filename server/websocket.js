@@ -77,7 +77,11 @@ const emitOnlineUsers = async (targetSocket = null) => {
 const initializeSocket = (server) => {
   io = new Server(server, {
     cors: {
-      origin: ["http://localhost:3000", "http://localhost:5000"],
+      origin: [
+        "http://localhost:3000",
+        "http://localhost:5000",
+        "https://biolab-logistik-planner-production.up.railway.app"
+      ],
       methods: ["GET", "POST"],
       credentials: true
     },
