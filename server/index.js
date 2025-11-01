@@ -73,6 +73,8 @@ console.log('  ✓ tasks');
 app.use('/api/tasks', require('./routes/tasks.pg'));
 console.log('  ✓ task-pool');
 app.use('/api/task-pool', require('./routes/taskPool.pg'));
+console.log('  ✓ kanban');
+app.use('/api/kanban', require('./routes/kanban.pg'));
 console.log('  ✓ kb');
 app.use('/api/kb', require('./routes/knowledgeBase.pg'));
 console.log('  ✓ profile');
