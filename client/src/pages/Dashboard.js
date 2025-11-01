@@ -6,7 +6,7 @@ import EventDetailsPanel from '../components/EventDetailsPanel';
 import EventModal from '../components/EventModal';
 import AbsenceModal from '../components/AbsenceModal';
 import UnifiedTaskBoard from '../components/UnifiedTaskBoard';
-import EnhancedWasteManager from '../components/EnhancedWasteManager';
+import WasteManagementV2 from '../components/WasteManagementV2';
 import {
   getEvents,
   createEvent,
@@ -646,7 +646,7 @@ const Dashboard = () => {
 
       {/* Waste Manager */}
       {activeTab === 'waste-manager' && (
-        <EnhancedWasteManager />
+        <WasteManagementV2 />
       )}
 
       {/* Event Details Panel */}

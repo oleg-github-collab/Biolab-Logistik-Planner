@@ -20,25 +20,21 @@ const MobileBottomNav = () => {
   }
 
   return (
-    <nav className="lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur shadow-lg">
-      <div className="flex justify-around items-center py-2">
-        {NAV_ITEMS.map(({ to, icon: Icon, labelKey }) => {
-          const isActive = pathname === to;
+    <nav className="bottom-nav-mobile lg:hidden">
+      {NAV_ITEMS.map(({ to, icon: Icon, labelKey }) => {
+        const isActive = pathname === to;
 
-          return (
-            <NavLink
-              key={to}
-              to={to}
-              className={`flex flex-col items-center text-xs font-medium transition-colors ${
-                isActive ? 'text-blue-600' : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              <Icon className="w-5 h-5 mb-1" />
-              <span>{t(labelKey)}</span>
-            </NavLink>
-          );
-        })}
-      </div>
+        return (
+          <NavLink
+            key={to}
+            to={to}
+            className={`bottom-nav-item ${isActive ? 'active' : ''}`}
+          >
+            <Icon className="w-6 h-6" strokeWidth={isActive ? 2.5 : 2} />
+            <span className="font-medium">{t(labelKey)}</span>
+          </NavLink>
+        );
+      })}
     </nav>
   );
 };

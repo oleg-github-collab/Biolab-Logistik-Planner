@@ -88,7 +88,7 @@ const AppContent = () => {
   return (
     <ErrorBoundary>
       <Router>
-        <div className="min-h-screen flex flex-col pb-16 lg:pb-0">
+        <div className="min-h-screen flex flex-col pb-16 lg:pb-0" id="mobile-app-root">
           <Toaster
             position="top-right"
             toastOptions={{

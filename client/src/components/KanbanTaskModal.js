@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, User, Flag, Tag, Clock, Plus } from 'lucide-react';
+import { X, Calendar, User, Flag, Tag, Clock, Plus, MessageCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import TaskComments from './TaskComments';
 
 const PRIORITIES = [
   { value: 'low', label: 'Niedrig', color: 'bg-green-100 text-green-700 border-green-300' },
@@ -69,19 +70,22 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100] overflow-y-auto">
-      <div className="bg-white rounded-2xl w-full max-w-2xl my-8 shadow-2xl">
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 rounded-t-2xl flex items-center justify-between">
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <Flag className="w-6 h-6" />
-            {task ? 'Aufgabe bearbeiten' : 'Neue Aufgabe erstellen'}
+    <div className="modal-backdrop-mobile fixed inset-0 flex items-end sm:items-center justify-center sm:p-4 z-[100]" onClick={onClose}>
+      <div className="modal-bottom-sheet sm:modal sm:rounded-2xl w-full sm:max-w-2xl" onClick={(e) => e.stopPropagation()}>
+        {/* Mobile Handle */}
+        <div className="modal-handle sm:hidden" />
+
+        <div className="modal-header-mobile bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4 sm:p-6 sm:rounded-t-2xl flex items-center justify-between">
+          <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
+            <Flag className="w-5 h-5 sm:w-6 sm:h-6" />
+            {task ? 'Aufgabe bearbeiten' : 'Neue Aufgabe'}
           </h2>
-          <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-lg transition-colors">
-            <X className="w-6 h-6" />
+          <button onClick={onClose} className="btn-icon-mobile bg-white/20 hover:bg-white/30 text-white mobile-touch-feedback">
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+        <form onSubmit={handleSubmit} className="modal-body-mobile p-4 sm:p-6 space-y-4 sm:space-y-5">
           <div>
             <label className="block text-sm font-semibold text-gray-900 mb-2">
               Titel <span className="text-red-500">*</span>
@@ -218,16 +222,27 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
             )}
           </div>
 
-          <div className="flex gap-3 justify-end pt-4 border-t border-gray-200">
+          {/* Comments Section (only for existing tasks) */}
+          {task && task.id && (
+            <div className="pt-4 border-t border-gray-200">
+              <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
+                <MessageCircle className="w-5 h-5" />
+                Kommentare
+              </h3>
+              <TaskComments taskId={task.id} />
+            </div>
+          )}
+
+          <div className="modal-footer-mobile flex flex-col-reverse sm:flex-row gap-3 justify-end pt-4 border-t border-gray-200">
             <button
               type="button"
               onClick={onClose}
-              className="px-6 py-3 border-2 border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-all">
+              className="btn-mobile btn-secondary-mobile mobile-touch-feedback">
               Abbrechen
             </button>
             <button
               type="submit"
-              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all flex items-center gap-2">
+              className="btn-mobile btn-primary-mobile mobile-touch-feedback flex items-center justify-center gap-2">
               <Flag className="w-5 h-5" />
               {task ? 'Aktualisieren' : 'Erstellen'}
             </button>

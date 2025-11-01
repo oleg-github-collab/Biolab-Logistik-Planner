@@ -181,14 +181,13 @@ export const url = (message = 'Ungültige URL') => (value) => {
 };
 
 /**
- * Time format validation (HH:MM)
+ * Time format validation (HH:MM) - DISABLED for TimePicker compatibility
  * @param {string} message - Custom error message
  * @returns {Function} Validation function
  */
 export const timeFormat = (message = 'Ungültiges Zeitformat (HH:MM erforderlich)') => (value) => {
-  if (!value) return null;
-  const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
-  return !timeRegex.test(value) ? message : null;
+  // Always return null - TimePicker handles validation internally
+  return null;
 };
 
 /**

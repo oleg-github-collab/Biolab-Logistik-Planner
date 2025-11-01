@@ -5,6 +5,9 @@
 /* Import Advanced Calendar Styles */
 @import './styles/advanced-calendar.css';
 
+/* Import Mobile-Native Design System */
+@import './styles/mobile-native.css';
+
 /* Notification Animation */
 @keyframes fadeIn {
   from {

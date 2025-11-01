@@ -6,7 +6,12 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  if (!isOpen || !event) return null;
+  if (!isOpen) return null;
+
+  if (!event) {
+    console.error('EventDetailsModal: event is null or undefined');
+    return null;
+  }
 
   const getTypeIcon = (type) => {
     const icons = {
@@ -90,36 +95,39 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
   const eventDate = typeof event.date === 'string' ? new Date(event.date) : event.date;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl w-full max-w-lg mx-auto max-h-[90vh] overflow-y-auto">
+    <div className="modal-backdrop-mobile fixed inset-0 flex items-end sm:items-center justify-center sm:p-4 z-50" onClick={onClose}>
+      <div className="modal-bottom-sheet sm:modal sm:rounded-xl w-full sm:max-w-lg" onClick={(e) => e.stopPropagation()}>
+        {/* Mobile Handle */}
+        <div className="modal-handle sm:hidden" />
+
         {/* Header */}
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex justify-between items-start">
-            <div className="flex-1">
-              <div className="flex items-center space-x-2 mb-2">
+        <div className="modal-header-mobile p-4 sm:p-6 border-b border-gray-200">
+          <div className="flex justify-between items-start gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center flex-wrap gap-2 mb-3">
                 <span className="text-2xl">{getTypeIcon(event.type)}</span>
-                <span className={`px-3 py-1 rounded-full text-sm font-medium border ${getTypeColor(event.type)}`}>
+                <span className={`px-3 py-1.5 rounded-full text-sm font-medium border ${getTypeColor(event.type)}`}>
                   {event.type}
                 </span>
                 {event.priority && (
-                  <span className="flex items-center space-x-1 text-sm text-gray-600">
+                  <span className="flex items-center gap-1.5 text-sm text-gray-600 bg-gray-50 px-2.5 py-1 rounded-full">
                     <span>{getPriorityIcon(event.priority)}</span>
-                    <span>{getPriorityLabel(event.priority)}</span>
+                    <span className="font-medium">{getPriorityLabel(event.priority)}</span>
                   </span>
                 )}
               </div>
-              <h2 className="text-xl font-bold text-gray-800 mb-1">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 break-words">
                 {event.title}
               </h2>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm sm:text-base text-gray-600">
                 {format(eventDate, 'EEEE, dd. MMMM yyyy', { locale: de })}
               </p>
             </div>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors ml-4"
+              className="btn-icon-mobile flex-shrink-0 bg-gray-100 hover:bg-gray-200 mobile-touch-feedback"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
@@ -127,7 +135,7 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-4">
+        <div className="modal-body-mobile p-4 sm:p-6 space-y-4">
           {/* Time */}
           {!event.isAllDay && (event.startTime || event.endTime) && (
             <div className="flex items-center space-x-3">
@@ -241,14 +249,14 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
         </div>
 
         {/* Actions */}
-        <div className="p-6 border-t border-gray-200">
+        <div className="modal-footer-mobile p-4 sm:p-6 border-t border-gray-200">
           {!showDeleteConfirm ? (
-            <div className="flex space-x-3">
+            <div className="flex flex-col sm:flex-row gap-3">
               <button
                 onClick={() => onEdit(event)}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center space-x-2"
+                className="btn-mobile btn-primary-mobile flex-1 mobile-touch-feedback flex items-center justify-center gap-2"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                 </svg>
                 <span>Bearbeiten</span>
@@ -256,48 +264,60 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
 
               <button
                 onClick={handleDuplicate}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium flex items-center space-x-2"
+                className="btn-mobile btn-secondary-mobile mobile-touch-feedback flex items-center justify-center gap-2"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                 </svg>
-                <span>Duplizieren</span>
+                <span className="hidden sm:inline">Duplizieren</span>
               </button>
 
               <button
                 onClick={() => setShowDeleteConfirm(true)}
-                className="px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors font-medium flex items-center space-x-2"
+                className="btn-mobile mobile-touch-feedback flex items-center justify-center gap-2 border-2 border-red-300 text-red-600 bg-red-50 hover:bg-red-100"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
-                <span>Löschen</span>
+                <span className="hidden sm:inline">Löschen</span>
               </button>
             </div>
           ) : (
-            <div className="space-y-3">
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                <p className="text-sm text-red-800 font-medium">
-                  Sind Sie sicher, dass Sie diesen Termin löschen möchten?
-                </p>
-                <p className="text-xs text-red-600 mt-1">
-                  Diese Aktion kann nicht rückgängig gemacht werden.
-                </p>
+            <div className="space-y-3 animate-spring">
+              <div className="card-mobile bg-red-50 border-2 border-red-200 p-4">
+                <div className="flex items-start gap-3">
+                  <div className="text-2xl">⚠️</div>
+                  <div>
+                    <p className="text-sm sm:text-base text-red-800 font-semibold">
+                      Sind Sie sicher, dass Sie diesen Termin löschen möchten?
+                    </p>
+                    <p className="text-xs sm:text-sm text-red-600 mt-1">
+                      Diese Aktion kann nicht rückgängig gemacht werden.
+                    </p>
+                  </div>
+                </div>
               </div>
 
-              <div className="flex space-x-3">
+              <div className="flex gap-3">
                 <button
                   onClick={() => setShowDeleteConfirm(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                  className="btn-mobile btn-secondary-mobile flex-1 mobile-touch-feedback"
                 >
                   Abbrechen
                 </button>
                 <button
                   onClick={handleDelete}
                   disabled={isDeleting}
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="btn-mobile flex-1 bg-red-600 text-white hover:bg-red-700 mobile-touch-feedback disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isDeleting ? 'Löschen...' : 'Bestätigen'}
+                  {isDeleting ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="loading-spinner-mobile w-4 h-4 border-2" />
+                      <span>Löschen...</span>
+                    </div>
+                  ) : (
+                    'Bestätigen'
+                  )}
                 </button>
               </div>
             </div>
