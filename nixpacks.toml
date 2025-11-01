@@ -1,16 +1,5 @@
 [phases.setup]
 nixPkgs = ["nodejs-18_x"]
 
-[phases.install]
-cmds = [
-  "npm ci",
-  "cd client && npm ci"
-]
-
-[phases.build]
-cmds = [
-  "cd client && CI=false npm run build"
-]
-
 [start]
-cmd = "node server/index.js"
+cmd = "node test-server.js"
