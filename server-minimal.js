@@ -21,6 +21,19 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
+// Create HTTP server
+const server = http.createServer(app);
+
+// Initialize WebSocket
+try {
+  const { initializeSocket } = require('./server/websocket');
+  initializeSocket(server);
+  console.log('✅ WebSocket initialized');
+} catch(e) {
+  console.error('⚠️  WebSocket initialization failed:', e.message);
+  console.error('Continuing without WebSocket support');
+}
+
 // Health endpoints
 app.get('/ping', (req, res) => {
   res.send('PONG');
@@ -35,29 +48,45 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Load routes AFTER server starts
+// Load routes with error handling
 console.log('📊 Loading routes...');
 
+const routes = [
+  { path: '/api/auth', file: './server/routes/auth.pg', name: 'auth' },
+  { path: '/api/schedule', file: './server/routes/schedule.pg', name: 'schedule' },
+  { path: '/api/messages', file: './server/routes/messages.pg', name: 'messages' },
+  { path: '/api/tasks', file: './server/routes/tasks.pg', name: 'tasks' },
+  { path: '/api/task-pool', file: './server/routes/taskPool.pg', name: 'task-pool' },
+  { path: '/api/kb', file: './server/routes/knowledgeBase.pg', name: 'kb' },
+  { path: '/api/profile', file: './server/routes/userProfile.pg', name: 'profile' },
+  { path: '/api/notifications', file: './server/routes/notifications.pg', name: 'notifications' },
+  { path: '/api/uploads', file: './server/routes/uploads', name: 'uploads' },
+  { path: '/api/waste', file: './server/routes/waste.pg', name: 'waste' },
+  { path: '/api/admin', file: './server/routes/admin.pg', name: 'admin' }
+];
+
+routes.forEach(route => {
+  try {
+    app.use(route.path, require(route.file));
+    console.log(`  ✓ ${route.name}`);
+  } catch(e) {
+    console.error(`  ✗ ${route.name}:`, e.message);
+  }
+});
+
+console.log('✅ All routes loaded');
+
+// Health check route (additional API version)
 try {
-  app.use('/api/auth', require('./server/routes/auth.pg'));
-  console.log('  ✓ auth');
+  app.use('/api/health', require('./server/routes/health'));
+  console.log('  ✓ health route');
 } catch(e) {
-  console.error('  ✗ auth:', e.message);
+  console.error('  ✗ health route:', e.message);
 }
 
-try {
-  app.use('/api/tasks', require('./server/routes/tasks.pg'));
-  console.log('  ✓ tasks');
-} catch(e) {
-  console.error('  ✗ tasks:', e.message);
-}
-
-try {
-  app.use('/api/waste', require('./server/routes/waste.pg'));
-  console.log('  ✓ waste');
-} catch(e) {
-  console.error('  ✗ waste:', e.message);
-}
+// Serve uploaded files
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+console.log('✅ Uploads directory served at /uploads');
 
 // Serve static files in production
 if (process.env.NODE_ENV === 'production') {
@@ -75,8 +104,6 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
-const server = http.createServer(app);
-
 server.listen(PORT, '0.0.0.0', () => {
   console.log('✅ Server running on port', PORT);
   console.log('Environment:', process.env.NODE_ENV);
