@@ -132,38 +132,46 @@ const server = http.createServer(app);
 initializeSocket(server);
 
 const startServer = async () => {
+  console.log('🚀 Starting server initialization...');
+  console.log(`PORT: ${PORT}`);
+  console.log(`NODE_ENV: ${process.env.NODE_ENV}`);
+
   try {
-    try {
-      await ensureMessageSchema();
-      console.log('✅ Messaging schema verified');
-    } catch (schemaError) {
-      console.error('⚠️  Failed to verify messaging schema on startup:', schemaError);
-      logger.warn('Messaging schema verification failed during startup', {
-        error: schemaError.message
-      });
-    }
-
-    redisService.connect()
-      .then((connected) => {
-        if (!connected) {
-          logger.warn('Redis connection could not be established. Continuing without cache/pub-sub features.');
-        } else {
-          logger.info('Redis connected and ready');
-        }
-      })
-      .catch((error) => {
-        logger.error('Redis startup connection failed', { error: error.message });
-      });
-
+    // Start server FIRST - most important
     server.listen(PORT, '0.0.0.0', () => {
-      console.log(`Server running on port ${PORT}`);
+      console.log(`✅ Server running on port ${PORT}`);
       console.log(`Environment: ${process.env.NODE_ENV}`);
-      console.log(`API Base URL: ${process.env.NODE_ENV === 'production' ? 'https://your-app.railway.app/api' : 'http://localhost:5000/api'}`);
       console.log(`WebSocket server enabled`);
     });
+
+    // Then do optional initializations (non-blocking)
+    setImmediate(async () => {
+      try {
+        await ensureMessageSchema();
+        console.log('✅ Messaging schema verified');
+      } catch (schemaError) {
+        console.error('⚠️  Failed to verify messaging schema:', schemaError.message);
+        logger.warn('Messaging schema verification failed', {
+          error: schemaError.message
+        });
+      }
+
+      redisService.connect()
+        .then((connected) => {
+          if (!connected) {
+            logger.warn('Redis connection could not be established. Continuing without cache/pub-sub features.');
+          } else {
+            logger.info('Redis connected and ready');
+          }
+        })
+        .catch((error) => {
+          logger.error('Redis startup connection failed', { error: error.message });
+        });
+    });
+
   } catch (error) {
     logger.error('Failed to start server', { error: error.message });
-    console.error('Failed to start server:', error);
+    console.error('❌ Failed to start server:', error);
     process.exit(1);
   }
 };
