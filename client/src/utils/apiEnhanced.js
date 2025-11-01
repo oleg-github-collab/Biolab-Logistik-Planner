@@ -138,6 +138,9 @@ export const getUnifiedTaskBoard = (params = {}) =>
 export const createTaskPoolEntry = (taskData) =>
   api.post('/task-pool/create', taskData);
 
+export const createTask = (taskData) =>
+  api.post('/tasks', taskData);
+
 // ============================================
 // KANBAN FILTERS APIs (assuming we extend tasks.pg.js)
 // ============================================

@@ -478,18 +478,30 @@ router.put('/day/:id', auth, async (req, res) => {
       return res.status(403).json({ error: 'Nicht autorisiert' });
     }
 
-    // Validate time range if working
+    // Validate and normalize time range if working
+    let normalizedStartTime = startTime;
+    let normalizedEndTime = endTime;
+
     if (isWorking) {
       if (!startTime || !endTime) {
         return res.status(400).json({ error: 'Start- und Endzeit sind erforderlich' });
       }
 
-      const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
-      if (!timeRegex.test(startTime) || !timeRegex.test(endTime)) {
+      // Support both H:MM and HH:MM formats
+      const flexibleTimeRegex = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
+
+      const startMatch = startTime.match(flexibleTimeRegex);
+      const endMatch = endTime.match(flexibleTimeRegex);
+
+      if (!startMatch || !endMatch) {
         return res.status(400).json({ error: 'Ungültiges Zeitformat (HH:MM erforderlich)' });
       }
 
-      const hours = calculateHours(startTime, endTime);
+      // Normalize to HH:MM format
+      normalizedStartTime = `${startMatch[1].padStart(2, '0')}:${startMatch[2]}`;
+      normalizedEndTime = `${endMatch[1].padStart(2, '0')}:${endMatch[2]}`;
+
+      const hours = calculateHours(normalizedStartTime, normalizedEndTime);
       if (hours <= 0) {
         return res.status(400).json({ error: 'Endzeit muss nach Startzeit liegen' });
       }
@@ -510,8 +522,8 @@ router.put('/day/:id', auth, async (req, res) => {
        RETURNING *`,
       [
         isWorking,
-        isWorking ? startTime : null,
-        isWorking ? endTime : null,
+        isWorking ? normalizedStartTime : null,
+        isWorking ? normalizedEndTime : null,
         req.user.id,
         id
       ]

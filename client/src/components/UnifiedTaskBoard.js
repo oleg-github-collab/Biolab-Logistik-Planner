@@ -19,7 +19,8 @@ import {
   getUnifiedTaskBoard,
   createTaskPoolEntry,
   claimTask,
-  completeTask
+  completeTask,
+  createTask
 } from '../utils/apiEnhanced';
 import { showSuccess, showError, showInfo } from '../utils/toast';
 
@@ -281,6 +282,27 @@ const UnifiedTaskBoard = () => {
       await refresh();
     } finally {
       setActionBusy((prev) => ({ ...prev, [taskId]: false }));
+    }
+  };
+
+  const handleCreateTask = async () => {
+    const title = prompt('Aufgabentitel:');
+    if (!title || !title.trim()) return;
+
+    const description = prompt('Beschreibung (optional):');
+
+    try {
+      await createTask({
+        title: title.trim(),
+        description: description?.trim() || '',
+        priority: 'medium',
+        status: 'todo'
+      });
+      showSuccess('Aufgabe erfolgreich erstellt');
+      await refresh();
+    } catch (err) {
+      console.error('Error creating task', err);
+      showError(err.response?.data?.error || 'Fehler beim Erstellen der Aufgabe');
     }
   };
 
@@ -562,6 +584,15 @@ const UnifiedTaskBoard = () => {
             onChange={(e) => setSelectedDate(e.target.value)}
             className="px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
           />
+          <button
+            onClick={handleCreateTask}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Neue Aufgabe
+          </button>
           <button
             onClick={refresh}
             disabled={refreshing}

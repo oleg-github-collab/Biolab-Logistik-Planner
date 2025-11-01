@@ -2,8 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import LoadingSpinner from './LoadingSpinner';
 import { showError } from '../utils/toast';
 
-const TENOR_API_KEY = process.env.REACT_APP_TENOR_API_KEY || 'AIzaSyDCTq7o-lL1b3gC5ZEYbQNgN9hx7DqR0iE';
-const TENOR_API_BASE = 'https://tenor.googleapis.com/v2';
+// Use Giphy API (more reliable and stable)
+const GIPHY_API_KEY = process.env.REACT_APP_GIPHY_API_KEY || 'sXpGFDGZs0Dv1mmNFvYaGUvYwKX0PWIh'; // Public beta key
+const GIPHY_API_BASE = 'https://api.giphy.com/v1/gifs';
 
 const POPULAR_CATEGORIES = [
   { name: 'Happy', emoji: '😊' },
@@ -23,12 +24,12 @@ const GifPicker = ({ onSelectGif, onClose }) => {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [hoveredGif, setHoveredGif] = useState(null);
 
-  // Debounce search
+  // Load trending GIFs
   const loadTrendingGifs = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(
-        `${TENOR_API_BASE}/featured?key=${TENOR_API_KEY}&client_key=biolab_messenger&limit=20&media_filter=gif`
+        `${GIPHY_API_BASE}/trending?api_key=${GIPHY_API_KEY}&limit=20&rating=g`
       );
 
       if (!response.ok) {
@@ -36,7 +37,7 @@ const GifPicker = ({ onSelectGif, onClose }) => {
       }
 
       const data = await response.json();
-      setGifs(data.results || []);
+      setGifs(data.data || []);
     } catch (error) {
       console.error('Error loading trending GIFs:', error);
       showError('Fehler beim Laden der Trending GIFs');
@@ -50,7 +51,7 @@ const GifPicker = ({ onSelectGif, onClose }) => {
     try {
       setLoading(true);
       const response = await fetch(
-        `${TENOR_API_BASE}/search?q=${encodeURIComponent(query)}&key=${TENOR_API_KEY}&client_key=biolab_messenger&limit=20&media_filter=gif`
+        `${GIPHY_API_BASE}/search?api_key=${GIPHY_API_KEY}&q=${encodeURIComponent(query)}&limit=20&rating=g`
       );
 
       if (!response.ok) {
@@ -58,7 +59,7 @@ const GifPicker = ({ onSelectGif, onClose }) => {
       }
 
       const data = await response.json();
-      setGifs(data.results || []);
+      setGifs(data.data || []);
     } catch (error) {
       console.error('Error searching GIFs:', error);
       showError('Fehler beim Suchen der GIFs');
@@ -91,14 +92,15 @@ const GifPicker = ({ onSelectGif, onClose }) => {
   };
 
   const handleGifSelect = (gif) => {
-    // Get the GIF URL from the media formats
-    const gifUrl = gif.media_formats?.gif?.url || gif.media_formats?.tinygif?.url;
+    // Giphy API format
+    const gifUrl = gif.images?.original?.url || gif.images?.downsized?.url;
+    const previewUrl = gif.images?.fixed_width_small?.url || gif.images?.fixed_width?.url;
 
     if (gifUrl) {
       onSelectGif({
         url: gifUrl,
-        preview: gif.media_formats?.tinygif?.url || gifUrl,
-        title: gif.content_description || 'GIF'
+        preview: previewUrl || gifUrl,
+        title: gif.title || 'GIF'
       });
       onClose();
     } else {
@@ -119,7 +121,7 @@ const GifPicker = ({ onSelectGif, onClose }) => {
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-lg font-semibold text-white flex items-center">
               <span className="mr-2">GIF Picker</span>
-              <span className="text-sm font-normal opacity-90">powered by Tenor</span>
+              <span className="text-sm font-normal opacity-90">powered by Giphy</span>
             </h3>
             <button
               onClick={onClose}
@@ -194,8 +196,9 @@ const GifPicker = ({ onSelectGif, onClose }) => {
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               {gifs.map((gif) => {
-                const previewUrl = gif.media_formats?.tinygif?.url || gif.media_formats?.gif?.url;
-                const fullUrl = gif.media_formats?.gif?.url;
+                // Giphy API format
+                const previewUrl = gif.images?.fixed_width_small?.url || gif.images?.fixed_width?.url;
+                const fullUrl = gif.images?.original?.url || gif.images?.downsized?.url;
 
                 return (
                   <div
@@ -207,7 +210,7 @@ const GifPicker = ({ onSelectGif, onClose }) => {
                   >
                     <img
                       src={hoveredGif === gif.id ? fullUrl : previewUrl}
-                      alt={gif.content_description || 'GIF'}
+                      alt={gif.title || 'GIF'}
                       className="w-full h-full object-cover transition-all group-hover:scale-105"
                       loading="lazy"
                     />
