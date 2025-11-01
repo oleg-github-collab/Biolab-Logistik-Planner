@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { to: '/task-pool', labelKey: 'navigation.tasks', icon: '✓', permission: 'task:read' },
   { to: '/waste', labelKey: 'navigation.waste', icon: '♻️', permission: 'waste:read' },
   { to: '/schedule', labelKey: 'navigation.schedule', icon: '⏰', permission: 'schedule:read' },
+  { to: '/knowledge-base', labelKey: 'navigation.knowledge', icon: '📚', permission: 'schedule:read' },
   { to: '/users', labelKey: 'navigation.users', icon: '👥', permission: 'user:read' },
   { to: '/admin', labelKey: 'navigation.admin', icon: '⚙️', permission: 'system:settings' }
 ];

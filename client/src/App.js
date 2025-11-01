@@ -18,6 +18,7 @@ import FirstLoginFlow from './components/FirstLoginFlow';
 import UserProfilePage from './pages/UserProfilePage';
 import Kanban from './pages/Kanban';
 import WasteTemplatesAdmin from './pages/WasteTemplatesAdmin';
+import KnowledgeBase from './pages/KnowledgeBase';
 
 // Protected Route component with First Login check
 const ProtectedRoute = ({ children }) => {
@@ -248,6 +249,17 @@ const AppContent = () => {
                     <WasteTemplatesAdmin />
                   </>
                 </AdminRoute>
+              }
+            />
+            <Route
+              path="/knowledge-base"
+              element={
+                <ProtectedRoute>
+                  <>
+                    <Header />
+                    <KnowledgeBase />
+                  </>
+                </ProtectedRoute>
               }
             />
             <Route
