@@ -14,7 +14,8 @@ import {
   getConversationThread,
   getAllContacts,
   uploadAttachment,
-  addMessageReaction
+  addMessageReaction,
+  deleteMessage
 } from '../utils/apiEnhanced';
 import GifPicker from './GifPicker';
 import { showError, showSuccess } from '../utils/toast';
@@ -44,6 +45,7 @@ const MessageBubble = ({
   onReact,
   onToggleReactionPicker,
   onQuote,
+  onDelete,
   showReactionPicker
 }) => {
   const isMine = message.sender_id === currentUserId;
@@ -134,6 +136,17 @@ const MessageBubble = ({
             <Quote className="h-4 w-4" />
             Antworten
           </button>
+          {isMine && (
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 rounded-full px-3 py-1 bg-red-500/40 text-white hover:bg-red-500/60"
+              onClick={() => onDelete(message.id)}
+              aria-label="Nachricht löschen"
+            >
+              <Trash2 className="h-4 w-4" />
+              Löschen
+            </button>
+          )}
         </div>
 
         {showReactionPicker && (
@@ -425,6 +438,34 @@ const UnifiedMessenger = () => {
       snippet: message.message || (message.attachments?.length ? 'Anhang' : '')
     });
   }, []);
+
+  const handleDeleteMessage = useCallback(async (messageId) => {
+    if (!messageId) return;
+
+    if (!window.confirm('Möchten Sie diese Nachricht wirklich löschen?')) {
+      return;
+    }
+
+    try {
+      await deleteMessage(messageId);
+
+      // Remove message from local state
+      setMessagesByThread((prev) => {
+        const conversationId = selectedThreadId;
+        if (!conversationId || !prev[conversationId]) return prev;
+
+        return {
+          ...prev,
+          [conversationId]: prev[conversationId].filter(msg => msg.id !== messageId)
+        };
+      });
+
+      showSuccess('Nachricht erfolgreich gelöscht');
+    } catch (error) {
+      console.error('Failed to delete message', error);
+      showError('Fehler beim Löschen der Nachricht');
+    }
+  }, [selectedThreadId]);
 
   const clearReply = useCallback(() => {
     setReplyTo(null);
@@ -1111,6 +1152,7 @@ const UnifiedMessenger = () => {
                     onReact={handleAddReaction}
                     onToggleReactionPicker={handleToggleReactionPicker}
                     onQuote={handleQuoteMessage}
+                    onDelete={handleDeleteMessage}
                     showReactionPicker={reactionTargetId === message.id}
                   />
                 ))}

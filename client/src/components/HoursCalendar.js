@@ -294,7 +294,7 @@ const HoursCalendar = () => {
                   {day.is_working && (
                     <div className="flex items-center gap-3 flex-1">
                       <div className="flex-1">
-                        <label className="block text-xs text-gray-600 mb-1">Start Time</label>
+                        <label className="block text-xs text-gray-600 mb-1">Startzeit</label>
                         <input
                           type="time"
                           value={day.start_time || '09:00'}
@@ -305,7 +305,7 @@ const HoursCalendar = () => {
                       </div>
 
                       <div className="flex-1">
-                        <label className="block text-xs text-gray-600 mb-1">End Time</label>
+                        <label className="block text-xs text-gray-600 mb-1">Endzeit</label>
                         <input
                           type="time"
                           value={day.end_time || '17:00'}
@@ -325,7 +325,7 @@ const HoursCalendar = () => {
 
                   {!day.is_working && (
                     <div className="text-gray-400 italic flex-1">
-                      Not working
+                      Nicht arbeitend
                     </div>
                   )}
                 </div>
@@ -339,19 +339,19 @@ const HoursCalendar = () => {
           <div className="mt-6 p-4 bg-gray-100 rounded-lg">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
               <div>
-                <div className="text-sm text-gray-600 mb-1">Weekly Quota</div>
+                <div className="text-sm text-gray-600 mb-1">Wöchentliches Kontingent</div>
                 <div className="text-2xl font-bold text-gray-800">
                   {hoursSummary.weeklyQuota}h
                 </div>
               </div>
               <div>
-                <div className="text-sm text-gray-600 mb-1">Total Booked</div>
+                <div className="text-sm text-gray-600 mb-1">Insgesamt gebucht</div>
                 <div className="text-2xl font-bold text-blue-600">
                   {hoursSummary.totalBooked.toFixed(1)}h
                 </div>
               </div>
               <div>
-                <div className="text-sm text-gray-600 mb-1">Difference</div>
+                <div className="text-sm text-gray-600 mb-1">Differenz</div>
                 <div className={`text-2xl font-bold ${
                   hoursSummary.status === 'over' ? 'text-red-600' :
                   hoursSummary.status === 'under' ? 'text-yellow-600' :
@@ -366,17 +366,17 @@ const HoursCalendar = () => {
             <div className="mt-4 text-center">
               {hoursSummary.status === 'exact' && (
                 <div className="text-green-700 font-semibold">
-                  ✓ Perfect! Your schedule matches your weekly quota.
+                  ✓ Perfekt! Ihr Stundenplan entspricht Ihrem wöchentlichen Kontingent.
                 </div>
               )}
               {hoursSummary.status === 'under' && (
                 <div className="text-yellow-700">
-                  You have {Math.abs(hoursSummary.difference).toFixed(1)} hours remaining to schedule this week.
+                  Sie haben noch {Math.abs(hoursSummary.difference).toFixed(1)} Stunden diese Woche zu planen.
                 </div>
               )}
               {hoursSummary.status === 'over' && (
                 <div className="text-red-700 font-semibold">
-                  ⚠ You are over-scheduled by {hoursSummary.difference.toFixed(1)} hours this week!
+                  ⚠ Sie sind um {hoursSummary.difference.toFixed(1)} Stunden überbucht!
                 </div>
               )}
             </div>

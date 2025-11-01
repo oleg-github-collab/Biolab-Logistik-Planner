@@ -236,10 +236,10 @@ const KanbanBoard = ({ tasks = [], onTaskUpdate, onTaskCreate, onTaskDelete }) =
 
   const getPriorityColor = (priority) => {
     switch (priority) {
-      case 'high': return 'bg-red-100 text-red-800';
-      case 'medium': return 'bg-yellow-100 text-yellow-800';
-      case 'low': return 'bg-green-100 text-green-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'high': return 'bg-red-100 text-red-800 border border-red-200';
+      case 'medium': return 'bg-yellow-100 text-yellow-800 border border-yellow-200';
+      case 'low': return 'bg-green-100 text-green-800 border border-green-200';
+      default: return 'bg-gray-100 text-gray-800 border border-gray-200';
     }
   };
 
@@ -271,50 +271,68 @@ const KanbanBoard = ({ tasks = [], onTaskUpdate, onTaskCreate, onTaskDelete }) =
       </div>
 
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="flex space-x-2 sm:space-x-4 overflow-x-auto pb-4 -webkit-overflow-scrolling-touch">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {Object.values(columns).map(column => (
             <Droppable key={column.id} droppableId={column.id}>
-              {(provided) => (
+              {(provided, snapshot) => (
                 <div
                   {...provided.droppableProps}
                   ref={provided.innerRef}
-                  className="bg-white rounded-lg shadow-sm min-w-[280px] sm:min-w-80 max-w-[280px] sm:max-w-80 flex-shrink-0"
+                  className={`bg-white rounded-xl shadow-md border-2 transition-all duration-200 ${
+                    snapshot.isDraggingOver ? 'border-blue-400 bg-blue-50' : 'border-gray-200'
+                  }`}
                 >
-                  <div className="p-4 border-b border-gray-200">
-                    <h3 className="font-bold text-gray-800 mb-1">{column.title}</h3>
-                    <p className="text-sm text-gray-500">{column.tasks.length} Aufgaben</p>
+                  <div className="p-4 border-b-2 border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-bold text-gray-800 text-lg">{column.title}</h3>
+                      <div className="flex items-center gap-2">
+                        <span className="bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm font-semibold">
+                          {column.tasks.length}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  
-                  <div className="p-2 min-h-96">
+
+                  <div className="p-3 min-h-[600px] max-h-[calc(100vh-300px)] overflow-y-auto">
                     {column.tasks.map((task, index) => (
                       <Draggable key={task.id} draggableId={String(task.id)} index={index}>
-                        {(provided) => (
+                        {(provided, snapshot) => (
                           <div
                             ref={provided.innerRef}
                             {...provided.draggableProps}
                             {...provided.dragHandleProps}
-                            className="kanban-card mb-3 p-4 cursor-pointer"
+                            className={`mb-3 p-4 rounded-lg cursor-pointer transition-all duration-200 border-2 ${
+                              snapshot.isDragging
+                                ? 'shadow-2xl border-blue-500 bg-blue-50 rotate-2'
+                                : 'kanban-card border-transparent hover:shadow-lg hover:border-blue-300'
+                            }`}
                             onClick={() => handleTaskClick(task)}
                           >
-                            <div className="flex justify-between items-start mb-2">
-                              <h4 className="font-medium text-gray-800">{task.title}</h4>
-                              <span className={`text-xs px-2 py-1 rounded-full ${getPriorityColor(task.priority)}`}>
+                            <div className="flex justify-between items-start mb-3">
+                              <h4 className="font-semibold text-gray-900 text-base leading-tight flex-1 pr-2">{task.title}</h4>
+                              <span className={`text-xs px-2.5 py-1 rounded-full font-medium whitespace-nowrap ${getPriorityColor(task.priority)}`}>
                                 {task.priority === 'high' ? 'Hoch' : task.priority === 'medium' ? 'Mittel' : 'Niedrig'}
                               </span>
                             </div>
-                            
+
                             {task.description && (
-                              <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+                              <p className="text-sm text-gray-600 mb-3 line-clamp-2 leading-relaxed">
                                 {task.description}
                               </p>
                             )}
-                            
-                            <div className="flex justify-between items-center text-xs text-gray-500">
+
+                            <div className="flex justify-between items-center text-xs text-gray-500 pt-2 border-t border-gray-100">
                               {task.assignee && (
-                                <span>👤 {task.assignee}</span>
+                                <span className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded">
+                                  <span>👤</span>
+                                  <span className="font-medium">{task.assignee}</span>
+                                </span>
                               )}
                               {task.dueDate && (
-                                <span>📅 {formatDate(task.dueDate)}</span>
+                                <span className="flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-1 rounded">
+                                  <span>📅</span>
+                                  <span className="font-medium">{formatDate(task.dueDate)}</span>
+                                </span>
                               )}
                             </div>
                             

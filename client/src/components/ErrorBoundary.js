@@ -28,6 +28,18 @@ class ErrorBoundary extends React.Component {
       errorCount: prevState.errorCount + 1,
     }));
 
+    // Save error info to sessionStorage for debugging
+    try {
+      sessionStorage.setItem('lastError', JSON.stringify({
+        message: error?.message || 'Unknown error',
+        stack: error?.stack || '',
+        componentStack: errorInfo?.componentStack || '',
+        timestamp: new Date().toISOString()
+      }));
+    } catch (e) {
+      console.error('Failed to save error to sessionStorage', e);
+    }
+
     // You can also log the error to an error reporting service here
     this.logErrorToService(error, errorInfo);
   }

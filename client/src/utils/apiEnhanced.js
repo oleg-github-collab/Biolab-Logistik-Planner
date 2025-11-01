@@ -98,6 +98,9 @@ export const getMyMentions = (params = {}) =>
 export const markMentionAsRead = (mentionId) =>
   api.put(`/messages/mentions/${mentionId}/read`);
 
+export const deleteMessage = (messageId) =>
+  api.delete(`/messages/${messageId}`);
+
 export const linkCalendarToMessage = (messageId, eventId, refType = 'mention') =>
   api.post(`/messages/${messageId}/calendar-ref`, { eventId, refType });
 
