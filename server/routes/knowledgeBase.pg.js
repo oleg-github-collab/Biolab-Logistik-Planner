@@ -1,429 +1,395 @@
 const express = require('express');
-const pool = require('../config/database');
-const { auth, adminAuth } = require('../middleware/auth');
-const { uploadMultiple } = require('../services/fileService');
+const { pool } = require('../config/database');
+const { auth } = require('../middleware/auth');
+const { uploadSingle } = require('../services/fileService');
+const { getIO } = require('../websocket');
 const logger = require('../utils/logger');
 
 const router = express.Router();
 
-// @route   GET /api/kb/categories
-// @desc    Get all categories
+// GET /api/kb/categories
 router.get('/categories', auth, async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT c.*,
-        u.name as created_by_name,
-        (SELECT COUNT(*) FROM kb_articles WHERE category_id = c.id AND status = 'published') as article_count
+      SELECT c.*, u.name as creator_name, COUNT(a.id) as articles_count
       FROM kb_categories c
       LEFT JOIN users u ON c.created_by = u.id
-      ORDER BY c.display_order, c.name
+      LEFT JOIN kb_articles a ON a.category_id = c.id AND a.status = 'published'
+      WHERE c.is_active = TRUE
+      GROUP BY c.id, u.name
+      ORDER BY c.display_order ASC, c.name ASC
     `);
-
     res.json(result.rows);
   } catch (error) {
-    logger.error('Error fetching KB categories:', error);
-    res.status(500).json({ error: 'Server error' });
+    logger.error('Error fetching categories:', error);
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 
-// @route   POST /api/kb/categories
-// @desc    Create category (admin only)
-router.post('/categories', [auth, adminAuth], async (req, res) => {
+// POST /api/kb/categories
+router.post('/categories', auth, async (req, res) => {
   try {
-    const { name, description, icon, color, parent_id, display_order } = req.body;
-
-    if (!name) {
-      return res.status(400).json({ error: 'Name is required' });
+    if (!['admin', 'superadmin'].includes(req.user.role)) {
+      return res.status(403).json({ error: 'Keine Berechtigung' });
     }
-
+    const { name, description, icon, color, parent_category_id, display_order } = req.body;
+    if (!name) return res.status(400).json({ error: 'Name ist erforderlich' });
+    
     const result = await pool.query(`
-      INSERT INTO kb_categories (name, description, icon, color, parent_id, display_order, created_by)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING *
-    `, [name, description, icon || '📄', color || '#3B82F6', parent_id || null, display_order || 0, req.user.id]);
-
-    logger.info('KB category created:', { categoryId: result.rows[0].id, userId: req.user.id });
+      INSERT INTO kb_categories (name, description, icon, color, parent_category_id, display_order, created_by)
+      VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *
+    `, [name, description, icon, color, parent_category_id, display_order, req.user.id]);
+    
     res.status(201).json(result.rows[0]);
   } catch (error) {
-    logger.error('Error creating KB category:', error);
-    res.status(500).json({ error: 'Server error' });
+    logger.error('Error creating category:', error);
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 
-// @route   GET /api/kb/articles
-// @desc    Get articles with filters
+// GET /api/kb/articles
 router.get('/articles', auth, async (req, res) => {
   try {
-    const { category_id, status, search, featured, limit = 50, offset = 0 } = req.query;
-
+    const { category_id, tag, search, status = 'published', limit = 50, offset = 0, sort = 'recent' } = req.query;
+    
     let query = `
-      SELECT a.*,
-        u.name as author_name,
-        c.name as category_name,
-        (SELECT COUNT(*) FROM kb_article_views WHERE article_id = a.id) as view_count,
-        (SELECT COUNT(*) FROM kb_article_feedback WHERE article_id = a.id AND is_helpful = true) as helpful_count,
-        (SELECT COUNT(*) FROM kb_bookmarks WHERE article_id = a.id) as bookmark_count
+      SELECT a.*, u.name as author_name, u.profile_photo as author_photo,
+        c.name as category_name, c.color as category_color,
+        COUNT(DISTINCT acm.id) as comments_count, COUNT(DISTINCT am.id) as media_count
       FROM kb_articles a
       LEFT JOIN users u ON a.author_id = u.id
       LEFT JOIN kb_categories c ON a.category_id = c.id
-      WHERE 1=1
+      LEFT JOIN kb_article_comments acm ON a.id = acm.article_id
+      LEFT JOIN kb_article_media am ON a.id = am.article_id
+      WHERE a.status = $1
     `;
-
-    const params = [];
-    let paramIndex = 1;
+    const params = [status];
+    let paramIndex = 2;
 
     if (category_id) {
-      query += ` AND a.category_id = $${paramIndex++}`;
-      params.push(category_id);
-    }
-
-    if (status) {
-      query += ` AND a.status = $${paramIndex++}`;
-      params.push(status);
-    } else {
-      // Non-admins only see published articles
-      if (req.user.role !== 'admin' && req.user.role !== 'superadmin') {
-        query += ` AND a.status = 'published'`;
-      }
-    }
-
-    if (featured === 'true') {
-      query += ` AND a.is_featured = true`;
-    }
-
-    if (search) {
-      query += ` AND (a.title ILIKE $${paramIndex} OR a.content ILIKE $${paramIndex} OR a.summary ILIKE $${paramIndex})`;
-      params.push(`%${search}%`);
+      query += ` AND a.category_id = $${paramIndex}`;
+      params.push(parseInt(category_id));
       paramIndex++;
     }
 
-    query += ` ORDER BY a.is_featured DESC, a.created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    if (tag) {
+      query += ` AND $${paramIndex} = ANY(a.tags)`;
+      params.push(tag);
+      paramIndex++;
+    }
+
+    if (search) {
+      query += ` AND (a.search_vector @@ plainto_tsquery('german', $${paramIndex}) OR LOWER(a.title) LIKE $${paramIndex + 1})`;
+      params.push(search, `%${search.toLowerCase()}%`);
+      paramIndex += 2;
+    }
+
+    query += ' GROUP BY a.id, u.name, u.profile_photo, c.name, c.color';
+    
+    if (sort === 'popular') query += ' ORDER BY a.views_count DESC';
+    else if (sort === 'helpful') query += ' ORDER BY a.helpful_count DESC';
+    else query += ' ORDER BY a.featured DESC, a.pinned DESC, a.created_at DESC';
+
+    query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     params.push(parseInt(limit), parseInt(offset));
 
     const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (error) {
-    logger.error('Error fetching KB articles:', error);
-    res.status(500).json({ error: 'Server error' });
+    logger.error('Error fetching articles:', error);
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 
-// @route   GET /api/kb/articles/:id
-// @desc    Get single article
+// GET /api/kb/articles/:id
 router.get('/articles/:id', auth, async (req, res) => {
+  const client = await pool.connect();
   try {
     const { id } = req.params;
-
-    const result = await pool.query(`
-      SELECT a.*,
-        u.name as author_name,
-        u.email as author_email,
-        c.name as category_name,
-        c.icon as category_icon,
-        c.color as category_color
+    
+    const articleResult = await client.query(`
+      SELECT a.*, u.name as author_name, u.profile_photo as author_photo,
+        c.name as category_name, c.color as category_color, c.icon as category_icon
       FROM kb_articles a
       LEFT JOIN users u ON a.author_id = u.id
       LEFT JOIN kb_categories c ON a.category_id = c.id
       WHERE a.id = $1
     `, [id]);
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Article not found' });
+    if (articleResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Artikel nicht gefunden' });
     }
 
-    const article = result.rows[0];
+    await client.query('UPDATE kb_articles SET views_count = views_count + 1 WHERE id = $1', [id]);
 
-    // Track view
-    await pool.query(`
-      INSERT INTO kb_article_views (article_id, user_id, ip_address, user_agent)
-      VALUES ($1, $2, $3, $4)
-    `, [id, req.user.id, req.ip, req.get('user-agent')]);
-
-    // Update view count
-    await pool.query(`
-      UPDATE kb_articles SET view_count = view_count + 1, last_viewed_at = CURRENT_TIMESTAMP WHERE id = $1
+    const mediaResult = await client.query(`
+      SELECT m.*, u.name as uploaded_by_name
+      FROM kb_article_media m LEFT JOIN users u ON m.uploaded_by = u.id
+      WHERE m.article_id = $1 ORDER BY m.display_order ASC, m.created_at DESC
     `, [id]);
 
-    // Get media
-    const mediaResult = await pool.query(`
-      SELECT * FROM kb_media WHERE article_id = $1 ORDER BY display_order
+    const commentsResult = await client.query(`
+      SELECT c.*, u.name as user_name, u.profile_photo as user_photo
+      FROM kb_article_comments c LEFT JOIN users u ON c.user_id = u.id
+      WHERE c.article_id = $1 ORDER BY c.created_at ASC
     `, [id]);
 
-    article.media = mediaResult.rows;
+    const voteResult = await client.query(
+      'SELECT is_helpful FROM kb_article_votes WHERE article_id = $1 AND user_id = $2',
+      [id, req.user.id]
+    );
 
-    // Get related articles
-    const relatedResult = await pool.query(`
-      SELECT r.relation_type, a.*
-      FROM kb_article_relations r
-      JOIN kb_articles a ON r.related_article_id = a.id
-      WHERE r.article_id = $1 AND a.status = 'published'
-      ORDER BY r.display_order
-    `, [id]);
-
-    article.related = relatedResult.rows;
-
-    res.json(article);
+    res.json({
+      ...articleResult.rows[0],
+      media: mediaResult.rows,
+      comments: commentsResult.rows,
+      user_vote: voteResult.rows[0]?.is_helpful ?? null
+    });
   } catch (error) {
-    logger.error('Error fetching KB article:', error);
-    res.status(500).json({ error: 'Server error' });
+    logger.error('Error fetching article:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  } finally {
+    client.release();
   }
 });
 
-// @route   POST /api/kb/articles
-// @desc    Create article
-router.post('/articles', auth, uploadMultiple('media', 10), async (req, res) => {
+// POST /api/kb/articles
+router.post('/articles', auth, async (req, res) => {
+  const client = await pool.connect();
   try {
-    const { category_id, title, content, summary, tags, status, is_featured, visibility } = req.body;
-
+    await client.query('BEGIN');
+    const { title, content, excerpt, category_id, tags, status = 'draft', visibility = 'everyone' } = req.body;
+    
     if (!title || !content) {
-      return res.status(400).json({ error: 'Title and content are required' });
+      return res.status(400).json({ error: 'Titel und Inhalt sind erforderlich' });
     }
 
-    // Generate slug
-    const slug = title.toLowerCase()
-      .replace(/[^\w\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-      + `-${Date.now()}`;
+    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Date.now();
 
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
+    const result = await client.query(`
+      INSERT INTO kb_articles (title, slug, content, excerpt, category_id, author_id, status, visibility, tags, published_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *
+    `, [title, slug, content, excerpt, category_id, req.user.id, status, visibility, tags, status === 'published' ? new Date() : null]);
 
-      // Insert article
-      const articleResult = await client.query(`
-        INSERT INTO kb_articles (
-          category_id, title, content, summary, author_id, status,
-          is_featured, visibility, slug, tags, published_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-        RETURNING *
-      `, [
-        category_id || null,
-        title,
-        content,
-        summary || null,
-        req.user.id,
-        status || 'draft',
-        is_featured || false,
-        visibility || 'all',
-        slug,
-        tags ? JSON.parse(tags) : [],
-        status === 'published' ? new Date() : null
-      ]);
+    await client.query('COMMIT');
 
-      const article = articleResult.rows[0];
-
-      // Handle uploaded media files
-      if (req.files && req.files.length > 0) {
-        const fileService = require('../services/fileService');
-
-        for (let i = 0; i < req.files.length; i++) {
-          const file = req.files[i];
-          const processedFile = await fileService.processUploadedFile(file, req.user.id);
-
-          await client.query(`
-            INSERT INTO kb_media (
-              article_id, filename, original_filename, file_path, file_size,
-              mime_type, file_type, width, height, thumbnail_path,
-              uploaded_by, display_order
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-          `, [
-            article.id,
-            processedFile.filename,
-            processedFile.originalFilename,
-            processedFile.filePath,
-            processedFile.fileSize,
-            processedFile.mimeType,
-            processedFile.fileType,
-            processedFile.width,
-            processedFile.height,
-            processedFile.thumbnailPath,
-            req.user.id,
-            i
-          ]);
-        }
-      }
-
-      await client.query('COMMIT');
-
-      logger.info('KB article created:', { articleId: article.id, userId: req.user.id });
-      res.status(201).json(article);
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
+    if (status === 'published') {
+      const io = getIO();
+      if (io) io.emit('kb:article_published', { article: result.rows[0] });
     }
+
+    logger.info('KB article created', { articleId: result.rows[0].id });
+    res.status(201).json(result.rows[0]);
   } catch (error) {
-    logger.error('Error creating KB article:', error);
-    res.status(500).json({ error: 'Server error' });
+    await client.query('ROLLBACK');
+    logger.error('Error creating article:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  } finally {
+    client.release();
   }
 });
 
-// @route   PUT /api/kb/articles/:id
-// @desc    Update article
+// PUT /api/kb/articles/:id
 router.put('/articles/:id', auth, async (req, res) => {
+  const client = await pool.connect();
   try {
+    await client.query('BEGIN');
     const { id } = req.params;
-    const { category_id, title, content, summary, tags, status, is_featured, visibility } = req.body;
+    const { title, content, excerpt, category_id, tags, status, visibility, featured, pinned } = req.body;
 
-    // Check if article exists and user has permission
-    const checkResult = await pool.query('SELECT * FROM kb_articles WHERE id = $1', [id]);
-    if (checkResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Article not found' });
-    }
+    const checkResult = await client.query('SELECT author_id FROM kb_articles WHERE id = $1', [id]);
+    if (checkResult.rows.length === 0) return res.status(404).json({ error: 'Artikel nicht gefunden' });
 
-    const article = checkResult.rows[0];
-    if (article.author_id !== req.user.id && req.user.role !== 'admin' && req.user.role !== 'superadmin') {
-      return res.status(403).json({ error: 'Unauthorized' });
-    }
+    const isOwner = checkResult.rows[0].author_id === req.user.id;
+    const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
+    if (!isOwner && !isAdmin) return res.status(403).json({ error: 'Keine Berechtigung' });
 
-    const result = await pool.query(`
+    const oldArticle = await client.query('SELECT title, content FROM kb_articles WHERE id = $1', [id]);
+    await client.query(`
+      INSERT INTO kb_article_revisions (article_id, title, content, edited_by)
+      VALUES ($1, $2, $3, $4)
+    `, [id, oldArticle.rows[0].title, oldArticle.rows[0].content, req.user.id]);
+
+    const result = await client.query(`
       UPDATE kb_articles SET
-        category_id = COALESCE($1, category_id),
-        title = COALESCE($2, title),
-        content = COALESCE($3, content),
-        summary = COALESCE($4, summary),
-        tags = COALESCE($5, tags),
-        status = COALESCE($6, status),
-        is_featured = COALESCE($7, is_featured),
-        visibility = COALESCE($8, visibility),
-        updated_at = CURRENT_TIMESTAMP,
-        published_at = CASE WHEN $6 = 'published' AND published_at IS NULL THEN CURRENT_TIMESTAMP ELSE published_at END
-      WHERE id = $9
-      RETURNING *
-    `, [
-      category_id,
-      title,
-      content,
-      summary,
-      tags ? JSON.stringify(tags) : null,
-      status,
-      is_featured,
-      visibility,
-      id
-    ]);
+        title = COALESCE($1, title), content = COALESCE($2, content),
+        excerpt = COALESCE($3, excerpt), category_id = COALESCE($4, category_id),
+        tags = COALESCE($5, tags), status = COALESCE($6, status),
+        visibility = COALESCE($7, visibility), featured = COALESCE($8, featured),
+        pinned = COALESCE($9, pinned),
+        published_at = CASE WHEN $6 = 'published' AND published_at IS NULL THEN CURRENT_TIMESTAMP ELSE published_at END,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $10 RETURNING *
+    `, [title, content, excerpt, category_id, tags, status, visibility, featured, pinned, id]);
 
-    logger.info('KB article updated:', { articleId: id, userId: req.user.id });
+    await client.query('COMMIT');
+
+    const io = getIO();
+    if (io) io.emit('kb:article_updated', { article: result.rows[0] });
+
+    logger.info('KB article updated', { articleId: id });
     res.json(result.rows[0]);
   } catch (error) {
-    logger.error('Error updating KB article:', error);
-    res.status(500).json({ error: 'Server error' });
+    await client.query('ROLLBACK');
+    logger.error('Error updating article:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  } finally {
+    client.release();
   }
 });
 
-// @route   POST /api/kb/articles/:id/feedback
-// @desc    Submit feedback
-router.post('/articles/:id/feedback', auth, async (req, res) => {
+// DELETE /api/kb/articles/:id
+router.delete('/articles/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
-    const { is_helpful, comment } = req.body;
+    const checkResult = await pool.query('SELECT author_id FROM kb_articles WHERE id = $1', [id]);
+    if (checkResult.rows.length === 0) return res.status(404).json({ error: 'Artikel nicht gefunden' });
 
-    if (typeof is_helpful !== 'boolean') {
-      return res.status(400).json({ error: 'is_helpful must be boolean' });
-    }
+    const isOwner = checkResult.rows[0].author_id === req.user.id;
+    const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
+    if (!isOwner && !isAdmin) return res.status(403).json({ error: 'Keine Berechtigung' });
 
-    await pool.query(`
-      INSERT INTO kb_article_feedback (article_id, user_id, is_helpful, comment)
-      VALUES ($1, $2, $3, $4)
-      ON CONFLICT (article_id, user_id) DO UPDATE
-      SET is_helpful = $3, comment = $4, created_at = CURRENT_TIMESTAMP
-    `, [id, req.user.id, is_helpful, comment || null]);
+    await pool.query('DELETE FROM kb_articles WHERE id = $1', [id]);
 
-    // Update counts
-    const countsResult = await pool.query(`
-      SELECT
-        COUNT(*) FILTER (WHERE is_helpful = true) as helpful,
-        COUNT(*) FILTER (WHERE is_helpful = false) as not_helpful
-      FROM kb_article_feedback
-      WHERE article_id = $1
-    `, [id]);
+    const io = getIO();
+    if (io) io.emit('kb:article_deleted', { articleId: parseInt(id) });
 
-    const counts = countsResult.rows[0];
-
-    await pool.query(`
-      UPDATE kb_articles
-      SET helpful_count = $1, not_helpful_count = $2
-      WHERE id = $3
-    `, [parseInt(counts.helpful), parseInt(counts.not_helpful), id]);
-
-    res.json({ message: 'Feedback submitted', counts });
+    res.json({ success: true, message: 'Artikel gelöscht' });
   } catch (error) {
-    logger.error('Error submitting feedback:', error);
-    res.status(500).json({ error: 'Server error' });
+    logger.error('Error deleting article:', error);
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 
-// @route   POST /api/kb/articles/:id/bookmark
-// @desc    Bookmark article
-router.post('/articles/:id/bookmark', auth, async (req, res) => {
+// POST /api/kb/articles/:id/media
+router.post('/articles/:id/media', auth, uploadSingle('file'), async (req, res) => {
   try {
+    if (!req.file) return res.status(400).json({ error: 'Keine Datei hochgeladen' });
+
     const { id } = req.params;
-    const { folder, notes } = req.body;
+    const { caption, display_order } = req.body;
 
-    await pool.query(`
-      INSERT INTO kb_bookmarks (user_id, article_id, folder, notes)
-      VALUES ($1, $2, $3, $4)
-      ON CONFLICT (user_id, article_id) DO UPDATE
-      SET folder = $3, notes = $4
-    `, [req.user.id, id, folder || null, notes || null]);
-
-    res.json({ message: 'Article bookmarked' });
-  } catch (error) {
-    logger.error('Error bookmarking article:', error);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// @route   DELETE /api/kb/articles/:id/bookmark
-// @desc    Remove bookmark
-router.delete('/articles/:id/bookmark', auth, async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    await pool.query('DELETE FROM kb_bookmarks WHERE user_id = $1 AND article_id = $2', [req.user.id, id]);
-
-    res.json({ message: 'Bookmark removed' });
-  } catch (error) {
-    logger.error('Error removing bookmark:', error);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// @route   GET /api/kb/search
-// @desc    Full-text search
-router.get('/search', auth, async (req, res) => {
-  try {
-    const { q, limit = 20 } = req.query;
-
-    if (!q) {
-      return res.status(400).json({ error: 'Query required' });
-    }
+    let media_type = 'document';
+    if (req.file.mimetype.startsWith('image/')) media_type = 'image';
+    else if (req.file.mimetype.startsWith('audio/')) media_type = 'audio';
+    else if (req.file.mimetype.startsWith('video/')) media_type = 'video';
 
     const result = await pool.query(`
-      SELECT a.*,
-        u.name as author_name,
-        c.name as category_name,
-        ts_rank(to_tsvector('english', a.title || ' ' || a.content), plainto_tsquery('english', $1)) as rank
+      INSERT INTO kb_article_media (article_id, media_type, file_url, file_name, file_size, mime_type, caption, display_order, uploaded_by)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *
+    `, [id, media_type, req.file.path, req.file.originalname, req.file.size, req.file.mimetype, caption, display_order, req.user.id]);
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    logger.error('Error uploading media:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// POST /api/kb/articles/:id/comments
+router.post('/articles/:id/comments', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { comment_text, parent_comment_id } = req.body;
+    if (!comment_text) return res.status(400).json({ error: 'Kommentartext ist erforderlich' });
+
+    const result = await pool.query(`
+      INSERT INTO kb_article_comments (article_id, user_id, comment_text, parent_comment_id)
+      VALUES ($1, $2, $3, $4) RETURNING *
+    `, [id, req.user.id, comment_text, parent_comment_id]);
+
+    const comment = { ...result.rows[0], user_name: req.user.name, user_photo: req.user.profile_photo };
+
+    const io = getIO();
+    if (io) io.emit('kb:comment_added', { articleId: parseInt(id), comment });
+
+    res.status(201).json(comment);
+  } catch (error) {
+    logger.error('Error adding comment:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// POST /api/kb/articles/:id/vote
+router.post('/articles/:id/vote', auth, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { id } = req.params;
+    const { is_helpful } = req.body;
+    if (typeof is_helpful !== 'boolean') return res.status(400).json({ error: 'is_helpful muss Boolean sein' });
+
+    await client.query(`
+      INSERT INTO kb_article_votes (article_id, user_id, is_helpful)
+      VALUES ($1, $2, $3) ON CONFLICT (article_id, user_id) DO UPDATE SET is_helpful = $3
+    `, [id, req.user.id, is_helpful]);
+
+    const countsResult = await client.query(`
+      SELECT
+        COUNT(*) FILTER (WHERE is_helpful = true) as helpful_count,
+        COUNT(*) FILTER (WHERE is_helpful = false) as not_helpful_count
+      FROM kb_article_votes WHERE article_id = $1
+    `, [id]);
+
+    await client.query(`
+      UPDATE kb_articles SET helpful_count = $1, not_helpful_count = $2 WHERE id = $3
+    `, [countsResult.rows[0].helpful_count, countsResult.rows[0].not_helpful_count, id]);
+
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      helpful_count: parseInt(countsResult.rows[0].helpful_count),
+      not_helpful_count: parseInt(countsResult.rows[0].not_helpful_count)
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    logger.error('Error voting:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  } finally {
+    client.release();
+  }
+});
+
+// GET /api/kb/search
+router.get('/search', auth, async (req, res) => {
+  try {
+    const { q, category, tag, sort = 'relevance' } = req.query;
+    if (!q) return res.status(400).json({ error: 'Suchbegriff erforderlich' });
+
+    let query = `
+      SELECT a.*, c.name as category_name, c.color as category_color, u.name as author_name,
+        ts_rank(a.search_vector, plainto_tsquery('german', $1)) as rank
       FROM kb_articles a
-      LEFT JOIN users u ON a.author_id = u.id
       LEFT JOIN kb_categories c ON a.category_id = c.id
-      WHERE a.status = 'published'
-        AND to_tsvector('english', a.title || ' ' || a.content) @@ plainto_tsquery('english', $1)
-      ORDER BY rank DESC, a.view_count DESC
-      LIMIT $2
-    `, [q, parseInt(limit)]);
+      LEFT JOIN users u ON a.author_id = u.id
+      WHERE a.status = 'published' AND a.search_vector @@ plainto_tsquery('german', $1)
+    `;
+    const params = [q];
+    let paramIndex = 2;
 
-    // Log search
-    await pool.query(`
-      INSERT INTO kb_search_history (user_id, query, results_count, ip_address)
-      VALUES ($1, $2, $3, $4)
-    `, [req.user.id, q, result.rows.length, req.ip]);
+    if (category) {
+      query += ` AND a.category_id = $${paramIndex}`;
+      params.push(parseInt(category));
+      paramIndex++;
+    }
+    if (tag) {
+      query += ` AND $${paramIndex} = ANY(a.tags)`;
+      params.push(tag);
+      paramIndex++;
+    }
 
+    if (sort === 'relevance') query += ' ORDER BY rank DESC, a.views_count DESC';
+    else if (sort === 'recent') query += ' ORDER BY a.published_at DESC';
+    else if (sort === 'popular') query += ' ORDER BY a.views_count DESC';
+
+    query += ' LIMIT 50';
+
+    const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (error) {
     logger.error('Error searching KB:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Serverfehler' });
   }
 });
 

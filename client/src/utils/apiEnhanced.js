@@ -145,6 +145,86 @@ export const createTask = (taskData) =>
   api.post('/tasks', taskData);
 
 // ============================================
+// ENHANCED KANBAN APIs
+// ============================================
+
+export const getKanbanTasks = () =>
+  api.get('/kanban/tasks');
+
+export const getKanbanTask = (taskId) =>
+  api.get(`/kanban/tasks/${taskId}`);
+
+export const createKanbanTask = (taskData) =>
+  api.post('/kanban/tasks', taskData);
+
+export const updateKanbanTask = (taskId, taskData) =>
+  api.put(`/kanban/tasks/${taskId}`, taskData);
+
+export const deleteKanbanTask = (taskId) =>
+  api.delete(`/kanban/tasks/${taskId}`);
+
+export const uploadTaskAttachment = (taskId, formData) =>
+  api.post(`/kanban/tasks/${taskId}/attachments`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+
+export const deleteTaskAttachment = (attachmentId) =>
+  api.delete(`/kanban/attachments/${attachmentId}`);
+
+export const addTaskComment = (taskId, data) =>
+  api.post(`/kanban/tasks/${taskId}/comments`, data, {
+    headers: data.audio ? { 'Content-Type': 'multipart/form-data' } : {}
+  });
+
+export const deleteTaskComment = (commentId) =>
+  api.delete(`/kanban/comments/${commentId}`);
+
+export const getTaskActivity = (taskId) =>
+  api.get(`/kanban/tasks/${taskId}/activity`);
+
+// ============================================
+// KNOWLEDGE BASE APIs
+// ============================================
+
+export const getKBCategories = () =>
+  api.get('/kb/categories');
+
+export const createKBCategory = (categoryData) =>
+  api.post('/kb/categories', categoryData);
+
+export const getKBArticles = (params = {}) =>
+  api.get('/kb/articles', { params });
+
+export const getKBArticle = (articleId) =>
+  api.get(`/kb/articles/${articleId}`);
+
+export const createKBArticle = (articleData) =>
+  api.post('/kb/articles', articleData);
+
+export const updateKBArticle = (articleId, articleData) =>
+  api.put(`/kb/articles/${articleId}`, articleData);
+
+export const deleteKBArticle = (articleId) =>
+  api.delete(`/kb/articles/${articleId}`);
+
+export const uploadKBMedia = (articleId, formData) =>
+  api.post(`/kb/articles/${articleId}/media`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+
+export const deleteKBMedia = (mediaId) =>
+  api.delete(`/kb/media/${mediaId}`);
+
+export const addKBComment = (articleId, commentData) =>
+  api.post(`/kb/articles/${articleId}/comments`, commentData);
+
+export const voteKBArticle = (articleId, isHelpful) =>
+  api.post(`/kb/articles/${articleId}/vote`, { is_helpful: isHelpful });
+
+export const searchKB = (query, params = {}) =>
+  api.get('/kb/search', { params: { q: query, ...params } });
+
+// ============================================
 // KANBAN FILTERS APIs (assuming we extend tasks.pg.js)
 // ============================================
 
