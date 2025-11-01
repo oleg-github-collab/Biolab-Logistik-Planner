@@ -2,8 +2,20 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs').promises;
 const crypto = require('crypto');
-const sharp = require('sharp');
 const logger = require('../utils/logger');
+
+let sharp;
+let sharpAvailable = true;
+
+try {
+  sharp = require('sharp');
+} catch (error) {
+  sharpAvailable = false;
+  logger.warn('Image processing library (sharp) not available. Continuing without image resizing.', {
+    error: error.message
+  });
+  console.warn('⚠️  Image processing disabled: sharp module failed to load.', error);
+}
 
 // File upload configuration
 const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads';
@@ -109,6 +121,10 @@ const upload = multer({
 
 // Generate thumbnail for images
 async function generateImageThumbnail(imagePath, width = 300, height = 300) {
+  if (!sharpAvailable) {
+    return null;
+  }
+
   try {
     const thumbnailFilename = `thumb_${path.basename(imagePath)}`;
     const thumbnailPath = path.join(UPLOAD_DIR, 'thumbnails', thumbnailFilename);
@@ -130,6 +146,10 @@ async function generateImageThumbnail(imagePath, width = 300, height = 300) {
 
 // Get image dimensions
 async function getImageDimensions(imagePath) {
+  if (!sharpAvailable) {
+    return { width: null, height: null };
+  }
+
   try {
     const metadata = await sharp(imagePath).metadata();
     return {
