@@ -204,13 +204,21 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 // Handle uncaught exceptions
 process.on('uncaughtException', (error) => {
   console.error('Uncaught Exception:', error);
-  shutdown('UNCAUGHT_EXCEPTION');
+  logger.error('Uncaught Exception - continuing', { error: error.message, stack: error.stack });
+  // Don't shutdown on every uncaught exception in production
+  if (process.env.NODE_ENV !== 'production') {
+    shutdown('UNCAUGHT_EXCEPTION');
+  }
 });
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-  shutdown('UNHANDLED_REJECTION');
+  logger.error('Unhandled Rejection - continuing', { reason });
+  // Don't shutdown on every rejection in production
+  if (process.env.NODE_ENV !== 'production') {
+    shutdown('UNHANDLED_REJECTION');
+  }
 });
 
 module.exports = app;
