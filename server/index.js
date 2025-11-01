@@ -72,10 +72,6 @@ app.use('/api/uploads', require('./routes/uploads'));
 // Waste management routes (PostgreSQL)
 console.log('  ✓ waste');
 app.use('/api/waste', require('./routes/waste.pg'));
-console.log('  ✓ wasteTemplates');
-app.use('/api/waste', require('./routes/wasteTemplates.pg'));
-console.log('  ✓ wasteSchedule');
-app.use('/api/waste', require('./routes/wasteSchedule.pg'));
 
 // Admin routes (PostgreSQL)
 console.log('  ✓ admin');
