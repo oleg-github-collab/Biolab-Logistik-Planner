@@ -49,24 +49,38 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 
 // API routes - PostgreSQL only (SQLite removed)
-console.log('📊 Using PostgreSQL routes');
+console.log('📊 Loading routes...');
+console.log('  ✓ auth');
 app.use('/api/auth', require('./routes/auth.pg'));
+console.log('  ✓ schedule');
 app.use('/api/schedule', require('./routes/schedule.pg'));
+console.log('  ✓ messages');
 app.use('/api/messages', require('./routes/messages.pg'));
+console.log('  ✓ tasks');
 app.use('/api/tasks', require('./routes/tasks.pg'));
+console.log('  ✓ task-pool');
 app.use('/api/task-pool', require('./routes/taskPool.pg'));
+console.log('  ✓ kb');
 app.use('/api/kb', require('./routes/knowledgeBase.pg'));
+console.log('  ✓ profile');
 app.use('/api/profile', require('./routes/userProfile.pg'));
+console.log('  ✓ notifications');
 app.use('/api/notifications', require('./routes/notifications.pg'));
+console.log('  ✓ uploads');
 app.use('/api/uploads', require('./routes/uploads'));
 
 // Waste management routes (PostgreSQL)
+console.log('  ✓ waste');
 app.use('/api/waste', require('./routes/waste.pg'));
+console.log('  ✓ wasteTemplates');
 app.use('/api/waste', require('./routes/wasteTemplates.pg'));
+console.log('  ✓ wasteSchedule');
 app.use('/api/waste', require('./routes/wasteSchedule.pg'));
 
 // Admin routes (PostgreSQL)
+console.log('  ✓ admin');
 app.use('/api/admin', require('./routes/admin.pg'));
+console.log('✅ All routes loaded');
 
 // Health check route
 app.use('/api/health', require('./routes/health'));
