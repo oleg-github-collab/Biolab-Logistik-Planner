@@ -2,7 +2,13 @@
 nixPkgs = ["nodejs-18_x"]
 
 [phases.install]
-cmds = ["npm ci"]
+cmds = [
+  "npm ci",
+  "cd client && npm ci"
+]
+
+[phases.build]
+cmds = ["cd client && CI=false npm run build"]
 
 [start]
 cmd = "node server-minimal.js"
