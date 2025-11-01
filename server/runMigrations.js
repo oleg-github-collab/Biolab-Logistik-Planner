@@ -4,9 +4,12 @@ const { Pool } = require('pg');
 require('dotenv').config();
 
 // Database connection
+const connectionString = process.env.DATABASE_URL || 'postgresql://localhost:5432/biolab_logistik';
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://localhost:5432/biolab_logistik',
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  connectionString,
+  ssl: process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('localhost') ? {
+    rejectUnauthorized: false
+  } : false
 });
 
 const migrationsDir = path.join(__dirname, 'migrations');

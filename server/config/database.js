@@ -17,7 +17,8 @@ const config = {
   connectionTimeoutMillis: 10000, // Return error after 10s if can't connect
 
   // SSL for production (Railway requires this)
-  ssl: process.env.NODE_ENV === 'production' ? {
+  // Only use SSL if we have a DATABASE_URL (production) AND it's not localhost
+  ssl: process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('localhost') ? {
     rejectUnauthorized: false
   } : false
 };
@@ -47,34 +48,18 @@ pool.on('remove', (client) => {
   logger.info('PostgreSQL client removed from pool');
 });
 
-// Test connection on startup (non-blocking)
+// Test connection on startup (non-blocking, non-fatal)
 pool.query('SELECT NOW()', (err, res) => {
   if (err) {
-    logger.error('❌ Failed to connect to PostgreSQL', err);
-    logger.error('');
-    logger.error('='.repeat(80));
-    logger.error('DATABASE CONNECTION REQUIRED');
-    logger.error('='.repeat(80));
-    logger.error('');
-    logger.error('PostgreSQL is required for this application. SQLite has been removed.');
-    logger.error('');
-    logger.error('Option 1: Install PostgreSQL locally');
-    logger.error('  brew install postgresql@15');
-    logger.error('  brew services start postgresql@15');
-    logger.error('  createdb biolab_logistik');
-    logger.error('  npm run migrate:pg');
-    logger.error('');
-    logger.error('Option 2: Use Railway DATABASE_URL');
-    logger.error('  Get DATABASE_URL from Railway project settings');
-    logger.error('  Add to .env file: DATABASE_URL=postgresql://...');
-    logger.error('');
-    logger.error('='.repeat(80));
-    logger.error('');
+    logger.error('❌ Failed to connect to PostgreSQL on startup', {
+      error: err.message,
+      code: err.code
+    });
+    logger.warn('Database connection failed - will retry on first query');
+    logger.warn('Make sure DATABASE_URL is set correctly in production');
 
-    // Exit after showing helpful message
-    setTimeout(() => {
-      process.exit(1);
-    }, 100);
+    // Don't exit - let the app start and retry connections
+    // This allows Railway health checks to pass while DB initializes
   } else {
     logger.info('✅ PostgreSQL connected successfully', {
       time: res.rows[0].now,
