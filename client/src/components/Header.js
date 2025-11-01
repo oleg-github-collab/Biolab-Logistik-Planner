@@ -44,57 +44,59 @@ const Header = ({ socket }) => {
   const visibleNavItems = NAV_ITEMS.filter(item => hasPermission(item.permission));
 
   return (
-    <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-14">
+    <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-md">
+      <div className="max-w-full mx-auto px-3 sm:px-4 lg:px-6">
+        <div className="flex justify-between items-center h-16">
 
           {/* Logo & Brand */}
-          <Link to="/dashboard" className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-lg flex items-center justify-center shadow-md">
-              <span className="text-white font-bold text-sm">BL</span>
+          <Link to="/dashboard" className="flex items-center space-x-2 flex-shrink-0">
+            <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl flex items-center justify-center shadow-lg">
+              <span className="text-white font-bold text-base">BL</span>
             </div>
-            <div className="hidden sm:block">
+            <div className="hidden md:block">
               <h1 className="text-base font-bold text-gray-900 leading-tight">Biolab</h1>
-              <p className="text-xs text-gray-500">Logistik Planner</p>
+              <p className="text-xs text-gray-500 leading-tight">Logistik Planner</p>
             </div>
           </Link>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center space-x-1">
-            {visibleNavItems.map((item) => {
-              const isActive = location.pathname === item.to;
-              return (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  className={`
-                    px-3 py-1.5 rounded-lg text-sm font-medium transition-all
-                    ${isActive
-                      ? 'bg-blue-50 text-blue-700 shadow-sm'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}
-                  `}
-                >
-                  <span className="mr-2">{item.icon}</span>
-                  {t(item.labelKey)}
-                </Link>
-              );
-            })}
+          {/* Desktop Navigation - Dropdown Style */}
+          <nav className="hidden lg:flex items-center flex-1 justify-center max-w-4xl mx-4">
+            <div className="flex items-center gap-1 bg-gray-50 rounded-xl p-1">
+              {visibleNavItems.map((item) => {
+                const isActive = location.pathname === item.to;
+                return (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    className={`
+                      px-3 py-2 rounded-lg text-xs xl:text-sm font-medium transition-all whitespace-nowrap
+                      ${isActive
+                        ? 'bg-white text-blue-700 shadow-md'
+                        : 'text-gray-600 hover:bg-white/50 hover:text-gray-900'}
+                    `}
+                  >
+                    <span className="mr-1.5">{item.icon}</span>
+                    <span className="hidden xl:inline">{t(item.labelKey)}</span>
+                  </Link>
+                );
+              })}
+            </div>
           </nav>
 
           {/* Right Side - Notifications & User */}
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
             {/* Notifications */}
             <NotificationDropdown socket={socket} />
 
-            {/* User Menu */}
-            <div className="hidden sm:flex items-center space-x-3 pl-3 border-l border-gray-200">
-              <div className="text-right">
-                <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                <p className="text-xs text-gray-500">{getRoleLabel(user.role)}</p>
+            {/* User Menu - Desktop */}
+            <div className="hidden md:flex items-center gap-3 pl-3 border-l border-gray-300">
+              <div className="text-right max-w-[120px]">
+                <p className="text-sm font-semibold text-gray-900 truncate">{user.name}</p>
+                <p className="text-xs text-gray-500 truncate">{getRoleLabel(user.role)}</p>
               </div>
               <button
                 onClick={handleLogout}
-                className="px-3 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors"
+                className="px-3 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100 hover:shadow-md transition-all"
                 title={t('navigation.logout')}
               >
                 🚪
@@ -104,14 +106,14 @@ const Header = ({ socket }) => {
             {/* Mobile Menu Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              className="lg:hidden p-2.5 rounded-lg hover:bg-gray-100 transition-colors"
               aria-label={t('mobile.nav.toggle')}
             >
-              <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 {mobileMenuOpen ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
                 ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 6h16M4 12h16M4 18h16" />
                 )}
               </svg>
             </button>
@@ -119,36 +121,38 @@ const Header = ({ socket }) => {
         </div>
       </div>
 
-      {/* Mobile Menu */}
+      {/* Enhanced Mobile Menu */}
       {mobileMenuOpen && (
-        <div className="lg:hidden bg-white border-t border-gray-200 shadow-lg">
-          <div className="px-4 py-3 space-y-1">
-            {/* User Info */}
-            <div className="sm:hidden pb-3 mb-3 border-b border-gray-200">
-              <p className="text-sm font-medium text-gray-900">{user.name}</p>
-              <p className="text-xs text-gray-500">{getRoleLabel(user.role)}</p>
+        <div className="lg:hidden bg-gradient-to-b from-white to-gray-50 border-t border-gray-200 shadow-2xl">
+          <div className="px-4 py-4 space-y-2 max-h-[calc(100vh-4rem)] overflow-y-auto">
+            {/* User Info Card */}
+            <div className="md:hidden bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl p-4 mb-4 shadow-lg">
+              <p className="text-base font-bold">{user.name}</p>
+              <p className="text-sm text-blue-100">{getRoleLabel(user.role)}</p>
             </div>
 
             {/* Navigation Items */}
-            {visibleNavItems.map((item) => {
-              const isActive = location.pathname === item.to;
-              return (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`
-                    flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-all
-                    ${isActive
-                      ? 'bg-blue-50 text-blue-700'
-                      : 'text-gray-600 hover:bg-gray-50'}
-                  `}
-                >
-                  <span className="mr-3 text-lg">{item.icon}</span>
-                  {t(item.labelKey)}
-                </Link>
-              );
-            })}
+            <div className="space-y-1">
+              {visibleNavItems.map((item) => {
+                const isActive = location.pathname === item.to;
+                return (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`
+                      flex items-center px-4 py-3.5 rounded-xl text-sm font-semibold transition-all
+                      ${isActive
+                        ? 'bg-blue-600 text-white shadow-lg'
+                        : 'text-gray-700 hover:bg-white hover:shadow-md'}
+                    `}
+                  >
+                    <span className="mr-3 text-xl">{item.icon}</span>
+                    <span>{t(item.labelKey)}</span>
+                  </Link>
+                );
+              })}
+            </div>
 
             {/* Logout Button */}
             <button
@@ -156,10 +160,10 @@ const Header = ({ socket }) => {
                 setMobileMenuOpen(false);
                 handleLogout();
               }}
-              className="w-full flex items-center px-4 py-3 mt-2 text-red-600 bg-red-50 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors"
+              className="w-full flex items-center px-4 py-3.5 mt-4 text-white bg-gradient-to-r from-red-500 to-rose-600 rounded-xl text-sm font-semibold hover:shadow-lg transition-all"
             >
-              <span className="mr-3 text-lg">🚪</span>
-              {t('navigation.logout')}
+              <span className="mr-3 text-xl">🚪</span>
+              <span>{t('navigation.logout')}</span>
             </button>
           </div>
         </div>
