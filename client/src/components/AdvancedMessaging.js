@@ -50,7 +50,7 @@ const AdvancedMessaging = () => {
   const loadUsers = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/messages/users', {
+      const response = await fetch('/api/messages/contacts', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -173,8 +173,8 @@ const AdvancedMessaging = () => {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           },
           body: JSON.stringify({
-            receiverId: activeConversation.userId,
-            message: messageText,
+            recipientId: activeConversation.userId,
+            content: messageText,
             isGroup: false
           })
         });

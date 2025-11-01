@@ -28,7 +28,7 @@ router.get('/categories', auth, async (req, res) => {
 
 // @route   POST /api/kb/categories
 // @desc    Create category (admin only)
-router.post('/categories', adminAuth, async (req, res) => {
+router.post('/categories', [auth, adminAuth], async (req, res) => {
   try {
     const { name, description, icon, color, parent_id, display_order } = req.body;
 

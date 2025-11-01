@@ -39,7 +39,7 @@ const WasteTemplatesView = ({ onUseTemplate }) => {
   const fetchTemplates = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/api/waste-templates');
+      const response = await axios.get('/api/waste/templates');
       setTemplates(response.data);
     } catch (error) {
       console.error('Error fetching waste templates:', error);

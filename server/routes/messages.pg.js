@@ -1,5 +1,5 @@
 const express = require('express');
-const pool = require('../config/database');
+const { pool } = require('../config/database');
 const { auth } = require('../middleware/auth');
 const { getIO, sendNotificationToUser } = require('../websocket');
 const logger = require('../utils/logger');
@@ -792,9 +792,11 @@ router.post('/start', auth, async (req, res) => {
 // @desc    Send a new message
 const sendMessageHandler = async (req, res) => {
   const {
-    recipientId,
+    recipientId: bodyRecipientId,
+    receiverId,
     conversationId,
-    content,
+    content: bodyContent,
+    message: bodyMessage,
     gif,
     attachments = [],
     messageType,
@@ -802,6 +804,9 @@ const sendMessageHandler = async (req, res) => {
     mentionedUserIds = [],
     metadata = {}
   } = req.body;
+
+  const recipientId = bodyRecipientId ?? receiverId;
+  const content = bodyContent ?? bodyMessage;
 
   if (!recipientId && !conversationId) {
     return res.status(400).json({ error: 'Empfänger oder Konversation ist erforderlich' });

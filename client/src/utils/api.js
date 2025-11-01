@@ -132,7 +132,11 @@ export const getUnreadCount = () =>
   api.get('/messages/unread-count');
 
 export const sendMessage = (receiverId, message, isGroup = false) => 
-  api.post('/messages', { receiverId, message, isGroup });
+  api.post('/messages', {
+    recipientId: receiverId,
+    content: message,
+    isGroup
+  });
 
 export const getUsersForMessaging = () => 
   api.get('/messages/users');
