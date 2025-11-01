@@ -1,3 +1,14 @@
+// Immediate startup logging
+console.log('='.repeat(80));
+console.log('🚀 BIOLAB LOGISTIK PLANNER - SERVER STARTING');
+console.log('='.repeat(80));
+console.log('Time:', new Date().toISOString());
+console.log('Node version:', process.version);
+console.log('Environment:', process.env.NODE_ENV || 'development');
+console.log('PORT from env:', process.env.PORT);
+console.log('DATABASE_URL exists:', !!process.env.DATABASE_URL);
+console.log('='.repeat(80));
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -12,6 +23,8 @@ const { ensureMessageSchema } = require('./services/messageService');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+console.log('✅ Express app created, PORT:', PORT);
 
 // Middleware
 app.use(helmet({
@@ -93,12 +106,18 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
+// Simple test endpoint - FIRST, before everything
+app.get('/ping', (req, res) => {
+  res.send('PONG');
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
+  res.json({
+    status: 'OK',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV
+    environment: process.env.NODE_ENV,
+    port: PORT
   });
 });
 
