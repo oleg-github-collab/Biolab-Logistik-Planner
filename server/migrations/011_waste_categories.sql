@@ -13,55 +13,52 @@ CREATE TABLE IF NOT EXISTS waste_categories (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Insert default waste categories
+-- Insert default waste categories with CORRECT spelling
 INSERT INTO waste_categories (name, description, icon, color, instructions, safety_notes, disposal_frequency) VALUES
-('Eluare', 'Flüssige Lösungen aus chromatographischen Trennungen', '🧪', '#3B82F6', 
- 'Eluate in gekennzeichnete Behälter sammeln. Getrennt nach Lösungsmitteltyp lagern.',
- 'Keine brennbaren Stoffe in der Nähe. Gut belüfteter Bereich erforderlich.',
- 'Wöchentlich'),
+('Eluate', 'Flussige Losungen aus chromatographischen Trennungen', '🧪', '#3B82F6', 
+ 'Eluate in gekennzeichnete Behalter sammeln. Getrennt nach Losungsmitteltyp lagern.',
+ 'Keine brennbaren Stoffe in der Nahe. Gut belufteter Bereich erforderlich.',
+ 'Wochentlich'),
 
-('Quecksilbereluate', 'Quecksilberhaltige Lösungen', '☢️', '#EF4444',
- 'Nur in speziellen Hg-Behältern sammeln. Beschriftung mit Datum und Konzentration.',
- 'HOCHGIFTIG! Handschuhe und Schutzbrille erforderlich. Sofort bei Verschüttung melden.',
+('Quecksilbereluate', 'Quecksilberhaltige Losungen', '☢️', '#EF4444',
+ 'Nur in speziellen Hg-Behaltern sammeln. Beschriftung mit Datum und Konzentration.',
+ 'HOCHGIFTIG! Handschuhe und Schutzbrille erforderlich. Sofort bei Verschuttung melden.',
  'Monatlich'),
 
-('Kühlcontainer', 'Kühlpflichtige Abfälle und Proben', '❄️', '#06B6D4',
- 'Temperatur konstant bei 2-8°C halten. Tägliche Temperaturkontrolle dokumentieren.',
- 'Verfallsdatum beachten. Nicht mit anderen Abfällen mischen.',
- 'Wöchentlich'),
+('Kuhlcontainer', 'Kuhlpflichtige Abfalle und Proben', '❄️', '#06B6D4',
+ 'Temperatur konstant bei 2-8C halten. Tagliche Temperaturkontrolle dokumentieren.',
+ 'Verfallsdatum beachten. Nicht mit anderen Abfallen mischen.',
+ 'Wochentlich'),
 
 ('EBV Regal', 'Elektronische Bauteile und Verbrauchsmaterialien', '📦', '#8B5CF6',
  'Elektronikschrott getrennt sammeln. Batterien separat entsorgen.',
- 'Lithium-Batterien brandgefährlich - nicht beschädigen.',
+ 'Lithium-Batterien brandgefahrlich - nicht beschadigen.',
  'Monatlich'),
 
-('Eimer', 'Allgemeine Laborabfälle', '🪣', '#10B981',
- 'Scharfe Gegenstände in Kanülenbox. Chemikalien nicht in Hausmüll.',
+('Eimer', 'Allgemeine Laborabfalle', '🪣', '#10B981',
+ 'Scharfe Gegenstande in Kanulenbox. Chemikalien nicht in Hausmull.',
  'Handschuhe bei Entsorgung tragen.',
- 'Täglich'),
+ 'Taglich'),
 
-('Asphalte', 'Asphalthaltige Rückstände', '🛢️', '#F59E0B',
- 'In metallischen Behältern sammeln. An kühlem Ort lagern.',
- 'Heiß - Verbrennungsgefahr! Nicht mit Wasser mischen.',
+('Asphalte', 'Asphalthaltige Ruckstande', '🛢️', '#F59E0B',
+ 'In metallischen Behaltern sammeln. An kuhlem Ort lagern.',
+ 'Hei - Verbrennungsgefahr! Nicht mit Wasser mischen.',
  'Monatlich'),
 
-('Heptane', 'Heptanhaltige Lösemittel', '⚗️', '#EC4899',
- 'In Lösemittelbehälter im Abzug sammeln. Behälter verschlossen halten.',
- 'HOCHENTZÜNDLICH! Von Zündquellen fernhalten. Dämpfe giftig.',
- 'Wöchentlich'),
+('Heptane', 'Heptanhaltige Losemittel', '⚗️', '#EC4899',
+ 'In Losemittelbehalter im Abzug sammeln. Behalter verschlossen halten.',
+ 'HOCHENTZUNDLICH! Von Zundquellen fernhalten. Dampfe giftig.',
+ 'Wochentlich'),
 
-('Königswasser', 'Gemisch aus Salz- und Salpetersäure', '⚠️', '#DC2626',
- 'NUR im Abzug handhaben. In spezielle säurefeste Behälter füllen.',
- 'ÄTZEND! Schutzausrüstung zwingend erforderlich. Nicht mit organischen Stoffen mischen.',
+('Konigswasser', 'Gemisch aus Salz- und Salpetersaure', '⚠️', '#DC2626',
+ 'NUR im Abzug handhaben. In spezielle saurefte Behalter fullen.',
+ 'ATZEND! Schutzausrustung zwingend erforderlich. Nicht mit organischen Stoffen mischen.',
  'Bei Bedarf')
 
-ON CONFLICT (name) DO NOTHING;
-
--- Add category reference to waste_logs
-ALTER TABLE waste_logs 
-ADD COLUMN IF NOT EXISTS category_id INTEGER REFERENCES waste_categories(id) ON DELETE SET NULL;
-
--- Update existing waste logs to match categories (optional)
-UPDATE waste_logs SET category_id = (
-  SELECT id FROM waste_categories WHERE name = waste_logs.waste_type LIMIT 1
-) WHERE category_id IS NULL;
+ON CONFLICT (name) DO UPDATE SET
+  description = EXCLUDED.description,
+  icon = EXCLUDED.icon,
+  color = EXCLUDED.color,
+  instructions = EXCLUDED.instructions,
+  safety_notes = EXCLUDED.safety_notes,
+  disposal_frequency = EXCLUDED.disposal_frequency;

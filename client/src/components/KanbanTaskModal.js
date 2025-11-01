@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, User, Flag, Tag, Clock, Plus, Trash2 } from 'lucide-react';
+import { X, Calendar, User, Flag, Tag, Clock, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const PRIORITIES = [
@@ -70,23 +70,18 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100] overflow-y-auto">
-      <div className="bg-white rounded-2xl w-full max-w-2xl my-8 shadow-2xl animate-fadeIn">
-        {/* Header */}
+      <div className="bg-white rounded-2xl w-full max-w-2xl my-8 shadow-2xl">
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 rounded-t-2xl flex items-center justify-between">
           <h2 className="text-2xl font-bold flex items-center gap-2">
             <Flag className="w-6 h-6" />
             {task ? 'Aufgabe bearbeiten' : 'Neue Aufgabe erstellen'}
           </h2>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-white/20 rounded-lg transition-colors">
+          <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-lg transition-colors">
             <X className="w-6 h-6" />
           </button>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          {/* Title */}
           <div>
             <label className="block text-sm font-semibold text-gray-900 mb-2">
               Titel <span className="text-red-500">*</span>
@@ -101,11 +96,8 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
             />
           </div>
 
-          {/* Description */}
           <div>
-            <label className="block text-sm font-semibold text-gray-900 mb-2">
-              Beschreibung
-            </label>
+            <label className="block text-sm font-semibold text-gray-900 mb-2">Beschreibung</label>
             <textarea
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -115,13 +107,11 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
             />
           </div>
 
-          {/* Priority and Assignee - Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Priority */}
             <div>
               <label className="block text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
                 <Flag className="w-4 h-4 text-blue-600" />
-                Priorität
+                Prioritat
               </label>
               <div className="grid grid-cols-2 gap-2">
                 {PRIORITIES.map(priority => (
@@ -140,7 +130,6 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
               </div>
             </div>
 
-            {/* Assignee */}
             <div>
               <label className="block text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
                 <User className="w-4 h-4 text-blue-600" />
@@ -158,13 +147,11 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
             </div>
           </div>
 
-          {/* Due Date and Estimated Hours */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Due Date */}
             <div>
               <label className="block text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-blue-600" />
-                Fälligkeitsdatum
+                Falligkeitsdatum
               </label>
               <input
                 type="date"
@@ -174,11 +161,10 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
               />
             </div>
 
-            {/* Estimated Hours */}
             <div>
               <label className="block text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
                 <Clock className="w-4 h-4 text-blue-600" />
-                Geschätzte Stunden
+                Geschatzte Stunden
               </label>
               <input
                 type="number"
@@ -192,7 +178,6 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
             </div>
           </div>
 
-          {/* Tags */}
           <div>
             <label className="block text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
               <Tag className="w-4 h-4 text-blue-600" />
@@ -204,7 +189,7 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
-                placeholder="Tag hinzufügen..."
+                placeholder="Tag hinzufugen..."
                 className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-200 transition-all"
               />
               <button
@@ -233,7 +218,6 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
             )}
           </div>
 
-          {/* Action Buttons */}
           <div className="flex gap-3 justify-end pt-4 border-t border-gray-200">
             <button
               type="button"
