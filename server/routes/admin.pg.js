@@ -164,24 +164,30 @@ router.put('/users/:id', [auth, adminAuth], async (req, res) => {
     }
 
     if (default_start_time) {
-      // Validate time format (HH:MM)
-      const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
-      if (!timeRegex.test(default_start_time)) {
+      // Validate and normalize time format (HH:MM or H:MM)
+      const timeRegex = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
+      const match = default_start_time.match(timeRegex);
+      if (!match) {
         return res.status(400).json({ error: 'Ungültiges Zeitformat für Startzeit (erwartet HH:MM)' });
       }
+      // Normalize to HH:MM format
+      const normalizedTime = `${match[1].padStart(2, '0')}:${match[2]}`;
       updateFields.push(`default_start_time = $${paramIndex}`);
-      updateValues.push(default_start_time);
+      updateValues.push(normalizedTime);
       paramIndex++;
     }
 
     if (default_end_time) {
-      // Validate time format (HH:MM)
-      const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
-      if (!timeRegex.test(default_end_time)) {
+      // Validate and normalize time format (HH:MM or H:MM)
+      const timeRegex = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
+      const match = default_end_time.match(timeRegex);
+      if (!match) {
         return res.status(400).json({ error: 'Ungültiges Zeitformat für Endzeit (erwartet HH:MM)' });
       }
+      // Normalize to HH:MM format
+      const normalizedTime = `${match[1].padStart(2, '0')}:${match[2]}`;
       updateFields.push(`default_end_time = $${paramIndex}`);
-      updateValues.push(default_end_time);
+      updateValues.push(normalizedTime);
       paramIndex++;
     }
 
@@ -291,14 +297,21 @@ router.post('/users', [auth, adminAuth], async (req, res) => {
       return res.status(403).json({ error: 'Nur Superadmins können Superadmin-Konten erstellen' });
     }
 
-    // Validate time formats
-    const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
-    if (!timeRegex.test(default_start_time)) {
+    // Validate and normalize time formats
+    const timeRegex = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
+    const startMatch = default_start_time.match(timeRegex);
+    const endMatch = default_end_time.match(timeRegex);
+
+    if (!startMatch) {
       return res.status(400).json({ error: 'Ungültiges Zeitformat für Startzeit (erwartet HH:MM)' });
     }
-    if (!timeRegex.test(default_end_time)) {
+    if (!endMatch) {
       return res.status(400).json({ error: 'Ungültiges Zeitformat für Endzeit (erwartet HH:MM)' });
     }
+
+    // Normalize to HH:MM format
+    const normalizedStartTime = `${startMatch[1].padStart(2, '0')}:${startMatch[2]}`;
+    const normalizedEndTime = `${endMatch[1].padStart(2, '0')}:${endMatch[2]}`;
 
     // Validate weekly hours
     const validWeeklyHours = parseInt(weekly_hours_quota, 10);
@@ -335,10 +348,24 @@ router.post('/users', [auth, adminAuth], async (req, res) => {
       `INSERT INTO users (name, email, password, role, employment_type, auto_schedule, default_start_time, default_end_time, weekly_hours_quota, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
        RETURNING id, name, email, role, employment_type, auto_schedule, default_start_time, default_end_time, weekly_hours_quota, created_at, updated_at`,
-      [sanitizedName, sanitizedEmail, hashedPassword, role, employment_type, auto_schedule, default_start_time, default_end_time, validWeeklyHours]
+      [sanitizedName, sanitizedEmail, hashedPassword, role, employment_type, auto_schedule, normalizedStartTime, normalizedEndTime, validWeeklyHours]
     );
 
     const newUser = insertResult.rows[0];
+
+    // Broadcast new user to all connected clients via WebSocket
+    const { getIO } = require('../websocket');
+    const io = getIO();
+    if (io) {
+      io.emit('user:created', {
+        user: {
+          id: newUser.id,
+          name: newUser.name,
+          email: newUser.email,
+          role: newUser.role
+        }
+      });
+    }
 
     res.status(201).json({
       message: 'Benutzer erfolgreich erstellt',
@@ -476,7 +503,18 @@ router.get('/audit/export', [auth, adminAuth], async (req, res) => {
 // @desc    Get list of online users (admin only)
 router.get('/users/online', [auth, adminAuth], async (req, res) => {
   try {
-    const onlineUsers = getOnlineUsers();
+    let onlineUsers = [];
+
+    // Check if WebSocket is initialized
+    try {
+      const onlineUserIds = getOnlineUsers();
+      onlineUsers = Array.isArray(onlineUserIds) ? onlineUserIds : [];
+    } catch (wsError) {
+      console.warn('WebSocket not initialized yet:', wsError.message);
+      // Return empty array if WebSocket not ready
+      return res.json({ users: [] });
+    }
+
     const usersWithDetails = [];
 
     for (const userId of onlineUsers) {

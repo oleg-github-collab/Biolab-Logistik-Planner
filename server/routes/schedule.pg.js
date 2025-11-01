@@ -768,18 +768,11 @@ router.get('/events', auth, async (req, res) => {
         creator.name as created_by_name
       FROM calendar_events e
       LEFT JOIN users creator ON e.created_by = creator.id
-      WHERE 1=1
+      WHERE e.created_by = $1
     `;
 
-    const params = [];
-    let paramIndex = 1;
-
-    // Filter by created_by if userId parameter is provided
-    if (userId && (req.user.role === 'admin' || req.user.role === 'superadmin')) {
-      query += ` AND e.created_by = $${paramIndex}`;
-      params.push(targetUserId);
-      paramIndex++;
-    }
+    const params = [targetUserId];
+    let paramIndex = 2;
 
     if (actualStartDate) {
       query += ` AND e.start_time >= $${paramIndex}`;

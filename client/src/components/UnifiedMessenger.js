@@ -519,6 +519,19 @@ const UnifiedMessenger = () => {
     loadContacts();
   }, [loadThreads, loadContacts]);
 
+  // Listen for new users being created
+  useEffect(() => {
+    if (!isConnected || !onConversationEvent) return;
+
+    const handleUserCreated = (payload) => {
+      console.log('New user created:', payload);
+      // Reload contacts to include the new user
+      loadContacts();
+    };
+
+    onConversationEvent('user:created', handleUserCreated);
+  }, [isConnected, onConversationEvent, loadContacts]);
+
   useEffect(() => {
     if (!selectedThreadId && threads.length > 0) {
       setSelectedThreadId(threads[0].id);

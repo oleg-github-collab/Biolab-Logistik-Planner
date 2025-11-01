@@ -349,12 +349,14 @@ router.put('/:id', auth, async (req, res) => {
     }
 
     if (status !== undefined) {
-      const validStatuses = ['todo', 'in_progress', 'done', 'cancelled'];
+      const validStatuses = ['todo', 'inprogress', 'in_progress', 'review', 'done', 'cancelled'];
       if (!validStatuses.includes(status)) {
         return res.status(400).json({ error: 'Ungültiger Status' });
       }
+      // Normalize inprogress to in_progress for DB
+      const normalizedStatus = status === 'inprogress' ? 'in_progress' : status;
       updates.push(`status = $${paramIndex++}`);
-      values.push(status);
+      values.push(normalizedStatus);
     }
 
     if (priority !== undefined) {

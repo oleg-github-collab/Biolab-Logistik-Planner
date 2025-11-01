@@ -1,10 +1,13 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const multer = require('multer');
-const { v4: uuid } = require('uuid');
 const { auth } = require('../middleware/auth');
 const logger = require('../utils/logger');
+
+// Use crypto.randomUUID() instead of uuid package
+const uuid = () => crypto.randomUUID();
 
 const router = express.Router();
 
