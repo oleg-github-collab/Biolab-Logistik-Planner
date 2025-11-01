@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
+import TimePicker from './TimePicker';
 
 const HoursCalendar = () => {
   const [currentWeekStart, setCurrentWeekStart] = useState(getMonday(new Date()));
@@ -294,23 +295,19 @@ const HoursCalendar = () => {
                   {day.is_working && (
                     <div className="flex items-center gap-3 flex-1">
                       <div className="flex-1">
-                        <label className="block text-xs text-gray-600 mb-1">Startzeit</label>
-                        <input
-                          type="time"
+                        <TimePicker
+                          label="Startzeit"
                           value={day.start_time || '09:00'}
-                          onChange={(e) => updateTime(index, 'start_time', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                          onChange={(value) => updateTime(index, 'start_time', value)}
                           disabled={saving}
                         />
                       </div>
 
                       <div className="flex-1">
-                        <label className="block text-xs text-gray-600 mb-1">Endzeit</label>
-                        <input
-                          type="time"
+                        <TimePicker
+                          label="Endzeit"
                           value={day.end_time || '17:00'}
-                          onChange={(e) => updateTime(index, 'end_time', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                          onChange={(value) => updateTime(index, 'end_time', value)}
                           disabled={saving}
                         />
                       </div>

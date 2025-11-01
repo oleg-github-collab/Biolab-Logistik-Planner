@@ -36,25 +36,28 @@ const AdminDashboard = () => {
     try {
       setLoading(true);
 
-      // Fetch audit statistics
-      const statsRes = await axios.get(
-        `${API_BASE_URL}/admin/audit/stats?days=${filter.days}`,
-        axiosConfig
-      );
+      const requests = [
+        axios.get(`${API_BASE_URL}/admin/audit/stats?days=${filter.days}`, axiosConfig)
+          .catch(err => {
+            console.error('Stats error:', err);
+            return { data: { total: 0, by_category: {}, by_severity: {}, recent_activity: [] } };
+          }),
+        axios.get(`${API_BASE_URL}/admin/audit/logs?limit=50&category=${filter.category}&severity=${filter.severity}`, axiosConfig)
+          .catch(err => {
+            console.error('Logs error:', err);
+            return { data: { logs: [] } };
+          }),
+        axios.get(`${API_BASE_URL}/admin/users/online`, axiosConfig)
+          .catch(err => {
+            console.error('Online users error:', err);
+            return { data: { users: [] } };
+          })
+      ];
+
+      const [statsRes, logsRes, usersRes] = await Promise.all(requests);
+
       setStats(statsRes.data);
-
-      // Fetch recent logs
-      const logsRes = await axios.get(
-        `${API_BASE_URL}/admin/audit/logs?limit=50&category=${filter.category}&severity=${filter.severity}`,
-        axiosConfig
-      );
       setLogs(logsRes.data.logs || []);
-
-      // Fetch online users
-      const usersRes = await axios.get(
-        `${API_BASE_URL}/admin/users/online`,
-        axiosConfig
-      );
       setOnlineUsers(usersRes.data.users || []);
 
       setLoading(false);
