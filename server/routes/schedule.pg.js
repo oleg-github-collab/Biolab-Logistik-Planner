@@ -277,24 +277,35 @@ router.get('/week/:weekStart', auth, async (req, res) => {
       [targetUserId, weekStart]
     );
 
-    // If no schedule exists for this week, create empty schedule
+    // If no schedule exists for this week, create schedule with defaults for Vollzeit
     if (result.rows.length === 0) {
+      // Get user's employment type to set default hours
+      const userInfo = await pool.query('SELECT weekly_hours_quota FROM users WHERE id = $1', [targetUserId]);
+      const isVollzeit = userInfo.rows.length > 0 && userInfo.rows[0].weekly_hours_quota >= 40;
+
       const days = [];
       for (let i = 0; i < 7; i++) {
+        // For Vollzeit: Mon-Fri 8:00-16:30, Sat-Sun off
+        const isWeekday = i >= 0 && i <= 4; // Mon=0, Fri=4
+        const isWorking = isVollzeit ? isWeekday : false;
+        const startTime = (isVollzeit && isWeekday) ? '08:00' : null;
+        const endTime = (isVollzeit && isWeekday) ? '16:30' : null;
+
         const insertResult = await pool.query(
           `INSERT INTO weekly_schedules (
             user_id, week_start, day_of_week, is_working, start_time, end_time,
             last_updated_by, created_at, updated_at
           ) VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
           RETURNING *`,
-          [targetUserId, weekStart, i, false, null, null, req.user.id]
+          [targetUserId, weekStart, i, isWorking, startTime, endTime, req.user.id]
         );
         days.push(insertResult.rows[0]);
       }
 
-      logger.info('Created empty schedule for week', {
+      logger.info('Created schedule for week', {
         userId: targetUserId,
-        weekStart
+        weekStart,
+        type: isVollzeit ? 'Vollzeit (8:00-16:30)' : 'Empty'
       });
 
       return res.json(days);
