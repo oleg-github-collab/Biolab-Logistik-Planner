@@ -464,13 +464,18 @@ router.post('/:taskPoolId/complete', auth, async (req, res) => {
         [checkResult.rows[0].task_id]
       );
 
-      // Add completion note if provided
+      // Add completion note if provided (if table exists)
       if (notes) {
-        await client.query(
-          `INSERT INTO task_comments (task_id, user_id, comment, created_at)
-           VALUES ($1, $2, $3, CURRENT_TIMESTAMP)`,
-          [checkResult.rows[0].task_id, req.user.id, `Task completed. Notes: ${notes}`]
-        );
+        try {
+          await client.query(
+            `INSERT INTO task_comments (task_id, user_id, comment, created_at)
+             VALUES ($1, $2, $3, CURRENT_TIMESTAMP)`,
+            [checkResult.rows[0].task_id, req.user.id, `Task completed. Notes: ${notes}`]
+          );
+        } catch (commentError) {
+          // Table may not exist, log but continue
+          logger.warn('Could not save completion note (task_comments table may not exist)', commentError.message);
+        }
       }
 
       await client.query('COMMIT');
