@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Camera, Save, X, Bell, Eye, Globe } from 'lucide-react';
+import { Camera, Save, X, Bell, Eye, Globe, Shield, Key, LogOut } from 'lucide-react';
 import {
   getUserProfile,
   updateUserProfile,
@@ -11,12 +11,17 @@ const UserProfile = ({ userId, onClose }) => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
-  const [activeTab, setActiveTab] = useState('profile'); // profile, preferences, contact
+  const [activeTab, setActiveTab] = useState('profile'); // profile, preferences, contact, security
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [formData, setFormData] = useState({});
   const [preferences, setPreferences] = useState({});
   const [saving, setSaving] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    current_password: '',
+    new_password: '',
+    confirm_password: ''
+  });
 
   const loadProfile = useCallback(async () => {
     try {
@@ -220,7 +225,8 @@ const UserProfile = ({ userId, onClose }) => {
             {[
               { id: 'profile', label: 'Profil', icon: <Eye className="w-4 h-4" /> },
               { id: 'preferences', label: 'Einstellungen', icon: <Bell className="w-4 h-4" /> },
-              { id: 'contact', label: 'Kontakte', icon: <Globe className="w-4 h-4" /> }
+              { id: 'contact', label: 'Kontakte', icon: <Globe className="w-4 h-4" /> },
+              { id: 'security', label: 'Sicherheit', icon: <Shield className="w-4 h-4" /> }
             ].map(tab => (
               <button
                 key={tab.id}
@@ -559,6 +565,94 @@ const UserProfile = ({ userId, onClose }) => {
                 <div>
                   <span className="text-sm text-gray-600">Adresse:</span>
                   <p className="font-medium">{profile?.address || 'Nicht angegeben'}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'security' && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                  <Key className="w-5 h-5" />
+                  Passwort ändern
+                </h3>
+                <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Aktuelles Passwort
+                    </label>
+                    <input
+                      type="password"
+                      value={passwordData.current_password}
+                      onChange={(e) => setPasswordData({ ...passwordData, current_password: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="••••••••"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Neues Passwort
+                    </label>
+                    <input
+                      type="password"
+                      value={passwordData.new_password}
+                      onChange={(e) => setPasswordData({ ...passwordData, new_password: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="••••••••"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Mindestens 8 Zeichen mit Groß- und Kleinbuchstaben, Zahlen und Sonderzeichen
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Passwort bestätigen
+                    </label>
+                    <input
+                      type="password"
+                      value={passwordData.confirm_password}
+                      onChange={(e) => setPasswordData({ ...passwordData, confirm_password: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="••••••••"
+                    />
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (passwordData.new_password !== passwordData.confirm_password) {
+                        alert('Passwörter stimmen nicht überein');
+                        return;
+                      }
+                      alert('Passwort-Änderung noch nicht implementiert');
+                    }}
+                    className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2"
+                  >
+                    <Save className="w-4 h-4" />
+                    Passwort ändern
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                  <LogOut className="w-5 h-5" />
+                  Aktive Sitzungen
+                </h3>
+                <div className="bg-white border border-gray-200 rounded-lg p-6">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between pb-3 border-b border-gray-200">
+                      <div>
+                        <p className="font-medium text-gray-900">Aktuelle Sitzung</p>
+                        <p className="text-sm text-gray-500">Chrome auf Windows • {new Date().toLocaleDateString('de-DE')}</p>
+                      </div>
+                      <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                        Aktiv
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600 mt-4">
+                      Keine weiteren aktiven Sitzungen gefunden.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>

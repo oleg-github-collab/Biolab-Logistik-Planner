@@ -1,8 +1,8 @@
 import React from 'react';
 import WasteManagementV2 from '../components/WasteManagementV2';
 
-const Waste = () => {
+const WasteManagementPage = () => {
   return <WasteManagementV2 />;
 };
 
-export default Waste;
+export default WasteManagementPage;

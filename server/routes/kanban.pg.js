@@ -1,7 +1,7 @@
 const express = require('express');
 const { pool } = require('../config/database');
 const { auth } = require('../middleware/auth');
-const { uploadSingle } = require('../services/fileService');
+const { uploadSingle, uploadMultiple } = require('../services/fileService');
 const { getIO } = require('../websocket');
 const logger = require('../utils/logger');
 
@@ -385,8 +385,8 @@ router.delete('/attachments/:id', auth, async (req, res) => {
 // ============================================
 
 // @route   POST /api/kanban/tasks/:id/comments
-// @desc    Add comment to task (text or audio)
-router.post('/tasks/:id/comments', auth, uploadSingle('audio'), async (req, res) => {
+// @desc    Add comment to task (text, images, audio)
+router.post('/tasks/:id/comments', auth, uploadMultiple('attachments', 5), async (req, res) => {
   const client = await pool.connect();
 
   try {
@@ -395,30 +395,33 @@ router.post('/tasks/:id/comments', auth, uploadSingle('audio'), async (req, res)
     const { id } = req.params;
     const { comment_text, parent_comment_id } = req.body;
 
-    let audio_url = null;
-    let audio_duration = null;
-
-    if (req.file) {
-      audio_url = req.file.path;
-      audio_duration = req.body.audio_duration || null;
+    // Process uploaded attachments
+    let attachments = [];
+    if (req.files && req.files.length > 0) {
+      attachments = req.files.map(file => ({
+        file_url: `/uploads/${file.filename}`,
+        file_name: file.originalname,
+        mime_type: file.mimetype,
+        file_size: file.size
+      }));
     }
 
-    if (!comment_text && !audio_url) {
-      return res.status(400).json({ error: 'Kommentar oder Audio erforderlich' });
+    if (!comment_text && attachments.length === 0) {
+      return res.status(400).json({ error: 'Kommentar oder Anhänge erforderlich' });
     }
 
     const result = await client.query(`
       INSERT INTO task_comments (
-        task_id, user_id, comment_text, audio_url, audio_duration, parent_comment_id
-      ) VALUES ($1, $2, $3, $4, $5, $6)
+        task_id, user_id, comment_text, attachments, parent_comment_id
+      ) VALUES ($1, $2, $3, $4, $5)
       RETURNING *
-    `, [id, req.user.id, comment_text, audio_url, audio_duration, parent_comment_id]);
+    `, [id, req.user.id, comment_text, JSON.stringify(attachments), parent_comment_id]);
 
     // Log activity
     await client.query(`
       INSERT INTO task_activity_log (task_id, user_id, action_type, new_value)
       VALUES ($1, $2, 'comment_added', $3)
-    `, [id, req.user.id, comment_text || '[Audio-Kommentar]']);
+    `, [id, req.user.id, comment_text || `[${attachments.length} Anhang/Anhänge]`]);
 
     await client.query('COMMIT');
 
@@ -443,6 +446,30 @@ router.post('/tasks/:id/comments', auth, uploadSingle('audio'), async (req, res)
     res.status(500).json({ error: 'Serverfehler beim Hinzufügen des Kommentars' });
   } finally {
     client.release();
+  }
+});
+
+// @route   GET /api/kanban/tasks/:id/comments
+// @desc    Get comments for a task
+router.get('/tasks/:id/comments', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query(`
+      SELECT
+        tc.*,
+        u.name as user_name,
+        u.profile_photo as user_photo
+      FROM task_comments tc
+      LEFT JOIN users u ON tc.user_id = u.id
+      WHERE tc.task_id = $1
+      ORDER BY tc.created_at ASC
+    `, [id]);
+
+    res.json(result.rows);
+  } catch (error) {
+    logger.error('Error fetching comments:', error);
+    res.status(500).json({ error: 'Serverfehler beim Laden der Kommentare' });
   }
 });
 

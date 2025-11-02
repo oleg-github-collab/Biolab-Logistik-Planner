@@ -17,31 +17,23 @@ const TaskComments = ({ taskId }) => {
 
   const loadComments = async () => {
     try {
-      const response = await api.get(`/tasks/${taskId}/comments`);
+      const response = await api.get(`/kanban/tasks/${taskId}/comments`);
       setComments(response.data || []);
     } catch (error) {
       console.error('Error loading comments:', error);
     }
   };
 
-  const handleFileUpload = async (e) => {
+  const handleFileUpload = (e) => {
     const files = Array.from(e.target.files);
-    const formData = new FormData();
-
-    files.forEach(file => {
-      formData.append('files', file);
-    });
-
-    try {
-      const response = await api.post('/uploads/multiple', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      setAttachments([...attachments, ...response.data.files]);
-      toast.success(`${files.length} Datei(en) hochgeladen`);
-    } catch (error) {
-      console.error('Upload error:', error);
-      toast.error('Fehler beim Hochladen');
-    }
+    const newAttachments = files.map(file => ({
+      file,
+      preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
+      type: file.type,
+      name: file.name
+    }));
+    setAttachments([...attachments, ...newAttachments]);
+    toast.success(`${files.length} Datei(en) ausgewählt`);
   };
 
   const handleSubmit = async (e) => {
@@ -50,12 +42,17 @@ const TaskComments = ({ taskId }) => {
 
     try {
       setLoading(true);
-      const data = {
-        text: newComment,
-        attachments: attachments.map(a => a.path)
-      };
+      const formData = new FormData();
+      formData.append('comment_text', newComment);
 
-      await api.post(`/tasks/${taskId}/comments`, data);
+      attachments.forEach(att => {
+        formData.append('attachments', att.file);
+      });
+
+      await api.post(`/kanban/tasks/${taskId}/comments`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
       setNewComment('');
       setAttachments([]);
       loadComments();
@@ -94,40 +91,42 @@ const TaskComments = ({ taskId }) => {
             {/* Attachments */}
             {comment.attachments && comment.attachments.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-2">
-                {comment.attachments.map((att, idx) => {
-                  const isImage = att.match(/\.(jpg|jpeg|png|gif|webp)$/i);
-                  const isAudio = att.match(/\.(mp3|wav|ogg|m4a)$/i);
+                {(typeof comment.attachments === 'string' ? JSON.parse(comment.attachments) : comment.attachments).map((att, idx) => {
+                  const isImage = att.mime_type?.startsWith('image/');
+                  const isAudio = att.mime_type?.startsWith('audio/');
 
                   if (isImage) {
                     return (
                       <img
                         key={idx}
-                        src={`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${att}`}
-                        alt="attachment"
+                        src={`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${att.file_url}`}
+                        alt={att.file_name}
                         className="h-20 rounded-lg border-2 border-gray-300 cursor-pointer hover:opacity-80"
-                        onClick={() => window.open(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${att}`, '_blank')}
+                        onClick={() => window.open(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${att.file_url}`, '_blank')}
                       />
                     );
                   } else if (isAudio) {
                     return (
-                      <audio
-                        key={idx}
-                        controls
-                        className="h-10"
-                        src={`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${att}`}
-                      />
+                      <div key={idx} className="flex flex-col gap-1">
+                        <p className="text-xs text-gray-600">{att.file_name}</p>
+                        <audio
+                          controls
+                          className="h-10"
+                          src={`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${att.file_url}`}
+                        />
+                      </div>
                     );
                   } else {
                     return (
                       <a
                         key={idx}
-                        href={`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${att}`}
+                        href={`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${att.file_url}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-3 py-1 bg-blue-100 text-blue-800 rounded-lg text-sm hover:bg-blue-200 transition-colors"
+                        className="px-3 py-1 bg-blue-100 text-blue-800 rounded-lg text-sm hover:bg-blue-200 transition-colors flex items-center gap-1"
                       >
-                        <Paperclip className="w-4 h-4 inline mr-1" />
-                        Datei
+                        <Paperclip className="w-4 h-4" />
+                        {att.file_name}
                       </a>
                     );
                   }
@@ -157,25 +156,25 @@ const TaskComments = ({ taskId }) => {
         {/* Attachment Preview */}
         {attachments.length > 0 && (
           <div className="mb-3 flex flex-wrap gap-2">
-            {attachments.map((file, idx) => (
+            {attachments.map((att, idx) => (
               <div key={idx} className="relative inline-block">
-                {file.mimetype?.startsWith('image/') && (
+                {att.type?.startsWith('image/') && att.preview && (
                   <img
-                    src={`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${file.path}`}
+                    src={att.preview}
                     alt="preview"
                     className="h-20 rounded-lg border-2 border-gray-300"
                   />
                 )}
-                {file.mimetype?.startsWith('audio/') && (
+                {att.type?.startsWith('audio/') && (
                   <div className="px-4 py-2 bg-purple-100 text-purple-800 rounded-lg flex items-center gap-2">
                     <Mic className="w-4 h-4" />
-                    {file.originalname}
+                    {att.name}
                   </div>
                 )}
-                {!file.mimetype?.startsWith('image/') && !file.mimetype?.startsWith('audio/') && (
+                {!att.type?.startsWith('image/') && !att.type?.startsWith('audio/') && (
                   <div className="px-4 py-2 bg-gray-100 text-gray-800 rounded-lg flex items-center gap-2">
                     <Paperclip className="w-4 h-4" />
-                    {file.originalname}
+                    {att.name}
                   </div>
                 )}
                 <button

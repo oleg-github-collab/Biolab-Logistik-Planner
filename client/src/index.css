@@ -6,6 +6,7 @@
 
 /* Import Mobile-Native Design System (BEFORE utilities to allow override) */
 @import './styles/mobile-native.css';
+@import './styles/mobile-enhanced.css';
 
 @tailwind utilities;
 
