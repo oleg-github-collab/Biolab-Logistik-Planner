@@ -181,14 +181,12 @@ export const url = (message = 'Ungültige URL') => (value) => {
 };
 
 /**
- * Time format validation (HH:MM) - DISABLED for TimePicker compatibility
- * @param {string} message - Custom error message
- * @returns {Function} Validation function
+ * Time format validation - COMPLETELY DISABLED
+ * TimePicker component handles all time validation internally
+ * This function exists only for backward compatibility and ALWAYS returns null
+ * @returns {Function} Validation function that always returns null
  */
-export const timeFormat = (message = 'Ungültiges Zeitformat (HH:MM erforderlich)') => (value) => {
-  // Always return null - TimePicker handles validation internally
-  return null;
-};
+export const timeFormat = () => () => null;
 
 /**
  * Date format validation (YYYY-MM-DD)
