@@ -13,6 +13,13 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
     return null;
   }
 
+  // Ensure event has date field for compatibility
+  if (!event.date && event.start_date) {
+    event.date = event.start_date;
+  } else if (!event.date && event.start) {
+    event.date = event.start;
+  }
+
   const getTypeIcon = (type) => {
     const icons = {
       'Arbeit': '💼',

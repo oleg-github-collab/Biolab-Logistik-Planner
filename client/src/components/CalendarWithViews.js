@@ -53,52 +53,8 @@ const CalendarWithViews = ({ events = [], onEventClick, onEventCreate, onSelectS
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6" style={{ height: '700px' }}>
-      {/* View Switcher */}
-      <div className="flex flex-wrap gap-2 mb-4">
-        <button
-          onClick={() => setView('month')}
-          className={`px-4 py-2 rounded-lg font-medium transition-all ${
-            view === 'month'
-              ? 'bg-blue-600 text-white shadow-md'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          📅 Monat
-        </button>
-        <button
-          onClick={() => setView('week')}
-          className={`px-4 py-2 rounded-lg font-medium transition-all ${
-            view === 'week'
-              ? 'bg-blue-600 text-white shadow-md'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          📆 Woche
-        </button>
-        <button
-          onClick={() => setView('day')}
-          className={`px-4 py-2 rounded-lg font-medium transition-all ${
-            view === 'day'
-              ? 'bg-blue-600 text-white shadow-md'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          📝 Tag
-        </button>
-        <button
-          onClick={() => setView('agenda')}
-          className={`px-4 py-2 rounded-lg font-medium transition-all ${
-            view === 'agenda'
-              ? 'bg-blue-600 text-white shadow-md'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          📋 Agenda
-        </button>
-      </div>
-
-      {/* Calendar */}
+    <div className="bg-white rounded-xl shadow-lg overflow-hidden" style={{ height: '700px' }}>
+      {/* Calendar with built-in toolbar */}
       <BigCalendar
         localizer={localizer}
         events={calendarEvents}
@@ -110,7 +66,7 @@ const CalendarWithViews = ({ events = [], onEventClick, onEventCreate, onSelectS
         onSelectSlot={handleSelectSlot}
         selectable
         messages={messages}
-        style={{ height: 'calc(100% - 60px)' }}
+        style={{ height: '100%' }}
         views={['month', 'week', 'day', 'agenda']}
         eventPropGetter={(event) => ({
           style: {
