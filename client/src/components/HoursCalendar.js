@@ -126,10 +126,11 @@ const HoursCalendar = () => {
 
     // Update local state immediately
     const newSchedule = [...schedule];
-    newSchedule[dayIndex] = {
+    const updatedDay = {
       ...day,
       [field]: value
     };
+    newSchedule[dayIndex] = updatedDay;
     setSchedule(newSchedule);
 
     // Clear previous timeout for this field
@@ -140,10 +141,11 @@ const HoursCalendar = () => {
 
     // Set new timeout to save after 1 second
     const timeoutId = setTimeout(() => {
+      // Use updated day values, not old ones
       updateDay(dayIndex, {
-        is_working: day.is_working,
-        start_time: field === 'start_time' ? value : day.start_time,
-        end_time: field === 'end_time' ? value : day.end_time
+        is_working: updatedDay.is_working,
+        start_time: updatedDay.start_time,
+        end_time: updatedDay.end_time
       });
     }, 1000);
 

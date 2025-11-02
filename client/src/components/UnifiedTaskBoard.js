@@ -626,26 +626,26 @@ const UnifiedTaskBoard = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-xs text-slate-500 uppercase">{t('board.metrics.backlog')}</p>
-          <p className="text-2xl font-semibold text-slate-900">{counts.backlog}</p>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
+        <div className="rounded-2xl border-2 border-slate-200 bg-white p-4 hover:shadow-lg transition-all cursor-pointer hover:-translate-y-0.5">
+          <p className="text-xs text-slate-500 uppercase font-semibold mb-1">{t('board.metrics.backlog')}</p>
+          <p className="text-3xl font-bold text-slate-900">{counts.backlog}</p>
         </div>
-        <div className="rounded-2xl border border-indigo-200 bg-indigo-50 p-4">
-          <p className="text-xs text-indigo-600 uppercase">{t('board.metrics.pool')}</p>
-          <p className="text-2xl font-semibold text-indigo-700">{counts.poolAvailable}</p>
+        <div className="rounded-2xl border-2 border-indigo-200 bg-gradient-to-br from-indigo-50 to-indigo-100 p-4 hover:shadow-lg transition-all cursor-pointer hover:-translate-y-0.5">
+          <p className="text-xs text-indigo-600 uppercase font-semibold mb-1">{t('board.metrics.pool')}</p>
+          <p className="text-3xl font-bold text-indigo-700">{counts.poolAvailable}</p>
         </div>
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-          <p className="text-xs text-emerald-600 uppercase">{t('board.metrics.active')}</p>
-          <p className="text-2xl font-semibold text-emerald-700">{counts.inProgress}</p>
+        <div className="rounded-2xl border-2 border-emerald-200 bg-gradient-to-br from-emerald-50 to-emerald-100 p-4 hover:shadow-lg transition-all cursor-pointer hover:-translate-y-0.5">
+          <p className="text-xs text-emerald-600 uppercase font-semibold mb-1">{t('board.metrics.active')}</p>
+          <p className="text-3xl font-bold text-emerald-700">{counts.inProgress}</p>
         </div>
-        <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4">
-          <p className="text-xs text-orange-600 uppercase">{t('board.metrics.help')}</p>
-          <p className="text-2xl font-semibold text-orange-600">{counts.needsHelp}</p>
+        <div className="rounded-2xl border-2 border-orange-200 bg-gradient-to-br from-orange-50 to-orange-100 p-4 hover:shadow-lg transition-all cursor-pointer hover:-translate-y-0.5">
+          <p className="text-xs text-orange-600 uppercase font-semibold mb-1">{t('board.metrics.help')}</p>
+          <p className="text-3xl font-bold text-orange-600">{counts.needsHelp}</p>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-          <p className="text-xs text-slate-500 uppercase">{t('board.metrics.completed')}</p>
-          <p className="text-2xl font-semibold text-slate-800">{counts.completed}</p>
+        <div className="rounded-2xl border-2 border-slate-200 bg-slate-50 p-4 hover:shadow-lg transition-all cursor-pointer hover:-translate-y-0.5">
+          <p className="text-xs text-slate-500 uppercase font-semibold mb-1">{t('board.metrics.completed')}</p>
+          <p className="text-3xl font-bold text-slate-800">{counts.completed}</p>
         </div>
       </div>
 
