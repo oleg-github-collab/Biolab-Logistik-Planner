@@ -22,7 +22,8 @@ import {
   claimTask,
   completeTask,
   createTask,
-  updateKanbanTask
+  updateKanbanTask,
+  getAllContacts
 } from '../utils/apiEnhanced';
 import { showSuccess, showError, showInfo } from '../utils/toast';
 
@@ -116,6 +117,7 @@ const UnifiedTaskBoard = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [actionBusy, setActionBusy] = useState({});
+  const [users, setUsers] = useState([]);
 
   const columnMeta = useMemo(() => buildColumnMeta(t), [t]);
   const priorityMeta = useMemo(() => buildPriorityMeta(t), [t]);
@@ -167,6 +169,19 @@ const UnifiedTaskBoard = () => {
   useEffect(() => {
     loadBoard(selectedDate);
   }, [selectedDate, loadBoard]);
+
+  // Load users for assignment dropdown
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        const response = await getAllContacts();
+        setUsers(response?.data || []);
+      } catch (error) {
+        console.error('Error loading users:', error);
+      }
+    };
+    loadUsers();
+  }, []);
 
   const refresh = useCallback(() => {
     loadBoard(selectedDate, { silent: true });
@@ -664,7 +679,7 @@ const UnifiedTaskBoard = () => {
         }}
         onSave={handleTaskSave}
         task={editingTask}
-        users={[]} // TODO: load users if needed
+        users={users}
       />
     </div>
   );

@@ -139,36 +139,51 @@ const DirectMessenger = () => {
   const handleSendMessage = async (e) => {
     e?.preventDefault();
     if (!messageInput.trim() && pendingAttachments.length === 0) return;
-    if (!selectedThreadId) return;
+    if (!selectedThreadId) {
+      showError('Kein Chat ausgewählt');
+      return;
+    }
 
     try {
       setSending(true);
 
       let attachmentsData = [];
       if (pendingAttachments.length > 0) {
-        attachmentsData = await Promise.all(
-          pendingAttachments.map(async (file) => {
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('context', 'message');
-            formData.append('conversationId', selectedThreadId);
-            const res = await uploadAttachment(formData);
-            return res.data;
-          })
-        );
+        try {
+          attachmentsData = await Promise.all(
+            pendingAttachments.map(async (file) => {
+              const formData = new FormData();
+              formData.append('file', file);
+              formData.append('context', 'message');
+              formData.append('conversationId', selectedThreadId);
+              const res = await uploadAttachment(formData);
+              return res.data;
+            })
+          );
+        } catch (uploadError) {
+          console.error('Upload error:', uploadError);
+          showError('Fehler beim Hochladen der Dateien');
+          setSending(false);
+          return;
+        }
       }
 
-      await sendConversationMessage(selectedThreadId, {
+      const response = await sendConversationMessage(selectedThreadId, {
         message: messageInput.trim(),
         attachments: attachmentsData
       });
 
+      // Add message to local state immediately for better UX
+      if (response?.data) {
+        setMessages(prev => [...prev, response.data]);
+      }
+
       setMessageInput('');
       setPendingAttachments([]);
-      showSuccess('Nachricht gesendet');
     } catch (error) {
       console.error('Error sending message:', error);
-      showError('Fehler beim Senden');
+      const errorMsg = error?.response?.data?.error || error?.message || 'Fehler beim Senden';
+      showError(errorMsg);
     } finally {
       setSending(false);
     }
@@ -487,6 +502,12 @@ const DirectMessenger = () => {
                   type="text"
                   value={messageInput}
                   onChange={(e) => setMessageInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
                   placeholder="Nachricht schreiben..."
                   className="flex-1 px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />

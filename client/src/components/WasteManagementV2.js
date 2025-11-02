@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import api, { getWasteCategories, getWasteItems, createWasteItem } from '../utils/api';
+import api from '../utils/api';
 import { showError, showSuccess } from '../utils/toast';
 import { Upload, X, FileText, Mic, Image as ImageIcon, Plus } from 'lucide-react';
 
@@ -26,25 +26,19 @@ const WasteManagementV2 = () => {
     try {
       setLoading(true);
 
-      // Try to load categories, fallback to empty array if endpoint doesn't exist
-      let categoriesData = [];
-      try {
-        const response = await getWasteCategories();
-        categoriesData = response?.data || response || [];
-      } catch (err) {
-        console.warn('Waste categories endpoint not available, using empty array');
-      }
+      // Load templates (these are the categories)
+      const templatesResponse = await api.get('/waste/templates');
+      const templatesData = templatesResponse?.data || [];
 
       // Load items
-      const itemsResponse = await getWasteItems();
-      const itemsData = itemsResponse?.data || itemsResponse || [];
+      const itemsResponse = await api.get('/waste/items');
+      const itemsData = itemsResponse?.data || [];
 
-      setCategories(categoriesData);
+      setCategories(templatesData);
       setItems(itemsData);
     } catch (error) {
       console.error('Error loading waste data:', error);
       showError('Fehler beim Laden der Abfalldaten');
-      // Set empty arrays so component doesn't crash
       setCategories([]);
       setItems([]);
     } finally {
@@ -76,8 +70,12 @@ const WasteManagementV2 = () => {
     e.preventDefault();
     try {
       const data = {
-        ...formData,
-        media: mediaFiles.map(f => f.path)
+        template_id: formData.category_id,
+        name: categories.find(c => c.id === parseInt(formData.category_id))?.name || 'Abfall',
+        location: formData.location,
+        quantity: formData.quantity,
+        unit: 'Stück',
+        notes: formData.notes
       };
 
       await api.post('/waste/items', data);
@@ -179,30 +177,36 @@ const WasteManagementV2 = () => {
       <div>
         <h2 className="text-xl font-bold text-gray-900 mb-4">Letzte Einträge</h2>
         <div className="space-y-3">
-          {items.map(item => {
-            const category = categories.find(c => c.id === item.category_id);
-            return (
-              <div key={item.id} className="p-4 bg-white rounded-lg shadow border-l-4" style={{ borderLeftColor: category?.color }}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">{category?.icon}</span>
-                    <div>
-                      <h4 className="font-bold text-gray-900">{category?.name}</h4>
-                      <p className="text-sm text-gray-600">{item.location} • {item.quantity}</p>
+          {items.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              Keine Einträge vorhanden. Erstellen Sie einen neuen Eintrag.
+            </div>
+          ) : (
+            items.map(item => {
+              const category = categories.find(c => c.id === item.template_id);
+              return (
+                <div key={item.id} className="p-4 bg-white rounded-lg shadow border-l-4" style={{ borderLeftColor: category?.color || '#ccc' }}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">{category?.icon || '📦'}</span>
+                      <div>
+                        <h4 className="font-bold text-gray-900">{item.name || category?.name}</h4>
+                        <p className="text-sm text-gray-600">{item.location} • {item.quantity} {item.unit}</p>
+                      </div>
                     </div>
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                      item.status === 'disposed' ? 'bg-green-100 text-green-800' :
+                      item.status === 'archived' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {item.status === 'disposed' ? 'Entsorgt' : item.status === 'archived' ? 'Archiviert' : 'Aktiv'}
+                    </span>
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                    item.status === 'disposed' ? 'bg-green-100 text-green-800' :
-                    item.status === 'scheduled' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-gray-100 text-gray-800'
-                  }`}>
-                    {item.status === 'disposed' ? 'Entsorgt' : item.status === 'scheduled' ? 'Geplant' : 'Ausstehend'}
-                  </span>
+                  {item.notes && <p className="mt-2 text-sm text-gray-700">{item.notes}</p>}
                 </div>
-                {item.notes && <p className="mt-2 text-sm text-gray-700">{item.notes}</p>}
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       </div>
 
