@@ -1,10 +1,10 @@
 import React from 'react';
-import UnifiedMessenger from '../components/UnifiedMessenger';
+import DirectMessenger from '../components/DirectMessenger';
 
 const Messages = () => {
   return (
-    <div className="h-screen">
-      <UnifiedMessenger />
+    <div className="h-screen overflow-hidden">
+      <DirectMessenger />
     </div>
   );
 };
