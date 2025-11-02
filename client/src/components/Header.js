@@ -89,11 +89,20 @@ const Header = ({ socket }) => {
             <NotificationDropdown socket={socket} />
 
             {/* User Menu - Desktop */}
-            <div className="hidden md:flex items-center gap-3 pl-3 border-l border-gray-300">
-              <div className="text-right max-w-[120px]">
-                <p className="text-sm font-semibold text-gray-900 truncate">{user.name}</p>
-                <p className="text-xs text-gray-500 truncate">{getRoleLabel(user.role)}</p>
-              </div>
+            <div className="hidden md:flex items-center gap-2 pl-3 border-l border-gray-300">
+              <Link
+                to="/profile/me"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all"
+                title="Profil anzeigen"
+              >
+                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md">
+                  {user.name.charAt(0).toUpperCase()}
+                </div>
+                <div className="text-right max-w-[120px]">
+                  <p className="text-sm font-semibold text-gray-900 truncate">{user.name}</p>
+                  <p className="text-xs text-gray-500 truncate">{getRoleLabel(user.role)}</p>
+                </div>
+              </Link>
               <button
                 onClick={handleLogout}
                 className="px-3 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100 hover:shadow-md transition-all"
