@@ -13,12 +13,17 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
     return null;
   }
 
-  // Ensure event has date field for compatibility
-  if (!event.date && event.start_date) {
-    event.date = event.start_date;
-  } else if (!event.date && event.start) {
-    event.date = event.start;
-  }
+  // Normalize event data without mutation
+  const normalizedEvent = {
+    ...event,
+    date: event.date || event.start_date || event.start || new Date(),
+    startTime: event.startTime || event.start_time || '',
+    endTime: event.endTime || event.end_time || '',
+    isAllDay: event.isAllDay ?? event.all_day ?? false,
+    isRecurring: event.isRecurring ?? event.is_recurring ?? false,
+    recurrencePattern: event.recurrencePattern || event.recurring_pattern || event.recurrence_pattern,
+    recurrenceEndDate: event.recurrenceEndDate || event.recurring_end || event.recurrence_end_date
+  };
 
   const getTypeIcon = (type) => {
     const icons = {
@@ -78,7 +83,7 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
   const handleDelete = async () => {
     setIsDeleting(true);
     try {
-      await onDelete(event.id);
+      await onDelete(normalizedEvent.id);
       onClose();
     } catch (error) {
       console.error('Error deleting event:', error);
@@ -91,15 +96,15 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
   const handleDuplicate = () => {
     if (onDuplicate) {
       onDuplicate({
-        ...event,
+        ...normalizedEvent,
         id: undefined,
-        title: `${event.title} (Kopie)`
+        title: `${normalizedEvent.title} (Kopie)`
       });
     }
     onClose();
   };
 
-  const eventDate = typeof event.date === 'string' ? new Date(event.date) : event.date;
+  const eventDate = typeof normalizedEvent.date === 'string' ? new Date(normalizedEvent.date) : normalizedEvent.date;
 
   return (
     <div className="modal-backdrop-mobile fixed inset-0 flex items-end sm:items-center justify-center sm:p-4 z-50" onClick={onClose}>
@@ -112,19 +117,19 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
           <div className="flex justify-between items-start gap-3">
             <div className="flex-1 min-w-0">
               <div className="flex items-center flex-wrap gap-2 mb-3">
-                <span className="text-2xl">{getTypeIcon(event.type)}</span>
-                <span className={`px-3 py-1.5 rounded-full text-sm font-medium border ${getTypeColor(event.type)}`}>
-                  {event.type}
+                <span className="text-2xl">{getTypeIcon(normalizedEvent.type)}</span>
+                <span className={`px-3 py-1.5 rounded-full text-sm font-medium border ${getTypeColor(normalizedEvent.type)}`}>
+                  {normalizedEvent.type}
                 </span>
-                {event.priority && (
+                {normalizedEvent.priority && (
                   <span className="flex items-center gap-1.5 text-sm text-gray-600 bg-gray-50 px-2.5 py-1 rounded-full">
-                    <span>{getPriorityIcon(event.priority)}</span>
-                    <span className="font-medium">{getPriorityLabel(event.priority)}</span>
+                    <span>{getPriorityIcon(normalizedEvent.priority)}</span>
+                    <span className="font-medium">{getPriorityLabel(normalizedEvent.priority)}</span>
                   </span>
                 )}
               </div>
               <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 break-words">
-                {event.title}
+                {normalizedEvent.title}
               </h2>
               <p className="text-sm sm:text-base text-gray-600">
                 {format(eventDate, 'EEEE, dd. MMMM yyyy', { locale: de })}
@@ -144,7 +149,7 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
         {/* Content */}
         <div className="modal-body-mobile p-4 sm:p-6 space-y-4">
           {/* Time */}
-          {!event.isAllDay && (event.startTime || event.endTime) && (
+          {!normalizedEvent.isAllDay && (normalizedEvent.startTime || normalizedEvent.endTime) && (
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
                 <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -153,17 +158,17 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
               </div>
               <div>
                 <p className="font-medium text-gray-800">
-                  {event.startTime} - {event.endTime}
+                  {normalizedEvent.startTime} - {normalizedEvent.endTime}
                 </p>
                 <p className="text-sm text-gray-600">
-                  {event.isAllDay ? 'Ganztägig' : 'Zeitraum'}
+                  {normalizedEvent.isAllDay ? 'Ganztägig' : 'Zeitraum'}
                 </p>
               </div>
             </div>
           )}
 
           {/* Location */}
-          {event.location && (
+          {normalizedEvent.location && (
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
                 <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -172,14 +177,14 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
                 </svg>
               </div>
               <div>
-                <p className="font-medium text-gray-800">{event.location}</p>
+                <p className="font-medium text-gray-800">{normalizedEvent.location}</p>
                 <p className="text-sm text-gray-600">Ort</p>
               </div>
             </div>
           )}
 
           {/* Attendees */}
-          {event.attendees && (
+          {normalizedEvent.attendees && (
             <div className="flex items-start space-x-3">
               <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
                 <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -189,7 +194,7 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
               <div className="flex-1">
                 <p className="font-medium text-gray-800">Teilnehmer</p>
                 <div className="text-sm text-gray-600 mt-1">
-                  {event.attendees.split(',').map((email, index) => (
+                  {(Array.isArray(normalizedEvent.attendees) ? normalizedEvent.attendees : normalizedEvent.attendees.split(',')).map((email, index) => (
                     <div key={index} className="mb-1">
                       <span className="bg-gray-100 px-2 py-1 rounded-md text-xs">
                         {email.trim()}
@@ -202,7 +207,7 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
           )}
 
           {/* Recurring Info */}
-          {event.isRecurring && (
+          {normalizedEvent.isRecurring && (
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center">
                 <svg className="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -211,12 +216,12 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
               </div>
               <div>
                 <p className="font-medium text-gray-800">
-                  {getRecurrenceLabel(event.recurrencePattern)}
+                  {getRecurrenceLabel(normalizedEvent.recurrencePattern)}
                 </p>
                 <p className="text-sm text-gray-600">
                   Wiederholender Termin
-                  {event.recurrenceEndDate && (
-                    <span> bis {format(new Date(event.recurrenceEndDate), 'dd.MM.yyyy', { locale: de })}</span>
+                  {normalizedEvent.recurrenceEndDate && (
+                    <span> bis {format(new Date(normalizedEvent.recurrenceEndDate), 'dd.MM.yyyy', { locale: de })}</span>
                   )}
                 </p>
               </div>
@@ -224,7 +229,7 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
           )}
 
           {/* Reminder */}
-          {event.reminder && event.reminder !== '0' && (
+          {normalizedEvent.reminder && normalizedEvent.reminder !== '0' && (
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
                 <svg className="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -233,9 +238,9 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
               </div>
               <div>
                 <p className="font-medium text-gray-800">
-                  {event.reminder < 60 ? `${event.reminder} Minuten` :
-                   event.reminder < 1440 ? `${Math.floor(event.reminder / 60)} Stunden` :
-                   `${Math.floor(event.reminder / 1440)} Tage`} vorher
+                  {normalizedEvent.reminder < 60 ? `${normalizedEvent.reminder} Minuten` :
+                   normalizedEvent.reminder < 1440 ? `${Math.floor(normalizedEvent.reminder / 60)} Stunden` :
+                   `${Math.floor(normalizedEvent.reminder / 1440)} Tage`} vorher
                 </p>
                 <p className="text-sm text-gray-600">Erinnerung</p>
               </div>
@@ -243,12 +248,12 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
           )}
 
           {/* Description */}
-          {event.description && (
+          {normalizedEvent.description && (
             <div className="space-y-2">
               <h4 className="font-medium text-gray-800">Beschreibung</h4>
               <div className="bg-gray-50 rounded-lg p-3">
                 <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                  {event.description}
+                  {normalizedEvent.description}
                 </p>
               </div>
             </div>
@@ -260,7 +265,7 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
           {!showDeleteConfirm ? (
             <div className="flex flex-col sm:flex-row gap-3">
               <button
-                onClick={() => onEdit(event)}
+                onClick={() => onEdit(normalizedEvent)}
                 className="btn-mobile btn-primary-mobile flex-1 mobile-touch-feedback flex items-center justify-center gap-2"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

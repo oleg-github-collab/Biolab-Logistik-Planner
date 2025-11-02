@@ -142,10 +142,13 @@ export const getUsersForMessaging = () =>
   api.get('/messages/users');
 
 // Waste endpoints
-export const getWasteItems = () => 
+export const getWasteCategories = () =>
+  api.get('/waste/categories');
+
+export const getWasteItems = () =>
   api.get('/waste/items');
 
-export const createWasteItem = (name, description, disposalInstructions, nextDisposalDate) => 
+export const createWasteItem = (name, description, disposalInstructions, nextDisposalDate) =>
   api.post('/waste/items', { name, description, disposalInstructions, nextDisposalDate });
 
 export const updateWasteItem = (id, name, description, disposalInstructions, nextDisposalDate) => 

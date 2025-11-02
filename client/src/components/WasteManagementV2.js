@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import api from '../utils/api';
-import toast from 'react-hot-toast';
+import api, { getWasteCategories, getWasteItems, createWasteItem } from '../utils/api';
+import { showError, showSuccess } from '../utils/toast';
 import { Upload, X, FileText, Mic, Image as ImageIcon, Plus } from 'lucide-react';
 
 const WasteManagementV2 = () => {
@@ -25,15 +25,28 @@ const WasteManagementV2 = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [categoriesRes, itemsRes] = await Promise.all([
-        api.get('/waste/categories'),
-        api.get('/waste/items')
-      ]);
-      setCategories(categoriesRes.data || []);
-      setItems(itemsRes.data || []);
+
+      // Try to load categories, fallback to empty array if endpoint doesn't exist
+      let categoriesData = [];
+      try {
+        const response = await getWasteCategories();
+        categoriesData = response?.data || response || [];
+      } catch (err) {
+        console.warn('Waste categories endpoint not available, using empty array');
+      }
+
+      // Load items
+      const itemsResponse = await getWasteItems();
+      const itemsData = itemsResponse?.data || itemsResponse || [];
+
+      setCategories(categoriesData);
+      setItems(itemsData);
     } catch (error) {
       console.error('Error loading waste data:', error);
-      toast.error('Fehler beim Laden der Abfalldaten');
+      showError('Fehler beim Laden der Abfalldaten');
+      // Set empty arrays so component doesn't crash
+      setCategories([]);
+      setItems([]);
     } finally {
       setLoading(false);
     }
@@ -52,10 +65,10 @@ const WasteManagementV2 = () => {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       setMediaFiles([...mediaFiles, ...response.data.files]);
-      toast.success(`${files.length} Datei(en) hochgeladen`);
+      showSuccess(`${files.length} Datei(en) hochgeladen`);
     } catch (error) {
       console.error('Upload error:', error);
-      toast.error('Fehler beim Hochladen');
+      showError('Fehler beim Hochladen');
     }
   };
 
@@ -68,14 +81,14 @@ const WasteManagementV2 = () => {
       };
 
       await api.post('/waste/items', data);
-      toast.success('Abfallposten erstellt');
+      showSuccess('Abfallposten erstellt');
       setShowModal(false);
       setFormData({ category_id: '', quantity: '', location: '', notes: '', status: 'pending' });
       setMediaFiles([]);
       loadData();
     } catch (error) {
       console.error('Error creating waste item:', error);
-      toast.error('Fehler beim Erstellen');
+      showError('Fehler beim Erstellen');
     }
   };
 
