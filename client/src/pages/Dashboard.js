@@ -518,16 +518,6 @@ const Dashboard = () => {
           >
             Kanban Board
           </button>
-          <button
-            onClick={() => setActiveTab('waste-manager')}
-            className={`py-4 px-1 font-medium text-sm border-b-2 transition-colors ${
-              activeTab === 'waste-manager'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            } ${isMobile ? 'flex-shrink-0 px-3' : ''}`}
-          >
-            Abfallmanagement
-          </button>
         </nav>
       </div>
 
@@ -536,10 +526,7 @@ const Dashboard = () => {
         <div className={`relative overflow-hidden rounded-3xl border border-slate-200 bg-white/90 shadow-lg ${isMobile ? 'p-4' : 'p-6'}`}>
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">Fortgeschrittener Kalender</h2>
-              <p className="text-sm text-slate-500">
-                Plane Schichten, Termine und Einsätze mit einer Ansicht, die sich wie eine mobile App anfühlt.
-              </p>
+              <h2 className="text-2xl font-bold text-slate-900">Kalender</h2>
             </div>
 
             <div className={`${isMobile ? 'hidden' : 'flex items-center gap-2'}`}>

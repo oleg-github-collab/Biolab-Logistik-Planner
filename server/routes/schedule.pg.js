@@ -299,7 +299,12 @@ router.get('/week/:weekStart', auth, async (req, res) => {
           RETURNING *`,
           [targetUserId, weekStart, i, isWorking, startTime, endTime, req.user.id]
         );
-        days.push(insertResult.rows[0]);
+        const row = insertResult.rows[0];
+        days.push({
+          ...row,
+          start_time: row.start_time ? row.start_time.substring(0, 5) : null,
+          end_time: row.end_time ? row.end_time.substring(0, 5) : null
+        });
       }
 
       logger.info('Created schedule for week', {
@@ -313,6 +318,9 @@ router.get('/week/:weekStart', auth, async (req, res) => {
 
     const events = result.rows.map((row) => ({
       ...row,
+      // Format times from HH:MM:SS to HH:MM
+      start_time: row.start_time ? row.start_time.substring(0, 5) : null,
+      end_time: row.end_time ? row.end_time.substring(0, 5) : null,
       attachments: typeof row.attachments === 'string'
         ? JSON.parse(row.attachments || '[]')
         : Array.isArray(row.attachments)
@@ -600,7 +608,11 @@ router.put('/day/:id', auth, async (req, res) => {
       dayOfWeek: existingDay.day_of_week
     });
 
-    res.json(formattedDay);
+    res.json({
+      ...formattedDay,
+      start_time: formattedDay.start_time ? formattedDay.start_time.substring(0, 5) : null,
+      end_time: formattedDay.end_time ? formattedDay.end_time.substring(0, 5) : null
+    });
 
   } catch (error) {
     logger.error('Error updating schedule day', error);
