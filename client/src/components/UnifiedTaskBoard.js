@@ -535,8 +535,8 @@ const UnifiedTaskBoard = () => {
     const tasksInColumn = boardState.columns[columnId];
 
     return (
-      <div key={columnId} className="flex-1 min-w-[280px] max-w-[380px]">
-        <div className={`rounded-2xl border ${meta.accent} p-4 mb-3`}>
+      <div key={columnId} className="flex-shrink-0 w-[85vw] sm:w-[320px] lg:flex-1 lg:min-w-[280px] lg:max-w-[380px] snap-center lg:snap-align-none">
+        <div className={`rounded-2xl border ${meta.accent} p-4 mb-3 shadow-sm`}>
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
@@ -650,7 +650,7 @@ const UnifiedTaskBoard = () => {
       </div>
 
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="flex gap-4 overflow-x-auto pb-4">
+        <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory lg:snap-none -mx-4 px-4 lg:mx-0 lg:px-0">
           {Object.keys(columnMeta).map((columnId) => renderColumn(columnId))}
         </div>
       </DragDropContext>

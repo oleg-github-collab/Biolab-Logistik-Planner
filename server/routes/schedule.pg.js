@@ -528,14 +528,15 @@ router.put('/day/:id', auth, async (req, res) => {
         });
       }
 
-      const hours = normalizedStartTime && normalizedEndTime
-        ? calculateHours(normalizedStartTime, normalizedEndTime)
-        : 0;
-      if (hours <= 0) {
-        return res.status(400).json({ error: 'Endzeit muss nach Startzeit liegen' });
-      }
-      if (hours > 24) {
-        return res.status(400).json({ error: 'Arbeitszeit kann nicht mehr als 24 Stunden betragen' });
+      // Validate hours if times are set
+      if (normalizedStartTime && normalizedEndTime) {
+        const hours = calculateHours(normalizedStartTime, normalizedEndTime);
+        if (hours <= 0) {
+          return res.status(400).json({ error: 'Endzeit muss nach Startzeit liegen' });
+        }
+        if (hours > 24) {
+          return res.status(400).json({ error: 'Arbeitszeit kann nicht mehr als 24 Stunden betragen' });
+        }
       }
     } else {
       // When not working, explicitly set times to null
