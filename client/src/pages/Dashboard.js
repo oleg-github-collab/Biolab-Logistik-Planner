@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { CalendarDays, LayoutDashboard, Recycle, Plus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import SimpleCalendar from '../components/SimpleCalendar';
+import CalendarWithViews from '../components/CalendarWithViews';
 import EventDetailsPanel from '../components/EventDetailsPanel';
 import EventModal from '../components/EventModal';
 import AbsenceModal from '../components/AbsenceModal';
@@ -628,12 +628,11 @@ const Dashboard = () => {
               </div>
             )}
 
-            <SimpleCalendar
+            <CalendarWithViews
               events={events}
-              selectedDate={selectedDate}
-              onDateSelect={handleDateSelect}
               onEventClick={handleEventClick}
               onEventCreate={handleCalendarEventCreate}
+              onSelectSlot={(slotInfo) => handleDateSelect(slotInfo.start)}
             />
           </div>
         </div>
