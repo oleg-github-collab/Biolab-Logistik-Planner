@@ -70,8 +70,8 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
   if (!isOpen) return null;
 
   return (
-    <div className="modal-backdrop-mobile fixed inset-0 flex items-end sm:items-center justify-center sm:p-4 z-[100]" onClick={onClose}>
-      <div className="modal-bottom-sheet sm:modal sm:rounded-2xl w-full sm:max-w-2xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center p-0 lg:p-4 z-[100]" onClick={onClose}>
+      <div className="bg-white w-full lg:max-w-3xl lg:max-h-[90vh] overflow-y-auto rounded-t-3xl lg:rounded-2xl shadow-2xl" onClick={(e) => e.stopPropagation()}>
         {/* Mobile Handle */}
         <div className="modal-handle sm:hidden" />
 
