@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { CalendarDays, LayoutDashboard, Recycle, Plus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import CalendarWithViews from '../components/CalendarWithViews';
+import EventDetailsModal from '../components/EventDetailsModal';
 import EventDetailsPanel from '../components/EventDetailsPanel';
 import EventModal from '../components/EventModal';
 import AbsenceModal from '../components/AbsenceModal';
@@ -244,6 +245,7 @@ const Dashboard = () => {
   const [eventPanelMode, setEventPanelMode] = useState('view');
   const [showEventPanel, setShowEventPanel] = useState(false);
   const [showEventModal, setShowEventModal] = useState(false);
+  const [showEventDetailsModal, setShowEventDetailsModal] = useState(false);
   const [showAbsenceModal, setShowAbsenceModal] = useState(false);
   const [events, setEvents] = useState([]);
   const [eventsLoading, setEventsLoading] = useState(false);
@@ -340,7 +342,7 @@ const Dashboard = () => {
   const handleEventClick = useCallback((event, mode = 'view') => {
     setSelectedEvent(event);
     setEventPanelMode(mode);
-    setShowEventPanel(true);
+    setShowEventDetailsModal(true); // Use EventDetailsModal instead
   }, []);
 
   // ✅ OPTIMIZED: useCallback for event CRUD operations
@@ -362,6 +364,7 @@ const Dashboard = () => {
       }
       setShowEventPanel(false);
       setShowEventModal(false);
+      setShowEventDetailsModal(false);
     } catch (err) {
       console.error('Error saving event:', err);
       showToast({ type: 'error', title: 'Speichern fehlgeschlagen', message: 'Der Termin konnte nicht gespeichert werden.' });
@@ -379,6 +382,7 @@ const Dashboard = () => {
       setEvents((prev) => prev.filter((event) => event.id !== eventId));
       showToast({ type: 'success', title: 'Termin gelöscht' });
       setShowEventPanel(false);
+      setShowEventDetailsModal(false);
     } catch (err) {
       console.error('Error deleting event:', err);
       showToast({ type: 'error', title: 'Löschen fehlgeschlagen', message: 'Bitte versuche es in ein paar Sekunden erneut.' });
@@ -403,6 +407,7 @@ const Dashboard = () => {
       setEvents((prev) => [...prev, mapApiEventToUi(response.data)]);
       showToast({ type: 'success', title: 'Termin dupliziert', message: `${eventData.title} wurde auf den Folgetag kopiert.` });
       setShowEventPanel(false);
+      setShowEventDetailsModal(false);
     } catch (err) {
       console.error('Error duplicating event:', err);
       showToast({ type: 'error', title: 'Duplizieren fehlgeschlagen' });
@@ -676,6 +681,26 @@ const Dashboard = () => {
         onSave={handleAbsenceSave}
         selectedDate={selectedDate}
       />
+
+      {/* Event Details Modal */}
+      {selectedEvent && (
+        <EventDetailsModal
+          isOpen={showEventDetailsModal}
+          onClose={() => {
+            setShowEventDetailsModal(false);
+            setSelectedEvent(null);
+          }}
+          event={selectedEvent}
+          onEdit={(event) => {
+            setShowEventDetailsModal(false);
+            setSelectedEvent(event);
+            setEventPanelMode('edit');
+            setShowEventModal(true);
+          }}
+          onDelete={handleEventDelete}
+          onDuplicate={handleEventDuplicate}
+        />
+      )}
 
       {isMobile && (
         <>

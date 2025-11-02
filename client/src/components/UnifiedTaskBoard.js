@@ -15,12 +15,14 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLocale } from '../context/LocaleContext';
+import KanbanTaskModal from './KanbanTaskModal';
 import {
   getUnifiedTaskBoard,
   createTaskPoolEntry,
   claimTask,
   completeTask,
-  createTask
+  createTask,
+  updateTask
 } from '../utils/apiEnhanced';
 import { showSuccess, showError, showInfo } from '../utils/toast';
 
@@ -106,6 +108,8 @@ const UnifiedTaskBoard = () => {
   const user = auth?.user;
 
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [editingTask, setEditingTask] = useState(null);
   const [boardState, setBoardState] = useState({ taskMap: {}, columns: buildBoardState([]).columns });
   const [counts, setCounts] = useState({ backlog: 0, poolAvailable: 0, inProgress: 0, needsHelp: 0, completed: 0 });
   const [loading, setLoading] = useState(true);
@@ -285,24 +289,32 @@ const UnifiedTaskBoard = () => {
     }
   };
 
-  const handleCreateTask = async () => {
-    const title = prompt('Aufgabentitel:');
-    if (!title || !title.trim()) return;
+  const handleCreateTask = () => {
+    setEditingTask(null);
+    setShowTaskModal(true);
+  };
 
-    const description = prompt('Beschreibung (optional):');
-
+  const handleTaskSave = async (taskData) => {
     try {
-      await createTask({
-        title: title.trim(),
-        description: description?.trim() || '',
-        priority: 'medium',
-        status: 'todo'
-      });
-      showSuccess('Aufgabe erfolgreich erstellt');
+      if (editingTask?.id) {
+        // Update existing task
+        await updateTask(editingTask.id, taskData);
+        showSuccess('Aufgabe aktualisiert');
+      } else {
+        // Create new task
+        await createTask({
+          ...taskData,
+          status: 'todo'
+        });
+        showSuccess('Aufgabe erfolgreich erstellt');
+      }
+
+      setShowTaskModal(false);
+      setEditingTask(null);
       await refresh();
     } catch (err) {
-      console.error('Error creating task', err);
-      showError(err.response?.data?.error || 'Fehler beim Erstellen der Aufgabe');
+      console.error('Error saving task:', err);
+      showError(err.response?.data?.error || 'Fehler beim Speichern der Aufgabe');
     }
   };
 
@@ -642,6 +654,18 @@ const UnifiedTaskBoard = () => {
           {Object.keys(columnMeta).map((columnId) => renderColumn(columnId))}
         </div>
       </DragDropContext>
+
+      {/* Task Modal */}
+      <KanbanTaskModal
+        isOpen={showTaskModal}
+        onClose={() => {
+          setShowTaskModal(false);
+          setEditingTask(null);
+        }}
+        onSave={handleTaskSave}
+        task={editingTask}
+        users={[]} // TODO: load users if needed
+      />
     </div>
   );
 };
