@@ -494,10 +494,6 @@ router.put('/day/:id', auth, async (req, res) => {
     let normalizedEndTime = endTime;
 
     if (isWorking) {
-      if (!startTime || !endTime) {
-        return res.status(400).json({ error: 'Start- und Endzeit sind erforderlich' });
-      }
-
       // Support both H:MM and HH:MM formats, and handle various input types
       const flexibleTimeRegex = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
 
@@ -505,21 +501,36 @@ router.put('/day/:id', auth, async (req, res) => {
       const cleanStartTime = String(startTime || '').trim();
       const cleanEndTime = String(endTime || '').trim();
 
-      const startMatch = cleanStartTime.match(flexibleTimeRegex);
-      const endMatch = cleanEndTime.match(flexibleTimeRegex);
+      // Validate times - both must be provided or both empty
+      if (!cleanStartTime && !cleanEndTime) {
+        // Both empty - use default work hours
+        normalizedStartTime = '09:00';
+        normalizedEndTime = '17:00';
+      } else if (cleanStartTime && cleanEndTime) {
+        // Both provided - validate format
+        const startMatch = cleanStartTime.match(flexibleTimeRegex);
+        const endMatch = cleanEndTime.match(flexibleTimeRegex);
 
-      if (!startMatch || !endMatch) {
+        if (!startMatch || !endMatch) {
+          return res.status(400).json({
+            error: 'Zeit muss im Format HH:MM sein',
+            details: `Start: "${cleanStartTime}", End: "${cleanEndTime}"`
+          });
+        }
+
+        // Normalize to HH:MM format
+        normalizedStartTime = `${startMatch[1].padStart(2, '0')}:${startMatch[2]}`;
+        normalizedEndTime = `${endMatch[1].padStart(2, '0')}:${endMatch[2]}`;
+      } else {
+        // One is provided but not the other - error
         return res.status(400).json({
-          error: 'Ungültiges Zeitformat (HH:MM erforderlich)',
-          details: `Start: "${cleanStartTime}", End: "${cleanEndTime}"`
+          error: 'Beide Zeiten müssen angegeben werden'
         });
       }
 
-      // Normalize to HH:MM format
-      normalizedStartTime = `${startMatch[1].padStart(2, '0')}:${startMatch[2]}`;
-      normalizedEndTime = `${endMatch[1].padStart(2, '0')}:${endMatch[2]}`;
-
-      const hours = calculateHours(normalizedStartTime, normalizedEndTime);
+      const hours = normalizedStartTime && normalizedEndTime
+        ? calculateHours(normalizedStartTime, normalizedEndTime)
+        : 0;
       if (hours <= 0) {
         return res.status(400).json({ error: 'Endzeit muss nach Startzeit liegen' });
       }
