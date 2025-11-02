@@ -22,7 +22,7 @@ import {
   claimTask,
   completeTask,
   createTask,
-  updateTask
+  updateKanbanTask
 } from '../utils/apiEnhanced';
 import { showSuccess, showError, showInfo } from '../utils/toast';
 
@@ -298,7 +298,7 @@ const UnifiedTaskBoard = () => {
     try {
       if (editingTask?.id) {
         // Update existing task
-        await updateTask(editingTask.id, taskData);
+        await updateKanbanTask(editingTask.id, taskData);
         showSuccess('Aufgabe aktualisiert');
       } else {
         // Create new task
