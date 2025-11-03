@@ -4,10 +4,8 @@
 /* Import Advanced Calendar Styles */
 @import './styles/advanced-calendar.css';
 
-/* Import Mobile-Native Design System (BEFORE utilities to allow override) */
-@import './styles/mobile-native.css';
-@import './styles/mobile-enhanced.css';
-@import './styles/mobile-premium.css';
+/* Import Mobile Design System (BEFORE utilities to allow override) */
+@import './styles/mobile-complete.css';
 @import './styles/messenger-mobile.css';
 
 @tailwind utilities;
