@@ -138,20 +138,27 @@ const DirectMessenger = () => {
   // Send message
   const handleSendMessage = async (e) => {
     e?.preventDefault();
-    if (!messageInput.trim() && pendingAttachments.length === 0) return;
+
+    const msg = messageInput.trim();
+    if (!msg && pendingAttachments.length === 0) return;
     if (!selectedThreadId) {
       showError('Kein Chat ausgewählt');
       return;
     }
 
-    try {
-      setSending(true);
+    // Clear input immediately for better UX
+    const inputValue = messageInput;
+    const attachments = [...pendingAttachments];
+    setMessageInput('');
+    setPendingAttachments([]);
+    setSending(true);
 
+    try {
       let attachmentsData = [];
-      if (pendingAttachments.length > 0) {
+      if (attachments.length > 0) {
         try {
           attachmentsData = await Promise.all(
-            pendingAttachments.map(async (file) => {
+            attachments.map(async (file) => {
               const formData = new FormData();
               formData.append('file', file);
               formData.append('context', 'message');
@@ -163,27 +170,25 @@ const DirectMessenger = () => {
         } catch (uploadError) {
           console.error('Upload error:', uploadError);
           showError('Fehler beim Hochladen der Dateien');
-          setSending(false);
+          setMessageInput(inputValue);
+          setPendingAttachments(attachments);
           return;
         }
       }
 
-      const response = await sendConversationMessage(selectedThreadId, {
-        message: messageInput.trim(),
+      await sendConversationMessage(selectedThreadId, {
+        message: msg,
         attachments: attachmentsData
       });
 
-      // Add message to local state immediately for better UX
-      if (response?.data) {
-        setMessages(prev => [...prev, response.data]);
-      }
-
-      setMessageInput('');
-      setPendingAttachments([]);
+      // Reload messages after successful send
+      await loadMessages(selectedThreadId);
     } catch (error) {
       console.error('Error sending message:', error);
       const errorMsg = error?.response?.data?.error || error?.message || 'Fehler beim Senden';
       showError(errorMsg);
+      setMessageInput(inputValue);
+      setPendingAttachments(attachments);
     } finally {
       setSending(false);
     }
