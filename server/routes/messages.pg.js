@@ -288,16 +288,20 @@ router.post('/conversations', auth, async (req, res) => {
     return res.status(400).json({ error: 'Ungültiger Konversationstyp' });
   }
 
-  if (type === CONVERSATION_TYPES.DIRECT) {
-    return res.status(400).json({ error: 'Direkte Konversationen werden automatisch erstellt' });
-  }
-
   const cleanedMemberIds = Array.isArray(memberIds)
     ? Array.from(new Set(memberIds.map((id) => parseInt(id, 10)).filter((id) => Number.isInteger(id) && id !== req.user.id)))
     : [];
 
-  if (cleanedMemberIds.length === 0) {
-    return res.status(400).json({ error: 'Mindestens ein weiterer Teilnehmer ist erforderlich' });
+  // For DIRECT conversations, exactly 1 other member is required
+  if (type === CONVERSATION_TYPES.DIRECT) {
+    if (cleanedMemberIds.length !== 1) {
+      return res.status(400).json({ error: 'Direkte Konversationen benötigen genau einen anderen Teilnehmer' });
+    }
+  } else {
+    // For GROUP/TOPIC, at least 1 other member is required
+    if (cleanedMemberIds.length === 0) {
+      return res.status(400).json({ error: 'Mindestens ein weiterer Teilnehmer ist erforderlich' });
+    }
   }
 
   const client = await pool.connect();
