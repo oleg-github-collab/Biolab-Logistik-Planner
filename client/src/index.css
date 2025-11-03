@@ -5,7 +5,7 @@
 @import './styles/advanced-calendar.css';
 
 /* Import Mobile Design System (BEFORE utilities to allow override) */
-@import './styles/mobile-complete.css';
+@import './styles/mobile-final.css';
 @import './styles/messenger-mobile.css';
 
 @tailwind utilities;
