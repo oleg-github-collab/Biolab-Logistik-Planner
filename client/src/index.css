@@ -8,6 +8,7 @@
 @import './styles/mobile-native.css';
 @import './styles/mobile-enhanced.css';
 @import './styles/mobile-premium.css';
+@import './styles/messenger-mobile.css';
 
 @tailwind utilities;
 
