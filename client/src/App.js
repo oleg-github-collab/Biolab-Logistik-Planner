@@ -127,146 +127,148 @@ const AppContent = () => {
               },
             }}
           />
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/first-setup" element={<FirstSetup />} />
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <>
-                    <Header />
-                    <Dashboard />
-                  </>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/messages"
-              element={
-                <ProtectedRoute>
-                  <>
-                    <Header />
-                    <Messages />
-                  </>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/waste"
-              element={
-                <ProtectedRoute>
-                  <>
-                    <Header />
-                    <Waste />
-                  </>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/schedule"
-              element={
-                <ProtectedRoute>
-                  <>
-                    <Header />
-                    <Schedule />
-                  </>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/task-pool"
-              element={
-                <ProtectedRoute>
-                  <>
-                    <Header />
-                    <Kanban />
-                  </>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/kanban"
-              element={
-                <ProtectedRoute>
-                  <>
-                    <Header />
-                    <Kanban />
-                  </>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/profile/me"
-              element={
-                <ProtectedRoute>
-                  <>
-                    <Header />
-                    <UserProfilePage />
-                  </>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/profile/:userId"
-              element={
-                <ProtectedRoute>
-                  <>
-                    <Header />
-                    <UserProfilePage />
-                  </>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/users"
-              element={
-                <AdminRoute>
-                  <>
-                    <Header />
-                    <UserManagement />
-                  </>
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="/admin"
-              element={
-                <AdminRoute>
-                  <>
-                    <Header />
-                    <Admin />
-                  </>
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="/waste-templates"
-              element={
-                <AdminRoute>
-                  <>
-                    <Header />
-                    <WasteTemplatesAdmin />
-                  </>
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="/knowledge-base"
-              element={
-                <ProtectedRoute>
-                  <>
-                    <Header />
-                    <KnowledgeBase />
-                  </>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/"
-              element={<Navigate to="/dashboard" replace />}
-            />
-          </Routes>
+          <main className="flex-1 mobile-scroll-container lg:overflow-visible">
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/first-setup" element={<FirstSetup />} />
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <>
+                      <Header />
+                      <Dashboard />
+                    </>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/messages"
+                element={
+                  <ProtectedRoute>
+                    <>
+                      <Header />
+                      <Messages />
+                    </>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/waste"
+                element={
+                  <ProtectedRoute>
+                    <>
+                      <Header />
+                      <Waste />
+                    </>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/schedule"
+                element={
+                  <ProtectedRoute>
+                    <>
+                      <Header />
+                      <Schedule />
+                    </>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/task-pool"
+                element={
+                  <ProtectedRoute>
+                    <>
+                      <Header />
+                      <Kanban />
+                    </>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/kanban"
+                element={
+                  <ProtectedRoute>
+                    <>
+                      <Header />
+                      <Kanban />
+                    </>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/profile/me"
+                element={
+                  <ProtectedRoute>
+                    <>
+                      <Header />
+                      <UserProfilePage />
+                    </>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/profile/:userId"
+                element={
+                  <ProtectedRoute>
+                    <>
+                      <Header />
+                      <UserProfilePage />
+                    </>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/users"
+                element={
+                  <AdminRoute>
+                    <>
+                      <Header />
+                      <UserManagement />
+                    </>
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="/admin"
+                element={
+                  <AdminRoute>
+                    <>
+                      <Header />
+                      <Admin />
+                    </>
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="/waste-templates"
+                element={
+                  <AdminRoute>
+                    <>
+                      <Header />
+                      <WasteTemplatesAdmin />
+                    </>
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="/knowledge-base"
+                element={
+                  <ProtectedRoute>
+                    <>
+                      <Header />
+                      <KnowledgeBase />
+                    </>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/"
+                element={<Navigate to="/dashboard" replace />}
+              />
+            </Routes>
+          </main>
           <MobileBottomNav />
         </div>
       </Router>
