@@ -263,18 +263,23 @@
 
   /* Modal content */
   .modal,
-  .modal-content,
-  .modal-backdrop > div {
+  .modal-content {
     position: relative !important;
     width: 100vw !important;
     max-width: 100vw !important;
     max-height: 90vh !important;
     max-height: 90dvh !important;
-    background: white !important;
     border-radius: 20px 20px 0 0 !important;
     overflow-y: auto !important;
     overflow-x: hidden !important;
     animation: slideUpModal 0.3s ease-out !important;
+  }
+
+  /* Force solid background - NO TRANSPARENCY */
+  .modal-backdrop > div,
+  .fixed.inset-0 > div {
+    background-color: #ffffff !important;
+    opacity: 1 !important;
   }
 
   @keyframes slideUpModal {
