@@ -441,7 +441,10 @@ router.post('/:taskPoolId/complete', auth, async (req, res) => {
       return res.status(403).json({ error: 'Sie sind dieser Aufgabe nicht zugewiesen' });
     }
 
+    const { task_id: taskId } = checkResult.rows[0];
+
     const client = await pool.getClient();
+    let updatedTask = null;
     try {
       await client.query('BEGIN');
 
@@ -455,13 +458,24 @@ router.post('/:taskPoolId/complete', auth, async (req, res) => {
       );
 
       // Update task
-      await client.query(
+      const taskUpdateResult = await client.query(
         `UPDATE tasks SET
           status = 'done',
           completed_at = CURRENT_TIMESTAMP,
           updated_at = CURRENT_TIMESTAMP
-        WHERE id = $1`,
-        [checkResult.rows[0].task_id]
+        WHERE id = $1
+        RETURNING *`,
+        [taskId]
+      );
+      updatedTask = taskUpdateResult.rows[0] || null;
+
+      await client.query(
+        `UPDATE waste_items
+            SET status = 'disposed',
+                last_disposal_date = CURRENT_TIMESTAMP,
+                updated_at = CURRENT_TIMESTAMP
+          WHERE kanban_task_id = $1`,
+        [taskId]
       );
 
       // Add completion note if provided (if table exists)
@@ -470,7 +484,7 @@ router.post('/:taskPoolId/complete', auth, async (req, res) => {
           await client.query(
             `INSERT INTO task_comments (task_id, user_id, comment, created_at)
              VALUES ($1, $2, $3, CURRENT_TIMESTAMP)`,
-            [checkResult.rows[0].task_id, req.user.id, `Task completed. Notes: ${notes}`]
+            [taskId, req.user.id, `Task completed. Notes: ${notes}`]
           );
         } catch (commentError) {
           // Table may not exist, log but continue
@@ -483,6 +497,9 @@ router.post('/:taskPoolId/complete', auth, async (req, res) => {
       // Broadcast via WebSocket
       const io = getIO();
       if (io) {
+        if (updatedTask) {
+          io.emit('task:updated', { task: updatedTask });
+        }
         io.emit('task_pool:task_completed', {
           taskPoolId,
           completedBy: {

@@ -1,328 +1,602 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import { showError, showSuccess } from '../utils/toast';
-import { Upload, X, FileText, Mic, Image as ImageIcon, Plus } from 'lucide-react';
+import { useWebSocketContext } from '../context/WebSocketContext';
+import {
+  Leaf,
+  PlusCircle,
+  MapPin,
+  Hash,
+  Upload,
+  X,
+  Loader2,
+  CalendarDays,
+  AlertTriangle,
+  ClipboardList,
+  ArrowUpRight,
+  Image as ImageIcon,
+  Mic,
+  Clock
+} from 'lucide-react';
 
 const WasteManagementV2 = () => {
+  const navigate = useNavigate();
+  const { onTaskEvent } = useWebSocketContext();
+
   const [categories, setCategories] = useState([]);
-  const [items, setItems] = useState([]);
+  const [activeItems, setActiveItems] = useState([]);
+  const [historyItems, setHistoryItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
+
   const [selectedCategory, setSelectedCategory] = useState(null);
-  const [formData, setFormData] = useState({
-    category_id: '',
-    quantity: '',
-    location: '',
-    notes: '',
-    status: 'pending'
-  });
-  const [mediaFiles, setMediaFiles] = useState([]);
+  const [quantity, setQuantity] = useState('');
+  const [location, setLocation] = useState('');
+  const [notes, setNotes] = useState('');
+  const [nextDate, setNextDate] = useState('');
+  const [attachments, setAttachments] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async ({ silent = false } = {}) => {
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
+      const [templatesResponse, itemsResponse] = await Promise.all([
+        api.get('/waste/templates'),
+        api.get('/waste/items')
+      ]);
 
-      // Load templates (these are the categories)
-      const templatesResponse = await api.get('/waste/templates');
-      const templatesData = templatesResponse?.data || [];
+      const templates = templatesResponse?.data || [];
+      const payload = itemsResponse?.data;
 
-      // Load items
-      const itemsResponse = await api.get('/waste/items');
-      const itemsData = itemsResponse?.data || [];
+      setCategories(templates);
 
-      setCategories(templatesData);
-      setItems(itemsData);
+      if (Array.isArray(payload)) {
+        setActiveItems(payload);
+        setHistoryItems([]);
+      } else {
+        setActiveItems(payload?.active || []);
+        setHistoryItems(payload?.history || []);
+      }
     } catch (error) {
       console.error('Error loading waste data:', error);
       showError('Fehler beim Laden der Abfalldaten');
       setCategories([]);
-      setItems([]);
+      setActiveItems([]);
+      setHistoryItems([]);
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    if (!onTaskEvent) {
+      return undefined;
+    }
+
+    const cleanupFns = [];
+
+    const handleTaskChange = (data) => {
+      const task = data?.task || data;
+      if (!task || task.category !== 'waste') {
+        return;
+      }
+
+      const relevantStatuses = ['done', 'todo', 'in_progress', 'backlog'];
+      if (relevantStatuses.includes(task.status)) {
+        loadData({ silent: true });
+      }
+    };
+
+    const handleTaskDeleted = (data) => {
+      const deletedTaskId = data?.taskId || data?.task?.id;
+      if (!deletedTaskId) {
+        return;
+      }
+      setActiveItems((prev) => prev.filter((item) => item.kanban_task_id !== deletedTaskId));
+      setHistoryItems((prev) => prev.filter((item) => item.kanban_task_id !== deletedTaskId));
+    };
+
+    cleanupFns.push(onTaskEvent('task:created', handleTaskChange));
+    cleanupFns.push(onTaskEvent('task:updated', handleTaskChange));
+    cleanupFns.push(onTaskEvent('task:deleted', handleTaskDeleted));
+
+    return () => {
+      cleanupFns.forEach((cleanup) => {
+        if (typeof cleanup === 'function') {
+          cleanup();
+        }
+      });
+    };
+  }, [onTaskEvent, loadData]);
+
+  const resetForm = () => {
+    setQuantity('');
+    setLocation('');
+    setNotes('');
+    setNextDate('');
+    setAttachments([]);
   };
 
-  const handleFileUpload = async (e) => {
-    const files = Array.from(e.target.files);
-    const formData = new FormData();
+  const handleSelectCategory = (category) => {
+    setSelectedCategory(category);
+    resetForm();
+  };
 
-    files.forEach(file => {
-      formData.append('files', file);
-    });
+  const handleFileUpload = async (event) => {
+    const files = Array.from(event.target.files || []);
+    if (!files.length) return;
+
+    const formData = new FormData();
+    files.forEach((file) => formData.append('files', file));
+    formData.append('context', 'task');
 
     try {
+      setUploading(true);
       const response = await api.post('/uploads/multiple', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      setMediaFiles([...mediaFiles, ...response.data.files]);
-      showSuccess(`${files.length} Datei(en) hochgeladen`);
+      const uploaded = response.data?.files || [];
+      if (!uploaded.length) {
+        showError('Keine Dateien hochgeladen');
+        return;
+      }
+      setAttachments((prev) => [...prev, ...uploaded]);
+      showSuccess(`${uploaded.length} Datei(en) hinzugefügt`);
     } catch (error) {
       console.error('Upload error:', error);
       showError('Fehler beim Hochladen');
+    } finally {
+      setUploading(false);
+      event.target.value = '';
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const removeAttachment = (index) => {
+    setAttachments((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (!selectedCategory) {
+      showError('Bitte zuerst eine Kategorie auswählen');
+      return;
+    }
+
     try {
-      const data = {
-        template_id: formData.category_id,
-        name: categories.find(c => c.id === parseInt(formData.category_id))?.name || 'Abfall',
-        location: formData.location,
-        quantity: formData.quantity,
-        unit: 'Stück',
-        notes: formData.notes
+      setSaving(true);
+
+      const generatedNameParts = [
+        selectedCategory.name,
+        quantity ? `${quantity} ${selectedCategory.default_unit || 'Stück'}` : null,
+        location ? `@ ${location}` : null
+      ].filter(Boolean);
+      const generatedName = generatedNameParts.join(' ');
+
+      const payload = {
+        template_id: selectedCategory.id,
+        name: generatedName || selectedCategory.name,
+        location,
+        quantity,
+        unit: selectedCategory.default_unit || 'Stück',
+        next_disposal_date: nextDate || null,
+        notes,
+        attachments
       };
 
-      await api.post('/waste/items', data);
-      showSuccess('Abfallposten erstellt');
-      setShowModal(false);
-      setFormData({ category_id: '', quantity: '', location: '', notes: '', status: 'pending' });
-      setMediaFiles([]);
-      loadData();
+      const response = await api.post('/waste/items', payload);
+      const createdItem = response?.data;
+      if (createdItem) {
+        setActiveItems((prev) => [createdItem, ...prev]);
+      }
+
+      showSuccess('Abfallposten erfasst & Kanban-Aufgabe erstellt');
+      resetForm();
+      await loadData({ silent: true });
     } catch (error) {
       console.error('Error creating waste item:', error);
-      showError('Fehler beim Erstellen');
+      const message = error?.response?.data?.error || 'Fehler beim Erstellen';
+      showError(message);
+    } finally {
+      setSaving(false);
     }
   };
+
+  const activeCategories = useMemo(() => categories, [categories]);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div className="flex items-center justify-center py-16">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
       </div>
     );
   }
 
   return (
-    <div className="px-4 sm:px-6 py-4 sm:py-6 max-w-7xl mx-auto space-y-6 sm:space-y-8">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Abfallmanagement</h1>
-          <p className="text-gray-600 mt-1">Verwalte Abfallkategorien und Entsorgung</p>
-        </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition"
-        >
-          <Plus className="w-5 h-5" />
-          Neuer Eintrag
-        </button>
-      </div>
-
-      {/* Categories Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {categories.map(cat => (
-          <div
-            key={cat.id}
-            onClick={() => setSelectedCategory(cat)}
-            className="p-4 rounded-xl border-2 cursor-pointer hover:shadow-lg transition-all"
-            style={{ borderColor: cat.color, backgroundColor: `${cat.color}10` }}
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <span className="text-3xl">{cat.icon}</span>
-              <div className="flex-1">
-                <h3 className="font-bold text-gray-900">{cat.name}</h3>
-                <p className="text-xs text-gray-600">{cat.disposal_frequency}</p>
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 pb-28">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-8">
+        <section className="bg-white rounded-3xl shadow-lg border border-slate-200 p-6 sm:p-8 space-y-6">
+          <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-sm font-semibold">
+                <Leaf className="w-4 h-4" />
+                Abfallmanagement
               </div>
-            </div>
-            <p className="text-sm text-gray-700 line-clamp-2">{cat.description}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Selected Category Details */}
-      {selectedCategory && (
-        <div className="mb-8 p-6 bg-white rounded-xl shadow-lg border-2" style={{ borderColor: selectedCategory.color }}>
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <span className="text-5xl">{selectedCategory.icon}</span>
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">{selectedCategory.name}</h2>
-                <p className="text-gray-600">{selectedCategory.description}</p>
-              </div>
+              <h1 className="mt-3 text-3xl font-bold text-slate-900">
+                Schnellerfassung & Nachverfolgung
+              </h1>
+              <p className="text-slate-500 max-w-2xl">
+                Wähle eine Kategorie, erfasse Menge & Ort, füge Belege hinzu – der Rest landet automatisch im Kanban und verschwindet nach Abschluss.
+              </p>
             </div>
             <button
-              onClick={() => setSelectedCategory(null)}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              onClick={loadData}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white font-semibold rounded-xl hover:bg-slate-800 transition"
             >
-              <X className="w-5 h-5" />
+              <Loader2 className="w-4 h-4 animate-spin mr-1 hidden" />
+              Aktualisieren
             </button>
-          </div>
+          </header>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h3 className="font-bold text-gray-900 mb-2 flex items-center gap-2">
-                <FileText className="w-5 h-5" />
-                Anweisungen
-              </h3>
-              <p className="text-gray-700 bg-blue-50 p-3 rounded-lg">{selectedCategory.instructions}</p>
-            </div>
-            <div>
-              <h3 className="font-bold text-red-900 mb-2 flex items-center gap-2">
-                ⚠️ Sicherheitshinweise
-              </h3>
-              <p className="text-red-700 bg-red-50 p-3 rounded-lg">{selectedCategory.safety_notes}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Recent Items */}
-      <div>
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Letzte Einträge</h2>
-        <div className="space-y-3">
-          {items.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              Keine Einträge vorhanden. Erstellen Sie einen neuen Eintrag.
-            </div>
-          ) : (
-            items.map(item => {
-              const category = categories.find(c => c.id === item.template_id);
-              return (
-                <div key={item.id} className="p-4 bg-white rounded-lg shadow border-l-4" style={{ borderLeftColor: category?.color || '#ccc' }}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">{category?.icon || '📦'}</span>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-4">
+              <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">
+                Kategorie wählen
+              </h2>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {activeCategories.map((category) => (
+                  <button
+                    key={category.id}
+                    type="button"
+                    onClick={() => handleSelectCategory(category)}
+                    className={`p-4 text-left rounded-2xl border transition ${
+                      selectedCategory?.id === category.id
+                        ? 'border-blue-500 bg-blue-50 shadow-md'
+                        : 'border-slate-200 hover:border-blue-300 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="text-2xl">{category.icon || '♻️'}</span>
                       <div>
-                        <h4 className="font-bold text-gray-900">{item.name || category?.name}</h4>
-                        <p className="text-sm text-gray-600">{item.location} • {item.quantity} {item.unit}</p>
+                        <p className="font-semibold text-slate-900">{category.name}</p>
+                        <p className="text-xs text-slate-500">
+                          {category.hazard_level ? category.hazard_level.toUpperCase() : 'Standard'}
+                        </p>
                       </div>
                     </div>
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                      item.status === 'disposed' ? 'bg-green-100 text-green-800' :
-                      item.status === 'archived' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
-                      {item.status === 'disposed' ? 'Entsorgt' : item.status === 'archived' ? 'Archiviert' : 'Aktiv'}
-                    </span>
-                  </div>
-                  {item.notes && <p className="mt-2 text-sm text-gray-700">{item.notes}</p>}
-                </div>
-              );
-            })
-          )}
-        </div>
-      </div>
-
-      {/* Create Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-gray-900">Neuer Abfallposten</h3>
-              <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
-                <X className="w-5 h-5" />
-              </button>
+                    <p className="text-xs text-slate-500 line-clamp-2">{category.description}</p>
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Kategorie *</label>
-                <select
-                  value={formData.category_id}
-                  onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
-                  required
-                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+            <div className="bg-slate-900 text-white rounded-2xl p-5 shadow-xl space-y-3">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <CalendarDays className="w-5 h-5" />
+                Heute fällig
+              </h3>
+              <p className="text-sm text-slate-200">
+                Diese Kategorien sollten laut Plan innerhalb der nächsten Tage entsorgt werden.
+              </p>
+              <ul className="space-y-2">
+                {activeItems.slice(0, 5).map((item) => (
+                  <li
+                    key={`timeline-${item.id}`}
+                    className="flex items-center justify-between text-sm bg-white/10 rounded-xl px-3 py-2"
+                  >
+                    <span className="font-semibold">{item.template_name || item.name}</span>
+                    <span className="text-xs text-slate-200 flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {item.next_disposal_date
+                        ? new Date(item.next_disposal_date).toLocaleDateString('de-DE')
+                        : 'sofort'}
+                    </span>
+                  </li>
+                ))}
+                {activeItems.length === 0 && (
+                  <li className="text-xs text-slate-300">Keine offenen Einträge.</li>
+                )}
+              </ul>
+            </div>
+          </div>
+
+          {selectedCategory ? (
+            <form onSubmit={handleSubmit} className="bg-slate-50 rounded-3xl border border-slate-200 p-5 space-y-5">
+              <header className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center text-2xl shadow">
+                  {selectedCategory.icon || '♻️'}
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold text-slate-900">{selectedCategory.name}</h3>
+                  <p className="text-sm text-slate-600">
+                    {selectedCategory.description ||
+                      'Erfasse die Details und füge optional Nachweise hinzu.'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCategory(null)}
+                  className="text-slate-400 hover:text-slate-600"
                 >
-                  <option value="">Kategorie wahlen...</option>
-                  {categories.map(cat => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.icon} {cat.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                  <X className="w-5 h-5" />
+                </button>
+              </header>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Menge *</label>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <label className="flex flex-col gap-2">
+                  <span className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                    <Hash className="w-4 h-4 text-blue-600" />
+                    Menge
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="z. B. 5"
+                    value={quantity}
+                    onChange={(event) => setQuantity(event.target.value)}
+                    className="px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
+                  />
+                </label>
+
+                <label className="flex flex-col gap-2">
+                  <span className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-blue-600" />
+                    Standort
+                  </span>
                   <input
                     type="text"
-                    value={formData.quantity}
-                    onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                    required
-                    placeholder="z.B. 5 Liter"
-                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                    placeholder="Lagerraum, Regal, etc."
+                    value={location}
+                    onChange={(event) => setLocation(event.target.value)}
+                    className="px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Standort *</label>
+                </label>
+
+                <label className="flex flex-col gap-2">
+                  <span className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                    <CalendarDays className="w-4 h-4 text-blue-600" />
+                    Spätestens entsorgen bis
+                  </span>
                   <input
-                    type="text"
-                    value={formData.location}
-                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                    required
-                    placeholder="z.B. Labor 3"
-                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                    type="date"
+                    value={nextDate}
+                    onChange={(event) => setNextDate(event.target.value)}
+                    className="px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
                   />
-                </div>
+                </label>
               </div>
 
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Notizen</label>
+              <label className="flex flex-col gap-2">
+                <span className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                  <ClipboardList className="w-4 h-4 text-blue-600" />
+                  Hinweise
+                </span>
                 <textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  rows="3"
-                  placeholder="Zusatzliche Informationen..."
-                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                  rows="4"
+                  placeholder="Spezifische Informationen zur Entsorgung, Ansprechpartner, etc."
+                  value={notes}
+                  onChange={(event) => setNotes(event.target.value)}
+                  className="px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition resize-none"
                 />
+              </label>
+
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <label className="px-4 py-2 inline-flex items-center gap-2 bg-white border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-blue-400 transition">
+                    <Upload className="w-4 h-4 text-blue-600" />
+                    <span className="text-sm text-slate-700">
+                      {uploading ? 'Lade hoch...' : 'Foto oder Audio anhängen'}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*,audio/*"
+                      multiple
+                      className="hidden"
+                      onChange={handleFileUpload}
+                    />
+                  </label>
+                  {attachments.length > 0 && (
+                    <span className="text-xs text-slate-500">{attachments.length} Datei(en) angehängt</span>
+                  )}
+                </div>
+
+                {attachments.length > 0 && (
+                  <div className="flex flex-wrap gap-3">
+                    {attachments.map((file, index) => (
+                      <div
+                        key={`${file.id || file.url}-${index}`}
+                        className="relative bg-white border border-slate-200 rounded-xl p-3 shadow-sm w-40"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => removeAttachment(index)}
+                          className="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full w-6 h-6 flex items-center justify-center shadow"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                        {file.type === 'image' ? (
+                          <img
+                            src={file.url}
+                            alt={file.name || 'Anhang'}
+                            className="h-28 w-full object-cover rounded-lg"
+                          />
+                        ) : file.type === 'audio' ? (
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 text-xs text-slate-500">
+                              <Mic className="w-4 h-4 text-blue-600" />
+                              {file.name || 'Audio'}
+                            </div>
+                            <audio controls src={file.url} className="w-full" />
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center gap-2 text-xs text-slate-500">
+                            <ImageIcon className="w-5 h-5 text-blue-600" />
+                            <span>{file.name || 'Datei'}</span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Medien (Fotos/Audio/Dokumente)</label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                  <input
-                    type="file"
-                    multiple
-                    accept="image/*,audio/*,.pdf,.doc,.docx"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                    id="file-upload"
-                  />
-                  <label htmlFor="file-upload" className="cursor-pointer">
-                    <Upload className="w-12 h-12 mx-auto mb-2 text-gray-400" />
-                    <p className="text-sm text-gray-600">Dateien hochladen</p>
-                  </label>
-                  {mediaFiles.length > 0 && (
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {mediaFiles.map((file, idx) => (
-                        <div key={idx} className="px-3 py-1 bg-blue-100 text-blue-800 rounded-lg text-sm flex items-center gap-2">
-                          {file.mimetype?.startsWith('image/') && <ImageIcon className="w-4 h-4" />}
-                          {file.mimetype?.startsWith('audio/') && <Mic className="w-4 h-4" />}
-                          {file.originalname}
-                        </div>
+              <button
+                type="submit"
+                disabled={saving}
+                className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition disabled:opacity-60"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Wird gespeichert...
+                  </>
+                ) : (
+                  <>
+                    <PlusCircle className="w-5 h-5" />
+                    Abfallposten erfassen
+                  </>
+                )}
+              </button>
+            </form>
+          ) : (
+            <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center text-slate-500">
+              Wähle links eine Kategorie aus, um einen neuen Eintrag zu erstellen.
+            </div>
+          )}
+        </section>
+
+        <section className="space-y-4">
+          <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-orange-500" />
+              Offene Abfallposten ({activeItems.length})
+            </h2>
+          </header>
+
+          {activeItems.length === 0 ? (
+            <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center text-slate-500">
+              Keine offenen Posten. Alles erledigt!
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {activeItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-3"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-slate-400">
+                        {item.template_name || 'Unbekannt'}
+                      </p>
+                      <h3 className="text-lg font-semibold text-slate-900">{item.name}</h3>
+                      {item.location && (
+                        <p className="text-sm text-slate-500 flex items-center gap-2">
+                          <MapPin className="w-4 h-4 text-blue-500" />
+                          {item.location}
+                        </p>
+                      )}
+                    </div>
+                    <span className="text-xs font-semibold px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">
+                      {item.quantity ? `${item.quantity} ${item.unit || ''}` : 'Erfasst'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-3 text-xs text-slate-500">
+                    <span className="flex items-center gap-1">
+                      <CalendarDays className="w-4 h-4 text-blue-500" />
+                      {item.next_disposal_date
+                        ? new Date(item.next_disposal_date).toLocaleDateString('de-DE')
+                        : 'keine Frist'}
+                    </span>
+                    {item.task_priority && (
+                      <span className="uppercase font-semibold text-orange-600">
+                        {item.task_priority}
+                      </span>
+                    )}
+                  </div>
+
+                    {item.notes && (
+                      <p className="text-sm text-slate-600 bg-slate-100 rounded-xl px-3 py-2">
+                        {item.notes}
+                      </p>
+                    )}
+
+                  {Array.isArray(item.attachments) && item.attachments.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {item.attachments.map((att) => (
+                        <a
+                          key={att.id}
+                          href={att.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-600 hover:bg-slate-100"
+                        >
+                          {att.type === 'image' && <ImageIcon className="w-4 h-4 text-blue-500" />}
+                          {att.type === 'audio' && <Mic className="w-4 h-4 text-blue-500" />}
+                          <span>{att.name || att.url.split('/').pop()}</span>
+                        </a>
                       ))}
                     </div>
                   )}
-                </div>
-              </div>
 
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  Abbrechen
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Erstellen
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+                  <div className="flex flex-wrap gap-2">
+                    {item.kanban_task_id && (
+                      <button
+                        type="button"
+                        onClick={() => navigate('/task-pool', { state: { highlightTask: item.kanban_task_id } })}
+                        className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700"
+                      >
+                        Kanban öffnen
+                        <ArrowUpRight className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="space-y-3">
+          <header className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-slate-900">Historie</h2>
+            <span className="text-xs text-slate-500">
+              Zuletzt erledigt: {historyItems.length}
+            </span>
+          </header>
+          {historyItems.length === 0 ? (
+            <div className="text-sm text-slate-500">
+              Keine erledigten Abfallposten.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {historyItems.slice(0, 6).map((item) => (
+                <div key={`history-${item.id}`} className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+                  <p className="text-xs uppercase tracking-wide text-slate-400">
+                    {item.template_name || 'Kategorie'}
+                  </p>
+                  <h3 className="text-sm font-semibold text-slate-800">{item.name}</h3>
+                  <p className="text-xs text-slate-500 mt-2">
+                    Erledigt am{' '}
+                    {item.last_disposal_date
+                      ? new Date(item.last_disposal_date).toLocaleDateString('de-DE')
+                      : '-'}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
     </div>
   );
 };

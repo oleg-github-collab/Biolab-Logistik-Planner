@@ -109,4 +109,37 @@ router.post('/', auth, upload.single('file'), async (req, res) => {
   }
 });
 
+router.post('/multiple', auth, upload.array('files', 10), async (req, res) => {
+  if (!req.files || !req.files.length) {
+    return res.status(400).json({ error: 'Keine Dateien hochgeladen' });
+  }
+
+  try {
+    const context = req.body.context || 'general';
+    const payload = req.files.map((file) =>
+      mapFileToPayload(file, {
+        context,
+        conversationId: req.body.conversationId ? Number(req.body.conversationId) : undefined,
+        eventId: req.body.eventId ? Number(req.body.eventId) : undefined
+      })
+    );
+
+    logger.info('Multiple files uploaded', {
+      userId: req.user.id,
+      context,
+      count: payload.length
+    });
+
+    res.status(201).json({ files: payload });
+  } catch (error) {
+    logger.error('Multiple file upload failed', { error: error.message });
+    req.files.forEach((file) => {
+      if (file?.path && fs.existsSync(file.path)) {
+        fs.unlinkSync(file.path);
+      }
+    });
+    res.status(500).json({ error: 'Upload fehlgeschlagen' });
+  }
+});
+
 module.exports = router;

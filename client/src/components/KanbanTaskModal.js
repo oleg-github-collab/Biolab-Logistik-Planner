@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { X, Calendar, User, Flag, Tag, Clock, Plus, MessageCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import TaskComments from './TaskComments';
@@ -22,6 +22,34 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
   });
 
   const [tagInput, setTagInput] = useState('');
+
+  const normalizedAttachments = useMemo(() => {
+    if (!task || !Array.isArray(task.attachments)) {
+      return [];
+    }
+
+    return task.attachments.map((attachment) => {
+      const mime = attachment.mimeType || attachment.mime_type || '';
+      const derivedType = attachment.type || attachment.file_type || (
+        mime.startsWith('image/') ? 'image' :
+        mime.startsWith('audio/') ? 'audio' :
+        mime.startsWith('video/') ? 'video' :
+        'document'
+      );
+
+      const url = attachment.url || attachment.file_url || '';
+      const name = attachment.name || attachment.file_name || (url ? url.split('/').pop() : '');
+
+      return {
+        id: attachment.id,
+        type: derivedType,
+        url,
+        name,
+        mimeType: mime,
+        raw: attachment
+      };
+    }).filter((attachment) => Boolean(attachment.url));
+  }, [task]);
 
   useEffect(() => {
     if (task) {
@@ -110,6 +138,50 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
               className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-200 transition-all resize-none"
             />
           </div>
+
+          {normalizedAttachments.length > 0 && (
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">
+                Anhänge
+              </label>
+              <div className="flex flex-wrap gap-3">
+                {normalizedAttachments.map((attachment) => {
+                  const key = attachment.id || attachment.url;
+                  if (attachment.type === 'image') {
+                    return (
+                      <img
+                        key={key}
+                        src={attachment.url}
+                        alt={attachment.name || 'Anhang'}
+                        className="h-24 w-24 object-cover rounded-lg border border-gray-200"
+                      />
+                    );
+                  }
+                  if (attachment.type === 'audio') {
+                    return (
+                      <div key={key} className="w-full max-w-xs border border-gray-200 rounded-lg p-2 bg-gray-50">
+                        <p className="text-xs text-gray-500 mb-1 truncate">
+                          {attachment.name || 'Audio'}
+                        </p>
+                        <audio controls src={attachment.url} className="w-full" />
+                      </div>
+                    );
+                  }
+                  return (
+                    <a
+                      key={key}
+                      href={attachment.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-gray-100 text-xs text-gray-600 hover:bg-gray-200"
+                    >
+                      📎 {attachment.name || attachment.url.split('/').pop()}
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>

@@ -292,14 +292,53 @@ router.delete('/templates/:id', [auth, adminAuth], async (req, res) => {
 router.get('/items', auth, async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT wi.*, wt.name as template_name, wt.description, wt.color, wt.icon,
-              wt.hazard_level, wt.category, wt.disposal_frequency_days
+      `SELECT
+         wi.*,
+         wt.name as template_name,
+         wt.description as template_description,
+         wt.color,
+         wt.icon,
+         wt.hazard_level,
+         wt.category,
+         wt.disposal_frequency_days,
+         t.status AS task_status,
+         t.priority AS task_priority,
+         t.due_date AS task_due_date,
+         t.assigned_to AS task_assigned_to,
+         COALESCE(
+           json_agg(
+             DISTINCT jsonb_build_object(
+               'id', ta.id,
+               'type', ta.file_type,
+               'url', CASE
+                        WHEN ta.file_url IS NULL THEN NULL
+                        WHEN ta.file_url LIKE '/%' THEN ta.file_url
+                        ELSE '/' || ta.file_url
+                      END,
+               'name', ta.file_name,
+               'mimeType', ta.mime_type,
+               'size', ta.file_size
+             )
+           ) FILTER (WHERE ta.id IS NOT NULL),
+           '[]'::json
+         ) AS attachments
        FROM waste_items wi
        LEFT JOIN waste_templates wt ON wi.template_id = wt.id
-       ORDER BY wi.next_disposal_date ASC, wt.name ASC`
+       LEFT JOIN tasks t ON wi.kanban_task_id = t.id
+       LEFT JOIN task_attachments ta ON t.id = ta.task_id
+       GROUP BY wi.id, wt.id, t.id
+       ORDER BY wi.status = 'disposed' DESC, wi.next_disposal_date ASC NULLS LAST, wt.name ASC`
     );
 
-    res.json(result.rows);
+    const rows = result.rows.map((row) => ({
+      ...row,
+      attachments: Array.isArray(row.attachments) ? row.attachments : []
+    }));
+
+    const active = rows.filter((row) => row.status !== 'disposed');
+    const history = rows.filter((row) => row.status === 'disposed');
+
+    res.json({ active, history });
   } catch (error) {
     console.error('Datenbankfehler:', error);
     res.status(500).json({ error: 'Serverfehler' });
@@ -309,61 +348,186 @@ router.get('/items', auth, async (req, res) => {
 // @route   POST /api/waste/items
 // @desc    Create a new waste item
 router.post('/items', auth, async (req, res) => {
-  const { template_id, name, location, quantity, unit, next_disposal_date, notes } = req.body;
+  const {
+    template_id,
+    name,
+    location,
+    quantity,
+    unit,
+    next_disposal_date,
+    notes,
+    attachments = []
+  } = req.body;
+
+  if (!template_id) {
+    return res.status(400).json({ error: 'Template-ID ist erforderlich' });
+  }
+
+  if (!name || !name.trim()) {
+    return res.status(400).json({ error: 'Name ist erforderlich' });
+  }
+
+  if (quantity !== undefined && quantity !== null && isNaN(parseFloat(quantity))) {
+    return res.status(400).json({ error: 'Ungültige Menge' });
+  }
+
+  const sanitizedName = sanitizeInput(name);
+  const sanitizedLocation = sanitizeInput(location);
+  const sanitizedNotes = sanitizeInput(notes);
+
+  const client = await pool.connect();
 
   try {
-    // Validate inputs
-    if (!template_id) {
-      return res.status(400).json({ error: 'Template-ID ist erforderlich' });
-    }
+    await client.query('BEGIN');
 
-    if (!name || !name.trim()) {
-      return res.status(400).json({ error: 'Name ist erforderlich' });
-    }
-
-    // XSS Protection
-    const sanitizedName = sanitizeInput(name);
-    const sanitizedLocation = sanitizeInput(location);
-    const sanitizedNotes = sanitizeInput(notes);
-
-    // Validate template exists
-    const templateCheck = await pool.query(
-      'SELECT id FROM waste_templates WHERE id = $1',
+    const templateResult = await client.query(
+      'SELECT * FROM waste_templates WHERE id = $1',
       [template_id]
     );
 
-    if (templateCheck.rows.length === 0) {
+    if (templateResult.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(400).json({ error: 'Ungültige Template-ID' });
     }
 
-    // Validate quantity if provided
-    if (quantity !== undefined && quantity !== null && isNaN(parseFloat(quantity))) {
-      return res.status(400).json({ error: 'Ungültige Menge' });
-    }
+    const template = templateResult.rows[0];
 
-    const result = await pool.query(
+    const itemResult = await client.query(
       `INSERT INTO waste_items (
         template_id, name, location, quantity, unit,
-        next_disposal_date, notes, created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+        status, next_disposal_date, notes, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, 'active', $6, $7, NOW(), NOW())
       RETURNING *`,
-      [template_id, sanitizedName, sanitizedLocation, quantity, unit, next_disposal_date, sanitizedNotes]
+      [
+        template_id,
+        sanitizedName,
+        sanitizedLocation,
+        quantity,
+        unit || 'Stück',
+        next_disposal_date || null,
+        sanitizedNotes
+      ]
     );
 
-    // Get the created item with template data
-    const itemWithTemplate = await pool.query(
-      `SELECT wi.*, wt.name as template_name, wt.description, wt.color, wt.icon,
-              wt.hazard_level, wt.category, wt.disposal_frequency_days
+    const item = itemResult.rows[0];
+
+    const taskTitle = `Abfall: ${sanitizedName}`;
+    const taskDescriptionParts = [
+      `Kategorie: ${template.name}`,
+      sanitizedLocation ? `Ort: ${sanitizedLocation}` : null,
+      quantity ? `Menge: ${quantity} ${unit || 'Stück'}` : null,
+      sanitizedNotes ? `Hinweise: ${sanitizedNotes}` : null
+    ].filter(Boolean);
+    const taskDescription = taskDescriptionParts.join('\n');
+    const dueDate = next_disposal_date || new Date().toISOString().split('T')[0];
+
+    const taskResult = await client.query(
+      `INSERT INTO tasks (
+        title, description, status, priority, due_date, category,
+        created_by, labels, checklist, created_at, updated_at
+      ) VALUES ($1, $2, 'todo', 'high', $3, 'waste', $4, $5, $6, NOW(), NOW())
+      RETURNING *`,
+      [
+        taskTitle,
+        taskDescription || `Abfall aus Kategorie ${template.name}`,
+        dueDate,
+        req.user.id,
+        ['waste', template.category || ''],
+        null
+      ]
+    );
+
+    const task = taskResult.rows[0];
+
+    if (Array.isArray(attachments) && attachments.length > 0) {
+      for (const attachment of attachments) {
+        if (!attachment?.url) continue;
+
+        let detectedType = attachment.type || 'document';
+        if (!detectedType && attachment.mimeType) {
+          if (attachment.mimeType.startsWith('image/')) detectedType = 'image';
+          else if (attachment.mimeType.startsWith('audio/')) detectedType = 'audio';
+          else if (attachment.mimeType.startsWith('video/')) detectedType = 'video';
+          else detectedType = 'document';
+        }
+
+        await client.query(
+          `INSERT INTO task_attachments (
+            task_id, file_type, file_url, file_name, file_size, mime_type, uploaded_by, created_at, updated_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())`,
+          [
+            task.id,
+            detectedType,
+            attachment.url,
+            attachment.name || null,
+            attachment.size || null,
+            attachment.mimeType || null,
+            req.user.id
+          ]
+        );
+      }
+    }
+
+    await client.query(
+      `UPDATE waste_items
+         SET kanban_task_id = $1,
+             updated_at = NOW()
+       WHERE id = $2`,
+      [task.id, item.id]
+    );
+
+    await client.query('COMMIT');
+
+    const aggregated = await pool.query(
+      `SELECT
+         wi.*,
+         wt.name as template_name,
+         wt.description as template_description,
+         wt.color,
+         wt.icon,
+         wt.hazard_level,
+         wt.category,
+         wt.disposal_frequency_days,
+         t.status AS task_status,
+         t.priority AS task_priority,
+         t.due_date AS task_due_date,
+         t.assigned_to AS task_assigned_to,
+         COALESCE(
+           json_agg(
+             DISTINCT jsonb_build_object(
+               'id', ta.id,
+               'type', ta.file_type,
+               'url', CASE
+                        WHEN ta.file_url IS NULL THEN NULL
+                        WHEN ta.file_url LIKE '/%' THEN ta.file_url
+                        ELSE '/' || ta.file_url
+                      END,
+               'name', ta.file_name,
+               'mimeType', ta.mime_type,
+               'size', ta.file_size
+             )
+           ) FILTER (WHERE ta.id IS NOT NULL),
+           '[]'::json
+         ) AS attachments
        FROM waste_items wi
        LEFT JOIN waste_templates wt ON wi.template_id = wt.id
-       WHERE wi.id = $1`,
-      [result.rows[0].id]
+       LEFT JOIN tasks t ON wi.kanban_task_id = t.id
+       LEFT JOIN task_attachments ta ON t.id = ta.task_id
+       WHERE wi.id = $1
+       GROUP BY wi.id, wt.id, t.id`,
+      [item.id]
     );
 
-    res.json(itemWithTemplate.rows[0]);
+    const payload = aggregated.rows[0] || { ...item, attachments: [] };
+    payload.attachments = Array.isArray(payload.attachments) ? payload.attachments : [];
+
+    res.json(payload);
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error('Datenbankfehler beim Erstellen des Abfallelements:', error);
     res.status(500).json({ error: 'Serverfehler' });
+  } finally {
+    client.release();
   }
 });
 
@@ -462,8 +626,30 @@ router.put('/items/:id', auth, async (req, res) => {
     const query = `UPDATE waste_items SET ${updateFields.join(', ')} WHERE id = $${paramCount} RETURNING *`;
 
     const result = await pool.query(query, values);
+    const updatedItem = result.rows[0];
 
-    res.json({ message: 'Abfallelement erfolgreich aktualisiert', item: result.rows[0] });
+    if (updatedItem.kanban_task_id) {
+      if (status === 'disposed') {
+        await pool.query(
+          `UPDATE tasks
+              SET status = 'done',
+                  completed_at = COALESCE(completed_at, CURRENT_TIMESTAMP),
+                  updated_at = CURRENT_TIMESTAMP
+            WHERE id = $1`,
+          [updatedItem.kanban_task_id]
+        );
+      } else if (status === 'active') {
+        await pool.query(
+          `UPDATE tasks
+              SET status = 'todo',
+                  updated_at = CURRENT_TIMESTAMP
+            WHERE id = $1`,
+          [updatedItem.kanban_task_id]
+        );
+      }
+    }
+
+    res.json({ message: 'Abfallelement erfolgreich aktualisiert', item: updatedItem });
   } catch (error) {
     console.error('Datenbankfehler:', error);
     res.status(500).json({ error: 'Serverfehler' });
@@ -481,13 +667,18 @@ router.delete('/items/:id', auth, adminAuth, async (req, res) => {
       return res.status(400).json({ error: 'Ungültige ID' });
     }
 
-    const result = await pool.query(
-      'DELETE FROM waste_items WHERE id = $1 RETURNING id',
+    const itemResult = await pool.query(
+      'DELETE FROM waste_items WHERE id = $1 RETURNING id, kanban_task_id',
       [id]
     );
 
-    if (result.rows.length === 0) {
+    if (itemResult.rows.length === 0) {
       return res.status(404).json({ error: 'Abfallelement nicht gefunden' });
+    }
+
+    const taskId = itemResult.rows[0].kanban_task_id;
+    if (taskId) {
+      await pool.query('DELETE FROM tasks WHERE id = $1', [taskId]);
     }
 
     res.json({ message: 'Abfallelement erfolgreich gelöscht' });

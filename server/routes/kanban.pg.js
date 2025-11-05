@@ -222,6 +222,26 @@ router.put('/tasks/:id', auth, async (req, res) => {
         INSERT INTO task_activity_log (task_id, user_id, action_type, old_value, new_value)
         VALUES ($1, $2, 'status_changed', $3, $4)
       `, [id, req.user.id, oldTask.rows[0].status, status]);
+
+      if (status === 'done') {
+        await client.query(
+          `UPDATE waste_items
+              SET status = 'disposed',
+                  last_disposal_date = COALESCE(last_disposal_date, CURRENT_TIMESTAMP),
+                  updated_at = CURRENT_TIMESTAMP
+            WHERE kanban_task_id = $1`,
+          [id]
+        );
+      } else if (['todo', 'in_progress', 'backlog'].includes(status)) {
+        await client.query(
+          `UPDATE waste_items
+              SET status = 'active',
+                  last_disposal_date = NULL,
+                  updated_at = CURRENT_TIMESTAMP
+            WHERE kanban_task_id = $1`,
+          [id]
+        );
+      }
     }
 
     await client.query('COMMIT');

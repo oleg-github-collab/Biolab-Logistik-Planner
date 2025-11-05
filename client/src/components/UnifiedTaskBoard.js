@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { format, parseISO, isToday } from 'date-fns';
 import { de } from 'date-fns/locale';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   ClipboardList,
   Users,
@@ -23,7 +24,8 @@ import {
   completeTask,
   createTask,
   updateKanbanTask,
-  getAllContacts
+  getAllContacts,
+  getKanbanTask
 } from '../utils/apiEnhanced';
 import { showSuccess, showError, showInfo } from '../utils/toast';
 
@@ -107,6 +109,8 @@ const UnifiedTaskBoard = () => {
   const auth = useAuth();
   const { t } = useLocale();
   const user = auth?.user;
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [showTaskModal, setShowTaskModal] = useState(false);
@@ -309,6 +313,18 @@ const UnifiedTaskBoard = () => {
     setShowTaskModal(true);
   };
 
+  const openTaskModal = useCallback(async (taskId) => {
+    try {
+      const response = await getKanbanTask(taskId);
+      const taskDetails = response?.data || response;
+      setEditingTask(taskDetails);
+      setShowTaskModal(true);
+    } catch (error) {
+      console.error('Error loading task details', error);
+      showError('Aufgabe konnte nicht geladen werden');
+    }
+  }, []);
+
   const handleTaskSave = async (taskData) => {
     try {
       if (editingTask?.id) {
@@ -332,6 +348,14 @@ const UnifiedTaskBoard = () => {
       showError(err.response?.data?.error || 'Fehler beim Speichern der Aufgabe');
     }
   };
+
+  useEffect(() => {
+    const highlightTask = location.state?.highlightTask;
+    if (highlightTask) {
+      openTaskModal(highlightTask);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, navigate, openTaskModal]);
 
   const determineMoveAction = (sourceId, destId) => {
     if (sourceId === destId) {
@@ -425,117 +449,135 @@ const UnifiedTaskBoard = () => {
     return (
       <Draggable key={taskId} draggableId={String(taskId)} index={index}>
         {(provided, snapshot) => (
-          <div
-            ref={provided.innerRef}
-            {...provided.draggableProps}
-            {...provided.dragHandleProps}
-            className={`bg-white rounded-xl border p-4 mb-3 shadow-sm transition-all ${
-              snapshot.isDragging ? 'ring-2 ring-indigo-200 shadow-lg rotate-1' : ''
-            }`}
-          >
-            <div className="flex items-start justify-between gap-3 mb-3">
-              <div>
-                <p className="text-sm font-semibold text-slate-800 mb-1">{task.title}</p>
-                {task.description && (
-                  <p className="text-xs text-slate-500 line-clamp-3">{task.description}</p>
+          <div ref={provided.innerRef} className="mb-3">
+            <div
+              className={`bg-white rounded-xl border p-4 shadow-sm transition-all cursor-pointer ${
+                snapshot.isDragging ? 'ring-2 ring-indigo-200 shadow-lg rotate-1' : ''
+              }`}
+              onClick={() => {
+                if (!snapshot.isDragging) {
+                  openTaskModal(taskId);
+                }
+              }}
+            >
+              <div
+                className="flex items-start justify-between gap-3 mb-3"
+                {...provided.dragHandleProps}
+              >
+                <div>
+                  <p className="text-sm font-semibold text-slate-800 mb-1">{task.title}</p>
+                  {task.description && (
+                    <p className="text-xs text-slate-500 line-clamp-3 whitespace-pre-line">
+                      {task.description}
+                    </p>
+                  )}
+                </div>
+                <span
+                  className={`text-[11px] font-medium px-2 py-1 rounded-full border uppercase tracking-wide ${priority.className}`}
+                >
+                  {priority.label}
+                </span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                {task.category && (
+                  <span className="px-2 py-1 bg-slate-100 rounded-full border border-slate-200 text-slate-600">
+                    #{task.category}
+                  </span>
+                )}
+                {task.tags && task.tags.length > 0 && (
+                  <span className="px-2 py-1 bg-blue-50 rounded-full border border-blue-200 text-blue-600">
+                    {Array.isArray(task.tags) ? task.tags.join(', ') : task.tags}
+                  </span>
+                )}
+                {dueLabel && (
+                  <span className="flex items-center gap-1 px-2 py-1 bg-amber-50 rounded-full border border-amber-200 text-amber-700">
+                    <Clock className="w-3 h-3" />
+                    {dueLabel}
+                  </span>
+                )}
+                {task.estimatedHours && (
+                  <span className="px-2 py-1 bg-emerald-50 rounded-full border border-emerald-200 text-emerald-600">
+                    ⏱ {t('board.task.estimated', { hours: task.estimatedHours })}
+                  </span>
+                )}
+                {isMine && (
+                  <span className="px-2 py-1 bg-emerald-100 rounded-full border border-emerald-300 text-emerald-700">
+                    {t('board.task.mine')}
+                  </span>
                 )}
               </div>
-              <span
-                className={`text-[11px] font-medium px-2 py-1 rounded-full border uppercase tracking-wide ${priority.className}`}
-              >
-                {priority.label}
-              </span>
-            </div>
 
-            <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
-              {task.category && (
-                <span className="px-2 py-1 bg-slate-100 rounded-full border border-slate-200 text-slate-600">
-                  #{task.category}
-                </span>
-              )}
-              {task.tags && task.tags.length > 0 && (
-                <span className="px-2 py-1 bg-blue-50 rounded-full border border-blue-200 text-blue-600">
-                  {Array.isArray(task.tags) ? task.tags.join(', ') : task.tags}
-                </span>
-              )}
-              {dueLabel && (
-                <span className="flex items-center gap-1 px-2 py-1 bg-amber-50 rounded-full border border-amber-200 text-amber-700">
-                  <Clock className="w-3 h-3" />
-                  {dueLabel}
-                </span>
-              )}
-              {task.estimatedHours && (
-                <span className="px-2 py-1 bg-emerald-50 rounded-full border border-emerald-200 text-emerald-600">
-                  ⏱ {t('board.task.estimated', { hours: task.estimatedHours })}
-                </span>
-              )}
-              {isMine && (
-                <span className="px-2 py-1 bg-emerald-100 rounded-full border border-emerald-300 text-emerald-700">
-                  {t('board.task.mine')}
-                </span>
-              )}
-            </div>
+              <div className="mt-3 space-y-2 text-[12px] text-slate-500">
+                {task.pool?.assignedToName && (
+                  <div className="flex items-center gap-2">
+                    <Users className="w-3 h-3" />
+                    <span>{t('board.task.assignedTo', { name: task.pool.assignedToName })}</span>
+                  </div>
+                )}
 
-            <div className="mt-3 space-y-2 text-[12px] text-slate-500">
-              {task.pool?.assignedToName && (
-                <div className="flex items-center gap-2">
-                  <Users className="w-3 h-3" />
-                  <span>{t('board.task.assignedTo', { name: task.pool.assignedToName })}</span>
-                </div>
-              )}
+                {task.pool?.claimedByName && (
+                  <div className="flex items-center gap-2">
+                    <Flame className="w-3 h-3 text-rose-500" />
+                    <span>{t('board.task.claimedBy', { name: task.pool.claimedByName })}</span>
+                  </div>
+                )}
 
-              {task.pool?.claimedByName && (
-                <div className="flex items-center gap-2">
-                  <Flame className="w-3 h-3 text-rose-500" />
-                  <span>{t('board.task.claimedBy', { name: task.pool.claimedByName })}</span>
-                </div>
-              )}
+                {poolUpdated && (
+                  <div className="flex items-center gap-2">
+                    <RefreshCw className="w-3 h-3" />
+                    <span>{t('board.task.updated', { date: poolUpdated })}</span>
+                  </div>
+                )}
 
-              {poolUpdated && (
-                <div className="flex items-center gap-2">
-                  <RefreshCw className="w-3 h-3" />
-                  <span>{t('board.task.updated', { date: poolUpdated })}</span>
-                </div>
-              )}
+                {isHelpNeeded && (
+                  <div className="flex items-center gap-2 text-orange-600 bg-orange-50 border border-orange-200 rounded-lg p-2">
+                    <AlertCircle className="w-4 h-4" />
+                    <span>{t('board.task.help')}</span>
+                  </div>
+                )}
+              </div>
 
-              {isHelpNeeded && (
-                <div className="flex items-center gap-2 text-orange-600 bg-orange-50 border border-orange-200 rounded-lg p-2">
-                  <AlertCircle className="w-4 h-4" />
-                  <span>{t('board.task.help')}</span>
-                </div>
-              )}
-            </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {canActivate && (
+                  <button
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleCreatePoolEntry(taskId);
+                    }}
+                    disabled={actionBusy[taskId]}
+                    className="flex-1 px-3 py-2 text-[12px] font-semibold bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition disabled:opacity-60"
+                  >
+                    {t('board.task.assign')}
+                  </button>
+                )}
 
-            <div className="mt-4 flex flex-wrap gap-2">
-              {canActivate && (
-                <button
-                  onClick={() => handleCreatePoolEntry(taskId)}
-                  disabled={actionBusy[taskId]}
-                  className="flex-1 px-3 py-2 text-[12px] font-semibold bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition disabled:opacity-60"
-                >
-                  {t('board.task.assign')}
-                </button>
-              )}
+                {canClaim && (
+                  <button
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleClaimTask(taskId);
+                    }}
+                    disabled={actionBusy[taskId]}
+                    className="flex-1 px-3 py-2 text-[12px] font-semibold bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition disabled:opacity-60"
+                  >
+                    {t('board.task.claim')}
+                  </button>
+                )}
 
-              {canClaim && (
-                <button
-                  onClick={() => handleClaimTask(taskId)}
-                  disabled={actionBusy[taskId]}
-                  className="flex-1 px-3 py-2 text-[12px] font-semibold bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition disabled:opacity-60"
-                >
-                  {t('board.task.claim')}
-                </button>
-              )}
-
-              {canComplete && (
-                <button
-                  onClick={() => handleCompleteTask(taskId)}
-                  disabled={actionBusy[taskId]}
-                  className="flex-1 px-3 py-2 text-[12px] font-semibold bg-slate-800 text-white rounded-lg hover:bg-slate-900 transition disabled:opacity-60"
-                >
-                  {t('board.task.complete')}
-                </button>
-              )}
+                {canComplete && (
+                  <button
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleCompleteTask(taskId);
+                    }}
+                    disabled={actionBusy[taskId]}
+                    className="flex-1 px-3 py-2 text-[12px] font-semibold bg-slate-800 text-white rounded-lg hover:bg-slate-900 transition disabled:opacity-60"
+                  >
+                    {t('board.task.complete')}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         )}

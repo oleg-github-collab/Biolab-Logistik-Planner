@@ -5,6 +5,8 @@ const { uploadSingle } = require('../services/fileService');
 const { getIO } = require('../websocket');
 const logger = require('../utils/logger');
 
+const isMissingRelationError = (error) => error?.code === '42P01';
+
 const router = express.Router();
 
 // GET /api/kb/categories
@@ -21,6 +23,10 @@ router.get('/categories', auth, async (req, res) => {
     `);
     res.json(result.rows);
   } catch (error) {
+    if (isMissingRelationError(error)) {
+      logger.warn('KB tables not available yet, returning empty categories list');
+      return res.json([]);
+    }
     logger.error('Error fetching categories:', error);
     res.status(500).json({ error: 'Serverfehler' });
   }
@@ -96,6 +102,10 @@ router.get('/articles', auth, async (req, res) => {
     const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (error) {
+    if (isMissingRelationError(error)) {
+      logger.warn('KB articles table not available yet, returning empty list');
+      return res.json([]);
+    }
     logger.error('Error fetching articles:', error);
     res.status(500).json({ error: 'Serverfehler' });
   }
