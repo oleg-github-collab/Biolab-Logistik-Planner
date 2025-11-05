@@ -19,6 +19,7 @@ import UserProfilePage from './pages/UserProfilePage';
 import Kanban from './pages/Kanban';
 import WasteTemplatesAdmin from './pages/WasteTemplatesAdmin';
 import KnowledgeBase from './pages/KnowledgeBase';
+import { WebSocketProvider } from './context/WebSocketContext';
 
 // Protected Route component with First Login check
 const ProtectedRoute = ({ children }) => {
@@ -281,7 +282,9 @@ function App() {
   return (
     <LocaleProvider>
       <AuthProvider>
-        <AppContent />
+        <WebSocketProvider>
+          <AppContent />
+        </WebSocketProvider>
       </AuthProvider>
     </LocaleProvider>
   );

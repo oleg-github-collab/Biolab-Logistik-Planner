@@ -6,7 +6,7 @@ import {
   Image as ImageIcon, Trash2, Check, CheckCheck, Users, User
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import useWebSocket from '../hooks/useWebSocket';
+import { useWebSocketContext } from '../context/WebSocketContext';
 import {
   getAllContacts,
   getConversationMessages,
@@ -21,7 +21,7 @@ import { showError, showSuccess } from '../utils/toast';
 
 const DirectMessenger = () => {
   const { user } = useAuth();
-  const { isConnected, onConversationEvent, joinConversationRoom } = useWebSocket();
+  const { isConnected, onConversationEvent, joinConversationRoom } = useWebSocketContext();
 
   const [contacts, setContacts] = useState([]);
   const [threads, setThreads] = useState([]);

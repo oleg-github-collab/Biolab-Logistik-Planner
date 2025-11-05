@@ -107,8 +107,8 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
   const eventDate = typeof normalizedEvent.date === 'string' ? new Date(normalizedEvent.date) : normalizedEvent.date;
 
   return (
-    <div className="modal-backdrop-mobile fixed inset-0 flex items-end sm:items-center justify-center sm:p-4 z-50" onClick={onClose}>
-      <div className="modal-bottom-sheet sm:modal sm:rounded-xl w-full sm:max-w-lg" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-backdrop-mobile fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center sm:p-4 z-50" onClick={onClose}>
+      <div className="modal-bottom-sheet bg-white sm:modal sm:rounded-xl w-full sm:max-w-lg" onClick={(e) => e.stopPropagation()}>
         {/* Mobile Handle */}
         <div className="modal-handle sm:hidden" />
 

@@ -794,3 +794,40 @@
     transform: rotate(360deg);
   }
 }
+
+/* Additional modal fixes for EventDetailsModal and other modals */
+@media (max-width: 768px) {
+  .modal-backdrop-mobile,
+  .modal-backdrop-mobile > div {
+    background-color: #ffffff !important;
+  }
+
+  .modal-bottom-sheet {
+    background-color: #ffffff !important;
+    opacity: 1 !important;
+    border-radius: 20px 20px 0 0 !important;
+    max-height: 90vh !important;
+    overflow-y: auto !important;
+  }
+
+  .modal-header-mobile,
+  .modal-body-mobile {
+    background-color: #ffffff !important;
+  }
+
+  .modal-handle {
+    width: 40px;
+    height: 4px;
+    background: #cbd5e1;
+    border-radius: 2px;
+    margin: 0.75rem auto 0.5rem;
+    display: block;
+  }
+
+  /* Fix iOS bottom sheet animation */
+  @supports (-webkit-touch-callout: none) {
+    .modal-bottom-sheet {
+      transform: translate3d(0, 0, 0);
+    }
+  }
+}

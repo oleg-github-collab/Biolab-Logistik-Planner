@@ -4,7 +4,7 @@ import { de } from 'date-fns/locale';
 import { Plus, MessageCircle, Search, Send, Menu, X, Hash, Loader2, Sparkles, Paperclip, Mic, StopCircle, Trash2, Smile, Quote, ThumbsUp } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLocale } from '../context/LocaleContext';
-import useWebSocket from '../hooks/useWebSocket';
+import { useWebSocketContext } from '../context/WebSocketContext';
 import {
   getMessageThreads,
   createConversationThread,
@@ -238,7 +238,7 @@ const UnifiedMessenger = () => {
     onConversationEvent,
     joinConversationRoom,
     leaveConversationRoom
-  } = useWebSocket();
+  } = useWebSocketContext();
 
   const [threads, setThreads] = useState([]);
   const [threadsLoading, setThreadsLoading] = useState(true);

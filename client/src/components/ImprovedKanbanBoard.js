@@ -3,7 +3,7 @@ import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { format, differenceInDays, isOverdue, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useAuth } from '../context/AuthContext';
-import useWebSocket from '../hooks/useWebSocket';
+import { useWebSocketContext } from '../context/WebSocketContext';
 
 // Toast notification component
 const Toast = memo(({ message, type, onClose }) => {
@@ -204,7 +204,7 @@ TaskCard.displayName = 'TaskCard';
 
 const ImprovedKanbanBoard = () => {
   const { user } = useAuth();
-  const { isConnected, onTaskEvent, emitTaskEditing, emitTaskStopEditing } = useWebSocket();
+  const { isConnected, onTaskEvent, emitTaskEditing, emitTaskStopEditing } = useWebSocketContext();
   const [tasks, setTasks] = useState([]);
   const [editingUsers, setEditingUsers] = useState({});
   const editingTimeoutRef = useRef({});
