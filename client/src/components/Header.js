@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { to: '/messages', labelKey: 'navigation.messages', icon: '💬', permission: 'message:read' },
   { to: '/task-pool', labelKey: 'navigation.tasks', icon: '✓', permission: 'task:read' },
   { to: '/waste', labelKey: 'navigation.waste', icon: '♻️', permission: 'waste:read' },
+  { to: '/kisten', labelKey: 'navigation.kisten', icon: '📦', permission: 'task:read' },
   { to: '/schedule', labelKey: 'navigation.schedule', icon: '⏰', permission: 'schedule:read' },
   { to: '/knowledge-base', labelKey: 'navigation.knowledge', icon: '📚', permission: 'schedule:read' },
   { to: '/users', labelKey: 'navigation.users', icon: '👥', permission: 'user:read' },
@@ -191,6 +192,28 @@ const Header = () => {
                       </Link>
                     );
                   })}
+                </div>
+              </div>
+
+              <div className="px-4 pb-4">
+                <h4 className="text-xs uppercase text-gray-400 font-semibold tracking-wider">
+                  Schnellzugriffe
+                </h4>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <Link
+                    to="/kisten"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white font-semibold py-3 mobile-touch-feedback shadow-lg"
+                  >
+                    📦 Kisten
+                  </Link>
+                  <Link
+                    to="/task-pool"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center justify-center gap-2 rounded-xl bg-slate-100 text-slate-800 font-semibold py-3 mobile-touch-feedback border border-slate-200"
+                  >
+                    ➕ Aufgabe
+                  </Link>
                 </div>
               </div>
 

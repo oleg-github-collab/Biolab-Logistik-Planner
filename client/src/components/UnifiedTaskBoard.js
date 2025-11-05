@@ -665,7 +665,7 @@ const UnifiedTaskBoard = () => {
       </div>
 
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory lg:snap-none -mx-4 px-4 lg:mx-0 lg:px-0">
+        <div className="flex gap-4 overflow-x-auto pb-6 lg:pb-4 snap-x snap-mandatory lg:snap-none -mx-4 px-4 lg:mx-0 lg:px-0">
           {Object.keys(columnMeta).map((columnId) => renderColumn(columnId))}
         </div>
       </DragDropContext>
@@ -681,6 +681,15 @@ const UnifiedTaskBoard = () => {
         task={editingTask}
         users={users}
       />
+
+      <button
+        type="button"
+        onClick={handleCreateTask}
+        className="lg:hidden fixed bottom-[calc(90px+env(safe-area-inset-bottom))] right-4 z-40 inline-flex items-center justify-center w-14 h-14 rounded-full shadow-2xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white text-3xl font-bold"
+        aria-label="Neue Aufgabe"
+      >
+        +
+      </button>
     </div>
   );
 };

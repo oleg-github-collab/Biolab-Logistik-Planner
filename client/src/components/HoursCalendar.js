@@ -5,7 +5,10 @@ import toast from 'react-hot-toast';
 import TimePicker from './TimePicker';
 
 const DAYS_OF_WEEK = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
-const DEFAULT_BLOCK = { start: '09:00', end: '17:00' };
+const DEFAULT_BLOCKS = [
+  { start: '08:00', end: '12:00' },
+  { start: '12:30', end: '16:30' }
+];
 
 const normalizeBlocks = (rawBlocks, fallbackStart, fallbackEnd) => {
   if (Array.isArray(rawBlocks) && rawBlocks.length > 0) {
@@ -129,7 +132,7 @@ const HoursCalendar = () => {
     const willWork = !day.is_working;
 
     const nextBlocks = willWork
-      ? (day.time_blocks.length ? day.time_blocks : [DEFAULT_BLOCK])
+      ? (day.time_blocks.length ? day.time_blocks : [...DEFAULT_BLOCKS])
       : [];
 
     const nextState = {
@@ -183,17 +186,11 @@ const HoursCalendar = () => {
   const addTimeBlock = (dayIndex) => {
     const day = schedule[dayIndex];
     const lastBlock = day.time_blocks[day.time_blocks.length - 1];
-    const nextStart = lastBlock ? lastBlock.end : DEFAULT_BLOCK.start;
-    const nextEnd = addMinutes(nextStart, 60);
-
-    if (!nextEnd) {
-      toast.error('Kein weiterer Zeitraum möglich');
-      return;
-    }
+    const nextStart = lastBlock ? lastBlock.end : DEFAULT_BLOCKS[0].start;
 
     const nextState = {
       ...day,
-      time_blocks: [...day.time_blocks, { start: nextStart, end: nextEnd }]
+      time_blocks: [...day.time_blocks, { start: nextStart, end: '' }]
     };
 
     setSchedule((prev) => {
@@ -202,7 +199,7 @@ const HoursCalendar = () => {
       return clone;
     });
 
-    queueSave(dayIndex, nextState);
+    // Do not queue save until the new block has valid values
   };
 
   const removeTimeBlock = (dayIndex, blockIndex) => {

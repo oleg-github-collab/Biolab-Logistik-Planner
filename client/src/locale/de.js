@@ -10,6 +10,7 @@ const de = {
   'navigation.tasks': 'Aufgaben',
   'navigation.schedule': 'Planung',
   'navigation.waste': 'Entsorgung',
+  'navigation.kisten': 'Kistenmanagement',
   'navigation.knowledge': 'Wissensdatenbank',
   'navigation.users': 'Benutzer',
   'navigation.admin': 'Admin',

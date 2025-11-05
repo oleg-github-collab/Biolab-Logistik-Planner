@@ -216,6 +216,15 @@ const normalizeTimeString = (value) => {
   return `${match[1].padStart(2, '0')}:${match[2]}`;
 };
 
+const timeStringToMinutes = (value) => {
+  if (!value && value !== 0) return null;
+  const [hourStr, minuteStr] = String(value).split(':');
+  const hour = Number.parseInt(hourStr, 10);
+  const minute = Number.parseInt(minuteStr, 10);
+  if (Number.isNaN(hour) || Number.isNaN(minute)) return null;
+  return hour * 60 + minute;
+};
+
 const sanitizeTimeBlocks = (blocks, fallbackStart = null, fallbackEnd = null) => {
   if (!Array.isArray(blocks) || blocks.length === 0) {
     const start = normalizeTimeString(fallbackStart);
@@ -254,9 +263,18 @@ const sanitizeTimeBlocks = (blocks, fallbackStart = null, fallbackEnd = null) =>
       return;
     }
 
-    if (block.start <= prev.end) {
-      // overlapping or touching, extend end if needed
-      prev.end = prev.end > block.end ? prev.end : block.end;
+    const prevEndMinutes = timeStringToMinutes(prev.end);
+    const currentStartMinutes = timeStringToMinutes(block.start);
+    const currentEndMinutes = timeStringToMinutes(block.end);
+
+    if (
+      prevEndMinutes !== null &&
+      currentStartMinutes !== null &&
+      currentStartMinutes < prevEndMinutes
+    ) {
+      if (currentEndMinutes !== null && currentEndMinutes > prevEndMinutes) {
+        prev.end = block.end;
+      }
     } else {
       merged.push(block);
     }
@@ -265,15 +283,35 @@ const sanitizeTimeBlocks = (blocks, fallbackStart = null, fallbackEnd = null) =>
   return merged;
 };
 
-const parseTimeBlocksFromNotes = (notes, fallbackStart = null, fallbackEnd = null) => {
-  if (!notes) {
+const serializeTimeBlocksToNotes = (blocks = []) => {
+  if (!Array.isArray(blocks) || blocks.length === 0) {
+    return null;
+  }
+  return JSON.stringify({ timeBlocks: blocks });
+};
+
+const parseTimeBlocksFromNotes = (value, fallbackStart = null, fallbackEnd = null) => {
+  if (!value) {
     return sanitizeTimeBlocks([], fallbackStart, fallbackEnd);
   }
 
+  if (Array.isArray(value)) {
+    return sanitizeTimeBlocks(value, fallbackStart, fallbackEnd);
+  }
+
   try {
-    const parsed = typeof notes === 'string' ? JSON.parse(notes) : notes;
-    if (parsed && Array.isArray(parsed.timeBlocks)) {
-      return sanitizeTimeBlocks(parsed.timeBlocks, fallbackStart, fallbackEnd);
+    if (typeof value === 'string') {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return sanitizeTimeBlocks(parsed, fallbackStart, fallbackEnd);
+      }
+      if (parsed && Array.isArray(parsed.timeBlocks)) {
+        return sanitizeTimeBlocks(parsed.timeBlocks, fallbackStart, fallbackEnd);
+      }
+    } else if (typeof value === 'object') {
+      if (Array.isArray(value.timeBlocks)) {
+        return sanitizeTimeBlocks(value.timeBlocks, fallbackStart, fallbackEnd);
+      }
     }
   } catch (error) {
     logger.warn('Failed to parse schedule time blocks, falling back to defaults', { error: error.message });
@@ -281,8 +319,6 @@ const parseTimeBlocksFromNotes = (notes, fallbackStart = null, fallbackEnd = nul
 
   return sanitizeTimeBlocks([], fallbackStart, fallbackEnd);
 };
-
-const serializeTimeBlocksToNotes = (blocks) => JSON.stringify({ timeBlocks: blocks });
 
 const totalHoursFromBlocks = (blocks) => {
   if (!Array.isArray(blocks) || blocks.length === 0) return 0;
@@ -372,9 +408,12 @@ router.get('/week/:weekStart', auth, async (req, res) => {
         // For Vollzeit: Mon-Fri 8:00-16:30, Sat-Sun off
         const isWeekday = i >= 0 && i <= 4; // Mon=0, Fri=4
         const isWorking = isVollzeit ? isWeekday : false;
-        const defaultStart = (isVollzeit && isWeekday) ? '08:00' : null;
-        const defaultEnd = (isVollzeit && isWeekday) ? '16:30' : null;
-        const defaultBlocks = sanitizeTimeBlocks([], defaultStart, defaultEnd);
+        const defaultBlocks = isWorking
+          ? sanitizeTimeBlocks([
+              { start: '08:00', end: '12:00' },
+              { start: '12:30', end: '16:30' }
+            ])
+          : [];
         const firstBlock = defaultBlocks[0] || { start: null, end: null };
 
         const insertResult = await pool.query(
@@ -390,7 +429,7 @@ router.get('/week/:weekStart', auth, async (req, res) => {
             isWorking,
             isWorking ? firstBlock.start : null,
             isWorking ? firstBlock.end : null,
-            isWorking && defaultBlocks.length ? serializeTimeBlocksToNotes(defaultBlocks) : null,
+            defaultBlocks.length ? serializeTimeBlocksToNotes(defaultBlocks) : null,
             req.user.id
           ]
         );
@@ -632,6 +671,11 @@ router.put('/day/:id', auth, async (req, res) => {
 
     const normalizedStartTime = sanitizedBlocks[0]?.start || null;
     const normalizedEndTime = sanitizedBlocks[sanitizedBlocks.length - 1]?.end || null;
+    const isWorkingDay = parseBoolean(isWorking, false) && sanitizedBlocks.length > 0;
+    const serializedNotes = isWorkingDay ? serializeTimeBlocksToNotes(sanitizedBlocks) : null;
+    const serializedBlocks = isWorkingDay
+      ? JSON.stringify(sanitizedBlocks)
+      : JSON.stringify([]);
 
     // Update day
     const updateResult = await pool.query(
@@ -640,15 +684,17 @@ router.put('/day/:id', auth, async (req, res) => {
            start_time = $2,
            end_time = $3,
            notes = $4,
-           last_updated_by = $5,
+           time_blocks = $5,
+           last_updated_by = $6,
            updated_at = CURRENT_TIMESTAMP
-       WHERE id = $6
+       WHERE id = $7
        RETURNING *`,
       [
         parseBoolean(isWorking, false),
         parseBoolean(isWorking, false) ? normalizedStartTime : null,
         parseBoolean(isWorking, false) ? normalizedEndTime : null,
-        parseBoolean(isWorking, false) && sanitizedBlocks.length ? serializeTimeBlocksToNotes(sanitizedBlocks) : null,
+        serializedNotes,
+        serializedBlocks,
         req.user.id,
         id
       ]
@@ -670,7 +716,7 @@ router.put('/day/:id', auth, async (req, res) => {
 
     const formattedDay = dayResult.rows[0];
     const timeBlocks = parseTimeBlocksFromNotes(
-      formattedDay.notes,
+      formattedDay.time_blocks,
       formattedDay.start_time ? formattedDay.start_time.substring(0, 5) : null,
       formattedDay.end_time ? formattedDay.end_time.substring(0, 5) : null
     );

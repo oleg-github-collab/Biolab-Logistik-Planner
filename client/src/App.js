@@ -19,6 +19,7 @@ import UserProfilePage from './pages/UserProfilePage';
 import Kanban from './pages/Kanban';
 import WasteTemplatesAdmin from './pages/WasteTemplatesAdmin';
 import KnowledgeBase from './pages/KnowledgeBase';
+import KistenManagement from './pages/KistenManagement';
 import { WebSocketProvider } from './context/WebSocketContext';
 
 // Protected Route component with First Login check
@@ -172,6 +173,17 @@ const AppContent = () => {
                     <>
                       <Header />
                       <Schedule />
+                    </>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/kisten"
+                element={
+                  <ProtectedRoute>
+                    <>
+                      <Header />
+                      <KistenManagement />
                     </>
                   </ProtectedRoute>
                 }

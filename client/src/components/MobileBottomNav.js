@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Calendar, MessageSquare, ClipboardCheck, User } from 'lucide-react';
+import { LayoutDashboard, Calendar, MessageSquare, ClipboardCheck, User, Boxes } from 'lucide-react';
 import { useLocale } from '../context/LocaleContext';
 
 const NAV_ITEMS = [
@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { to: '/task-pool', icon: ClipboardCheck, labelKey: 'navigation.tasks' },
   { to: '/messages', icon: MessageSquare, labelKey: 'navigation.messages' },
   { to: '/schedule', icon: Calendar, labelKey: 'navigation.schedule' },
+  { to: '/kisten', icon: Boxes, labelKey: 'navigation.kisten' },
   { to: '/profile/me', icon: User, labelKey: 'mobile.quickActions.profile' }
 ];
 

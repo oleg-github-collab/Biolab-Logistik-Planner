@@ -197,6 +197,19 @@ export const getTaskActivity = (taskId) =>
   api.get(`/kanban/tasks/${taskId}/activity`);
 
 // ============================================
+// KISTEN MANAGEMENT APIs
+// ============================================
+
+export const getStorageBins = () =>
+  api.get('/kisten');
+
+export const createStorageBins = (payload) =>
+  api.post('/kisten', payload);
+
+export const completeStorageBin = (binId) =>
+  api.post(`/kisten/${binId}/complete`);
+
+// ============================================
 // KNOWLEDGE BASE APIs
 // ============================================
 

@@ -15,11 +15,11 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const path = require('path');
 const http = require('http');
-const schedule = require('node-schedule');
 const { initializeSocket } = require('./websocket');
 const logger = require('./utils/logger');
 const redisService = require('./services/redisService');
 const { ensureMessageSchema } = require('./services/messageService');
+const { scheduleKistenReminders, runReminderJob } = require('./services/kistenReminder');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -83,6 +83,8 @@ console.log('  ✓ notifications');
 app.use('/api/notifications', require('./routes/notifications.pg'));
 console.log('  ✓ uploads');
 app.use('/api/uploads', require('./routes/uploads'));
+console.log('  ✓ kisten');
+app.use('/api/kisten', require('./routes/kisten.pg'));
 
 // Waste management routes (PostgreSQL)
 console.log('  ✓ waste');
@@ -190,6 +192,13 @@ const startServer = async () => {
         .catch((error) => {
           logger.error('Redis startup connection failed', { error: error.message });
         });
+
+      try {
+        scheduleKistenReminders();
+        await runReminderJob({ triggeredByScheduler: false });
+      } catch (reminderError) {
+        logger.error('Failed to initialize Kisten reminders', { error: reminderError.message });
+      }
     });
 
   } catch (error) {
