@@ -1,10 +1,17 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Camera, Save, X, Bell, Eye, Globe, Shield, Key, LogOut } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { formatDistanceToNow } from 'date-fns';
+import { de } from 'date-fns/locale';
+import { Camera, Save, X, Bell, Eye, Globe, Shield, Key, LogOut, Image as ImageIcon, Play } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import toast from 'react-hot-toast';
 import {
   getUserProfile,
   updateUserProfile,
   uploadProfilePhoto,
-  updateUserPreferences
+  updateUserPreferences,
+  getUserStories,
+  uploadProfileStory,
+  markStoryViewed
 } from '../utils/apiEnhanced';
 
 const UserProfile = ({ userId, onClose }) => {
@@ -22,6 +29,14 @@ const UserProfile = ({ userId, onClose }) => {
     new_password: '',
     confirm_password: ''
   });
+  const [stories, setStories] = useState([]);
+  const [storiesLoading, setStoriesLoading] = useState(false);
+  const [storyModal, setStoryModal] = useState(null);
+  const [uploadingStory, setUploadingStory] = useState(false);
+
+  const { user: currentUser } = useAuth();
+  const isOwnProfile = useMemo(() => currentUser?.id === parseInt(userId, 10), [currentUser, userId]);
+  const storyInputRef = useRef(null);
 
   const loadProfile = useCallback(async () => {
     try {
@@ -67,9 +82,22 @@ const UserProfile = ({ userId, onClose }) => {
     }
   }, [userId]);
 
+  const loadStories = useCallback(async () => {
+    try {
+      setStoriesLoading(true);
+      const response = await getUserStories(userId);
+      setStories(response.data?.stories || []);
+    } catch (error) {
+      console.error('Error loading stories:', error);
+    } finally {
+      setStoriesLoading(false);
+    }
+  }, [userId]);
+
   useEffect(() => {
     loadProfile();
-  }, [loadProfile]);
+    loadStories();
+  }, [loadProfile, loadStories]);
 
   const handlePhotoSelect = (e) => {
     const file = e.target.files[0];
@@ -98,6 +126,57 @@ const UserProfile = ({ userId, onClose }) => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleStoryUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const caption = window.prompt('Story-Beschreibung (optional)') || '';
+
+    const formData = new FormData();
+    formData.append('storyMedia', file);
+    formData.append('caption', caption);
+
+    try {
+      setUploadingStory(true);
+      await uploadProfileStory(userId, formData);
+      toast.success('Story veröffentlicht');
+      await loadStories();
+    } catch (error) {
+      console.error('Error uploading story:', error);
+      toast.error(error.response?.data?.error || 'Fehler beim Hochladen der Story');
+    } finally {
+      setUploadingStory(false);
+      if (storyInputRef.current) {
+        storyInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleOpenStory = async (story) => {
+    setStoryModal(story);
+    try {
+      await markStoryViewed(story.id);
+      await loadStories();
+    } catch (error) {
+      console.error('Error marking story view:', error);
+    }
+  };
+
+  const handleCloseStory = () => {
+    setStoryModal(null);
+  };
+
+  const handleNextStory = () => {
+    if (!storyModal) return;
+    const currentIndex = stories.findIndex((story) => story.id === storyModal.id);
+    if (currentIndex === -1) {
+      setStoryModal(null);
+      return;
+    }
+    const next = stories[(currentIndex + 1) % stories.length];
+    handleOpenStory(next);
   };
 
   const handleSaveProfile = async () => {
@@ -215,6 +294,70 @@ const UserProfile = ({ userId, onClose }) => {
               >
                 Abbrechen
               </button>
+            </div>
+          )}
+        </div>
+
+        {/* Stories */}
+        <div className="px-6 py-4 bg-white border-b border-gray-200">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-semibold text-gray-900">Stories</h3>
+            {isOwnProfile && (
+              <label className="inline-flex items-center gap-2 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg font-medium cursor-pointer hover:bg-blue-100 transition">
+                <ImageIcon className="w-4 h-4" />
+                {uploadingStory ? 'Lädt...' : 'Story hinzufügen'}
+                <input
+                  ref={storyInputRef}
+                  type="file"
+                  accept="image/*,video/*"
+                  onChange={handleStoryUpload}
+                  disabled={uploadingStory}
+                  className="hidden"
+                />
+              </label>
+            )}
+          </div>
+
+          {storiesLoading ? (
+            <div className="flex items-center gap-3 text-sm text-gray-500">
+              <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+              Stories werden geladen ...
+            </div>
+          ) : stories.length === 0 ? (
+            <div className="text-sm text-gray-500">
+              Noch keine Stories vorhanden.
+            </div>
+          ) : (
+            <div className="flex gap-3 overflow-x-auto pb-2">
+              {stories.map((story) => {
+                const isVideo = story.mediaType?.startsWith('video/');
+                return (
+                  <button
+                    key={story.id}
+                    onClick={() => handleOpenStory(story)}
+                    className="flex-shrink-0 w-24 flex flex-col items-center gap-2"
+                  >
+                    <div
+                      className={`w-20 h-20 rounded-3xl border-4 ${isVideo ? 'border-purple-400' : 'border-blue-400'} overflow-hidden bg-gray-200 flex items-center justify-center`}
+                      style={
+                        !isVideo && story.mediaUrl
+                          ? { backgroundImage: `url(${story.mediaUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+                          : undefined
+                      }
+                    >
+                      {isVideo && (
+                        <span className="text-white text-xs bg-black/50 px-2 py-1 rounded-full">Video</span>
+                      )}
+                    </div>
+                    <div className="text-xs text-gray-600 text-center line-clamp-2">
+                      {story.caption || 'Story'}
+                    </div>
+                    <div className="text-[11px] text-gray-400">
+                      👀 {story.views}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
@@ -659,6 +802,61 @@ const UserProfile = ({ userId, onClose }) => {
           )}
         </div>
       </div>
+      {storyModal && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center px-4 py-8">
+          <div
+            className="absolute inset-0 bg-black/80"
+            onClick={handleCloseStory}
+          />
+          <div className="relative z-[81] w-full max-w-sm bg-white rounded-3xl overflow-hidden shadow-2xl">
+            <div className="relative bg-black">
+              {storyModal.mediaType?.startsWith('video/') ? (
+                <video
+                  src={storyModal.mediaUrl}
+                  className="w-full h-[420px] object-contain bg-black"
+                  controls
+                  autoPlay
+                />
+              ) : (
+                <img
+                  src={storyModal.mediaUrl}
+                  alt={storyModal.caption || 'Story'}
+                  className="w-full h-[420px] object-cover"
+                />
+              )}
+              <button
+                onClick={handleCloseStory}
+                className="absolute top-3 right-3 p-2 rounded-full bg-white/20 text-white hover:bg-white/40 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-semibold text-gray-900">{profile?.name}</p>
+                  <p className="text-xs text-gray-500">
+                    {formatDistanceToNow(new Date(storyModal.createdAt), { addSuffix: true, locale: de })}
+                  </p>
+                </div>
+                {stories.length > 1 && (
+                  <button
+                    onClick={handleNextStory}
+                    className="flex items-center gap-1 text-sm font-semibold text-blue-600 hover:text-blue-700 transition"
+                  >
+                    Weiter
+                    <Play className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+              {storyModal.caption && (
+                <p className="text-sm text-gray-700">{storyModal.caption}</p>
+              )}
+              <div className="text-xs text-gray-500">👀 {storyModal.views} Aufrufe</div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

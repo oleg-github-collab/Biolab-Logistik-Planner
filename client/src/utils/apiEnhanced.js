@@ -54,6 +54,20 @@ export const updateContactSettings = (contactId, settings) =>
 export const getOnlineUsers = () =>
   api.get('/profile/online-users/list');
 
+export const getUserStories = (userId) =>
+  api.get(`/profile/${userId}/stories`);
+
+export const uploadProfileStory = (userId, formData) =>
+  api.post(`/profile/${userId}/stories`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+
+export const getStoriesFeed = () =>
+  api.get('/profile/stories/feed');
+
+export const markStoryViewed = (storyId) =>
+  api.post(`/profile/stories/${storyId}/view`);
+
 // ============================================
 // NOTIFICATIONS APIs
 // ============================================

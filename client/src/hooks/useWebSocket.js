@@ -13,8 +13,10 @@ const useWebSocket = () => {
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [taskEvents, setTaskEvents] = useState([]);
+  const [adminEvents, setAdminEvents] = useState([]);
   const taskEventHandlersRef = useRef(new Map());
   const conversationEventHandlersRef = useRef(new Map());
+  const adminEventHandlersRef = useRef(new Map());
 
   // Initialize WebSocket connection with auto-reconnect
   useEffect(() => {
@@ -123,6 +125,31 @@ const useWebSocket = () => {
         // Browser notification
         socket.on('notification', (notification) => {
           setNotifications(prev => [...prev, { ...notification, timestamp: Date.now() }]);
+        });
+
+        socket.on('admin:broadcast', (payload) => {
+          const enriched = {
+            type: 'broadcast',
+            timestamp: new Date().toISOString(),
+            ...payload
+          };
+          setAdminEvents(prev => [...prev, enriched]);
+          const handlers = adminEventHandlersRef.current.get('broadcast');
+          if (handlers) {
+            handlers.forEach(handler => handler(enriched));
+          }
+        });
+
+        socket.on('admin:audit_log', (payload) => {
+          const entry = {
+            ...payload,
+            type: 'audit_log'
+          };
+          setAdminEvents(prev => [...prev, entry]);
+          const handlers = adminEventHandlersRef.current.get('audit_log');
+          if (handlers) {
+            handlers.forEach(handler => handler(entry));
+          }
         });
 
         // Typing indicators
@@ -400,6 +427,20 @@ const useWebSocket = () => {
     };
   }, []);
 
+  const onAdminEvent = useCallback((eventType, handler) => {
+    if (!adminEventHandlersRef.current.has(eventType)) {
+      adminEventHandlersRef.current.set(eventType, new Set());
+    }
+    adminEventHandlersRef.current.get(eventType).add(handler);
+
+    return () => {
+      const handlers = adminEventHandlersRef.current.get(eventType);
+      if (handlers) {
+        handlers.delete(handler);
+      }
+    };
+  }, []);
+
   const joinConversationRoom = useCallback((conversationId) => {
     if (socketRef.current && socketRef.current.connected) {
       socketRef.current.emit('conversation:join', { conversationId });
@@ -439,6 +480,7 @@ const useWebSocket = () => {
     onlineUsers,
     notifications,
     taskEvents,
+    adminEvents,
     sendMessage,
     markAsRead,
     startTyping,
@@ -447,6 +489,7 @@ const useWebSocket = () => {
     requestNotificationPermission,
     onTaskEvent,
     onConversationEvent,
+    onAdminEvent,
     emitTaskEditing,
     emitTaskStopEditing,
     joinConversationRoom,

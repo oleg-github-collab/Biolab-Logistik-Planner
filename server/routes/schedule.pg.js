@@ -9,6 +9,8 @@ const { schemas, validate } = require('../validators');
 const router = express.Router();
 
 // Helper functions
+const FLEXIBLE_TIME_REGEX = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
+
 function getMonday(d) {
   d = new Date(d);
   const day = d.getDay();
@@ -205,6 +207,88 @@ function normalizeAttendees(rawAttendees) {
   return [];
 }
 
+const normalizeTimeString = (value) => {
+  if (!value && value !== 0) return null;
+  const str = String(value).trim();
+  if (!str) return null;
+  const match = str.match(FLEXIBLE_TIME_REGEX);
+  if (!match) return null;
+  return `${match[1].padStart(2, '0')}:${match[2]}`;
+};
+
+const sanitizeTimeBlocks = (blocks, fallbackStart = null, fallbackEnd = null) => {
+  if (!Array.isArray(blocks) || blocks.length === 0) {
+    const start = normalizeTimeString(fallbackStart);
+    const end = normalizeTimeString(fallbackEnd);
+    return start && end && calculateHours(start, end) > 0
+      ? [{ start, end }]
+      : [];
+  }
+
+  const sanitized = blocks
+    .map((block) => {
+      if (!block || typeof block !== 'object') return null;
+      const start = normalizeTimeString(block.start);
+      const end = normalizeTimeString(block.end);
+      if (!start || !end) return null;
+      if (calculateHours(start, end) <= 0) return null;
+      return { start, end };
+    })
+    .filter(Boolean)
+    .sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0));
+
+  if (sanitized.length === 0) {
+    const start = normalizeTimeString(fallbackStart);
+    const end = normalizeTimeString(fallbackEnd);
+    return start && end && calculateHours(start, end) > 0
+      ? [{ start, end }]
+      : [];
+  }
+
+  // Merge overlapping intervals
+  const merged = [];
+  sanitized.forEach((block) => {
+    const prev = merged[merged.length - 1];
+    if (!prev) {
+      merged.push(block);
+      return;
+    }
+
+    if (block.start <= prev.end) {
+      // overlapping or touching, extend end if needed
+      prev.end = prev.end > block.end ? prev.end : block.end;
+    } else {
+      merged.push(block);
+    }
+  });
+
+  return merged;
+};
+
+const parseTimeBlocksFromNotes = (notes, fallbackStart = null, fallbackEnd = null) => {
+  if (!notes) {
+    return sanitizeTimeBlocks([], fallbackStart, fallbackEnd);
+  }
+
+  try {
+    const parsed = typeof notes === 'string' ? JSON.parse(notes) : notes;
+    if (parsed && Array.isArray(parsed.timeBlocks)) {
+      return sanitizeTimeBlocks(parsed.timeBlocks, fallbackStart, fallbackEnd);
+    }
+  } catch (error) {
+    logger.warn('Failed to parse schedule time blocks, falling back to defaults', { error: error.message });
+  }
+
+  return sanitizeTimeBlocks([], fallbackStart, fallbackEnd);
+};
+
+const serializeTimeBlocksToNotes = (blocks) => JSON.stringify({ timeBlocks: blocks });
+
+const totalHoursFromBlocks = (blocks) => {
+  if (!Array.isArray(blocks) || blocks.length === 0) return 0;
+  return blocks.reduce((sum, block) => sum + calculateHours(block.start, block.end), 0);
+};
+
 function normalizeReminder(value, fallback = 15) {
   if (value === null) return null;
   if (value === undefined || value === '') return fallback;
@@ -288,22 +372,34 @@ router.get('/week/:weekStart', auth, async (req, res) => {
         // For Vollzeit: Mon-Fri 8:00-16:30, Sat-Sun off
         const isWeekday = i >= 0 && i <= 4; // Mon=0, Fri=4
         const isWorking = isVollzeit ? isWeekday : false;
-        const startTime = (isVollzeit && isWeekday) ? '08:00' : null;
-        const endTime = (isVollzeit && isWeekday) ? '16:30' : null;
+        const defaultStart = (isVollzeit && isWeekday) ? '08:00' : null;
+        const defaultEnd = (isVollzeit && isWeekday) ? '16:30' : null;
+        const defaultBlocks = sanitizeTimeBlocks([], defaultStart, defaultEnd);
+        const firstBlock = defaultBlocks[0] || { start: null, end: null };
 
         const insertResult = await pool.query(
           `INSERT INTO weekly_schedules (
-            user_id, week_start, day_of_week, is_working, start_time, end_time,
+            user_id, week_start, day_of_week, is_working, start_time, end_time, notes,
             last_updated_by, created_at, updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
           RETURNING *`,
-          [targetUserId, weekStart, i, isWorking, startTime, endTime, req.user.id]
+          [
+            targetUserId,
+            weekStart,
+            i,
+            isWorking,
+            isWorking ? firstBlock.start : null,
+            isWorking ? firstBlock.end : null,
+            isWorking && defaultBlocks.length ? serializeTimeBlocksToNotes(defaultBlocks) : null,
+            req.user.id
+          ]
         );
         const row = insertResult.rows[0];
         days.push({
           ...row,
           start_time: row.start_time ? row.start_time.substring(0, 5) : null,
-          end_time: row.end_time ? row.end_time.substring(0, 5) : null
+          end_time: row.end_time ? row.end_time.substring(0, 5) : null,
+          time_blocks: defaultBlocks
         });
       }
 
@@ -316,17 +412,25 @@ router.get('/week/:weekStart', auth, async (req, res) => {
       return res.json(days);
     }
 
-    const events = result.rows.map((row) => ({
-      ...row,
-      // Format times from HH:MM:SS to HH:MM
-      start_time: row.start_time ? row.start_time.substring(0, 5) : null,
-      end_time: row.end_time ? row.end_time.substring(0, 5) : null,
-      attachments: typeof row.attachments === 'string'
-        ? JSON.parse(row.attachments || '[]')
-        : Array.isArray(row.attachments)
-          ? row.attachments
-          : []
-    }));
+    const events = result.rows.map((row) => {
+      const timeBlocks = parseTimeBlocksFromNotes(
+        row.notes,
+        row.start_time ? row.start_time.substring(0, 5) : null,
+        row.end_time ? row.end_time.substring(0, 5) : null
+      );
+
+      return {
+        ...row,
+        start_time: row.start_time ? row.start_time.substring(0, 5) : null,
+        end_time: row.end_time ? row.end_time.substring(0, 5) : null,
+        time_blocks: timeBlocks,
+        attachments: typeof row.attachments === 'string'
+          ? JSON.parse(row.attachments || '[]')
+          : Array.isArray(row.attachments)
+            ? row.attachments
+            : []
+      };
+    });
 
     res.json(events);
 
@@ -362,7 +466,7 @@ router.get('/hours-summary/:weekStart', auth, async (req, res) => {
 
     // Get booked hours for this week
     const scheduleResult = await pool.query(
-      `SELECT start_time, end_time, is_working
+      `SELECT start_time, end_time, is_working, notes
        FROM weekly_schedules
        WHERE user_id = $1 AND week_start = $2`,
       [targetUserId, weekStart]
@@ -370,9 +474,13 @@ router.get('/hours-summary/:weekStart', auth, async (req, res) => {
 
     let totalBooked = 0;
     scheduleResult.rows.forEach(row => {
-      if (row.is_working && row.start_time && row.end_time) {
-        totalBooked += calculateHours(row.start_time, row.end_time);
-      }
+      if (!row.is_working) return;
+      const blocks = parseTimeBlocksFromNotes(
+        row.notes,
+        row.start_time ? row.start_time.substring(0, 5) : null,
+        row.end_time ? row.end_time.substring(0, 5) : null
+      );
+      totalBooked += totalHoursFromBlocks(blocks);
     });
 
     const difference = totalBooked - weeklyQuota;
@@ -422,7 +530,7 @@ router.get('/hours-summary/month/:year/:month', auth, async (req, res) => {
 
     // Get all schedules for this month
     const scheduleResult = await pool.query(
-      `SELECT week_start, start_time, end_time, is_working
+      `SELECT week_start, start_time, end_time, is_working, notes
        FROM weekly_schedules
        WHERE user_id = $1
          AND week_start >= $2
@@ -440,8 +548,13 @@ router.get('/hours-summary/month/:year/:month', auth, async (req, res) => {
         };
       }
 
-      if (row.is_working && row.start_time && row.end_time) {
-        weekSummaries[row.week_start].totalBooked += calculateHours(row.start_time, row.end_time);
+      if (row.is_working) {
+        const blocks = parseTimeBlocksFromNotes(
+          row.notes,
+          row.start_time ? row.start_time.substring(0, 5) : null,
+          row.end_time ? row.end_time.substring(0, 5) : null
+        );
+        weekSummaries[row.week_start].totalBooked += totalHoursFromBlocks(blocks);
       }
     });
 
@@ -476,7 +589,12 @@ router.get('/hours-summary/month/:year/:month', auth, async (req, res) => {
 router.put('/day/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
-    const { isWorking, startTime, endTime } = req.body;
+    const {
+      isWorking,
+      startTime,
+      endTime,
+      timeBlocks: incomingBlocks
+    } = req.body;
 
     // Get existing day data
     const existingResult = await pool.query(
@@ -497,60 +615,23 @@ router.put('/day/:id', auth, async (req, res) => {
       return res.status(403).json({ error: 'Nicht autorisiert' });
     }
 
-    // Validate and normalize time range if working
-    let normalizedStartTime = startTime;
-    let normalizedEndTime = endTime;
+    let sanitizedBlocks = [];
+    if (parseBoolean(isWorking, false)) {
+      sanitizedBlocks = sanitizeTimeBlocks(
+        incomingBlocks,
+        startTime,
+        endTime
+      );
 
-    if (isWorking) {
-      // Support both H:MM and HH:MM formats, and handle various input types
-      const flexibleTimeRegex = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
-
-      // Ensure times are strings and trim whitespace
-      const cleanStartTime = String(startTime || '').trim();
-      const cleanEndTime = String(endTime || '').trim();
-
-      // Validate times - both must be provided or both empty
-      if (!cleanStartTime && !cleanEndTime) {
-        // Both empty - use default work hours
-        normalizedStartTime = '09:00';
-        normalizedEndTime = '17:00';
-      } else if (cleanStartTime && cleanEndTime) {
-        // Both provided - validate format
-        const startMatch = cleanStartTime.match(flexibleTimeRegex);
-        const endMatch = cleanEndTime.match(flexibleTimeRegex);
-
-        if (!startMatch || !endMatch) {
-          return res.status(400).json({
-            error: 'Zeit muss im Format HH:MM sein',
-            details: `Start: "${cleanStartTime}", End: "${cleanEndTime}"`
-          });
-        }
-
-        // Normalize to HH:MM format
-        normalizedStartTime = `${startMatch[1].padStart(2, '0')}:${startMatch[2]}`;
-        normalizedEndTime = `${endMatch[1].padStart(2, '0')}:${endMatch[2]}`;
-      } else {
-        // One is provided but not the other - error
+      if (sanitizedBlocks.length === 0) {
         return res.status(400).json({
-          error: 'Beide Zeiten müssen angegeben werden'
+          error: 'Mindestens ein Zeitintervall (Start/Ende) muss angegeben werden'
         });
       }
-
-      // Validate hours if times are set
-      if (normalizedStartTime && normalizedEndTime) {
-        const hours = calculateHours(normalizedStartTime, normalizedEndTime);
-        if (hours <= 0) {
-          return res.status(400).json({ error: 'Endzeit muss nach Startzeit liegen' });
-        }
-        if (hours > 24) {
-          return res.status(400).json({ error: 'Arbeitszeit kann nicht mehr als 24 Stunden betragen' });
-        }
-      }
-    } else {
-      // When not working, explicitly set times to null
-      normalizedStartTime = null;
-      normalizedEndTime = null;
     }
+
+    const normalizedStartTime = sanitizedBlocks[0]?.start || null;
+    const normalizedEndTime = sanitizedBlocks[sanitizedBlocks.length - 1]?.end || null;
 
     // Update day
     const updateResult = await pool.query(
@@ -558,14 +639,16 @@ router.put('/day/:id', auth, async (req, res) => {
        SET is_working = $1,
            start_time = $2,
            end_time = $3,
-           last_updated_by = $4,
+           notes = $4,
+           last_updated_by = $5,
            updated_at = CURRENT_TIMESTAMP
-       WHERE id = $5
+       WHERE id = $6
        RETURNING *`,
       [
-        isWorking,
-        isWorking ? normalizedStartTime : null,
-        isWorking ? normalizedEndTime : null,
+        parseBoolean(isWorking, false),
+        parseBoolean(isWorking, false) ? normalizedStartTime : null,
+        parseBoolean(isWorking, false) ? normalizedEndTime : null,
+        parseBoolean(isWorking, false) && sanitizedBlocks.length ? serializeTimeBlocksToNotes(sanitizedBlocks) : null,
         req.user.id,
         id
       ]
@@ -586,12 +669,20 @@ router.put('/day/:id', auth, async (req, res) => {
     );
 
     const formattedDay = dayResult.rows[0];
+    const timeBlocks = parseTimeBlocksFromNotes(
+      formattedDay.notes,
+      formattedDay.start_time ? formattedDay.start_time.substring(0, 5) : null,
+      formattedDay.end_time ? formattedDay.end_time.substring(0, 5) : null
+    );
 
     // Broadcast to all connected clients
     const io = getIO();
     if (io) {
       io.emit('schedule:day_updated', {
-        day: formattedDay,
+        day: {
+          ...formattedDay,
+          time_blocks: timeBlocks
+        },
         user: {
           id: req.user.id,
           name: req.user.name
@@ -611,7 +702,8 @@ router.put('/day/:id', auth, async (req, res) => {
     res.json({
       ...formattedDay,
       start_time: formattedDay.start_time ? formattedDay.start_time.substring(0, 5) : null,
-      end_time: formattedDay.end_time ? formattedDay.end_time.substring(0, 5) : null
+      end_time: formattedDay.end_time ? formattedDay.end_time.substring(0, 5) : null,
+      time_blocks: timeBlocks
     });
 
   } catch (error) {
@@ -641,25 +733,28 @@ router.put('/week/:weekStart', auth, async (req, res) => {
       for (let i = 0; i < days.length; i++) {
         const day = days[i];
 
-        // Validate
-        if (day.isWorking && day.startTime && day.endTime) {
-          const hours = calculateHours(day.startTime, day.endTime);
-          if (hours <= 0 || hours > 24) {
-            throw new Error(`Invalid time range for day ${i}`);
-          }
+        const sanitizedBlocks = parseBoolean(day.isWorking, false)
+          ? sanitizeTimeBlocks(day.timeBlocks, day.startTime, day.endTime)
+          : [];
+
+        if (parseBoolean(day.isWorking, false) && sanitizedBlocks.length === 0) {
+          throw new Error(`Invalid time blocks for day ${i}`);
         }
+
+        const firstBlock = sanitizedBlocks[0] || { start: null, end: null };
 
         // Update or insert
         const result = await client.query(
           `INSERT INTO weekly_schedules (
-            user_id, week_start, day_of_week, is_working, start_time, end_time,
+            user_id, week_start, day_of_week, is_working, start_time, end_time, notes,
             last_updated_by, created_at, updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
           ON CONFLICT (user_id, week_start, day_of_week)
           DO UPDATE SET
             is_working = EXCLUDED.is_working,
             start_time = EXCLUDED.start_time,
             end_time = EXCLUDED.end_time,
+            notes = EXCLUDED.notes,
             last_updated_by = EXCLUDED.last_updated_by,
             updated_at = CURRENT_TIMESTAMP
           RETURNING *`,
@@ -667,9 +762,10 @@ router.put('/week/:weekStart', auth, async (req, res) => {
             req.user.id,
             weekStart,
             i,
-            day.isWorking || false,
-            day.isWorking ? day.startTime : null,
-            day.isWorking ? day.endTime : null,
+            parseBoolean(day.isWorking, false),
+            parseBoolean(day.isWorking, false) ? firstBlock.start : null,
+            parseBoolean(day.isWorking, false) ? firstBlock.end : null,
+            parseBoolean(day.isWorking, false) && sanitizedBlocks.length ? serializeTimeBlocksToNotes(sanitizedBlocks) : null,
             req.user.id
           ]
         );
@@ -684,7 +780,14 @@ router.put('/week/:weekStart', auth, async (req, res) => {
       if (io) {
         io.emit('schedule:week_updated', {
           weekStart,
-          days: updatedDays,
+          days: updatedDays.map((day) => ({
+            ...day,
+            time_blocks: parseTimeBlocksFromNotes(
+              day.notes,
+              day.start_time ? day.start_time.substring(0, 5) : null,
+              day.end_time ? day.end_time.substring(0, 5) : null
+            )
+          })),
           user: {
             id: req.user.id,
             name: req.user.name

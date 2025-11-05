@@ -16,7 +16,7 @@ const NAV_ITEMS = [
   { to: '/admin', labelKey: 'navigation.admin', icon: '⚙️', permission: 'system:settings' }
 ];
 
-const Header = ({ socket }) => {
+const Header = () => {
   const authContext = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -86,7 +86,7 @@ const Header = ({ socket }) => {
           {/* Right Side - Notifications & User */}
           <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
             {/* Notifications */}
-            <NotificationDropdown socket={socket} />
+            <NotificationDropdown />
 
             {/* User Menu - Desktop */}
             <div className="hidden md:flex items-center gap-2 pl-3 border-l border-gray-300">

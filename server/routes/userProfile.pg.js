@@ -4,6 +4,7 @@ const { auth } = require('../middleware/auth');
 const { uploadSingle } = require('../services/fileService');
 const { getIO } = require('../websocket');
 const logger = require('../utils/logger');
+const storyService = require('../services/storyService');
 
 const router = express.Router();
 
@@ -314,6 +315,74 @@ router.get('/online-users/list', auth, async (req, res) => {
 
   } catch (error) {
     logger.error('Error fetching online users', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Stories Endpoints
+
+router.get('/stories/feed', auth, async (req, res) => {
+  try {
+    const stories = await storyService.getActiveStories();
+    res.json({ stories });
+  } catch (error) {
+    logger.error('Error fetching stories feed', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.get('/:userId/stories', auth, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const stories = await storyService.getUserStories(userId);
+    res.json({ stories });
+  } catch (error) {
+    logger.error('Error fetching user stories', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.post('/:userId/stories', auth, uploadSingle('storyMedia'), async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const caption = req.body?.caption || '';
+
+    if (parseInt(userId, 10) !== req.user.id) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'Keine Datei hochgeladen' });
+    }
+
+    const story = await storyService.addStory({
+      userId,
+      file: req.file,
+      caption
+    });
+
+    res.json({ story });
+  } catch (error) {
+    logger.error('Error uploading story', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.post('/stories/:storyId/view', auth, async (req, res) => {
+  try {
+    const { storyId } = req.params;
+    const story = await storyService.markStoryViewed({
+      storyId,
+      viewerId: req.user.id
+    });
+
+    if (!story) {
+      return res.status(404).json({ error: 'Story nicht gefunden' });
+    }
+
+    res.json({ story });
+  } catch (error) {
+    logger.error('Error marking story view', error);
     res.status(500).json({ error: 'Server error' });
   }
 });

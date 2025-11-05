@@ -1,11 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
 import { Send, Image as ImageIcon, Mic, Paperclip, X } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
 
 const TaskComments = ({ taskId }) => {
-  const { user } = useAuth();
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
   const [attachments, setAttachments] = useState([]);
@@ -13,18 +11,18 @@ const TaskComments = ({ taskId }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [mediaRecorder, setMediaRecorder] = useState(null);
 
-  useEffect(() => {
-    loadComments();
-  }, [taskId]);
-
-  const loadComments = async () => {
+  const loadComments = useCallback(async () => {
     try {
       const response = await api.get(`/kanban/tasks/${taskId}/comments`);
       setComments(response.data || []);
     } catch (error) {
       console.error('Error loading comments:', error);
     }
-  };
+  }, [taskId]);
+
+  useEffect(() => {
+    loadComments();
+  }, [loadComments]);
 
   const handleFileUpload = (e) => {
     const files = Array.from(e.target.files);
@@ -34,7 +32,7 @@ const TaskComments = ({ taskId }) => {
       type: file.type,
       name: file.name
     }));
-    setAttachments([...attachments, ...newAttachments]);
+    setAttachments((prev) => [...prev, ...newAttachments]);
     toast.success(`${files.length} Datei(en) ausgewählt`);
   };
 
@@ -68,7 +66,7 @@ const TaskComments = ({ taskId }) => {
   };
 
   const removeAttachment = (index) => {
-    setAttachments(attachments.filter((_, i) => i !== index));
+    setAttachments((prev) => prev.filter((_, i) => i !== index));
   };
 
   const startRecording = async () => {
@@ -81,12 +79,15 @@ const TaskComments = ({ taskId }) => {
       recorder.onstop = () => {
         const blob = new Blob(chunks, { type: 'audio/webm' });
         const file = new File([blob], `audio-${Date.now()}.webm`, { type: 'audio/webm' });
-        setAttachments([...attachments, {
-          file,
-          preview: null,
-          type: 'audio/webm',
-          name: file.name
-        }]);
+        setAttachments((prev) => ([
+          ...prev,
+          {
+            file,
+            preview: null,
+            type: 'audio/webm',
+            name: file.name
+          }
+        ]));
         stream.getTracks().forEach(track => track.stop());
         toast.success('Audioaufnahme hinzugefügt');
       };

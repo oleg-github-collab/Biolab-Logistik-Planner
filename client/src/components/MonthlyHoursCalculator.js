@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
 
@@ -13,7 +13,7 @@ const MonthlyHoursCalculator = () => {
   ];
 
   // Load monthly summary
-  const loadSummary = async () => {
+  const loadSummary = useCallback(async () => {
     try {
       setLoading(true);
       const year = currentMonth.getFullYear();
@@ -27,11 +27,11 @@ const MonthlyHoursCalculator = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentMonth]);
 
   useEffect(() => {
     loadSummary();
-  }, [currentMonth]);
+  }, [loadSummary]);
 
   // Navigation
   const previousMonth = () => {
@@ -190,22 +190,22 @@ const MonthlyHoursCalculator = () => {
             : 'bg-gradient-to-r from-green-50 to-green-100 border-2 border-green-300'
         }`}>
           <div className="text-center">
-            <div className="text-6xl font-bold mb-2 ${
+            <div className={`text-6xl font-bold mb-2 ${
               summary.status === 'over'
                 ? 'text-red-700'
                 : summary.status === 'under'
                 ? 'text-yellow-700'
                 : 'text-green-700'
-            }">
+            }`}>
               {summary.difference >= 0 ? '+' : ''}{summary.difference.toFixed(1)}h
             </div>
-            <div className="text-lg font-semibold ${
+            <div className={`text-lg font-semibold ${
               summary.status === 'over'
                 ? 'text-red-800'
                 : summary.status === 'under'
                 ? 'text-yellow-800'
                 : 'text-green-800'
-            }">
+            }`}>
               {summary.status === 'over' && '⚠ Over-Scheduled'}
               {summary.status === 'under' && 'Under-Scheduled'}
               {summary.status === 'exact' && '✓ Perfect Balance'}

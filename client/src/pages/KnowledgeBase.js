@@ -1,11 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Search, Plus, Book, ThumbsUp, ThumbsDown, MessageCircle, Eye, X, Upload, Image as ImageIcon, Mic, ArrowLeft, Filter, TrendingUp, Clock, Sparkles } from 'lucide-react';
+import { Search, Plus, Book, ThumbsUp, ThumbsDown, MessageCircle, Eye, X, Upload, Mic, ArrowLeft, Filter, TrendingUp, Clock, Sparkles } from 'lucide-react';
 import { getKBCategories, getKBArticles, searchKB, getKBArticle, createKBArticle, voteKBArticle, uploadKBMedia } from '../utils/apiEnhanced';
-import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 
 const KnowledgeBase = () => {
-  const { user } = useAuth();
   const [categories, setCategories] = useState([]);
   const [articles, setArticles] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -19,19 +17,14 @@ const KnowledgeBase = () => {
   const [sortBy, setSortBy] = useState('recent');
   const [showMobileFilters, setShowMobileFilters] = useState(false);
 
-  useEffect(() => {
-    loadCategories();
-    loadArticles();
-  }, [selectedCategory]);
-
-  const loadCategories = async () => {
+  const loadCategories = useCallback(async () => {
     try {
       const response = await getKBCategories();
       setCategories(response.data);
     } catch (error) {
       console.error('Error loading categories:', error);
     }
-  };
+  }, []);
 
   const loadArticles = useCallback(async () => {
     try {
@@ -47,6 +40,14 @@ const KnowledgeBase = () => {
       setLoading(false);
     }
   }, [selectedCategory, sortBy]);
+
+  useEffect(() => {
+    loadCategories();
+  }, [loadCategories]);
+
+  useEffect(() => {
+    loadArticles();
+  }, [loadArticles]);
 
   const handleSearch = async (e) => {
     e.preventDefault();

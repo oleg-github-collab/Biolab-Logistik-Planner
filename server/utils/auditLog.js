@@ -6,6 +6,7 @@
 const fs = require('fs');
 const path = require('path');
 const logger = require('./logger');
+const { getIO } = require('../websocket');
 
 class AuditLogger {
   constructor() {
@@ -42,6 +43,17 @@ class AuditLogger {
       timestamp: new Date().toISOString(),
       ...event
     };
+
+    try {
+      const io = getIO ? getIO() : null;
+      if (io) {
+        io.emit('admin:audit_log', auditEntry);
+      }
+    } catch (error) {
+      logger.warn('Failed to emit audit log over WebSocket', {
+        error: error.message
+      });
+    }
 
     // Add to buffer
     this.buffer.push(auditEntry);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Shield, Activity, Users, FileText, AlertTriangle,
   TrendingUp, Clock, Filter, Download, RefreshCw,
@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { useWebSocketContext } from '../context/WebSocketContext';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
@@ -19,30 +20,28 @@ const AdminDashboard = () => {
     severity: 'all',
     days: 7
   });
+  const [liveEvents, setLiveEvents] = useState([]);
+
+  const { isConnected, adminEvents, onAdminEvent } = useWebSocketContext();
 
   const token = localStorage.getItem('token');
-  const axiosConfig = {
+  const axiosConfig = useMemo(() => ({
     headers: { Authorization: `Bearer ${token}` }
-  };
+  }), [token]);
 
-  useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 30000); // Refresh every 30s
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter]);
+  const { category, severity, days } = filter;
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
 
       const requests = [
-        axios.get(`${API_BASE_URL}/admin/audit/stats?days=${filter.days}`, axiosConfig)
+        axios.get(`${API_BASE_URL}/admin/audit/stats?days=${days}`, axiosConfig)
           .catch(err => {
             console.error('Stats error:', err);
             return { data: { total: 0, by_category: {}, by_severity: {}, recent_activity: [] } };
           }),
-        axios.get(`${API_BASE_URL}/admin/audit/logs?limit=50&category=${filter.category}&severity=${filter.severity}`, axiosConfig)
+        axios.get(`${API_BASE_URL}/admin/audit/logs?limit=50&category=${category}&severity=${severity}`, axiosConfig)
           .catch(err => {
             console.error('Logs error:', err);
             return { data: { logs: [] } };
@@ -59,14 +58,47 @@ const AdminDashboard = () => {
       setStats(statsRes.data);
       setLogs(logsRes.data.logs || []);
       setOnlineUsers(usersRes.data.users || []);
-
-      setLoading(false);
     } catch (error) {
       console.error('Fehler beim Laden der Admin-Daten:', error);
       toast.error('Fehler beim Laden der Administrator-Daten');
+    } finally {
       setLoading(false);
     }
-  };
+  }, [axiosConfig, category, days, severity]);
+
+  useEffect(() => {
+    fetchData();
+    const interval = setInterval(fetchData, 30000);
+    return () => clearInterval(interval);
+  }, [fetchData]);
+
+  useEffect(() => {
+    if (!onAdminEvent) return;
+    const appendEvent = (event) => {
+      setLiveEvents(prev => [event, ...prev].slice(0, 25));
+      fetchData();
+    };
+
+    const unsubscribeAudit = onAdminEvent('audit_log', appendEvent);
+    const unsubscribeBroadcast = onAdminEvent('broadcast', appendEvent);
+
+    return () => {
+      unsubscribeAudit?.();
+      unsubscribeBroadcast?.();
+    };
+  }, [fetchData, onAdminEvent]);
+
+  useEffect(() => {
+    if (!adminEvents || adminEvents.length === 0) return;
+    const latest = adminEvents[adminEvents.length - 1];
+    if (latest) {
+      setLiveEvents(prev => {
+        const exists = prev.some(event => event.timestamp === latest.timestamp && event.action === latest.action);
+        if (exists) return prev;
+        return [latest, ...prev].slice(0, 25);
+      });
+    }
+  }, [adminEvents]);
 
   const exportLogs = async (format = 'json') => {
     try {
@@ -143,6 +175,12 @@ const AdminDashboard = () => {
             <p className="text-sm text-gray-600">Systemüberwachung und Aktionsaudit</p>
           </div>
         </div>
+        <div className={`hidden sm:flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold ${
+          isConnected ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'
+        }`}>
+          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: isConnected ? '#047857' : '#dc2626' }} />
+          {isConnected ? 'Live verbunden' : 'Offline – zeige Cache'}
+        </div>
         <div className="flex gap-2">
           <button
             onClick={fetchData}
@@ -202,6 +240,38 @@ const AdminDashboard = () => {
             </div>
             <p className="text-sm text-gray-600">Datenänderungen</p>
             <p className="text-xs text-gray-400 mt-1">Modifikationen</p>
+          </div>
+        </div>
+      )}
+
+      {liveEvents.length > 0 && (
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-blue-200">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">Live-System-Feed</h2>
+            <span className="text-xs uppercase tracking-wide text-blue-600 font-semibold">
+              Echtzeit
+            </span>
+          </div>
+          <div className="max-h-60 overflow-y-auto space-y-3">
+            {liveEvents.map((event, idx) => (
+              <div
+                key={`${event.timestamp}-${event.action || event.message}-${idx}`}
+                className="flex items-start gap-3 border-l-4 border-blue-500 bg-blue-50 rounded-lg px-3 py-2"
+              >
+                <div className="text-sm font-semibold text-blue-700">
+                  {event.type === 'broadcast' ? 'Broadcast' : 'Audit'}
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm text-gray-800">
+                    {event.message || event.action || 'Systemereignis'}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {new Date(event.timestamp).toLocaleString('de-DE')}
+                    {event.from && ` • ${event.from}`}
+                  </p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
