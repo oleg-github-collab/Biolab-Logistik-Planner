@@ -174,6 +174,9 @@ export const createKanbanTask = (taskData) =>
 export const updateKanbanTask = (taskId, taskData) =>
   api.put(`/kanban/tasks/${taskId}`, taskData);
 
+// Alias for backward compatibility
+export const updateTask = updateKanbanTask;
+
 export const deleteKanbanTask = (taskId) =>
   api.delete(`/kanban/tasks/${taskId}`);
 
