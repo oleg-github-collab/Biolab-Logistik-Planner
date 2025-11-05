@@ -35,6 +35,53 @@ const createKanbanTask = async (client, { title, description, dueDate, createdBy
   return taskResult.rows[0];
 };
 
+const updateCalendarEventDetails = async (client, eventId, { title, description, keepUntil, tags = [] }) => {
+  if (!eventId) return null;
+  const startTime = new Date(`${keepUntil}T10:00:00`);
+  const endTime = new Date(`${keepUntil}T11:00:00`);
+
+  const result = await client.query(
+    `UPDATE calendar_events
+        SET title = $1,
+            description = $2,
+            start_time = $3,
+            end_time = $4,
+            tags = $5,
+            status = 'confirmed',
+            updated_at = CURRENT_TIMESTAMP
+      WHERE id = $6
+      RETURNING *`,
+    [
+      title,
+      description,
+      startTime.toISOString(),
+      endTime.toISOString(),
+      JSON.stringify(tags),
+      eventId
+    ]
+  );
+
+  return result.rows[0] || null;
+};
+
+const updateKanbanTaskDetails = async (client, taskId, { title, description, dueDate, tags = [] }) => {
+  if (!taskId) return null;
+  const result = await client.query(
+    `UPDATE tasks
+        SET title = $1,
+            description = $2,
+            due_date = $3,
+            tags = $4,
+            status = 'todo',
+            updated_at = CURRENT_TIMESTAMP
+      WHERE id = $5
+      RETURNING *`,
+    [title, description, dueDate, JSON.stringify(tags), taskId]
+  );
+
+  return result.rows[0] || null;
+};
+
 const insertStorageBinAudit = async (client, storageBinId, action, details, userId) => {
   await client.query(
     `INSERT INTO storage_bin_audit (storage_bin_id, action, details, created_by)
@@ -134,6 +181,8 @@ const autoCompleteBinsWithDoneTasks = async (client) => {
 module.exports = {
   createCalendarEvent,
   createKanbanTask,
+  updateCalendarEventDetails,
+  updateKanbanTaskDetails,
   insertStorageBinAudit,
   enrichStorageBins,
   getAdminUserIds,

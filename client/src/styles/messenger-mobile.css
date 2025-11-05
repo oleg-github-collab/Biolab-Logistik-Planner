@@ -8,8 +8,9 @@
   .messenger-mobile-container {
     display: flex;
     flex-direction: column;
-    height: 100vh;
-    height: 100dvh;
+    flex: 1;
+    min-height: calc(100dvh - var(--mobile-bottom-nav-height));
+    padding-bottom: calc(var(--mobile-bottom-nav-height) + var(--safe-area-bottom));
     background: #0f172a;
     overflow: hidden;
   }

@@ -135,11 +135,12 @@ const Header = () => {
       {mobileMenuOpen && (
         <>
           <div
-            className="lg:hidden fixed inset-0 bg-black/40 backdrop-blur-sm z-40"
+            className="lg:hidden fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-40"
             onClick={() => setMobileMenuOpen(false)}
           />
-          <div className="lg:hidden fixed inset-y-0 right-0 w-80 max-w-[85vw] bg-white shadow-2xl z-50 animate-slideInRight safe-top safe-bottom">
+          <div className="lg:hidden fixed inset-y-0 right-0 w-80 max-w-[85vw] bg-white shadow-2xl z-50 animate-slideInRight safe-top safe-bottom rounded-l-3xl border-l border-slate-200">
             <div className="h-full flex flex-col">
+              <div className="h-1.5 w-12 bg-slate-300 rounded-full mx-auto mt-4 mb-2" />
               {/* Menu Header */}
               <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100">
                 <h3 className="text-lg font-bold text-gray-900">Menu</h3>

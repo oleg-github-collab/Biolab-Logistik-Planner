@@ -301,7 +301,7 @@ const NotificationDropdown = () => {
   }, [formatTimestamp, getNotificationIcon, handleNotificationClick, handleMarkAsRead, handleDelete, isMobile, loading, notifications]);
 
   const dropdownPanel = (
-    <div className="absolute right-0 mt-2 w-screen max-w-md sm:w-96 bg-white rounded-lg shadow-2xl border border-gray-200 z-50 max-h-[80vh] flex flex-col">
+    <div className="absolute right-0 mt-2 w-screen max-w-md sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 max-h-[80vh] flex flex-col overflow-hidden">
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-semibold">Benachrichtigungen</h3>
@@ -349,10 +349,11 @@ const NotificationDropdown = () => {
   const mobilePanel = (
     <>
       <div
-        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[95]"
+        className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-[95]"
         onClick={closeDropdown}
       />
-      <div className="fixed inset-x-0 bottom-0 top-[12%] bg-white rounded-t-3xl shadow-2xl z-[100] flex flex-col">
+      <div className="fixed inset-x-0 bottom-0 top-[12%] bg-white rounded-t-3xl shadow-2xl z-[100] flex flex-col overflow-hidden">
+        <div className="h-1.5 w-12 bg-slate-300 rounded-full mx-auto mt-3" />
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-gray-900">Benachrichtigungen</h3>

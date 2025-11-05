@@ -245,8 +245,8 @@ const HoursCalendar = () => {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-      <header className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6">
+    <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-slate-200">
+      <header className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-5 sm:p-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h2 className="text-2xl font-bold mb-1">Arbeitsstunden Kalender</h2>
@@ -272,7 +272,7 @@ const HoursCalendar = () => {
         </div>
       </header>
 
-      <section className="border-b border-gray-200 px-6 py-4 bg-gray-50">
+      <section className="border-b border-gray-200 px-4 sm:px-6 py-4 bg-gray-50">
         <div className="flex items-center justify-between">
           <button onClick={() => shiftWeek(-7)} className="p-2 hover:bg-gray-200 rounded-lg transition-colors" disabled={saving}>
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -297,7 +297,7 @@ const HoursCalendar = () => {
         </div>
       </section>
 
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <div className="space-y-4">
           {schedule.map((day, index) => (
             <div

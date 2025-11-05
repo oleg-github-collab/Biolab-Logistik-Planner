@@ -6,6 +6,8 @@ const { sendBotMessage, createNotification } = require('../services/entsorgungBo
 const {
   createCalendarEvent,
   createKanbanTask,
+  updateCalendarEventDetails,
+  updateKanbanTaskDetails,
   insertStorageBinAudit,
   enrichStorageBins,
   getAdminUserIds,
@@ -56,38 +58,117 @@ router.post('/', auth, async (req, res) => {
     const titleBase = 'Kistenprüfung';
     const descriptionBase = comment ? `${comment}` : 'Automatische Erinnerung zur Prüfung der gelagerten Kisten/Container.';
     const createdBy = req.user.id;
-    const createdBins = [];
+    const processedBins = [];
 
-    for (const code of normalizedCodes) {
+    for (const rawCode of normalizedCodes) {
+      const code = rawCode.trim();
+      if (!code) continue;
+
       const title = `${titleBase}: ${code}`;
       const tags = ['kistenmanagement', code];
 
-      const event = await createCalendarEvent(client, {
-        title,
-        description: descriptionBase,
-        keepUntil,
-        createdBy,
-        tags
-      });
-
-      const task = await createKanbanTask(client, {
-        title,
-        description: `${descriptionBase}\n\nMindestens aufbewahren bis: ${keepUntil}`,
-        dueDate: keepUntil,
-        createdBy,
-        tags
-      });
-
-      const binResult = await client.query(
-        `INSERT INTO storage_bins (code, comment, keep_until, status, calendar_event_id, task_id, created_by)
-         VALUES ($1, $2, $3, 'pending', $4, $5, $6)
-         RETURNING *`,
-        [code, comment || null, keepUntil, event.id, task.id, createdBy]
+      const existingResult = await client.query(
+        `SELECT *
+           FROM storage_bins
+          WHERE code = $1
+            AND status = 'pending'
+          ORDER BY created_at DESC
+          LIMIT 1`,
+        [code]
       );
 
-      const bin = binResult.rows[0];
-      await insertStorageBinAudit(client, bin.id, 'created', { code, keepUntil }, createdBy);
-      createdBins.push({ bin, event, task });
+      let bin;
+      let event = null;
+      let task = null;
+      let action = 'created';
+
+      if (existingResult.rows.length) {
+        const existing = existingResult.rows[0];
+        action = 'updated';
+
+        const nextEvent =
+          (await updateCalendarEventDetails(client, existing.calendar_event_id, {
+            title,
+            description: descriptionBase,
+            keepUntil,
+            tags
+          })) ||
+          (await createCalendarEvent(client, {
+            title,
+            description: descriptionBase,
+            keepUntil,
+            createdBy,
+            tags
+          }));
+
+        event = nextEvent;
+
+        const nextTask =
+          (await updateKanbanTaskDetails(client, existing.task_id, {
+            title,
+            description: `${descriptionBase}\n\nMindestens aufbewahren bis: ${keepUntil}`,
+            dueDate: keepUntil,
+            tags
+          })) ||
+          (await createKanbanTask(client, {
+            title,
+            description: `${descriptionBase}\n\nMindestens aufbewahren bis: ${keepUntil}`,
+            dueDate: keepUntil,
+            createdBy,
+            tags
+          }));
+
+        task = nextTask;
+
+        const updateResult = await client.query(
+          `UPDATE storage_bins
+              SET comment = $1,
+                  keep_until = $2,
+                  calendar_event_id = $3,
+                  task_id = $4,
+                  updated_at = CURRENT_TIMESTAMP
+            WHERE id = $5
+            RETURNING *`,
+          [
+            comment || existing.comment || null,
+            keepUntil,
+            event ? event.id : existing.calendar_event_id,
+            task ? task.id : existing.task_id,
+            existing.id
+          ]
+        );
+
+        bin = updateResult.rows[0];
+        await insertStorageBinAudit(client, bin.id, 'updated', { code, keepUntil }, createdBy);
+      } else {
+        event = await createCalendarEvent(client, {
+          title,
+          description: descriptionBase,
+          keepUntil,
+          createdBy,
+          tags
+        });
+
+        task = await createKanbanTask(client, {
+          title,
+          description: `${descriptionBase}\n\nMindestens aufbewahren bis: ${keepUntil}`,
+          dueDate: keepUntil,
+          createdBy,
+          tags
+        });
+
+        const binResult = await client.query(
+          `INSERT INTO storage_bins (code, comment, keep_until, status, calendar_event_id, task_id, created_by)
+           VALUES ($1, $2, $3, 'pending', $4, $5, $6)
+           RETURNING *`,
+          [code, comment || null, keepUntil, event.id, task.id, createdBy]
+        );
+
+        bin = binResult.rows[0];
+        await insertStorageBinAudit(client, bin.id, 'created', { code, keepUntil }, createdBy);
+      }
+
+      processedBins.push({ bin, event, task, action, code });
     }
 
     await client.query('COMMIT');
@@ -103,16 +184,36 @@ router.post('/', auth, async (req, res) => {
       const adminIds = adminsRes.rows.map((row) => row.id);
       const recipients = Array.from(new Set([createdBy, ...adminIds]));
 
+      const createdCount = processedBins.filter((entry) => entry.action === 'created').length;
+      const updatedCount = processedBins.filter((entry) => entry.action === 'updated').length;
+      const summaryParts = [];
+      if (createdCount > 0) summaryParts.push(`${createdCount} neu registriert`);
+      if (updatedCount > 0) summaryParts.push(`${updatedCount} aktualisiert`);
+      const summaryText = summaryParts.length ? summaryParts.join(' und ') : 'keine Änderungen';
+
+      const createdCodes = processedBins.filter((entry) => entry.action === 'created').map((entry) => entry.code);
+      const updatedCodes = processedBins.filter((entry) => entry.action === 'updated').map((entry) => entry.code);
+
+      const totalCount = processedBins.length;
+      const baseMessage = summaryParts.length
+        ? `Statusupdate: ${summaryText}.`
+        : 'Keine offenen Änderungen.';
+      const reminderText = totalCount > 0
+        ? ` Gesamtanzahl betroffen: ${totalCount}. Prüftermin: ${keepUntil}.`
+        : '';
       for (const recipient of recipients) {
-        const message = `Heute wurden neue Kisten zur Überprüfung angelegt (insgesamt ${createdBins.length}). Nächste Prüfung bis ${keepUntil}.`;
+        const message = `${baseMessage}${reminderText}`;
         await sendBotMessage(botClient, recipient, message);
         await createNotification(botClient, recipient, {
-          title: 'Neue Kistenprüfung angelegt',
-          content: `Es wurden ${createdBins.length} Kisten registriert. Prüftermin: ${keepUntil}.`,
+          title: 'Kistenmanagement aktualisiert',
+          content: `${baseMessage}${reminderText}`,
           type: 'kisten',
           metadata: {
             keepUntil,
-            codes: normalizedCodes
+            totalCount,
+            createdCodes,
+            updatedCodes,
+            allCodes: normalizedCodes
           }
         });
       }
