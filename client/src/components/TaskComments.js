@@ -10,6 +10,8 @@ const TaskComments = ({ taskId }) => {
   const [newComment, setNewComment] = useState('');
   const [attachments, setAttachments] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [mediaRecorder, setMediaRecorder] = useState(null);
 
   useEffect(() => {
     loadComments();
@@ -67,6 +69,44 @@ const TaskComments = ({ taskId }) => {
 
   const removeAttachment = (index) => {
     setAttachments(attachments.filter((_, i) => i !== index));
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      const chunks = [];
+
+      recorder.ondataavailable = (e) => chunks.push(e.data);
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'audio/webm' });
+        const file = new File([blob], `audio-${Date.now()}.webm`, { type: 'audio/webm' });
+        setAttachments([...attachments, {
+          file,
+          preview: null,
+          type: 'audio/webm',
+          name: file.name
+        }]);
+        stream.getTracks().forEach(track => track.stop());
+        toast.success('Audioaufnahme hinzugefügt');
+      };
+
+      recorder.start();
+      setMediaRecorder(recorder);
+      setIsRecording(true);
+      toast.success('Aufnahme gestartet');
+    } catch (error) {
+      console.error('Error starting recording:', error);
+      toast.error('Fehler beim Zugriff auf Mikrofon');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorder && isRecording) {
+      mediaRecorder.stop();
+      setIsRecording(false);
+      setMediaRecorder(null);
+    }
   };
 
   return (
@@ -203,8 +243,21 @@ const TaskComments = ({ taskId }) => {
             className="px-3 py-2 border-2 border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer flex items-center gap-2"
           >
             <ImageIcon className="w-4 h-4" />
-            Anhangen
+            Anhängen
           </label>
+
+          <button
+            type="button"
+            onClick={isRecording ? stopRecording : startRecording}
+            className={`px-3 py-2 border-2 rounded-lg transition-colors flex items-center gap-2 ${
+              isRecording
+                ? 'border-red-600 bg-red-50 text-red-700 hover:bg-red-100'
+                : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            <Mic className="w-4 h-4" />
+            {isRecording ? 'Stopp' : 'Audio'}
+          </button>
 
           <button
             type="submit"

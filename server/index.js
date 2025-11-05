@@ -91,6 +91,8 @@ app.use('/api/waste', require('./routes/waste.pg'));
 // Admin routes (PostgreSQL)
 console.log('  ✓ admin');
 app.use('/api/admin', require('./routes/admin.pg'));
+console.log('  ✓ event-breaks');
+app.use('/api/events', require('./routes/event-breaks.pg'));
 console.log('✅ All routes loaded');
 
 // Health check route
