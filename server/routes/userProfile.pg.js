@@ -1,7 +1,8 @@
 const express = require('express');
 const { pool } = require('../config/database');
 const { auth } = require('../middleware/auth');
-const { uploadSingle } = require('../services/fileService');
+const { uploadSingleCloudinary, isCloudinaryConfigured } = require('../services/cloudinaryUpload');
+const { deleteOldAvatar } = require('../config/cloudinary');
 const { getIO } = require('../websocket');
 const logger = require('../utils/logger');
 const storyService = require('../services/storyService');
@@ -113,8 +114,8 @@ router.put('/:userId', auth, async (req, res) => {
 });
 
 // @route   POST /api/profile/:userId/photo
-// @desc    Upload profile photo
-router.post('/:userId/photo', auth, uploadSingle('photo'), async (req, res) => {
+// @desc    Upload profile photo (Cloudinary or local fallback)
+router.post('/:userId/photo', auth, uploadSingleCloudinary('photo', 'avatar'), async (req, res) => {
   try {
     const { userId } = req.params;
 
@@ -128,8 +129,15 @@ router.post('/:userId/photo', auth, uploadSingle('photo'), async (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const rawPath = req.file.path.replace(/\\/g, '/');
-    const normalizedPath = rawPath.startsWith('/') ? rawPath : `/${rawPath}`;
+    // Get old profile photo to delete from Cloudinary
+    const oldPhotoResult = await pool.query(
+      'SELECT profile_photo FROM users WHERE id = $1',
+      [userId]
+    );
+    const oldPhotoUrl = oldPhotoResult.rows[0]?.profile_photo;
+
+    // Cloudinary returns req.file.path as the full URL
+    const photoUrl = isCloudinaryConfigured ? req.file.path : `/${req.file.path.replace(/\\/g, '/')}`;
 
     // Update user profile_photo
     const result = await pool.query(
@@ -138,10 +146,19 @@ router.post('/:userId/photo', auth, uploadSingle('photo'), async (req, res) => {
         updated_at = CURRENT_TIMESTAMP
       WHERE id = $2
       RETURNING profile_photo`,
-      [normalizedPath, userId]
+      [photoUrl, userId]
     );
 
-    logger.info('Profile photo uploaded', { userId, path: req.file.path });
+    // Delete old avatar from Cloudinary if exists
+    if (oldPhotoUrl && isCloudinaryConfigured) {
+      await deleteOldAvatar(oldPhotoUrl);
+    }
+
+    logger.info('Profile photo uploaded', {
+      userId,
+      cloudinary: isCloudinaryConfigured,
+      url: photoUrl
+    });
 
     res.json({
       success: true,
@@ -345,7 +362,7 @@ router.get('/:userId/stories', auth, async (req, res) => {
   }
 });
 
-router.post('/:userId/stories', auth, uploadSingle('storyMedia'), async (req, res) => {
+router.post('/:userId/stories', auth, uploadSingleCloudinary('storyMedia', 'story'), async (req, res) => {
   try {
     const { userId } = req.params;
     const caption = req.body?.caption || '';
@@ -361,7 +378,8 @@ router.post('/:userId/stories', auth, uploadSingle('storyMedia'), async (req, re
     const story = await storyService.addStory({
       userId,
       file: req.file,
-      caption
+      caption,
+      isCloudinary: isCloudinaryConfigured
     });
 
     res.json({ story });

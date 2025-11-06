@@ -693,7 +693,7 @@ const DirectMessenger = () => {
                 <button
                   type="button"
                   onClick={() =>
-                    navigate('/schedule', {
+                    navigate('/dashboard', {
                       state: { focusEventId: ref.event_id }
                     })
                   }

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { X, Calendar, User, Flag, Tag, Clock, Plus, MessageCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import TaskComments from './TaskComments';
+import VoiceRecorder from './VoiceRecorder';
 import { getAssetUrl } from '../utils/media';
 
 const PRIORITIES = [
@@ -23,6 +24,7 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
   });
 
   const [tagInput, setTagInput] = useState('');
+  const [voiceInstruction, setVoiceInstruction] = useState(null);
 
   const normalizedAttachments = useMemo(() => {
     if (!task || !Array.isArray(task.attachments)) {
@@ -83,7 +85,11 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
       toast.error('Titel ist erforderlich');
       return;
     }
-    onSave(formData);
+    onSave({ ...formData, voiceInstruction });
+  };
+
+  const handleVoiceRecording = (audioBlob) => {
+    setVoiceInstruction(audioBlob);
   };
 
   const addTag = () => {
@@ -332,6 +338,16 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
                     Hinzufügen
                   </button>
                 </div>
+              </div>
+
+              {/* Voice Instruction */}
+              <div>
+                <VoiceRecorder
+                  onRecordingComplete={handleVoiceRecording}
+                  existingAudioUrl={
+                    normalizedAttachments.find(a => a.type === 'audio')?.url
+                  }
+                />
               </div>
             </div>
           </div>

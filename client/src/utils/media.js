@@ -2,8 +2,13 @@ export const getAssetUrl = (value) => {
   if (!value) return '';
   if (typeof window === 'undefined') return value;
 
-  // Already a full URL (http/https/data/blob)
+  // Already a full URL (http/https/data/blob) - includes Cloudinary URLs
   if (value.startsWith('http://') || value.startsWith('https://') || value.startsWith('data:') || value.startsWith('blob:')) {
+    return value;
+  }
+
+  // Cloudinary URLs (res.cloudinary.com)
+  if (value.includes('cloudinary.com')) {
     return value;
   }
 

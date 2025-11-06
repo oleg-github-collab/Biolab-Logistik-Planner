@@ -3,6 +3,7 @@ const path = require('path');
 const { randomUUID } = require('crypto');
 const { pool } = require('../config/database');
 const logger = require('../utils/logger');
+const { deleteStory: deleteCloudinaryStory, bulkDeleteStories } = require('../config/cloudinary');
 
 const STORIES_UPLOAD_DIR = path.join(__dirname, '..', 'uploads', 'stories');
 
@@ -59,17 +60,37 @@ const cleanupExpiredStories = async () => {
   const client = await pool.connect();
   try {
     const expired = await client.query(
-      `SELECT id, media_path FROM user_stories WHERE expires_at <= NOW()`
+      `SELECT id, media_path, media_url FROM user_stories WHERE expires_at <= NOW()`
     );
 
     if (expired.rows.length > 0) {
       const ids = expired.rows.map((row) => row.id);
+
+      // Delete from database
       await client.query('DELETE FROM user_story_views WHERE story_id = ANY($1)', [ids]);
       await client.query('DELETE FROM user_stories WHERE id = ANY($1)', [ids]);
 
-      await Promise.all(expired.rows.map((row) => removeFileIfExists(row.media_path)));
+      // Delete from Cloudinary (if URLs are from Cloudinary)
+      const cloudinaryUrls = expired.rows
+        .map(row => row.media_url)
+        .filter(url => url && url.includes('cloudinary.com'));
 
-      logger.info('Expired stories cleaned up', { count: expired.rows.length });
+      if (cloudinaryUrls.length > 0) {
+        await bulkDeleteStories(cloudinaryUrls);
+      }
+
+      // Delete local files (if any)
+      await Promise.all(
+        expired.rows
+          .filter(row => row.media_path && !row.media_url.includes('cloudinary.com'))
+          .map((row) => removeFileIfExists(row.media_path))
+      );
+
+      logger.info('Expired stories cleaned up', {
+        count: expired.rows.length,
+        cloudinary: cloudinaryUrls.length,
+        local: expired.rows.length - cloudinaryUrls.length
+      });
     }
   } catch (error) {
     if (isMissingRelationError(error)) {
@@ -157,13 +178,22 @@ const getUserStories = async (userId, viewerId = null) => {
   }
 };
 
-const addStory = async ({ userId, file, caption }) => {
+const addStory = async ({ userId, file, caption, isCloudinary = false }) => {
   await ensureUploadDir();
 
   const id = randomUUID();
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-  const relativePath = file.path.replace(path.join(__dirname, '..'), '').replace(/\\/g, '/');
-  const mediaUrl = relativePath.startsWith('/') ? relativePath : `/${relativePath}`;
+
+  // Cloudinary returns full URL in file.path, local storage returns file path
+  let mediaUrl, mediaPath;
+  if (isCloudinary) {
+    mediaUrl = file.path; // Full Cloudinary URL
+    mediaPath = file.path; // Store URL as path for reference
+  } else {
+    const relativePath = file.path.replace(path.join(__dirname, '..'), '').replace(/\\/g, '/');
+    mediaUrl = relativePath.startsWith('/') ? relativePath : `/${relativePath}`;
+    mediaPath = file.path;
+  }
 
   try {
     const result = await pool.query(
@@ -173,7 +203,7 @@ const addStory = async ({ userId, file, caption }) => {
       [
         id,
         parseInt(userId, 10),
-        file.path,
+        mediaPath,
         mediaUrl,
         file.mimetype || 'image',
         caption || '',
@@ -182,7 +212,11 @@ const addStory = async ({ userId, file, caption }) => {
     );
 
     const story = result.rows[0];
-    logger.info('Profile story added', { userId: story.user_id, storyId: story.id });
+    logger.info('Profile story added', {
+      userId: story.user_id,
+      storyId: story.id,
+      cloudinary: isCloudinary
+    });
     return mapStoryRow({ ...story, views_count: 0, viewers: [], viewers_ids: [] });
   } catch (error) {
     if (isMissingRelationError(error)) {
