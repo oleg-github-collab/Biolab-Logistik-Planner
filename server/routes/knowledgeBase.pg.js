@@ -168,18 +168,19 @@ router.post('/articles', auth, async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const { title, content, excerpt, category_id, tags, status = 'draft', visibility = 'everyone' } = req.body;
-    
+    const { title, content, excerpt, summary, category_id, tags, status = 'draft', visibility = 'everyone' } = req.body;
+
     if (!title || !content) {
       return res.status(400).json({ error: 'Titel und Inhalt sind erforderlich' });
     }
 
     const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Date.now();
+    const articleSummary = summary || excerpt || null;
 
     const result = await client.query(`
-      INSERT INTO kb_articles (title, slug, content, excerpt, category_id, author_id, status, visibility, tags, published_at)
+      INSERT INTO kb_articles (title, slug, content, summary, category_id, author_id, status, visibility, tags, published_at)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *
-    `, [title, slug, content, excerpt, category_id, req.user.id, status, visibility, tags, status === 'published' ? new Date() : null]);
+    `, [title, slug, content, articleSummary, category_id, req.user.id, status, visibility, tags, status === 'published' ? new Date() : null]);
 
     await client.query('COMMIT');
 
@@ -205,7 +206,7 @@ router.put('/articles/:id', auth, async (req, res) => {
   try {
     await client.query('BEGIN');
     const { id } = req.params;
-    const { title, content, excerpt, category_id, tags, status, visibility, featured, pinned } = req.body;
+    const { title, content, excerpt, summary, category_id, tags, status, visibility, featured, pinned } = req.body;
 
     const checkResult = await client.query('SELECT author_id FROM kb_articles WHERE id = $1', [id]);
     if (checkResult.rows.length === 0) return res.status(404).json({ error: 'Artikel nicht gefunden' });
@@ -220,17 +221,18 @@ router.put('/articles/:id', auth, async (req, res) => {
       VALUES ($1, $2, $3, $4)
     `, [id, oldArticle.rows[0].title, oldArticle.rows[0].content, req.user.id]);
 
+    const articleSummary = summary || excerpt || null;
+
     const result = await client.query(`
       UPDATE kb_articles SET
         title = COALESCE($1, title), content = COALESCE($2, content),
-        excerpt = COALESCE($3, excerpt), category_id = COALESCE($4, category_id),
+        summary = COALESCE($3, summary), category_id = COALESCE($4, category_id),
         tags = COALESCE($5, tags), status = COALESCE($6, status),
-        visibility = COALESCE($7, visibility), featured = COALESCE($8, featured),
-        pinned = COALESCE($9, pinned),
+        visibility = COALESCE($7, visibility), is_featured = COALESCE($8, is_featured),
         published_at = CASE WHEN $6 = 'published' AND published_at IS NULL THEN CURRENT_TIMESTAMP ELSE published_at END,
         updated_at = CURRENT_TIMESTAMP
-      WHERE id = $10 RETURNING *
-    `, [title, content, excerpt, category_id, tags, status, visibility, featured, pinned, id]);
+      WHERE id = $9 RETURNING *
+    `, [title, content, articleSummary, category_id, tags, status, visibility, featured, id]);
 
     await client.query('COMMIT');
 

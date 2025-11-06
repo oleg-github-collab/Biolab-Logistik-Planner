@@ -1,5 +1,5 @@
 const express = require('express');
-const pool = require('../config/database');
+const { pool } = require('../config/database');
 const { auth, adminAuth } = require('../middleware/auth');
 const { ensureDisposalCalendarEvent } = require('../services/entsorgungBot');
 const router = express.Router();

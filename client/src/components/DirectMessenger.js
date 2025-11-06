@@ -601,7 +601,7 @@ const DirectMessenger = () => {
           </p>
         )}
 
-        {msg.message_type === 'gif' ? (
+        {msg.message_type === 'gif' || (msg.message && (msg.message.includes('giphy.com') || msg.message.includes('tenor.com') || msg.message.match(/\.(gif|webp)(\?|$)/i))) ? (
           <img src={msg.message} alt="GIF" className="rounded-lg max-h-60 w-full object-contain" />
         ) : (
           <p className={`${isMobile ? 'message-text' : 'text-sm whitespace-pre-wrap break-words'}`}>
