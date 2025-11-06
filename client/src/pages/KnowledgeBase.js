@@ -91,7 +91,10 @@ const KnowledgeBase = () => {
 
     try {
       setUploadingMedia(true);
-      const createdArticle = await createKBArticle(newArticle);
+      const createdArticle = await createKBArticle({
+        ...newArticle,
+        status: 'published' // Auto-publish articles
+      });
       const articleId = createdArticle.data.id;
 
       // Upload media files
