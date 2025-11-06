@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../config/database');
 const { auth, adminAuth } = require('../middleware/auth');
+const { ensureDisposalCalendarEvent } = require('../services/entsorgungBot');
 const router = express.Router();
 
 // XSS Protection Helper
@@ -8,6 +9,21 @@ function sanitizeInput(text) {
   if (typeof text !== 'string') return text;
   return text.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
 }
+
+const parseReminderDates = (value) => {
+  if (!value && value !== 0) {
+    return [];
+  }
+  if (Array.isArray(value)) {
+    return value;
+  }
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    return [];
+  }
+};
 
 let wasteKanbanColumnEnsured = false;
 
@@ -921,58 +937,99 @@ router.get('/schedule/upcoming', auth, async (req, res) => {
 router.post('/schedule', auth, async (req, res) => {
   const { waste_item_id, scheduled_date, assigned_to, notes, reminder_dates } = req.body;
 
+  const client = await pool.connect();
   try {
     if (!waste_item_id || !scheduled_date) {
+      client.release();
       return res.status(400).json({ error: 'Abfallelement und geplantes Datum sind erforderlich' });
     }
 
-    if (isNaN(parseInt(waste_item_id))) {
+    const parsedItemId = parseInt(waste_item_id, 10);
+    if (!Number.isInteger(parsedItemId)) {
+      client.release();
       return res.status(400).json({ error: 'Ungültige Abfallelement-ID' });
     }
 
-    const itemCheck = await pool.query(
+    await client.query('BEGIN');
+
+    const itemCheck = await client.query(
       'SELECT id FROM waste_items WHERE id = $1',
-      [waste_item_id]
+      [parsedItemId]
     );
 
     if (itemCheck.rows.length === 0) {
+      await client.query('ROLLBACK');
+      client.release();
       return res.status(400).json({ error: 'Abfallelement nicht gefunden' });
     }
 
+    let assignedUserId = null;
     if (assigned_to !== null && assigned_to !== undefined) {
-      const userCheck = await pool.query(
+      const parsedAssigned = parseInt(assigned_to, 10);
+      if (!Number.isInteger(parsedAssigned)) {
+        await client.query('ROLLBACK');
+        client.release();
+        return res.status(400).json({ error: 'Ungültige Benutzer-ID' });
+      }
+
+      const userCheck = await client.query(
         'SELECT id FROM users WHERE id = $1',
-        [assigned_to]
+        [parsedAssigned]
       );
 
       if (userCheck.rows.length === 0) {
+        await client.query('ROLLBACK');
+        client.release();
         return res.status(400).json({ error: 'Ungültige Benutzer-ID' });
       }
+
+      assignedUserId = parsedAssigned;
     }
 
-    let reminderDatesJson = [];
-    if (reminder_dates !== undefined && reminder_dates !== null) {
-      if (!Array.isArray(reminder_dates)) {
-        return res.status(400).json({ error: 'Erinnerungsdaten müssen ein Array sein' });
-      }
-      reminderDatesJson = reminder_dates;
+    if (reminder_dates !== undefined && reminder_dates !== null && !Array.isArray(reminder_dates)) {
+      await client.query('ROLLBACK');
+      client.release();
+      return res.status(400).json({ error: 'Erinnerungsdaten müssen ein Array sein' });
     }
 
     const sanitizedNotes = sanitizeInput(notes);
+    const reminderArray = parseReminderDates(reminder_dates);
+    const reminderJson = JSON.stringify(reminderArray);
 
-    const result = await pool.query(
+    const insertResult = await client.query(
       `INSERT INTO waste_disposal_schedule (
         waste_item_id, scheduled_date, assigned_to, notes,
-        reminder_dates, created_at
-      ) VALUES ($1, $2, $3, $4, $5, NOW())
+        reminder_dates, created_by, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
       RETURNING *`,
-      [waste_item_id, scheduled_date, assigned_to, sanitizedNotes, JSON.stringify(reminderDatesJson)]
+      [parsedItemId, scheduled_date, assignedUserId, sanitizedNotes, reminderJson, req.user.id]
     );
 
-    const scheduleWithDetails = await pool.query(
+    const scheduleRow = insertResult.rows[0];
+    const calendarEvent = await ensureDisposalCalendarEvent(client, scheduleRow, {
+      createdBy: assignedUserId || req.user.id
+    });
+
+    if (calendarEvent) {
+      await client.query(
+        `UPDATE waste_disposal_schedule
+            SET calendar_event_id = $1,
+                updated_at = NOW()
+          WHERE id = $2`,
+        [calendarEvent.id, scheduleRow.id]
+      );
+      scheduleRow.calendar_event_id = calendarEvent.id;
+    }
+
+    await client.query('COMMIT');
+
+    const scheduleWithDetails = await client.query(
       `SELECT
         wds.*,
         wi.name as waste_name,
+        wi.location as waste_location,
+        wi.notification_users,
+        wi.notes as waste_notes,
         wt.hazard_level,
         wt.category,
         wt.color,
@@ -983,13 +1040,20 @@ router.post('/schedule', auth, async (req, res) => {
       LEFT JOIN waste_templates wt ON wi.template_id = wt.id
       LEFT JOIN users u ON wds.assigned_to = u.id
       WHERE wds.id = $1`,
-      [result.rows[0].id]
+      [scheduleRow.id]
     );
 
-    res.json(scheduleWithDetails.rows[0]);
+    const payload = scheduleWithDetails.rows[0] || scheduleRow;
+    payload.reminder_dates = reminderArray;
+    payload.calendar_event = calendarEvent || null;
+
+    res.json(payload);
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error('Datenbankfehler beim Erstellen des Entsorgungsplans:', error);
     res.status(500).json({ error: 'Serverfehler' });
+  } finally {
+    client.release();
   }
 });
 
@@ -999,85 +1063,164 @@ router.put('/schedule/:id', auth, async (req, res) => {
   const { id } = req.params;
   const { scheduled_date, assigned_to, notes, status, reminder_dates } = req.body;
 
+  const client = await pool.connect();
   try {
-    if (!id || isNaN(parseInt(id))) {
+    const scheduleId = parseInt(id, 10);
+    if (!Number.isInteger(scheduleId)) {
+      client.release();
       return res.status(400).json({ error: 'Ungültige ID' });
     }
 
-    const scheduleCheck = await pool.query(
-      'SELECT id FROM waste_disposal_schedule WHERE id = $1',
-      [id]
+    await client.query('BEGIN');
+
+    const existingResult = await client.query(
+      `SELECT
+         wds.*,
+         wi.name as waste_name,
+         wi.location as waste_location,
+         wi.notification_users,
+         wi.notes as waste_notes,
+         wt.name as template_name,
+         wt.category as template_category,
+         wt.hazard_level
+       FROM waste_disposal_schedule wds
+       LEFT JOIN waste_items wi ON wds.waste_item_id = wi.id
+       LEFT JOIN waste_templates wt ON wi.template_id = wt.id
+       WHERE wds.id = $1`,
+      [scheduleId]
     );
 
-    if (scheduleCheck.rows.length === 0) {
+    if (existingResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      client.release();
       return res.status(404).json({ error: 'Entsorgungsplan nicht gefunden' });
     }
 
-    let updateFields = [];
-    let values = [];
-    let paramCount = 1;
+    const updateFields = [];
+    const values = [];
+    let paramIndex = 1;
 
     if (scheduled_date !== undefined) {
-      updateFields.push(`scheduled_date = $${paramCount}`);
+      updateFields.push(`scheduled_date = $${paramIndex}`);
       values.push(scheduled_date);
-      paramCount++;
+      paramIndex++;
     }
 
     if (assigned_to !== undefined) {
-      if (assigned_to !== null) {
-        const userCheck = await pool.query(
+      if (assigned_to === null) {
+        updateFields.push('assigned_to = NULL');
+      } else {
+        const parsedAssigned = parseInt(assigned_to, 10);
+        if (!Number.isInteger(parsedAssigned)) {
+          await client.query('ROLLBACK');
+          client.release();
+          return res.status(400).json({ error: 'Ungültige Benutzer-ID' });
+        }
+
+        const userCheck = await client.query(
           'SELECT id FROM users WHERE id = $1',
-          [assigned_to]
+          [parsedAssigned]
         );
 
         if (userCheck.rows.length === 0) {
+          await client.query('ROLLBACK');
+          client.release();
           return res.status(400).json({ error: 'Ungültige Benutzer-ID' });
         }
+
+        updateFields.push(`assigned_to = $${paramIndex}`);
+        values.push(parsedAssigned);
+        paramIndex++;
       }
-      updateFields.push(`assigned_to = $${paramCount}`);
-      values.push(assigned_to);
-      paramCount++;
     }
 
     if (notes !== undefined) {
-      updateFields.push(`notes = $${paramCount}`);
+      updateFields.push(`notes = $${paramIndex}`);
       values.push(sanitizeInput(notes));
-      paramCount++;
+      paramIndex++;
     }
 
     if (status !== undefined) {
       const validStatuses = ['scheduled', 'rescheduled', 'completed', 'overdue', 'cancelled'];
       if (!validStatuses.includes(status)) {
+        await client.query('ROLLBACK');
+        client.release();
         return res.status(400).json({ error: 'Ungültiger Status' });
       }
-      updateFields.push(`status = $${paramCount}`);
+      updateFields.push(`status = $${paramIndex}`);
       values.push(status);
-      paramCount++;
+      paramIndex++;
     }
 
     if (reminder_dates !== undefined) {
       if (!Array.isArray(reminder_dates)) {
+        await client.query('ROLLBACK');
+        client.release();
         return res.status(400).json({ error: 'Erinnerungsdaten müssen ein Array sein' });
       }
-      updateFields.push(`reminder_dates = $${paramCount}`);
+      updateFields.push(`reminder_dates = $${paramIndex}`);
       values.push(JSON.stringify(reminder_dates));
-      paramCount++;
+      paramIndex++;
     }
 
-    if (updateFields.length === 0) {
-      return res.status(400).json({ error: 'Keine zu aktualisierenden Felder angegeben' });
+    if (updateFields.length > 0) {
+      updateFields.push('updated_at = NOW()');
+      const updateQuery = `UPDATE waste_disposal_schedule SET ${updateFields.join(', ')} WHERE id = $${paramIndex} RETURNING *`;
+      values.push(scheduleId);
+      const updated = await client.query(updateQuery, values);
+      existingResult.rows[0] = { ...existingResult.rows[0], ...updated.rows[0] };
     }
 
-    updateFields.push(`updated_at = NOW()`);
-    values.push(id);
+    const mergedSchedule = existingResult.rows[0];
+    const calendarEvent = await ensureDisposalCalendarEvent(client, mergedSchedule, {
+      createdBy: mergedSchedule.assigned_to || req.user.id
+    });
 
-    const query = `UPDATE waste_disposal_schedule SET ${updateFields.join(', ')} WHERE id = $${paramCount} RETURNING *`;
+    if (calendarEvent) {
+      await client.query(
+        `UPDATE waste_disposal_schedule
+            SET calendar_event_id = $1,
+                updated_at = NOW()
+          WHERE id = $2`,
+        [calendarEvent.id, mergedSchedule.id]
+      );
+      mergedSchedule.calendar_event_id = calendarEvent.id;
+    }
 
-    const result = await pool.query(query, values);
-    res.json({ message: 'Entsorgungsplan erfolgreich aktualisiert', schedule: result.rows[0] });
+    await client.query('COMMIT');
+
+    const scheduleWithDetails = await client.query(
+      `SELECT
+        wds.*,
+        wi.name as waste_name,
+        wi.location as waste_location,
+        wi.notification_users,
+        wi.notes as waste_notes,
+        wt.hazard_level,
+        wt.category,
+        wt.color,
+        wt.icon,
+        u.name as assigned_to_name
+      FROM waste_disposal_schedule wds
+      LEFT JOIN waste_items wi ON wds.waste_item_id = wi.id
+      LEFT JOIN waste_templates wt ON wi.template_id = wt.id
+      LEFT JOIN users u ON wds.assigned_to = u.id
+      WHERE wds.id = $1`,
+      [scheduleId]
+    );
+
+    const payload = scheduleWithDetails.rows[0] || mergedSchedule;
+    payload.reminder_dates =
+      reminder_dates !== undefined ? reminder_dates : parseReminderDates(payload.reminder_dates);
+    payload.calendar_event = calendarEvent || null;
+
+    res.json({ message: 'Entsorgungsplan erfolgreich aktualisiert', schedule: payload });
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error('Datenbankfehler beim Aktualisieren des Entsorgungsplans:', error);
     res.status(500).json({ error: 'Serverfehler' });
+  } finally {
+    client.release();
   }
 });
 
@@ -1086,24 +1229,51 @@ router.put('/schedule/:id', auth, async (req, res) => {
 router.delete('/schedule/:id', auth, async (req, res) => {
   const { id } = req.params;
 
+  const client = await pool.connect();
   try {
-    if (!id || isNaN(parseInt(id))) {
+    const scheduleId = parseInt(id, 10);
+    if (!Number.isInteger(scheduleId)) {
+      client.release();
       return res.status(400).json({ error: 'Ungültige ID' });
     }
 
-    const result = await pool.query(
-      'DELETE FROM waste_disposal_schedule WHERE id = $1 RETURNING id',
-      [id]
+    await client.query('BEGIN');
+
+    const existing = await client.query(
+      'SELECT calendar_event_id FROM waste_disposal_schedule WHERE id = $1',
+      [scheduleId]
     );
 
-    if (result.rows.length === 0) {
+    if (existing.rows.length === 0) {
+      await client.query('ROLLBACK');
+      client.release();
       return res.status(404).json({ error: 'Entsorgungsplan nicht gefunden' });
     }
 
+    await client.query(
+      'DELETE FROM waste_disposal_schedule WHERE id = $1',
+      [scheduleId]
+    );
+
+    const calendarEventId = existing.rows[0].calendar_event_id;
+    if (calendarEventId) {
+      await client.query(
+        `UPDATE calendar_events
+            SET status = 'cancelled',
+                updated_at = CURRENT_TIMESTAMP
+          WHERE id = $1`,
+        [calendarEventId]
+      );
+    }
+
+    await client.query('COMMIT');
     res.json({ message: 'Entsorgungsplan erfolgreich gelöscht' });
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error('Datenbankfehler beim Löschen des Entsorgungsplans:', error);
     res.status(500).json({ error: 'Serverfehler' });
+  } finally {
+    client.release();
   }
 });
 

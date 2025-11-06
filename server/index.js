@@ -20,6 +20,11 @@ const logger = require('./utils/logger');
 const redisService = require('./services/redisService');
 const { ensureMessageSchema } = require('./services/messageService');
 const { scheduleKistenReminders, runReminderJob } = require('./services/kistenReminder');
+const {
+  scheduleEntsorgungReminders,
+  runEntsorgungReminderJob
+} = require('./services/entsorgungReminder');
+const { runPendingMigrations } = require('./utils/postgresMigrations');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -162,7 +167,13 @@ const startServer = async () => {
   console.log(`NODE_ENV: ${process.env.NODE_ENV}`);
 
   try {
-    // Start server FIRST - most important
+    try {
+      await runPendingMigrations();
+    } catch (migrationError) {
+      console.error('⚠️  PostgreSQL migrations failed:', migrationError.message);
+      console.error('Continuing startup, but database schema may be outdated');
+    }
+
     server.listen(PORT, '0.0.0.0', () => {
       console.log(`✅ Server running on port ${PORT}`);
       console.log(`Environment: ${process.env.NODE_ENV}`);
@@ -198,6 +209,13 @@ const startServer = async () => {
         await runReminderJob({ triggeredByScheduler: false });
       } catch (reminderError) {
         logger.error('Failed to initialize Kisten reminders', { error: reminderError.message });
+      }
+
+      try {
+        scheduleEntsorgungReminders();
+        await runEntsorgungReminderJob({ triggeredByScheduler: false });
+      } catch (entsorgungError) {
+        logger.error('Failed to initialize Entsorgungs reminders', { error: entsorgungError.message });
       }
     });
 

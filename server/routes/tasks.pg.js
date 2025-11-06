@@ -74,7 +74,11 @@ router.get('/board', auth, async (req, res) => {
         tp_data.help_request_message,
         tp_data.help_requested_at,
         tp_data.created_at AS pool_created_at,
-        tp_data.updated_at AS pool_updated_at
+        tp_data.updated_at AS pool_updated_at,
+        attachments_data.attachments_count,
+        attachments_data.audio_attachment_count,
+        comments_data.comments_count,
+        comments_data.audio_comment_count
       FROM tasks t
       LEFT JOIN users task_assignee ON t.assigned_to = task_assignee.id
       LEFT JOIN users creator ON t.created_by = creator.id
@@ -101,6 +105,20 @@ router.get('/board', auth, async (req, res) => {
       LEFT JOIN users claim_user ON tp_data.claimed_by = claim_user.id
       LEFT JOIN users pool_assignee ON tp_data.assigned_to = pool_assignee.id
       LEFT JOIN users help_user ON tp_data.help_requested_from = help_user.id
+      LEFT JOIN LATERAL (
+        SELECT
+          COUNT(*) AS attachments_count,
+          COUNT(*) FILTER (WHERE file_type = 'audio' OR mime_type LIKE 'audio/%') AS audio_attachment_count
+        FROM task_attachments ta
+        WHERE ta.task_id = t.id
+      ) attachments_data ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT
+          COUNT(*) AS comments_count,
+          COUNT(*) FILTER (WHERE COALESCE(audio_url, '') <> '') AS audio_comment_count
+        FROM task_comments tc
+        WHERE tc.task_id = t.id
+      ) comments_data ON TRUE
       ORDER BY
         CASE
           WHEN t.priority = 'urgent' THEN 1
@@ -139,6 +157,10 @@ router.get('/board', auth, async (req, res) => {
         tags: row.tags || [],
         completedAt: row.completed_at,
         updatedAt: row.updated_at,
+        attachmentsCount: Number(row.attachments_count) || 0,
+        audioAttachmentCount: Number(row.audio_attachment_count) || 0,
+        commentsCount: Number(row.comments_count) || 0,
+        audioCommentCount: Number(row.audio_comment_count) || 0,
         pool: row.task_pool_id
           ? {
               id: row.task_pool_id,

@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
 import TimePicker from './TimePicker';
+import { useMobile } from '../hooks/useMobile';
 
 const DAYS_OF_WEEK = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
 const DEFAULT_BLOCKS = [
@@ -32,6 +33,7 @@ const HoursCalendar = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const saveTimeouts = useRef({});
+  const { isMobile } = useMobile();
 
   const loadSchedule = useCallback(async () => {
     try {
@@ -206,7 +208,6 @@ const HoursCalendar = () => {
     const day = schedule[dayIndex];
 
     if (day.time_blocks.length === 1) {
-      // Removing the last block turns the day off
       toggleWorkingDay(dayIndex);
       return;
     }
@@ -236,6 +237,14 @@ const HoursCalendar = () => {
     return schedule.reduce((sum, day) => sum + parseFloat(dayHours(day.time_blocks)), 0).toFixed(1);
   }, [schedule, dayHours]);
 
+  const weekEnd = useMemo(() => addDays(currentWeekStart, 6), [currentWeekStart]);
+
+  const shiftWeek = (days) => {
+    const newDate = new Date(currentWeekStart);
+    newDate.setDate(newDate.getDate() + days);
+    setCurrentWeekStart(getMonday(newDate));
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-12">
@@ -245,26 +254,34 @@ const HoursCalendar = () => {
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-slate-200">
-      <header className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-5 sm:p-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="rounded-[32px] border border-slate-200 bg-white/90 backdrop-blur shadow-[0_28px_60px_rgba(15,23,42,0.08)] overflow-hidden">
+      <header className="bg-gradient-to-br from-blue-600 via-indigo-600 to-sky-600 text-white px-5 sm:px-7 py-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
           <div>
-            <h2 className="text-2xl font-bold mb-1">Arbeitsstunden Kalender</h2>
-            <p className="text-blue-100 text-sm">Plane flexible Arbeitsblöcke mit Pausen und Unterbrechungen.</p>
+            <p className="text-xs uppercase tracking-[0.3em] text-blue-100/70">
+              Planung & Kontrolle
+            </p>
+            <h2 className="text-2xl sm:text-3xl font-bold mt-1">Arbeitsstunden Kalender</h2>
+            <p className="text-blue-100/90 text-sm mt-1">
+              Plane konzentrierte Arbeitsblöcke, Pausen und individuelle Abwesenheiten.
+            </p>
           </div>
           {hoursSummary && (
-            <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-3 min-w-[200px]">
-              <div className="text-xs text-blue-100 mb-1">Diese Woche</div>
+            <div className="bg-white/15 backdrop-blur-lg rounded-3xl px-5 py-4 min-w-[220px] shadow-lg shadow-blue-900/20">
+              <div className="text-xs uppercase tracking-widest text-blue-100 mb-1">
+                Diese Woche
+              </div>
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl font-bold">{hoursSummary.totalBooked.toFixed(1)}h</span>
-                <span className="text-sm">/ {hoursSummary.weeklyQuota}h</span>
+                <span className="text-sm text-blue-100/80">/ {hoursSummary.weeklyQuota}h</span>
               </div>
               {hoursSummary.status !== 'exact' && (
-                <div className={`text-xs mt-1 ${
-                  hoursSummary.status === 'over' ? 'text-red-200' : 'text-yellow-200'
+                <div className={`text-xs mt-2 font-semibold ${
+                  hoursSummary.status === 'over' ? 'text-rose-100' : 'text-amber-100'
                 }`}>
-                  {hoursSummary.status === 'over' ? '+' : ''}{hoursSummary.difference.toFixed(1)}h
-                  {hoursSummary.status === 'over' ? ' über' : ' verbleibend'}
+                  {hoursSummary.status === 'over' ? '+' : ''}
+                  {hoursSummary.difference.toFixed(1)}h
+                  {hoursSummary.status === 'over' ? ' über Soll' : ' verbleibend'}
                 </div>
               )}
             </div>
@@ -272,134 +289,186 @@ const HoursCalendar = () => {
         </div>
       </header>
 
-      <section className="border-b border-gray-200 px-4 sm:px-6 py-4 bg-gray-50">
-        <div className="flex items-center justify-between">
-          <button onClick={() => shiftWeek(-7)} className="p-2 hover:bg-gray-200 rounded-lg transition-colors" disabled={saving}>
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
+      <section className="border-b border-slate-200/80 px-4 sm:px-6 py-4 bg-white/70 backdrop-blur">
+        <div className={`flex ${isMobile ? 'flex-col gap-3' : 'items-center justify-between'}`}>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => shiftWeek(-7)}
+              className="inline-flex items-center justify-center w-10 h-10 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 transition disabled:opacity-60"
+              disabled={saving}
+              aria-label="Vorherige Woche"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <button
+              onClick={() => shiftWeek(7)}
+              className="inline-flex items-center justify-center w-10 h-10 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 transition disabled:opacity-60"
+              disabled={saving}
+              aria-label="Nächste Woche"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
 
-          <div className="text-center">
-            <div className="text-lg font-semibold text-gray-800">
-              {formatDate(currentWeekStart)} - {formatDate(new Date(currentWeekStart.getTime() + 6 * 24 * 60 * 60 * 1000))}
+          <div className="flex-1 text-center">
+            <div className="text-lg font-semibold text-slate-800">
+              {formatDate(currentWeekStart)} – {formatDate(weekEnd)}
             </div>
-            <button onClick={() => setCurrentWeekStart(getMonday(new Date()))} className="text-sm text-blue-600 hover:text-blue-700 transition-colors">
+            <button
+              onClick={() => setCurrentWeekStart(getMonday(new Date()))}
+              className="text-sm font-semibold text-blue-600 hover:text-blue-700 transition"
+            >
               Zur aktuellen Woche
             </button>
           </div>
 
-          <button onClick={() => shiftWeek(7)} className="p-2 hover:bg-gray-200 rounded-lg transition-colors" disabled={saving}>
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
+          {!isMobile && (
+            <div className="rounded-xl bg-slate-100 text-slate-700 px-4 py-2 font-semibold">
+              Gesamt geplant: {totalWeekHours}h
+            </div>
+          )}
         </div>
       </section>
 
-      <div className="p-4 sm:p-6">
+      <div className="px-4 sm:px-6 py-5 bg-white/85">
         <div className="space-y-4">
-          {schedule.map((day, index) => (
-            <div
-              key={day.id || index}
-              className={`border-2 rounded-lg p-4 transition-all ${
-                day.is_working
-                  ? 'border-green-300 bg-green-50'
-                  : 'border-gray-200 bg-gray-50'
-              } ${saving ? 'opacity-75 pointer-events-none' : ''}`}
-            >
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                <div className="flex items-center gap-3 min-w-[180px]">
-                  <input
-                    type="checkbox"
-                    checked={day.is_working}
-                    onChange={() => toggleWorkingDay(index)}
-                    className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
-                    disabled={saving}
-                  />
-                  <div>
-                    <div className="font-semibold text-gray-800">{DAYS_OF_WEEK[index]}</div>
-                    <div className="text-xs text-gray-500">{formatDate(addDays(currentWeekStart, index))}</div>
-                  </div>
-                  {day.is_working && (
-                    <span className="px-2 py-1 bg-blue-600 text-white text-xs rounded-full">
-                      {dayHours(day.time_blocks)} h
-                    </span>
-                  )}
-                </div>
+          {schedule.map((day, index) => {
+            const dayDate = addDays(currentWeekStart, index);
+            const isTodayDay = isToday(dayDate);
 
-                {day.is_working ? (
-                  <div className="flex-1 space-y-3">
-                    {day.time_blocks.map((block, blockIndex) => (
-                      <div key={`${index}-${blockIndex}`} className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-white rounded-xl border border-gray-200 p-3">
-                        <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
-                          <TimePicker
-                            label="Start"
-                            value={block.start}
-                            onChange={(value) => handleTimeBlockChange(index, blockIndex, 'start', value)}
-                            disabled={saving}
-                          />
-                          <TimePicker
-                            label="Ende"
-                            value={block.end}
-                            onChange={(value) => handleTimeBlockChange(index, blockIndex, 'end', value)}
-                            disabled={saving}
-                          />
-                        </div>
-                        <div className="flex items-center gap-2 self-stretch">
-                          <div className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
-                            {calculateHours(block.start, block.end).toFixed(1)} h
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => removeTimeBlock(index, blockIndex)}
-                            className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition"
-                            disabled={saving}
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-
+            return (
+              <div
+                key={day.id || index}
+                className={`relative rounded-2xl border p-4 sm:p-5 transition-all shadow-sm ${
+                  day.is_working ? 'border-emerald-200 bg-emerald-50/70' : 'border-slate-200 bg-slate-50/60'
+                } ${isTodayDay ? 'ring-2 ring-blue-200' : ''} ${saving ? 'opacity-75 pointer-events-none' : ''}`}
+              >
+                {isTodayDay && (
+                  <span className="absolute -top-3 left-5 text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-600 text-white shadow">
+                    Heute
+                  </span>
+                )}
+                <div className="flex flex-col md:flex-row md:items-center gap-4">
+                  <div className="flex items-center gap-3 min-w-[180px]">
                     <button
                       type="button"
-                      onClick={() => addTimeBlock(index)}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-lg font-medium hover:bg-blue-100 transition"
+                      onClick={() => toggleWorkingDay(index)}
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full transition ${
+                        day.is_working ? 'bg-emerald-500' : 'bg-slate-300'
+                      }`}
                       disabled={saving}
                     >
-                      <span className="text-lg">+</span>
-                      Intervall hinzufügen
+                      <span
+                        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
+                          day.is_working ? 'translate-x-5' : 'translate-x-1'
+                        }`}
+                      />
+                      <span className="sr-only">Arbeitsstatus umschalten</span>
                     </button>
+                    <div>
+                      <div className="font-semibold text-slate-900 text-lg">
+                        {DAYS_OF_WEEK[index]}
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        {formatDate(dayDate)}
+                      </div>
+                    </div>
+                    {day.is_working && (
+                      <span className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold">
+                        {dayHours(day.time_blocks)} h
+                      </span>
+                    )}
                   </div>
-                ) : (
-                  <div className="text-gray-400 italic flex-1">Nicht arbeitend</div>
-                )}
+
+                  {day.is_working ? (
+                    <div className="flex-1 space-y-3">
+                      {day.time_blocks.map((block, blockIndex) => (
+                        <div
+                          key={`${index}-${blockIndex}`}
+                          className="flex flex-col lg:flex-row items-start lg:items-center gap-3 bg-white rounded-2xl border border-slate-200/80 p-3 lg:p-4 shadow-sm"
+                        >
+                          <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
+                            <TimePicker
+                              label="Start"
+                              value={block.start}
+                              onChange={(value) => handleTimeBlockChange(index, blockIndex, 'start', value)}
+                              disabled={saving}
+                            />
+                            <TimePicker
+                              label="Ende"
+                              value={block.end}
+                              onChange={(value) => handleTimeBlockChange(index, blockIndex, 'end', value)}
+                              disabled={saving}
+                            />
+                          </div>
+                          <div className="flex items-center gap-2 self-stretch">
+                            <div className="text-sm font-semibold text-slate-600 bg-slate-100 px-3 py-1 rounded-full">
+                              {calculateHours(block.start, block.end).toFixed(1)} h
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeTimeBlock(index, blockIndex)}
+                              className="p-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 transition"
+                              disabled={saving}
+                              aria-label="Intervall entfernen"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+
+                      <button
+                        type="button"
+                        onClick={() => addTimeBlock(index)}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 text-blue-600 font-medium hover:bg-blue-100 transition"
+                        disabled={saving}
+                      >
+                        <span className="text-lg leading-none">+</span>
+                        Zeitintervall hinzufügen
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex-1 text-slate-400 italic">
+                      Dieser Tag ist aktuell als frei markiert.
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
-        <footer className="mt-6 p-4 bg-gray-100 rounded-lg">
+        <footer className="mt-6 border border-slate-200/80 rounded-2xl bg-white px-4 sm:px-6 py-5 shadow-inner">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
-            <div>
-              <div className="text-sm text-gray-600 mb-1">Geplant (diese Woche)</div>
+            <div className="space-y-1">
+              <div className="text-xs uppercase tracking-widest text-slate-400">
+                Geplant diese Woche
+              </div>
               <div className="text-2xl font-bold text-blue-600">{totalWeekHours}h</div>
             </div>
-            <div>
-              <div className="text-sm text-gray-600 mb-1">Kontingent</div>
-              <div className="text-2xl font-bold text-gray-800">{hoursSummary?.weeklyQuota ?? '-'}h</div>
+            <div className="space-y-1">
+              <div className="text-xs uppercase tracking-widest text-slate-400">
+                Kontingent
+              </div>
+              <div className="text-2xl font-bold text-slate-800">{hoursSummary?.weeklyQuota ?? '-'}h</div>
             </div>
-            <div>
-              <div className="text-sm text-gray-600 mb-1">Differenz</div>
+            <div className="space-y-1">
+              <div className="text-xs uppercase tracking-widest text-slate-400">
+                Differenz
+              </div>
               <div className={`text-2xl font-bold ${
                 hoursSummary?.difference > 0
-                  ? 'text-red-600'
+                  ? 'text-rose-600'
                   : hoursSummary?.difference < 0
-                    ? 'text-yellow-600'
-                    : 'text-green-600'
+                    ? 'text-amber-600'
+                    : 'text-emerald-600'
               }`}>
-                {hoursSummary ? `${hoursSummary.difference >= 0 ? '+' : ''}${hoursSummary.difference.toFixed(1)}h` : '-'}
+                {hoursSummary ? `${hoursSummary.difference.toFixed(1)}h` : '--'}
               </div>
             </div>
           </div>
@@ -407,12 +476,6 @@ const HoursCalendar = () => {
       </div>
     </div>
   );
-
-  function shiftWeek(days) {
-    const newDate = new Date(currentWeekStart);
-    newDate.setDate(newDate.getDate() + days);
-    setCurrentWeekStart(getMonday(newDate));
-  }
 };
 
 function getMonday(date) {
@@ -456,6 +519,13 @@ function calculateHours(start, end) {
   const [sh, sm] = start.split(':').map(Number);
   const [eh, em] = end.split(':').map(Number);
   return ((eh * 60 + em) - (sh * 60 + sm)) / 60;
+}
+
+function isToday(date) {
+  const today = new Date();
+  return date.getDate() === today.getDate() &&
+    date.getMonth() === today.getMonth() &&
+    date.getFullYear() === today.getFullYear();
 }
 
 export default HoursCalendar;

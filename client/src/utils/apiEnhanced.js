@@ -91,6 +91,13 @@ export const clearAllReadNotifications = () =>
   api.delete('/notifications/clear-all');
 
 // ============================================
+// CALENDAR APIs
+// ============================================
+
+export const getCalendarEvents = (params = {}) =>
+  api.get('/schedule/events', { params });
+
+// ============================================
 // ENHANCED MESSAGING APIs
 // ============================================
 

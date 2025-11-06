@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, Users, Clock } from 'lucide-react';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
+import { getAssetUrl } from '../utils/media';
 
 const DAYS_OF_WEEK = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
 
@@ -186,7 +187,7 @@ const TeamScheduleCalendar = () => {
                           <div className="flex-shrink-0">
                             {user.profile_photo ? (
                               <img
-                                src={user.profile_photo}
+                                src={getAssetUrl(user.profile_photo)}
                                 alt={user.name}
                                 className="w-8 h-8 rounded-full object-cover"
                               />

@@ -14,6 +14,9 @@ const cors = require('cors');
 const path = require('path');
 const http = require('http');
 
+const { runPendingMigrations } = require('./server/utils/postgresMigrations');
+const { scheduleEntsorgungReminders, runEntsorgungReminderJob } = require('./server/services/entsorgungReminder');
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -57,12 +60,15 @@ const routes = [
   { path: '/api/messages', file: './server/routes/messages.pg', name: 'messages' },
   { path: '/api/tasks', file: './server/routes/tasks.pg', name: 'tasks' },
   { path: '/api/task-pool', file: './server/routes/taskPool.pg', name: 'task-pool' },
+  { path: '/api/kanban', file: './server/routes/kanban.pg', name: 'kanban' },
   { path: '/api/kb', file: './server/routes/knowledgeBase.pg', name: 'kb' },
   { path: '/api/profile', file: './server/routes/userProfile.pg', name: 'profile' },
   { path: '/api/notifications', file: './server/routes/notifications.pg', name: 'notifications' },
   { path: '/api/uploads', file: './server/routes/uploads', name: 'uploads' },
+  { path: '/api/kisten', file: './server/routes/kisten.pg', name: 'kisten' },
   { path: '/api/waste', file: './server/routes/waste.pg', name: 'waste' },
-  { path: '/api/admin', file: './server/routes/admin.pg', name: 'admin' }
+  { path: '/api/admin', file: './server/routes/admin.pg', name: 'admin' },
+  { path: '/api/events', file: './server/routes/event-breaks.pg', name: 'events' }
 ];
 
 routes.forEach(route => {
@@ -103,11 +109,28 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Server error' });
 });
 
-// Start server
-server.listen(PORT, '0.0.0.0', () => {
-  console.log('✅ Server running on port', PORT);
-  console.log('Environment:', process.env.NODE_ENV);
-});
+async function startServer() {
+  try {
+    await runPendingMigrations();
+  } catch (error) {
+    console.error('⚠️  PostgreSQL migrations failed:', error.message);
+    console.error('Continuing startup, but database schema may be outdated');
+  }
+
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log('✅ Server running on port', PORT);
+    console.log('Environment:', process.env.NODE_ENV);
+  });
+
+  try {
+    scheduleEntsorgungReminders();
+    await runEntsorgungReminderJob({ triggeredByScheduler: false });
+  } catch (entsorgungError) {
+    console.error('⚠️  Entsorgungsbot initialization failed:', entsorgungError.message);
+  }
+}
+
+startServer();
 
 // Graceful shutdown
 process.on('SIGTERM', () => {

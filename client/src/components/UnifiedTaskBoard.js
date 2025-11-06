@@ -445,6 +445,10 @@ const UnifiedTaskBoard = () => {
 
     const dueLabel = task.dueDate ? formatDateTime(task.dueDate) : null;
     const poolUpdated = task.pool?.updatedAt ? formatDateTime(task.pool.updatedAt) : null;
+    const attachmentsCount = Number(task.attachmentsCount || 0);
+    const audioAttachmentCount = Number(task.audioAttachmentCount || 0);
+    const commentsCount = Number(task.commentsCount || 0);
+    const audioCommentCount = Number(task.audioCommentCount || 0);
 
     return (
       <Draggable key={taskId} draggableId={String(taskId)} index={index}>
@@ -507,6 +511,31 @@ const UnifiedTaskBoard = () => {
                   </span>
                 )}
               </div>
+
+              {(attachmentsCount > 0 || commentsCount > 0 || audioAttachmentCount > 0 || audioCommentCount > 0) && (
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                  {attachmentsCount > 0 && (
+                    <span className="flex items-center gap-1 px-2 py-1 bg-slate-100 rounded-full border border-slate-200">
+                      📎 {attachmentsCount}
+                    </span>
+                  )}
+                  {audioAttachmentCount > 0 && (
+                    <span className="flex items-center gap-1 px-2 py-1 bg-purple-100 rounded-full border border-purple-200 text-purple-600">
+                      🎤 {audioAttachmentCount}
+                    </span>
+                  )}
+                  {commentsCount > 0 && (
+                    <span className="flex items-center gap-1 px-2 py-1 bg-amber-50 rounded-full border border-amber-200 text-amber-700">
+                      💬 {commentsCount}
+                    </span>
+                  )}
+                  {audioCommentCount > 0 && (
+                    <span className="flex items-center gap-1 px-2 py-1 bg-rose-100 rounded-full border border-rose-200 text-rose-600">
+                      🔊 {audioCommentCount}
+                    </span>
+                  )}
+                </div>
+              )}
 
               <div className="mt-3 space-y-2 text-[12px] text-slate-500">
                 {task.pool?.assignedToName && (

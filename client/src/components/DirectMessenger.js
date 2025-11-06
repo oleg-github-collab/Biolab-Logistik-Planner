@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { format, parseISO, formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
+import { useNavigate } from 'react-router-dom';
 import {
   Send,
   Search,
@@ -16,7 +17,8 @@ import {
   Users,
   User,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  CalendarDays
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useWebSocketContext } from '../context/WebSocketContext';
@@ -30,13 +32,16 @@ import {
   uploadAttachment,
   deleteMessage,
   getStoriesFeed,
-  markStoryViewed
+  markStoryViewed,
+  linkCalendarToMessage,
+  getCalendarEvents
 } from '../utils/apiEnhanced';
 import GifPicker from './GifPicker';
 import { showError, showSuccess } from '../utils/toast';
 import { getAssetUrl } from '../utils/media';
 
 const DirectMessenger = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { isConnected, onConversationEvent, joinConversationRoom } = useWebSocketContext();
   const { isMobile } = useMobile();
@@ -57,12 +62,89 @@ const DirectMessenger = () => {
   const [showGifPicker, setShowGifPicker] = useState(false);
   const [pendingAttachments, setPendingAttachments] = useState([]);
   const [isRecording, setIsRecording] = useState(false);
+  const [showEventPicker, setShowEventPicker] = useState(false);
+  const [eventOptions, setEventOptions] = useState([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
+  const [eventError, setEventError] = useState('');
+  const [selectedEvent, setSelectedEvent] = useState(null);
 
   const fileInputRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const recordingChunksRef = useRef([]);
   const recordingStreamRef = useRef(null);
   const messagesEndRef = useRef(null);
+
+  const normalizeMessage = useCallback((message) => {
+    if (!message) return message;
+
+    let attachments = [];
+    if (Array.isArray(message.attachments)) {
+      attachments = message.attachments;
+    } else if (typeof message.attachments === 'string') {
+      try {
+        const parsed = JSON.parse(message.attachments);
+        attachments = Array.isArray(parsed) ? parsed : [];
+      } catch (error) {
+        attachments = [];
+      }
+    }
+
+    let calendarRefs = [];
+    if (Array.isArray(message.calendar_refs)) {
+      calendarRefs = message.calendar_refs;
+    } else if (message.calendar_refs && typeof message.calendar_refs === 'string') {
+      try {
+        const parsed = JSON.parse(message.calendar_refs);
+        calendarRefs = Array.isArray(parsed) ? parsed : [];
+      } catch (error) {
+        calendarRefs = [];
+      }
+    }
+
+    let metadata = {};
+    if (message.metadata) {
+      if (typeof message.metadata === 'string') {
+        try {
+          metadata = JSON.parse(message.metadata) || {};
+        } catch (error) {
+          metadata = {};
+        }
+      } else if (typeof message.metadata === 'object') {
+        metadata = { ...message.metadata };
+      }
+    }
+
+    return {
+      ...message,
+      attachments,
+      calendar_refs: calendarRefs,
+      metadata
+    };
+  }, []);
+
+  const formatEventDateRange = (start, end) => {
+    const startDate = start ? new Date(start) : null;
+    const endDate = end ? new Date(end) : null;
+
+    if (!startDate || Number.isNaN(startDate.getTime())) {
+      return 'Unbekannter Zeitraum';
+    }
+
+    const startLabel = format(startDate, 'dd.MM.yyyy HH:mm', { locale: de });
+
+    if (!endDate || Number.isNaN(endDate.getTime())) {
+      return startLabel;
+    }
+
+    const sameDay =
+      format(startDate, 'dd.MM.yyyy', { locale: de }) === format(endDate, 'dd.MM.yyyy', { locale: de });
+
+    if (sameDay) {
+      return `${startLabel} – ${format(endDate, 'HH:mm', { locale: de })}`;
+    }
+
+    return `${startLabel} – ${format(endDate, 'dd.MM.yyyy HH:mm', { locale: de })}`;
+  };
 
   useEffect(() => {
     const loadData = async () => {
@@ -98,6 +180,10 @@ const DirectMessenger = () => {
   }, [isMobile]);
 
   useEffect(() => {
+    setSelectedEvent(null);
+  }, [selectedThreadId]);
+
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
@@ -108,33 +194,26 @@ const DirectMessenger = () => {
 
     const handleNewMessage = (data) => {
       if (data.conversationId === selectedThreadId) {
-        setMessages((prev) => [...prev, data.message]);
+        setMessages((prev) => [...prev, normalizeMessage(data.message)]);
+        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 30);
       }
     };
 
     const unsubscribe = onConversationEvent('new_message', handleNewMessage);
     return unsubscribe;
-  }, [selectedThreadId, isConnected, joinConversationRoom, onConversationEvent]);
+  }, [selectedThreadId, isConnected, joinConversationRoom, onConversationEvent, normalizeMessage]);
 
   const loadMessages = useCallback(async (threadId) => {
     try {
       const response = await getConversationMessages(threadId);
       const msgs = Array.isArray(response.data) ? response.data : [];
-      setMessages(
-        msgs.map((msg) => ({
-          ...msg,
-          attachments: Array.isArray(msg.attachments)
-            ? msg.attachments
-            : typeof msg.attachments === 'string'
-            ? JSON.parse(msg.attachments || '[]')
-            : []
-        }))
-      );
+      setMessages(msgs.map((msg) => normalizeMessage(msg)));
+      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
     } catch (error) {
       console.error('Error loading messages:', error);
       showError('Fehler beim Laden der Nachrichten');
     }
-  }, []);
+  }, [normalizeMessage]);
 
   const handleContactClick = async (contact) => {
     try {
@@ -173,7 +252,7 @@ const DirectMessenger = () => {
     event?.preventDefault();
 
     const trimmed = messageInput.trim();
-    if (!trimmed && pendingAttachments.length === 0) return;
+    if (!trimmed && pendingAttachments.length === 0 && !selectedEvent) return;
     if (!selectedThreadId) {
       showError('Kein Chat ausgewählt');
       return;
@@ -181,6 +260,7 @@ const DirectMessenger = () => {
 
     const inputValue = messageInput;
     const attachments = [...pendingAttachments];
+    const eventToShare = selectedEvent;
     setMessageInput('');
     setPendingAttachments([]);
     setSending(true);
@@ -200,12 +280,70 @@ const DirectMessenger = () => {
         );
       }
 
-      await sendConversationMessage(selectedThreadId, {
-        message: trimmed,
-        attachments: attachmentsData
-      });
+      setShowGifPicker(false);
 
-      await loadMessages(selectedThreadId);
+     const messageBody = trimmed || (eventToShare ? `Kalender: ${eventToShare.title}` : '');
+      const payload = {
+        message: messageBody,
+        attachments: attachmentsData
+      };
+
+      if (eventToShare) {
+        payload.metadata = {
+          shared_event: {
+            id: eventToShare.id,
+            title: eventToShare.title,
+            start_time: eventToShare.start_time,
+            end_time: eventToShare.end_time,
+            location: eventToShare.location || null
+          }
+        };
+      }
+
+      const response = await sendConversationMessage(selectedThreadId, payload);
+      let newMessage = normalizeMessage(response?.data?.message);
+
+      if (newMessage && eventToShare && newMessage.id) {
+        try {
+          const linkResponse = await linkCalendarToMessage(newMessage.id, eventToShare.id, 'share');
+          const referenceId = linkResponse?.data?.id || `event-ref-${newMessage.id}-${eventToShare.id}`;
+          const eventReference = {
+            id: referenceId,
+            event_id: eventToShare.id,
+            event_title: eventToShare.title,
+            event_start_time: eventToShare.start_time,
+            event_end_time: eventToShare.end_time,
+            location: eventToShare.location || null
+          };
+
+          newMessage = {
+            ...newMessage,
+            calendar_refs: [...(newMessage.calendar_refs || []), eventReference],
+            metadata: {
+              ...(newMessage.metadata || {}),
+              shared_event: {
+                id: eventToShare.id,
+                title: eventToShare.title,
+                start_time: eventToShare.start_time,
+                end_time: eventToShare.end_time,
+                location: eventToShare.location || null
+              }
+            }
+          };
+        } catch (eventLinkError) {
+          console.error('Error linking calendar event to message:', eventLinkError);
+          showError('Kalenderereignis konnte nicht angehängt werden');
+        }
+      }
+
+      if (newMessage) {
+        setMessages((prev) => [...prev, newMessage]);
+        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 30);
+      } else {
+        await loadMessages(selectedThreadId);
+      }
+
+      setSelectedEvent(null);
     } catch (error) {
       console.error('Error sending message:', error);
       const errorMsg =
@@ -213,6 +351,7 @@ const DirectMessenger = () => {
       showError(errorMsg);
       setMessageInput(inputValue);
       setPendingAttachments(attachments);
+      setSelectedEvent(eventToShare);
     } finally {
       setSending(false);
     }
@@ -246,6 +385,41 @@ const DirectMessenger = () => {
 
   const removeAttachment = useCallback((index) => {
     setPendingAttachments((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const loadCalendarOptions = useCallback(async () => {
+    setEventsLoading(true);
+    setEventError('');
+    try {
+      const now = new Date();
+      const future = new Date();
+      future.setDate(future.getDate() + 30);
+      const response = await getCalendarEvents({
+        startDate: now.toISOString(),
+        endDate: future.toISOString()
+      });
+      setEventOptions(Array.isArray(response.data) ? response.data : []);
+    } catch (error) {
+      console.error('Error loading calendar events:', error);
+      setEventOptions([]);
+      setEventError('Kalenderereignisse konnten nicht geladen werden');
+    } finally {
+      setEventsLoading(false);
+    }
+  }, []);
+
+  const openEventPicker = useCallback(() => {
+    setShowEventPicker(true);
+    loadCalendarOptions();
+  }, [loadCalendarOptions]);
+
+  const handleEventSelect = useCallback((event) => {
+    setSelectedEvent(event);
+    setShowEventPicker(false);
+  }, []);
+
+  const clearSelectedEvent = useCallback(() => {
+    setSelectedEvent(null);
   }, []);
 
   const storiesByUser = useMemo(() => {
@@ -467,6 +641,74 @@ const DirectMessenger = () => {
             })}
           </div>
         )}
+
+        {(() => {
+          const calendarRefsRaw = Array.isArray(msg.calendar_refs) ? msg.calendar_refs : [];
+          const metadataEvent = msg.metadata?.shared_event;
+          const calendarRefs = [...calendarRefsRaw];
+
+          if (!calendarRefs.length && metadataEvent) {
+            calendarRefs.push({
+              id: `meta-${msg.id}`,
+              event_id: metadataEvent.id,
+              event_title: metadataEvent.title,
+              event_start_time: metadataEvent.start_time,
+              event_end_time: metadataEvent.end_time,
+              location: metadataEvent.location || null
+            });
+          }
+
+          if (!calendarRefs.length) {
+            return null;
+          }
+
+          return calendarRefs.map((ref) => (
+            <div
+              key={`${msg.id}-event-${ref.id || ref.event_id}`}
+              className={`mt-3 w-full max-w-md rounded-2xl border ${
+                isMine ? 'border-blue-200 bg-blue-50/80' : 'border-slate-200 bg-white'
+              } shadow-sm`}
+            >
+              <div className="flex items-start gap-3 px-4 py-3">
+                <div
+                  className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl ${
+                    isMine ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-700'
+                  }`}
+                >
+                  <CalendarDays className="w-5 h-5" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-slate-900">
+                    {ref.event_title || 'Kalenderereignis'}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {formatEventDateRange(ref.event_start_time, ref.event_end_time)}
+                  </p>
+                  {ref.location && (
+                    <p className="text-xs text-slate-500 mt-1">Ort: {ref.location}</p>
+                  )}
+                </div>
+              </div>
+              <div className="border-t border-slate-200 px-4 py-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate('/schedule', {
+                      state: { focusEventId: ref.event_id }
+                    })
+                  }
+                  className={`text-xs font-semibold uppercase tracking-wide ${
+                    isMine
+                      ? 'text-blue-700 hover:text-blue-900'
+                      : 'text-slate-600 hover:text-slate-800'
+                  }`}
+                >
+                  Im Kalender öffnen →
+                </button>
+              </div>
+            </div>
+          ));
+        })()}
 
         <div
           className={`mt-2 text-xs opacity-75 flex items-center justify-between ${
@@ -705,6 +947,27 @@ const DirectMessenger = () => {
             </div>
 
             <div className="border-t border-slate-200 bg-white p-4">
+              {selectedEvent && (
+                <div className="mb-3 flex items-center gap-3 px-4 py-2 rounded-xl bg-blue-50 text-blue-700 shadow-sm border border-blue-200">
+                  <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-600 text-white">
+                    <CalendarDays className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold truncate">{selectedEvent.title}</p>
+                    <p className="text-xs opacity-80">
+                      {formatEventDateRange(selectedEvent.start_time, selectedEvent.end_time)}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={clearSelectedEvent}
+                    className="p-1 rounded-full hover:bg-blue-100 transition"
+                    title="Ereignis entfernen"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
               {pendingAttachments.length > 0 && (
                 <div className="mb-3 flex flex-wrap gap-2">
                   {pendingAttachments.map((file, idx) => renderAttachmentPreview(file, idx))}
@@ -728,6 +991,14 @@ const DirectMessenger = () => {
                     title="GIF senden"
                   >
                     <ImageIcon className="w-5 h-5 text-slate-600" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openEventPicker}
+                    className="p-3 hover:bg-slate-100 rounded-xl transition"
+                    title="Kalenderereignis teilen"
+                  >
+                    <CalendarDays className="w-5 h-5 text-slate-600" />
                   </button>
                   <button
                     type="button"
@@ -761,7 +1032,7 @@ const DirectMessenger = () => {
 
                 <button
                   type="submit"
-                  disabled={sending || (!messageInput.trim() && pendingAttachments.length === 0)}
+                  disabled={sending || (!messageInput.trim() && pendingAttachments.length === 0 && !selectedEvent)}
                   className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-md"
                 >
                   <Send className="w-5 h-5" />
@@ -840,6 +1111,28 @@ const DirectMessenger = () => {
         <div ref={messagesEndRef} />
       </div>
 
+      {selectedEvent && (
+        <div className="px-4 py-3 bg-slate-900 text-blue-100 flex items-center gap-3 border-t border-slate-800">
+          <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-500 text-white">
+            <CalendarDays className="w-5 h-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold truncate">{selectedEvent.title}</p>
+            <p className="text-xs opacity-80">
+              {formatEventDateRange(selectedEvent.start_time, selectedEvent.end_time)}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={clearSelectedEvent}
+            className="p-2 rounded-full hover:bg-blue-500/30 transition"
+            title="Ereignis entfernen"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {pendingAttachments.length > 0 && (
         <div className="px-4 py-2 bg-slate-900">
           <div className="flex gap-2 overflow-x-auto">
@@ -866,6 +1159,13 @@ const DirectMessenger = () => {
           </button>
           <button
             type="button"
+            onClick={openEventPicker}
+            className="p-2 text-blue-300 hover:text-white transition"
+          >
+            <CalendarDays className="w-5 h-5" />
+          </button>
+          <button
+            type="button"
             onClick={isRecording ? stopRecording : startRecording}
             className={`p-2 transition ${
               isRecording ? 'text-red-400' : 'text-blue-300 hover:text-white'
@@ -888,7 +1188,7 @@ const DirectMessenger = () => {
         </div>
         <button
           type="submit"
-          disabled={sending || (!messageInput.trim() && pendingAttachments.length === 0)}
+          disabled={sending || (!messageInput.trim() && pendingAttachments.length === 0 && !selectedEvent)}
           className="send-btn"
         >
           <Send className="w-5 h-5" />
@@ -905,8 +1205,66 @@ const DirectMessenger = () => {
     </div>
   );
 
+  const renderEventPicker = () => {
+    if (!showEventPicker) return null;
+
+    return (
+      <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center px-4 py-6">
+        <div
+          className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
+          onClick={() => setShowEventPicker(false)}
+        />
+        <div className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+            <h3 className="text-lg font-semibold text-slate-900">Kalenderereignis teilen</h3>
+            <button
+              type="button"
+              onClick={() => setShowEventPicker(false)}
+              className="p-2 rounded-full hover:bg-slate-100 transition"
+              aria-label="Auswahl schließen"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="max-h-[60vh] overflow-y-auto px-5 py-4 space-y-3">
+            {eventsLoading ? (
+              <div className="flex items-center justify-center py-10">
+                <div className="animate-spin w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full" />
+              </div>
+            ) : eventOptions.length === 0 ? (
+              <div className="py-10 text-center text-sm text-slate-500">
+                {eventError || 'Keine kommenden Termine gefunden'}
+              </div>
+            ) : (
+              eventOptions.map((calendarEvent) => (
+                <button
+                  key={calendarEvent.id}
+                  type="button"
+                  onClick={() => handleEventSelect(calendarEvent)}
+                  className="w-full text-left rounded-2xl border border-slate-200 hover:border-blue-300 hover:bg-blue-50/40 transition px-4 py-3"
+                >
+                  <p className="text-sm font-semibold text-slate-900 truncate">{calendarEvent.title}</p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {formatEventDateRange(calendarEvent.start_time, calendarEvent.end_time)}
+                  </p>
+                  {calendarEvent.location && (
+                    <p className="text-xs text-slate-400 mt-1">Ort: {calendarEvent.location}</p>
+                  )}
+                </button>
+              ))
+            )}
+            {eventError && eventOptions.length > 0 && (
+              <p className="text-xs text-rose-600">{eventError}</p>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <>
+      {renderEventPicker()}
       {isMobile ? renderMobileLayout() : renderDesktopLayout()}
       {selectedStory && (
         <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex flex-col">

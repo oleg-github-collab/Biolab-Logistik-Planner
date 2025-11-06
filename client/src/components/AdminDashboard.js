@@ -1,14 +1,12 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Shield, Activity, Users, FileText, AlertTriangle,
   TrendingUp, Clock, Filter, Download, RefreshCw,
   CheckCircle, XCircle, AlertCircle, Info
 } from 'lucide-react';
-import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useWebSocketContext } from '../context/WebSocketContext';
-
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+import api from '../utils/api';
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState(null);
@@ -21,33 +19,55 @@ const AdminDashboard = () => {
     days: 7
   });
   const [liveEvents, setLiveEvents] = useState([]);
+  const [accessDenied, setAccessDenied] = useState(false);
+  const accessToastRef = useRef(false);
 
   const { isConnected, adminEvents, onAdminEvent } = useWebSocketContext();
-
-  const token = localStorage.getItem('token');
-  const axiosConfig = useMemo(() => ({
-    headers: { Authorization: `Bearer ${token}` }
-  }), [token]);
 
   const { category, severity, days } = filter;
 
   const fetchData = useCallback(async () => {
+    if (accessDenied) return;
     try {
       setLoading(true);
 
       const requests = [
-        axios.get(`${API_BASE_URL}/admin/audit/stats?days=${days}`, axiosConfig)
+        api.get('/admin/audit/stats', { params: { days } })
           .catch(err => {
+            if (err.response?.status === 401 || err.response?.status === 403) {
+              setAccessDenied(true);
+              if (!accessToastRef.current) {
+                toast.error('Kein Zugriff auf Administratorfunktionen');
+                accessToastRef.current = true;
+              }
+              return { data: { total: 0, by_category: {}, by_severity: {}, recent_activity: [] } };
+            }
             console.error('Stats error:', err);
             return { data: { total: 0, by_category: {}, by_severity: {}, recent_activity: [] } };
           }),
-        axios.get(`${API_BASE_URL}/admin/audit/logs?limit=50&category=${category}&severity=${severity}`, axiosConfig)
+        api.get('/admin/audit/logs', { params: { limit: 50, category, severity } })
           .catch(err => {
+            if (err.response?.status === 401 || err.response?.status === 403) {
+              setAccessDenied(true);
+              if (!accessToastRef.current) {
+                toast.error('Kein Zugriff auf Administratorfunktionen');
+                accessToastRef.current = true;
+              }
+              return { data: { logs: [] } };
+            }
             console.error('Logs error:', err);
             return { data: { logs: [] } };
           }),
-        axios.get(`${API_BASE_URL}/admin/users/online`, axiosConfig)
+        api.get('/admin/users/online')
           .catch(err => {
+            if (err.response?.status === 401 || err.response?.status === 403) {
+              setAccessDenied(true);
+              if (!accessToastRef.current) {
+                toast.error('Kein Zugriff auf Administratorfunktionen');
+                accessToastRef.current = true;
+              }
+              return { data: { users: [] } };
+            }
             console.error('Online users error:', err);
             return { data: { users: [] } };
           })
@@ -64,16 +84,17 @@ const AdminDashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, [axiosConfig, category, days, severity]);
+  }, [accessDenied, category, days, severity]);
 
   useEffect(() => {
+    if (accessDenied) return;
     fetchData();
     const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
-  }, [fetchData]);
+  }, [fetchData, accessDenied]);
 
   useEffect(() => {
-    if (!onAdminEvent) return;
+    if (!onAdminEvent || accessDenied) return;
     const appendEvent = (event) => {
       setLiveEvents(prev => [event, ...prev].slice(0, 25));
       fetchData();
@@ -102,13 +123,10 @@ const AdminDashboard = () => {
 
   const exportLogs = async (format = 'json') => {
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/admin/audit/export?format=${format}&days=${filter.days}`,
-        {
-          ...axiosConfig,
-          responseType: 'blob'
-        }
-      );
+      const response = await api.get('/admin/audit/export', {
+        params: { format, days: filter.days },
+        responseType: 'blob'
+      });
 
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
@@ -155,6 +173,18 @@ const AdminDashboard = () => {
       default: return 'bg-gray-100 text-gray-800';
     }
   };
+
+  if (accessDenied) {
+    return (
+      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-amber-700">
+        <h2 className="text-lg font-semibold mb-2">Kein Zugriff</h2>
+        <p className="text-sm">
+          Für diese Administratoransicht ist eine Rolle mit Systemrechten erforderlich (Admin oder Superadmin).
+          Bitte melden Sie sich mit einem entsprechenden Benutzer an oder wenden Sie sich an den Systemverantwortlichen.
+        </p>
+      </div>
+    );
+  }
 
   if (loading && !stats) {
     return (

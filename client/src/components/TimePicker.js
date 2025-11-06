@@ -32,7 +32,8 @@ const TimePicker = ({ value, onChange, label, disabled = false }) => {
             hourScrollRef.current.scrollTop = hourIndex * 56;
           }
           if (minuteScrollRef.current) {
-            const minuteIndex = parseInt(minute) / 5;
+            const parsedMinute = parseInt(minute, 10);
+            const minuteIndex = Number.isNaN(parsedMinute) ? 0 : parsedMinute;
             minuteScrollRef.current.scrollTop = minuteIndex * 56;
           }
         }, 100);
@@ -85,7 +86,7 @@ const TimePicker = ({ value, onChange, label, disabled = false }) => {
   };
 
   const hours = Array.from({ length: 24 }, (_, i) => i);
-  const minutes = Array.from({ length: 12 }, (_, i) => i * 5);
+  const minutes = Array.from({ length: 60 }, (_, i) => i);
 
   if (isMobile) {
     return (

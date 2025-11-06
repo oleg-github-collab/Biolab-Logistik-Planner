@@ -100,104 +100,122 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col">
+    <div className="fixed inset-0 z-[120] flex items-center justify-center px-3 py-6 sm:px-6">
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
         onClick={onClose}
         aria-hidden="true"
       />
-      <div className="relative z-[101] flex flex-1 items-center justify-center p-0 sm:p-6">
-        <div
-          className="bg-white w-full h-full overflow-y-auto sm:h-auto sm:max-h-[90vh] sm:rounded-2xl sm:shadow-2xl"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="modal-header-mobile bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4 sm:p-6 sm:rounded-t-2xl flex items-center justify-between">
-            <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
+      <div
+        className="relative z-[130] w-full max-w-4xl bg-white/95 backdrop-blur rounded-[28px] border border-slate-200/70 shadow-[0_32px_90px_rgba(15,23,42,0.25)] overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-600 text-white px-5 sm:px-7 py-5 sm:py-6">
+          <div>
+            <p className="text-xs uppercase tracking-[0.25em] text-blue-100/80">
+              {task ? 'Aktualisieren' : 'Neu anlegen'}
+            </p>
+            <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2 mt-1">
               <Flag className="w-5 h-5 sm:w-6 sm:h-6" />
               {task ? 'Aufgabe bearbeiten' : 'Neue Aufgabe'}
             </h2>
-            <button onClick={onClose} className="btn-icon-mobile bg-white/20 hover:bg-white/30 text-white mobile-touch-feedback">
-              <X className="w-5 h-5" />
-            </button>
           </div>
+          <button
+            onClick={onClose}
+            className="btn-icon-mobile bg-white/15 hover:bg-white/25 text-white mobile-touch-feedback rounded-full px-3 py-2"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
-          <form onSubmit={handleSubmit} className="modal-body-mobile p-4 sm:p-6 space-y-4 sm:space-y-5">
-            <div className="sm:hidden h-1.5 w-12 bg-slate-300 rounded-full mx-auto mb-3" />
-
-            <div>
-              <label className="block text-sm font-semibold text-gray-900 mb-2">
-                Titel <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                placeholder="z.B. Backend API implementieren"
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-200 transition-all"
-                autoFocus
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-gray-900 mb-2">Beschreibung</label>
-              <textarea
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Detaillierte Beschreibung der Aufgabe..."
-                rows="4"
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-200 transition-all resize-none"
-              />
-            </div>
-
-            {normalizedAttachments.length > 0 && (
+        <form onSubmit={handleSubmit} className="px-5 sm:px-7 py-6 space-y-6 max-h-[80vh] overflow-y-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-6">
+            <div className="space-y-5">
               <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Anhänge
+                <label className="block text-sm font-semibold text-slate-800 mb-2">
+                  Titel <span className="text-red-500">*</span>
                 </label>
-                <div className="flex flex-wrap gap-3">
-                  {normalizedAttachments.map((attachment) => {
-                    const key = attachment.id || attachment.url;
-                    if (attachment.type === 'image') {
-                      return (
-                        <img
-                          key={key}
-                          src={attachment.url}
-                          alt={attachment.name || 'Anhang'}
-                          className="h-24 w-24 object-cover rounded-lg border border-gray-200"
-                        />
-                      );
-                    }
-                    if (attachment.type === 'audio') {
-                      return (
-                        <div key={key} className="w-full max-w-xs border border-gray-200 rounded-lg p-2 bg-gray-50">
-                          <p className="text-xs text-gray-500 mb-1 truncate">
-                            {attachment.name || 'Audio'}
-                          </p>
-                          <audio controls src={attachment.url} className="w-full" />
-                        </div>
-                      );
-                    }
-                    return (
-                      <a
-                        key={key}
-                        href={attachment.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-gray-100 text-xs text-gray-600 hover:bg-gray-200"
-                      >
-                        📎 {attachment.name || attachment.url.split('/').pop()}
-                      </a>
-                    );
-                  })}
-                </div>
+                <input
+                  type="text"
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  placeholder="z.B. Backend API implementieren"
+                  className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-200/70 transition shadow-sm"
+                  autoFocus
+                />
               </div>
-            )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                <label className="block text-sm font-semibold text-slate-800 mb-2">Beschreibung</label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Detaillierte Beschreibung der Aufgabe..."
+                  rows="5"
+                  className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-200/70 transition shadow-sm resize-none"
+                />
+              </div>
+
+              {normalizedAttachments.length > 0 && (
+                <div>
+                  <label className="block text-sm font-semibold text-slate-800 mb-2">
+                    Anhänge
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {normalizedAttachments.map((attachment) => {
+                      const key = attachment.id || attachment.url;
+                      if (attachment.type === 'image') {
+                        return (
+                          <figure
+                            key={key}
+                            className="relative overflow-hidden rounded-2xl border border-slate-200 shadow-sm"
+                          >
+                            <img
+                              src={attachment.url}
+                              alt={attachment.name || 'Anhang'}
+                              className="h-32 w-full object-cover"
+                            />
+                            <figcaption className="px-3 py-2 text-xs text-slate-500 truncate bg-white/90">
+                              {attachment.name || 'Bild'}
+                            </figcaption>
+                          </figure>
+                        );
+                      }
+                      if (attachment.type === 'audio') {
+                        return (
+                          <div
+                            key={key}
+                            className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3 shadow-inner"
+                          >
+                            <p className="text-xs text-slate-500 mb-2 truncate">
+                              {attachment.name || 'Audio'}
+                            </p>
+                            <audio controls src={attachment.url} className="w-full" />
+                          </div>
+                        );
+                      }
+                      return (
+                        <a
+                          key={key}
+                          href={attachment.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 px-3 py-2 rounded-2xl border border-slate-200 bg-white shadow-sm text-xs text-slate-600 hover:bg-slate-50 transition"
+                        >
+                          📎 {attachment.name || attachment.url.split('/').pop()}
+                        </a>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-5">
+              <div>
+                <label className="block text-sm font-semibold text-slate-800 mb-2 flex items-center gap-2">
                   <Flag className="w-4 h-4 text-blue-600" />
-                  Prioritat
+                  Priorität
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   {PRIORITIES.map((priority) => (
@@ -205,10 +223,10 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
                       key={priority.value}
                       type="button"
                       onClick={() => setFormData({ ...formData, priority: priority.value })}
-                      className={`px-3 py-2 rounded-lg text-sm font-medium border-2 transition-all ${
+                      className={`px-3 py-2 rounded-xl border text-sm font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-blue-300 ${
                         formData.priority === priority.value
-                          ? priority.color + ' ring-2 ring-offset-2 ring-blue-500'
-                          : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                          ? `${priority.color} shadow-inner`
+                          : 'border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-600'
                       }`}
                     >
                       {priority.label}
@@ -217,129 +235,134 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                  <User className="w-4 h-4 text-blue-600" />
-                  Zugewiesen an
-                </label>
-                <select
-                  value={formData.assignee_id}
-                  onChange={(e) => setFormData({ ...formData, assignee_id: e.target.value })}
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-200 transition-all"
-                >
-                  <option value="">Nicht zugewiesen</option>
-                  {users.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-800 mb-2 flex items-center gap-2">
+                    <User className="w-4 h-4 text-blue-600" />
+                    Zugewiesen an
+                  </label>
+                  <select
+                    value={formData.assignee_id}
+                    onChange={(e) => setFormData({ ...formData, assignee_id: e.target.value })}
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-200/70 transition"
+                  >
+                    <option value="">Nicht zugewiesen</option>
+                    {users.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-blue-600" />
-                  Falligkeitsdatum
-                </label>
-                <input
-                  type="date"
-                  value={formData.due_date}
-                  onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-200 transition-all"
-                />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-800 mb-2 flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-blue-600" />
+                      Fälligkeitsdatum
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.due_date}
+                      onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-200/70 transition"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-800 mb-2 flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-blue-600" />
+                      Geschätzte Stunden
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.5"
+                      value={formData.estimated_hours}
+                      onChange={(e) => setFormData({ ...formData, estimated_hours: e.target.value })}
+                      placeholder="z.B. 4"
+                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-200/70 transition"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-blue-600" />
-                  Geschatzte Stunden
+                <label className="block text-sm font-semibold text-slate-800 mb-2 flex items-center gap-2">
+                  <Tag className="w-4 h-4 text-blue-600" />
+                  Tags
                 </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.5"
-                  value={formData.estimated_hours}
-                  onChange={(e) => setFormData({ ...formData, estimated_hours: e.target.value })}
-                  placeholder="z.B. 4"
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-200 transition-all"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                <Tag className="w-4 h-4 text-blue-600" />
-                Tags
-              </label>
-              <div className="flex gap-2 mb-3">
-                <input
-                  type="text"
-                  value={tagInput}
-                  onChange={(e) => setTagInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
-                  placeholder="Tag hinzufugen..."
-                  className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-200 transition-all"
-                />
-                <button
-                  type="button"
-                  onClick={addTag}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all flex items-center gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
-              </div>
-              {formData.tags.length > 0 && (
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 mb-3">
                   {formData.tags.map((tag) => (
                     <span
                       key={tag}
-                      className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-full text-sm font-medium flex items-center gap-2"
+                      className="px-3 py-1.5 bg-blue-50 text-blue-600 border border-blue-200 rounded-full text-sm font-medium flex items-center gap-2 shadow-sm"
                     >
-                      {tag}
+                      #{tag}
                       <button
                         type="button"
                         onClick={() => removeTag(tag)}
-                        className="hover:bg-blue-200 rounded-full p-0.5 transition-colors"
+                        className="hover:text-blue-800 transition"
+                        aria-label="Tag entfernen"
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
                     </span>
                   ))}
                 </div>
-              )}
-            </div>
-
-            {/* Comments Section (only for existing tasks) */}
-            {task && task.id && (
-              <div className="pt-4 border-t border-gray-200">
-                <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
-                  <MessageCircle className="w-5 h-5" />
-                  Kommentare
-                </h3>
-                <TaskComments taskId={task.id} />
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addTag();
+                      }
+                    }}
+                    placeholder="Tag hinzufügen..."
+                    className="flex-1 px-3 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-200/70 transition"
+                  />
+                  <button
+                    type="button"
+                    onClick={addTag}
+                    className="px-4 py-2.5 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Hinzufügen
+                  </button>
+                </div>
               </div>
-            )}
-
-            <div className="modal-footer-mobile flex flex-col-reverse sm:flex-row gap-3 justify-end pt-4 border-t border-gray-200">
-              <button
-                type="button"
-                onClick={onClose}
-                className="btn-mobile btn-secondary-mobile mobile-touch-feedback"
-              >
-                Abbrechen
-              </button>
-              <button
-                type="submit"
-                className="btn-mobile btn-primary-mobile mobile-touch-feedback flex items-center justify-center gap-2"
-              >
-                <Flag className="w-5 h-5" />
-                {task ? 'Aktualisieren' : 'Erstellen'}
-              </button>
             </div>
-          </form>
-        </div>
+          </div>
+
+          {task && task.id && (
+            <div className="pt-6 border-t border-slate-200">
+              <h3 className="text-lg font-bold text-slate-900 mb-3 flex items-center gap-2">
+                <MessageCircle className="w-5 h-5 text-blue-600" />
+                Kommentare
+              </h3>
+              <TaskComments taskId={task.id} />
+            </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row justify-end gap-3 pt-5 border-t border-slate-200">
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:border-slate-300 hover:text-slate-800 transition"
+            >
+              Abbrechen
+            </button>
+            <button
+              type="submit"
+              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-blue-600 text-white font-semibold shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition flex items-center justify-center gap-2"
+            >
+              <Flag className="w-5 h-5" />
+              {task ? 'Aktualisieren' : 'Erstellen'}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

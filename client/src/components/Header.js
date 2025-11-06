@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import usePermissions from '../hooks/usePermissions';
 import { useLocale } from '../context/LocaleContext';
 import NotificationDropdown from './NotificationDropdown';
+import { getAssetUrl } from '../utils/media';
 
 const NAV_ITEMS = [
   { to: '/dashboard', labelKey: 'navigation.dashboard', icon: '📊', permission: 'schedule:read' },
@@ -32,6 +33,7 @@ const Header = () => {
 
   const { state, logout } = authContext;
   const { user } = state || {};
+  const profilePhotoUrl = user?.profile_photo ? getAssetUrl(user.profile_photo) : null;
 
   const getRoleLabel = (role) => t(`roles.${role}`) || role;
 
@@ -45,9 +47,9 @@ const Header = () => {
   const visibleNavItems = NAV_ITEMS.filter(item => hasPermission(item.permission));
 
   return (
-    <header className="top-nav-mobile bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+    <header className="top-nav-mobile bg-white/95 backdrop-blur-xl border-b border-slate-200 sticky top-0 z-50 shadow-[0_8px_24px_rgba(15,23,42,0.08)]">
       <div className="max-w-full mx-auto px-3 sm:px-4 lg:px-6">
-        <div className="flex justify-between items-center" style={{ minHeight: '56px' }}>
+        <div className="flex justify-between items-center" style={{ minHeight: '60px' }}>
 
           {/* Logo & Brand */}
           <Link to="/dashboard" className="flex items-center space-x-2 flex-shrink-0 mobile-touch-feedback">
@@ -61,8 +63,8 @@ const Header = () => {
           </Link>
 
           {/* Desktop Navigation - Dropdown Style */}
-          <nav className="hidden lg:flex items-center flex-1 justify-center max-w-4xl mx-4">
-            <div className="flex items-center gap-1 bg-gray-50 rounded-xl p-1">
+          <nav className="hidden lg:flex items-center flex-1 justify-center max-w-5xl mx-6">
+            <div className="flex items-center gap-1.5 bg-slate-100/80 border border-slate-200 rounded-2xl p-1.5 shadow-inner backdrop-blur">
               {visibleNavItems.map((item) => {
                 const isActive = location.pathname === item.to;
                 return (
@@ -70,10 +72,10 @@ const Header = () => {
                     key={item.to}
                     to={item.to}
                     className={`
-                      px-3 py-2 rounded-lg text-xs xl:text-sm font-medium transition-all whitespace-nowrap
+                      px-3.5 py-2 rounded-xl text-xs xl:text-sm font-semibold transition-all whitespace-nowrap tracking-wide
                       ${isActive
-                        ? 'bg-white text-blue-700 shadow-md'
-                        : 'text-gray-600 hover:bg-white/50 hover:text-gray-900'}
+                        ? 'bg-white text-blue-700 shadow-lg ring-1 ring-blue-100'
+                        : 'text-slate-600 hover:bg-white hover:text-slate-900'}
                     `}
                   >
                     <span className="mr-1.5">{item.icon}</span>
@@ -90,23 +92,33 @@ const Header = () => {
             <NotificationDropdown />
 
             {/* User Menu - Desktop */}
-            <div className="hidden md:flex items-center gap-2 pl-3 border-l border-gray-300">
+            <div className="hidden md:flex items-center gap-3 pl-4 border-l border-slate-200">
               <Link
                 to="/profile/me"
-                className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all"
+                className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-100 transition-all"
                 title="Profil anzeigen"
               >
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md">
-                  {user.name.charAt(0).toUpperCase()}
+                <div className="w-9 h-9 rounded-full overflow-hidden shadow-lg ring-2 ring-white bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                  {profilePhotoUrl ? (
+                    <img
+                      src={profilePhotoUrl}
+                      alt={user.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-white font-bold text-sm">
+                      {user.name.charAt(0).toUpperCase()}
+                    </span>
+                  )}
                 </div>
                 <div className="text-right max-w-[120px]">
-                  <p className="text-sm font-semibold text-gray-900 truncate">{user.name}</p>
+                  <p className="text-sm font-semibold text-slate-900 truncate">{user.name}</p>
                   <p className="text-xs text-gray-500 truncate">{getRoleLabel(user.role)}</p>
                 </div>
               </Link>
               <button
                 onClick={handleLogout}
-                className="px-3 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100 hover:shadow-md transition-all"
+                className="px-3 py-2 bg-red-50 text-red-600 rounded-xl text-sm font-semibold hover:bg-red-100 hover:shadow-md transition-all"
                 title={t('navigation.logout')}
               >
                 🚪
@@ -116,10 +128,10 @@ const Header = () => {
             {/* Mobile Menu Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden btn-icon-mobile bg-gray-50 hover:bg-gray-100 mobile-touch-feedback"
-              aria-label={t('mobile.nav.toggle')}
-            >
-              <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            className="lg:hidden btn-icon-mobile bg-slate-100 hover:bg-slate-200 shadow-inner mobile-touch-feedback"
+            aria-label={t('mobile.nav.toggle')}
+          >
+            <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 {mobileMenuOpen ? (
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
                 ) : (
@@ -138,15 +150,15 @@ const Header = () => {
             className="lg:hidden fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-40"
             onClick={() => setMobileMenuOpen(false)}
           />
-          <div className="lg:hidden fixed inset-y-0 right-0 w-80 max-w-[85vw] bg-white/95 backdrop-blur-xl text-slate-900 shadow-2xl z-50 animate-slideInRight safe-top safe-bottom rounded-l-3xl border-l border-slate-200">
+          <div className="lg:hidden fixed inset-y-0 right-0 w-80 max-w-[88vw] bg-gradient-to-br from-white/95 via-white to-slate-100/95 backdrop-blur-2xl text-slate-900 shadow-[0_20px_60px_rgba(15,23,42,0.25)] z-50 animate-slideInRight safe-top safe-bottom rounded-l-3xl border-l border-slate-200/60">
             <div className="h-full flex flex-col">
               <div className="h-1.5 w-12 bg-slate-300 rounded-full mx-auto mt-4 mb-2" />
               {/* Menu Header */}
-              <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100">
-                <h3 className="text-lg font-bold text-gray-900">Menu</h3>
+              <div className="flex items-center justify-between px-4 py-4 border-b border-slate-200/60">
+                <h3 className="text-lg font-bold text-slate-900">Menü</h3>
                 <button
                   onClick={() => setMobileMenuOpen(false)}
-                  className="btn-icon-mobile bg-gray-50 hover:bg-gray-100 mobile-touch-feedback"
+                  className="btn-icon-mobile bg-slate-100 hover:bg-slate-200 mobile-touch-feedback"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -155,21 +167,49 @@ const Header = () => {
               </div>
 
               {/* User Info Card */}
-              <div className="md:hidden card-elevated m-4 p-4 bg-gradient-to-br from-blue-600 to-indigo-600 text-white">
+              <div className="md:hidden m-4 p-4 rounded-3xl bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-600 text-white shadow-lg shadow-blue-900/40">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center text-xl font-bold">
-                    {user.name.charAt(0).toUpperCase()}
+                  <div className="w-12 h-12 rounded-full overflow-hidden bg-white/20 flex items-center justify-center ring-2 ring-white/30">
+                    {profilePhotoUrl ? (
+                      <img
+                        src={profilePhotoUrl}
+                        alt={user.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-xl font-bold">
+                        {user.name.charAt(0).toUpperCase()}
+                      </span>
+                    )}
                   </div>
-                  <div>
+                  <div className="flex-1">
                     <p className="text-base font-bold">{user.name}</p>
-                    <p className="text-sm text-blue-100">{getRoleLabel(user.role)}</p>
+                    <p className="text-sm text-blue-100/80">{getRoleLabel(user.role)}</p>
                   </div>
+                </div>
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <Link
+                    to="/profile/me"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="text-xs font-semibold px-3 py-2 rounded-lg bg-white/15 text-white text-center hover:bg-white/25 transition"
+                  >
+                    Profil öffnen
+                  </Link>
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      handleLogout();
+                    }}
+                    className="text-xs font-semibold px-3 py-2 rounded-lg bg-red-500/25 text-red-50 hover:bg-red-500/35 transition"
+                  >
+                    Abmelden
+                  </button>
                 </div>
               </div>
 
               {/* Navigation Items - List Style */}
-              <div className="flex-1 overflow-y-auto mobile-scroll-container px-2">
-                <div className="list-mobile">
+              <div className="flex-1 overflow-y-auto mobile-scroll-container px-3 pb-6">
+                <div className="space-y-2">
                   {visibleNavItems.map((item) => {
                     const isActive = location.pathname === item.to;
                     return (
@@ -177,58 +217,60 @@ const Header = () => {
                         key={item.to}
                         to={item.to}
                         onClick={() => setMobileMenuOpen(false)}
-                        className={`list-item-mobile mobile-touch-feedback ${
-                          isActive ? 'bg-blue-50' : ''
+                        className={`flex items-center gap-3 px-4 py-3 rounded-2xl mobile-touch-feedback border transition-all ${
+                          isActive
+                            ? 'bg-blue-100/70 border-blue-200 text-blue-700 shadow-inner'
+                            : 'bg-white/70 border-slate-200/80 text-slate-900 hover:bg-white'
                         }`}
                       >
-                        <span className="text-2xl">{item.icon}</span>
-                        <span className={`flex-1 text-base font-medium ${
-                          isActive ? 'text-blue-600' : 'text-gray-900'
-                        }`}>
-                          {t(item.labelKey)}
-                        </span>
-                        {isActive && (
-                          <div className="w-2 h-2 bg-blue-600 rounded-full" />
-                        )}
+                        <span className="text-xl">{item.icon}</span>
+                        <div className="flex-1 text-left">
+                          <p className="text-sm font-semibold">{t(item.labelKey)}</p>
+                          <p className="text-[11px] text-slate-400">
+                            {isActive ? 'Aktive Ansicht' : 'Tippen zum Öffnen'}
+                          </p>
+                        </div>
+                        {isActive && <div className="w-2 h-2 bg-blue-600 rounded-full" />}
                       </Link>
                     );
                   })}
                 </div>
-              </div>
 
-              <div className="px-4 pb-4">
-                <h4 className="text-xs uppercase text-gray-400 font-semibold tracking-wider">
-                  Schnellzugriffe
-                </h4>
-                <div className="mt-3 grid grid-cols-2 gap-3">
-                  <Link
-                    to="/kisten"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white font-semibold py-3 mobile-touch-feedback shadow-lg"
-                  >
-                    📦 Kisten
-                  </Link>
-                  <Link
-                    to="/task-pool"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="flex items-center justify-center gap-2 rounded-xl bg-slate-100 text-slate-800 font-semibold py-3 mobile-touch-feedback border border-slate-200"
-                  >
-                    ➕ Aufgabe
-                  </Link>
+                <div className="mt-6 space-y-3">
+                  <h4 className="text-xs uppercase text-slate-400 font-semibold tracking-wider px-1">
+                    Schnellzugriffe
+                  </h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { to: '/kisten', label: 'Kisten', emoji: '📦', className: 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-900/20' },
+                      { to: '/task-pool', label: 'Aufgabe', emoji: '➕', className: 'bg-slate-100 text-slate-800 border border-slate-200' },
+                      { to: '/schedule', label: 'Planung', emoji: '⏱', className: 'bg-emerald-100 text-emerald-700 border border-emerald-200' },
+                      { to: '/knowledge-base', label: 'Wissen', emoji: '📚', className: 'bg-amber-100 text-amber-700 border border-amber-200' }
+                    ].map((entry) => (
+                      <Link
+                        key={entry.to}
+                        to={entry.to}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`flex items-center justify-center gap-2 rounded-2xl py-3 font-semibold mobile-touch-feedback ${entry.className}`}
+                      >
+                        <span>{entry.emoji}</span>
+                        <span>{entry.label}</span>
+                      </Link>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              {/* Logout Button */}
-              <div className="p-4 border-t border-gray-100">
+              <div className="px-4 pb-5 pt-4 border-t border-slate-200/70 bg-white/70">
                 <button
                   onClick={() => {
                     setMobileMenuOpen(false);
-                    handleLogout();
+                    navigate('/users');
                   }}
-                  className="btn-mobile w-full bg-gradient-to-r from-red-500 to-rose-600 text-white hover:shadow-lg mobile-touch-feedback flex items-center justify-center gap-2"
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-slate-900 text-white font-semibold shadow-lg shadow-slate-900/20 hover:bg-slate-800 transition mobile-touch-feedback"
                 >
-                  <span className="text-xl">🚪</span>
-                  <span className="font-semibold">{t('navigation.logout')}</span>
+                  <span>Team & Admin</span>
+                  <span aria-hidden>→</span>
                 </button>
               </div>
             </div>
