@@ -1881,4 +1881,101 @@ router.post('/events/:id/duplicate', auth, async (req, res) => {
   }
 });
 
+// @route   GET /api/schedule/team-week/:weekStart
+// @desc    Get schedule for all team members for a specific week
+router.get('/team-week/:weekStart', auth, async (req, res) => {
+  try {
+    const { weekStart } = req.params;
+
+    // Get all active users with their schedules
+    const result = await pool.query(
+      `SELECT
+        u.id as user_id,
+        u.name,
+        u.email,
+        u.profile_photo,
+        u.employment_type,
+        u.weekly_hours_quota,
+        ws.id as schedule_id,
+        ws.day_of_week,
+        ws.is_working,
+        ws.start_time,
+        ws.end_time,
+        ws.notes
+       FROM users u
+       LEFT JOIN weekly_schedules ws ON ws.user_id = u.id AND ws.week_start = $1
+       WHERE u.is_active = TRUE AND u.role NOT IN ('system')
+       ORDER BY u.name, ws.day_of_week`,
+      [weekStart]
+    );
+
+    // Group schedules by user
+    const userMap = new Map();
+
+    result.rows.forEach((row) => {
+      const userId = row.user_id;
+
+      if (!userMap.has(userId)) {
+        userMap.set(userId, {
+          user_id: userId,
+          name: row.name,
+          email: row.email,
+          profile_photo: row.profile_photo,
+          employment_type: row.employment_type,
+          weekly_hours_quota: row.weekly_hours_quota,
+          week_schedule: [],
+          total_hours: 0
+        });
+      }
+
+      const user = userMap.get(userId);
+
+      if (row.schedule_id) {
+        const timeBlocks = parseTimeBlocksFromNotes(
+          row.notes,
+          row.start_time ? row.start_time.substring(0, 5) : null,
+          row.end_time ? row.end_time.substring(0, 5) : null
+        );
+
+        // Calculate hours for this day
+        let dayHours = 0;
+        if (row.is_working && timeBlocks.length > 0) {
+          timeBlocks.forEach(block => {
+            dayHours += calculateHours(block.start, block.end);
+          });
+        } else if (row.is_working && row.start_time && row.end_time) {
+          dayHours = calculateHours(
+            row.start_time.substring(0, 5),
+            row.end_time.substring(0, 5)
+          );
+        }
+
+        user.total_hours += dayHours;
+
+        user.week_schedule.push({
+          schedule_id: row.schedule_id,
+          day_of_week: row.day_of_week,
+          is_working: row.is_working,
+          start_time: row.start_time ? row.start_time.substring(0, 5) : null,
+          end_time: row.end_time ? row.end_time.substring(0, 5) : null,
+          time_blocks: timeBlocks,
+          hours: dayHours
+        });
+      }
+    });
+
+    // Convert map to array
+    const teamSchedules = Array.from(userMap.values());
+
+    // Sort by name
+    teamSchedules.sort((a, b) => a.name.localeCompare(b.name));
+
+    res.json(teamSchedules);
+
+  } catch (error) {
+    logger.error('Error fetching team schedule', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
 module.exports = router;

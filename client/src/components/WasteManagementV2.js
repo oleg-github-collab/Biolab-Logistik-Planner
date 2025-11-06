@@ -50,7 +50,7 @@ const WasteManagementV2 = () => {
           }))
         : []
     }));
-  }, [enrichItems]);
+  }, []);
 
   const loadData = useCallback(async ({ silent = false } = {}) => {
     try {
