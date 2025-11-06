@@ -34,6 +34,7 @@ import {
 } from '../utils/apiEnhanced';
 import GifPicker from './GifPicker';
 import { showError, showSuccess } from '../utils/toast';
+import { getAssetUrl } from '../utils/media';
 
 const DirectMessenger = () => {
   const { user } = useAuth();
@@ -931,14 +932,14 @@ const DirectMessenger = () => {
           <div className="flex-1 flex items-center justify-center px-4">
             {selectedStory.mediaType?.startsWith('video') ? (
               <video
-                src={selectedStory.mediaUrl}
+                src={getAssetUrl(selectedStory.mediaUrl)}
                 controls
                 autoPlay
                 className="max-h-[70vh] max-w-full rounded-3xl shadow-2xl"
               />
             ) : (
               <img
-                src={selectedStory.mediaUrl}
+                src={getAssetUrl(selectedStory.mediaUrl)}
                 alt={selectedStory.caption || 'Story'}
                 className="max-h-[70vh] max-w-full rounded-3xl shadow-2xl object-contain"
               />

@@ -9,6 +9,38 @@ function sanitizeInput(text) {
   return text.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
 }
 
+let wasteKanbanColumnEnsured = false;
+
+async function ensureWasteKanbanLinkColumn() {
+  if (wasteKanbanColumnEnsured) {
+    return;
+  }
+
+  try {
+    const check = await pool.query(
+      `SELECT 1
+         FROM information_schema.columns
+        WHERE table_name = 'waste_items'
+          AND column_name = 'kanban_task_id'
+        LIMIT 1`
+    );
+
+    if (check.rows.length === 0) {
+      await pool.query(
+        `ALTER TABLE waste_items
+           ADD COLUMN kanban_task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL`
+      );
+      await pool.query(
+        `CREATE INDEX IF NOT EXISTS idx_waste_items_task ON waste_items(kanban_task_id)`
+      );
+    }
+
+    wasteKanbanColumnEnsured = true;
+  } catch (error) {
+    console.error('Failed to ensure waste_items.kanban_task_id column:', error);
+  }
+}
+
 // ========== WASTE TEMPLATES ==========
 
 // @route   GET /api/waste/templates
@@ -291,6 +323,7 @@ router.delete('/templates/:id', [auth, adminAuth], async (req, res) => {
 // @desc    Get all waste items with template data
 router.get('/items', auth, async (req, res) => {
   try {
+    await ensureWasteKanbanLinkColumn();
     const result = await pool.query(
       `SELECT
          wi.*,
@@ -378,6 +411,7 @@ router.post('/items', auth, async (req, res) => {
   const client = await pool.connect();
 
   try {
+    await ensureWasteKanbanLinkColumn();
     await client.query('BEGIN');
 
     const templateResult = await client.query(
@@ -538,6 +572,7 @@ router.put('/items/:id', auth, async (req, res) => {
   const { id } = req.params;
 
   try {
+    await ensureWasteKanbanLinkColumn();
     // Validate ID
     if (!id || isNaN(parseInt(id))) {
       return res.status(400).json({ error: 'Ungültige ID' });
@@ -662,6 +697,7 @@ router.delete('/items/:id', auth, adminAuth, async (req, res) => {
   const { id } = req.params;
 
   try {
+    await ensureWasteKanbanLinkColumn();
     // Validate ID
     if (!id || isNaN(parseInt(id))) {
       return res.status(400).json({ error: 'Ungültige ID' });
@@ -695,6 +731,7 @@ router.put('/items/:id/assign', auth, async (req, res) => {
   const { assigned_to, notification_users } = req.body;
 
   try {
+    await ensureWasteKanbanLinkColumn();
     // Validate ID
     if (!id || isNaN(parseInt(id))) {
       return res.status(400).json({ error: 'Ungültige ID' });

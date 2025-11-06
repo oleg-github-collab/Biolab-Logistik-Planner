@@ -138,7 +138,7 @@ const Header = () => {
             className="lg:hidden fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-40"
             onClick={() => setMobileMenuOpen(false)}
           />
-          <div className="lg:hidden fixed inset-y-0 right-0 w-80 max-w-[85vw] bg-white shadow-2xl z-50 animate-slideInRight safe-top safe-bottom rounded-l-3xl border-l border-slate-200">
+          <div className="lg:hidden fixed inset-y-0 right-0 w-80 max-w-[85vw] bg-white/95 backdrop-blur-xl text-slate-900 shadow-2xl z-50 animate-slideInRight safe-top safe-bottom rounded-l-3xl border-l border-slate-200">
             <div className="h-full flex flex-col">
               <div className="h-1.5 w-12 bg-slate-300 rounded-full mx-auto mt-4 mb-2" />
               {/* Menu Header */}

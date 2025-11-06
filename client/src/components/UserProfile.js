@@ -13,6 +13,7 @@ import {
   uploadProfileStory,
   markStoryViewed
 } from '../utils/apiEnhanced';
+import { getAssetUrl } from '../utils/media';
 
 const UserProfile = ({ userId, onClose }) => {
   const [profile, setProfile] = useState(null);
@@ -243,7 +244,7 @@ const UserProfile = ({ userId, onClose }) => {
               <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-white overflow-hidden border-4 border-white shadow-lg">
                 {photoPreview || profile?.profile_photo ? (
                   <img
-                    src={photoPreview || profile.profile_photo}
+                    src={photoPreview || getAssetUrl(profile.profile_photo)}
                     alt={profile?.name}
                     className="w-full h-full object-cover"
                   />
@@ -341,7 +342,11 @@ const UserProfile = ({ userId, onClose }) => {
                       className={`w-20 h-20 rounded-3xl border-4 ${isVideo ? 'border-purple-400' : 'border-blue-400'} overflow-hidden bg-gray-200 flex items-center justify-center`}
                       style={
                         !isVideo && story.mediaUrl
-                          ? { backgroundImage: `url(${story.mediaUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+                          ? {
+                              backgroundImage: `url(${getAssetUrl(story.mediaUrl)})`,
+                              backgroundSize: 'cover',
+                              backgroundPosition: 'center'
+                            }
                           : undefined
                       }
                     >
@@ -812,14 +817,14 @@ const UserProfile = ({ userId, onClose }) => {
             <div className="relative bg-black">
               {storyModal.mediaType?.startsWith('video/') ? (
                 <video
-                  src={storyModal.mediaUrl}
+                  src={getAssetUrl(storyModal.mediaUrl)}
                   className="w-full h-[420px] object-contain bg-black"
                   controls
                   autoPlay
                 />
               ) : (
                 <img
-                  src={storyModal.mediaUrl}
+                  src={getAssetUrl(storyModal.mediaUrl)}
                   alt={storyModal.caption || 'Story'}
                   className="w-full h-[420px] object-cover"
                 />

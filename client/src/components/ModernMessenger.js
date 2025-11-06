@@ -1214,15 +1214,15 @@ const ModernMessenger = () => {
                       }
                     }}
                     placeholder="Nachricht eingeben..."
-                    className="w-full bg-gray-50 border-0 rounded-2xl px-4 py-3 pr-12 focus:ring-2 focus:ring-blue-500 focus:bg-white resize-none overflow-hidden transition-all duration-200 text-sm"
+                    className="w-full bg-gray-50 border-0 rounded-2xl px-4 py-3.5 pr-14 focus:ring-2 focus:ring-blue-500 focus:bg-white resize-none overflow-hidden transition-all duration-200 text-base sm:text-sm"
                     disabled={sending}
                     rows="1"
-                    style={{ maxHeight: '120px' }}
+                    style={{ maxHeight: '140px', minHeight: '52px' }}
                   />
                   <button
                     type="submit"
                     disabled={!newMessage.trim() || sending}
-                    className="absolute right-2 bottom-2.5 p-2 text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-full transition-all duration-200 transform hover:scale-110 disabled:scale-100 shadow-lg disabled:shadow-none"
+                    className="absolute right-2 bottom-3 p-2.5 text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-full transition-all duration-200 transform hover:scale-110 disabled:scale-100 shadow-lg disabled:shadow-none"
                   >
                     {sending ? (
                       <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>

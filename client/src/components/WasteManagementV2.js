@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import { showError, showSuccess } from '../utils/toast';
 import { useWebSocketContext } from '../context/WebSocketContext';
+import { getAssetUrl } from '../utils/media';
 import {
   Leaf,
   PlusCircle,
@@ -38,6 +39,19 @@ const WasteManagementV2 = () => {
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  const enrichItems = useCallback((items) => {
+    if (!Array.isArray(items)) return [];
+    return items.map((item) => ({
+      ...item,
+      attachments: Array.isArray(item.attachments)
+        ? item.attachments.map((attachment) => ({
+            ...attachment,
+            url: getAssetUrl(attachment.url)
+          }))
+        : []
+    }));
+  }, [enrichItems]);
+
   const loadData = useCallback(async ({ silent = false } = {}) => {
     try {
       if (!silent) {
@@ -54,11 +68,11 @@ const WasteManagementV2 = () => {
       setCategories(templates);
 
       if (Array.isArray(payload)) {
-        setActiveItems(payload);
+        setActiveItems(enrichItems(payload));
         setHistoryItems([]);
       } else {
-        setActiveItems(payload?.active || []);
-        setHistoryItems(payload?.history || []);
+        setActiveItems(enrichItems(payload?.active));
+        setHistoryItems(enrichItems(payload?.history));
       }
     } catch (error) {
       console.error('Error loading waste data:', error);
@@ -195,7 +209,8 @@ const WasteManagementV2 = () => {
       const response = await api.post('/waste/items', payload);
       const createdItem = response?.data;
       if (createdItem) {
-        setActiveItems((prev) => [createdItem, ...prev]);
+        const [normalizedCreated] = enrichItems([createdItem]);
+        setActiveItems((prev) => [normalizedCreated, ...prev]);
       }
 
       showSuccess('Abfallposten erfasst & Kanban-Aufgabe erstellt');
@@ -424,7 +439,7 @@ const WasteManagementV2 = () => {
                         </button>
                         {file.type === 'image' ? (
                           <img
-                            src={file.url}
+                            src={getAssetUrl(file.url)}
                             alt={file.name || 'Anhang'}
                             className="h-28 w-full object-cover rounded-lg"
                           />
@@ -535,7 +550,7 @@ const WasteManagementV2 = () => {
                       {item.attachments.map((att) => (
                         <a
                           key={att.id}
-                          href={att.url}
+                          href={getAssetUrl(att.url)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-600 hover:bg-slate-100"

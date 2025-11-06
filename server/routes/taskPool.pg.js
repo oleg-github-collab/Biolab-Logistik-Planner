@@ -6,6 +6,38 @@ const logger = require('../utils/logger');
 
 const router = express.Router();
 
+let wasteKanbanColumnEnsured = false;
+
+async function ensureWasteKanbanLinkColumn() {
+  if (wasteKanbanColumnEnsured) {
+    return;
+  }
+
+  try {
+    const check = await pool.query(
+      `SELECT 1
+         FROM information_schema.columns
+        WHERE table_name = 'waste_items'
+          AND column_name = 'kanban_task_id'
+        LIMIT 1`
+    );
+
+    if (check.rows.length === 0) {
+      await pool.query(
+        `ALTER TABLE waste_items
+           ADD COLUMN kanban_task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL`
+      );
+      await pool.query(
+        `CREATE INDEX IF NOT EXISTS idx_waste_items_task ON waste_items(kanban_task_id)`
+      );
+    }
+
+    wasteKanbanColumnEnsured = true;
+  } catch (error) {
+    logger.error('Failed to ensure waste_items.kanban_task_id column', error);
+  }
+}
+
 // @route   GET /api/task-pool/today
 // @desc    Get available tasks for today
 router.get('/today', auth, async (req, res) => {
@@ -442,6 +474,8 @@ router.post('/:taskPoolId/complete', auth, async (req, res) => {
     }
 
     const { task_id: taskId } = checkResult.rows[0];
+
+    await ensureWasteKanbanLinkColumn();
 
     const client = await getClient();
     let updatedTask = null;

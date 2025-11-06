@@ -947,6 +947,122 @@ router.get('/users', auth, async (req, res) => {
   }
 });
 
+// @route   POST /api/schedule/absence
+// @desc    Create an absence event (vacation, sick leave, overtime reduction)
+router.post('/absence', auth, async (req, res) => {
+  try {
+    const {
+      title,
+      description,
+      start_date,
+      end_date,
+      start_time,
+      end_time,
+      type,
+      is_all_day
+    } = req.body || {};
+
+    if (!start_date) {
+      return res.status(400).json({ error: 'Startdatum ist erforderlich' });
+    }
+
+    if (!end_date) {
+      return res.status(400).json({ error: 'Enddatum ist erforderlich' });
+    }
+
+    const allowedTypes = new Map([
+      ['Urlaub', { color: '#0EA5E9', priority: 'medium' }],
+      ['Krankheit', { color: '#EF4444', priority: 'high' }],
+      ['Überstundenabbau', { color: '#F59E0B', priority: 'medium' }]
+    ]);
+
+    const normalizedType = allowedTypes.has(type) ? type : 'Urlaub';
+    const { color, priority } = allowedTypes.get(normalizedType);
+
+    const computedTitle = (title || normalizedType || 'Abwesenheit').trim();
+    if (!computedTitle) {
+      return res.status(400).json({ error: 'Titel ist erforderlich' });
+    }
+
+    const allDay = parseBoolean(is_all_day, true);
+    const startReference = allDay ? '00:00:00' : start_time || '08:00';
+    const endReference = allDay ? '23:59:59' : end_time || start_time || '17:00';
+
+    const startDateTime = combineDateAndTime(start_date, startReference);
+    const endDateTime = combineDateAndTime(
+      end_date || start_date,
+      endReference
+    );
+
+    if (!startDateTime || Number.isNaN(startDateTime.getTime())) {
+      return res.status(400).json({ error: 'Ungültiges Startdatum' });
+    }
+
+    const safeEnd = !endDateTime || Number.isNaN(endDateTime.getTime()) ? startDateTime : endDateTime;
+    const normalizedEnd = safeEnd >= startDateTime ? safeEnd : startDateTime;
+
+    const sanitizedDescription = description ? String(description).trim() : null;
+    const tags = ['absence', normalizedType.toLowerCase()];
+
+    const insertResult = await pool.query(
+      `INSERT INTO calendar_events (
+        title, description, start_time, end_time, all_day,
+        event_type, color, location, attendees, attachments, cover_image,
+        priority, status, category, reminder, notes, tags,
+        is_recurring, recurrence_pattern, recurrence_end_date,
+        created_by, created_at, updated_at
+      ) VALUES (
+        $1, $2, $3, $4, $5,
+        $6, $7, NULL, '[]'::jsonb, '[]'::jsonb, NULL,
+        $8, 'confirmed', 'absence', $9, $10, $11::jsonb,
+        FALSE, NULL, NULL,
+        $12, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+      )
+      RETURNING *`,
+      [
+        computedTitle,
+        sanitizedDescription,
+        startDateTime.toISOString(),
+        normalizedEnd.toISOString(),
+        allDay,
+        normalizedType,
+        color,
+        priority,
+        60,
+        null,
+        JSON.stringify(tags),
+        req.user.id
+      ]
+    );
+
+    const newEvent = transformEventRow(insertResult.rows[0]);
+
+    auditLogger.logDataChange('create', req.user.id, 'calendar_event', newEvent.id, {
+      title: newEvent.title,
+      start_time: startDateTime.toISOString(),
+      end_time: normalizedEnd.toISOString(),
+      event_type: normalizedType,
+      category: 'absence'
+    });
+
+    const io = getIO();
+    if (io) {
+      io.emit('calendar:event_created', {
+        event: newEvent,
+        createdBy: {
+          id: req.user.id,
+          name: req.user.name
+        }
+      });
+    }
+
+    res.status(201).json(newEvent);
+  } catch (error) {
+    logger.error('Error creating absence event', error);
+    res.status(500).json({ error: 'Serverfehler beim Erstellen der Abwesenheit' });
+  }
+});
+
 // @route   GET /api/schedule/events
 // @desc    Get all calendar events with optional filters
 router.get('/events', auth, async (req, res) => {

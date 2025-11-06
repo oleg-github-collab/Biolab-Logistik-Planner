@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { X, Calendar, User, Flag, Tag, Clock, Plus, MessageCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import TaskComments from './TaskComments';
+import { getAssetUrl } from '../utils/media';
 
 const PRIORITIES = [
   { value: 'low', label: 'Niedrig', color: 'bg-green-100 text-green-700 border-green-300' },
@@ -38,12 +39,13 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
       );
 
       const url = attachment.url || attachment.file_url || '';
+      const resolvedUrl = getAssetUrl(url);
       const name = attachment.name || attachment.file_name || (url ? url.split('/').pop() : '');
 
       return {
         id: attachment.id,
         type: derivedType,
-        url,
+        url: resolvedUrl,
         name,
         mimeType: mime,
         raw: attachment
@@ -98,22 +100,29 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center p-0 lg:p-4 z-[100]" onClick={onClose}>
-      <div className="bg-white w-full lg:max-w-3xl lg:max-h-[90vh] overflow-y-auto rounded-t-3xl lg:rounded-2xl shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        {/* Mobile Handle */}
-        <div className="modal-handle sm:hidden" />
+    <div className="fixed inset-0 z-[100] flex flex-col">
+      <div
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div className="relative z-[101] flex flex-1 items-center justify-center p-0 sm:p-6">
+        <div
+          className="bg-white w-full h-full overflow-y-auto sm:h-auto sm:max-h-[90vh] sm:rounded-2xl sm:shadow-2xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="modal-header-mobile bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4 sm:p-6 sm:rounded-t-2xl flex items-center justify-between">
+            <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
+              <Flag className="w-5 h-5 sm:w-6 sm:h-6" />
+              {task ? 'Aufgabe bearbeiten' : 'Neue Aufgabe'}
+            </h2>
+            <button onClick={onClose} className="btn-icon-mobile bg-white/20 hover:bg-white/30 text-white mobile-touch-feedback">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
 
-        <div className="modal-header-mobile bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4 sm:p-6 sm:rounded-t-2xl flex items-center justify-between">
-          <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
-            <Flag className="w-5 h-5 sm:w-6 sm:h-6" />
-            {task ? 'Aufgabe bearbeiten' : 'Neue Aufgabe'}
-          </h2>
-          <button onClick={onClose} className="btn-icon-mobile bg-white/20 hover:bg-white/30 text-white mobile-touch-feedback">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="modal-body-mobile p-4 sm:p-6 space-y-4 sm:space-y-5">
+          <form onSubmit={handleSubmit} className="modal-body-mobile p-4 sm:p-6 space-y-4 sm:space-y-5">
+            <div className="sm:hidden h-1.5 w-12 bg-slate-300 rounded-full mx-auto mb-3" />
           <div>
             <label className="block text-sm font-semibold text-gray-900 mb-2">
               Titel <span className="text-red-500">*</span>

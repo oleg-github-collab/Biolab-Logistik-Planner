@@ -352,7 +352,7 @@ const NotificationDropdown = () => {
         className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-[95]"
         onClick={closeDropdown}
       />
-      <div className="fixed inset-x-0 bottom-0 top-[12%] bg-white rounded-t-3xl shadow-2xl z-[100] flex flex-col overflow-hidden">
+      <div className="fixed inset-x-0 bottom-0 top-16 bg-white rounded-t-3xl shadow-2xl z-[100] flex flex-col overflow-hidden">
         <div className="h-1.5 w-12 bg-slate-300 rounded-full mx-auto mt-3" />
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
