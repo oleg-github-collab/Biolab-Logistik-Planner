@@ -375,8 +375,8 @@ router.get('/items', auth, async (req, res) => {
        LEFT JOIN waste_templates wt ON wi.template_id = wt.id
        LEFT JOIN tasks t ON wi.kanban_task_id = t.id
        LEFT JOIN task_attachments ta ON t.id = ta.task_id
-       GROUP BY wi.id, wt.id, t.id
-       ORDER BY wi.status = 'disposed' DESC, wi.next_disposal_date ASC NULLS LAST, wt.name ASC`
+       GROUP BY wi.id, wt.id, wt.name, wt.description, wt.color, wt.icon, wt.hazard_level, wt.category, wt.disposal_frequency_days, t.id, t.status, t.priority, t.due_date, t.assigned_to
+       ORDER BY (wi.status = 'disposed')::int DESC, wi.next_disposal_date ASC NULLS LAST, wt.name ASC NULLS LAST`
     );
 
     const rows = result.rows.map((row) => ({
@@ -564,7 +564,7 @@ router.post('/items', auth, async (req, res) => {
        LEFT JOIN tasks t ON wi.kanban_task_id = t.id
        LEFT JOIN task_attachments ta ON t.id = ta.task_id
        WHERE wi.id = $1
-       GROUP BY wi.id, wt.id, t.id`,
+       GROUP BY wi.id, wt.id, wt.name, wt.description, wt.color, wt.icon, wt.hazard_level, wt.category, wt.disposal_frequency_days, t.id, t.status, t.priority, t.due_date, t.assigned_to`,
       [item.id]
     );
 
