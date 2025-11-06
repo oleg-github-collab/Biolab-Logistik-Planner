@@ -1,6 +1,6 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const pool = require('../config/database');
+const { pool } = require('../config/database');
 const { auth, adminAuth } = require('../middleware/auth');
 const auditLogger = require('../utils/auditLog');
 const { getIO, getOnlineUsers } = require('../websocket');
