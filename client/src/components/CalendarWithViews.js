@@ -70,7 +70,8 @@ const CalendarWithViews = ({ events = [], onEventClick, onEventCreate, onSelectS
     [isMobile]
   );
 
-  const calendarHeight = isMobile ? '520px' : '700px';
+  const calendarHeight = isMobile ? 'min(680px, calc(100vh - 220px))' : 'min(840px, calc(100vh - 260px))';
+  const calendarMinHeight = isMobile ? '420px' : '600px';
 
   return (
     <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
@@ -126,8 +127,11 @@ const CalendarWithViews = ({ events = [], onEventClick, onEventCreate, onSelectS
             </div>
           </div>
         </div>
-        <div className="rounded-xl border border-slate-200 overflow-x-auto">
-          <div style={{ minWidth: isMobile ? '600px' : 'auto' }}>
+        <div className="rounded-xl border border-slate-200 overflow-hidden">
+          <div
+            className={`relative ${isMobile ? 'overflow-x-auto' : ''}`}
+            style={{ minWidth: isMobile ? '580px' : 'auto' }}
+          >
             <BigCalendar
               localizer={localizer}
               events={calendarEvents}
@@ -139,7 +143,7 @@ const CalendarWithViews = ({ events = [], onEventClick, onEventCreate, onSelectS
               onSelectSlot={handleSelectSlot}
               selectable
               messages={messages}
-              style={{ height: calendarHeight }}
+              style={{ height: calendarHeight, minHeight: calendarMinHeight }}
               views={['month', 'week', 'day', 'agenda']}
               toolbar={false}
               popup={!isMobile}

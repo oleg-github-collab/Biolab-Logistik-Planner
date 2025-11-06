@@ -26,20 +26,32 @@ const removeFileIfExists = async (filePath) => {
   }
 };
 
-const mapStoryRow = (row, viewerId = null) => ({
-  id: row.id,
-  userId: row.user_id,
-  userName: row.user_name,
-  userPhoto: row.user_photo,
-  mediaUrl: row.media_url,
-  mediaType: row.media_type,
-  caption: row.caption || '',
-  createdAt: row.created_at,
-  expiresAt: row.expires_at,
-  views: Number(row.views_count) || 0,
-  viewers: row.viewers || [],
-  viewerHasSeen: viewerId ? row.viewers_ids?.includes(viewerId) : false
-});
+const normalizeUrl = (value) => {
+  if (!value) return null;
+  const normalized = value.replace(/\\/g, '/');
+  return normalized.startsWith('/') ? normalized : `/${normalized}`;
+};
+
+const mapStoryRow = (row, viewerId = null) => {
+  const numericViewerId = viewerId !== null && viewerId !== undefined ? Number(viewerId) : null;
+
+  return {
+    id: row.id,
+    userId: row.user_id,
+    userName: row.user_name,
+    userPhoto: normalizeUrl(row.user_photo),
+    mediaUrl: normalizeUrl(row.media_url),
+    mediaType: row.media_type,
+    caption: row.caption || '',
+    createdAt: row.created_at,
+    expiresAt: row.expires_at,
+    views: Number(row.views_count) || 0,
+    viewers: row.viewers || [],
+    viewerHasSeen: numericViewerId !== null
+      ? Array.isArray(row.viewers_ids) && row.viewers_ids.includes(numericViewerId)
+      : false
+  };
+};
 
 const isMissingRelationError = (error) => error?.code === '42P01';
 
@@ -82,7 +94,7 @@ const getActiveStories = async (viewerId = null) => {
          COUNT(usv.viewer_id)::INT AS views_count,
          json_agg(
            DISTINCT jsonb_build_object(
-             'userId', viewer.user_id,
+             'userId', viewer.viewer_id,
              'viewedAt', viewer.viewed_at
            )
          ) FILTER (WHERE viewer.viewer_id IS NOT NULL) AS viewers,
@@ -119,7 +131,7 @@ const getUserStories = async (userId, viewerId = null) => {
          COUNT(usv.viewer_id)::INT AS views_count,
          json_agg(
            DISTINCT jsonb_build_object(
-             'userId', viewer.user_id,
+             'userId', viewer.viewer_id,
              'viewedAt', viewer.viewed_at
            )
          ) FILTER (WHERE viewer.viewer_id IS NOT NULL) AS viewers,

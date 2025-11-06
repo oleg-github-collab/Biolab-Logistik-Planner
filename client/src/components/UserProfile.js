@@ -119,10 +119,10 @@ const UserProfile = ({ userId, onClose }) => {
       setProfile({ ...profile, profile_photo: response.data.photo_url });
       setPhotoFile(null);
       setPhotoPreview(null);
-      alert('Foto erfolgreich hochgeladen!');
+      toast.success('Foto erfolgreich hochgeladen!');
     } catch (error) {
       console.error('Error uploading photo:', error);
-      alert('Fehler beim Hochladen des Fotos');
+      toast.error('Fehler beim Hochladen des Fotos');
     } finally {
       setSaving(false);
     }
@@ -185,10 +185,10 @@ const UserProfile = ({ userId, onClose }) => {
       await updateUserProfile(userId, formData);
       setProfile({ ...profile, ...formData });
       setEditing(false);
-      alert('Profil aktualisiert!');
+      toast.success('Profil aktualisiert!');
     } catch (error) {
       console.error('Error saving profile:', error);
-      alert('Fehler beim Speichern des Profils');
+      toast.error('Fehler beim Speichern des Profils');
     } finally {
       setSaving(false);
     }
@@ -198,10 +198,10 @@ const UserProfile = ({ userId, onClose }) => {
     try {
       setSaving(true);
       await updateUserPreferences(userId, preferences);
-      alert('Einstellungen gespeichert!');
+      toast.success('Einstellungen gespeichert!');
     } catch (error) {
       console.error('Error saving preferences:', error);
-      alert('Fehler beim Speichern der Einstellungen');
+      toast.error('Fehler beim Speichern der Einstellungen');
     } finally {
       setSaving(false);
     }

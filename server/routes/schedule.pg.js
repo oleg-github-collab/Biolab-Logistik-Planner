@@ -1,5 +1,5 @@
 const express = require('express');
-const pool = require('../config/database');
+const { pool, getClient } = require('../config/database');
 const { auth } = require('../middleware/auth');
 const { getIO } = require('../websocket');
 const auditLogger = require('../utils/auditLog');
@@ -770,7 +770,7 @@ router.put('/week/:weekStart', auth, async (req, res) => {
     }
 
     // Use transaction for atomicity
-    const client = await pool.getClient();
+    const client = await getClient();
     try {
       await client.query('BEGIN');
 
@@ -1498,7 +1498,7 @@ router.post('/events/bulk', auth, async (req, res) => {
       return res.status(400).json({ error: 'Events array is required' });
     }
 
-    const client = await pool.getClient();
+    const client = await getClient();
     try {
       await client.query('BEGIN');
 

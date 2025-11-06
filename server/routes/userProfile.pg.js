@@ -1,5 +1,5 @@
 const express = require('express');
-const pool = require('../config/database');
+const { pool } = require('../config/database');
 const { auth } = require('../middleware/auth');
 const { uploadSingle } = require('../services/fileService');
 const { getIO } = require('../websocket');
@@ -128,6 +128,9 @@ router.post('/:userId/photo', auth, uploadSingle('photo'), async (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
+    const rawPath = req.file.path.replace(/\\/g, '/');
+    const normalizedPath = rawPath.startsWith('/') ? rawPath : `/${rawPath}`;
+
     // Update user profile_photo
     const result = await pool.query(
       `UPDATE users SET
@@ -135,7 +138,7 @@ router.post('/:userId/photo', auth, uploadSingle('photo'), async (req, res) => {
         updated_at = CURRENT_TIMESTAMP
       WHERE id = $2
       RETURNING profile_photo`,
-      [req.file.path, userId]
+      [normalizedPath, userId]
     );
 
     logger.info('Profile photo uploaded', { userId, path: req.file.path });
@@ -323,7 +326,7 @@ router.get('/online-users/list', auth, async (req, res) => {
 
 router.get('/stories/feed', auth, async (req, res) => {
   try {
-    const stories = await storyService.getActiveStories();
+    const stories = await storyService.getActiveStories(req.user.id);
     res.json({ stories });
   } catch (error) {
     logger.error('Error fetching stories feed', error);
@@ -334,7 +337,7 @@ router.get('/stories/feed', auth, async (req, res) => {
 router.get('/:userId/stories', auth, async (req, res) => {
   try {
     const { userId } = req.params;
-    const stories = await storyService.getUserStories(userId);
+    const stories = await storyService.getUserStories(userId, req.user.id);
     res.json({ stories });
   } catch (error) {
     logger.error('Error fetching user stories', error);

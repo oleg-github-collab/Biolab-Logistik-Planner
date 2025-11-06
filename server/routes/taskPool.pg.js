@@ -1,5 +1,5 @@
 const express = require('express');
-const pool = require('../config/database');
+const { pool, getClient } = require('../config/database');
 const { auth } = require('../middleware/auth');
 const { getIO } = require('../websocket');
 const logger = require('../utils/logger');
@@ -190,7 +190,7 @@ router.post('/:taskPoolId/request-help', auth, async (req, res) => {
       return res.status(400).json({ error: 'Nachricht zu lang (max 1000 Zeichen)' });
     }
 
-    const client = await pool.getClient();
+    const client = await getClient();
     try {
       await client.query('BEGIN');
 
@@ -291,7 +291,7 @@ router.post('/help-requests/:requestId/respond', auth, async (req, res) => {
     }
 
     const helpRequest = requestCheck.rows[0];
-    const client = await pool.getClient();
+    const client = await getClient();
 
     try {
       await client.query('BEGIN');
@@ -443,7 +443,7 @@ router.post('/:taskPoolId/complete', auth, async (req, res) => {
 
     const { task_id: taskId } = checkResult.rows[0];
 
-    const client = await pool.getClient();
+    const client = await getClient();
     let updatedTask = null;
     try {
       await client.query('BEGIN');

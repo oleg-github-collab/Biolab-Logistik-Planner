@@ -308,11 +308,16 @@ const EventModal = memo(({ isOpen, onClose, onSave, selectedDate, event = null, 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">
+    <div className="fixed inset-0 z-50 flex flex-col">
+      <div
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div className="relative z-10 flex flex-1 items-center justify-center p-0 sm:p-6">
+        <div className="bg-white w-full h-full overflow-y-auto sm:h-auto sm:max-h-[90vh] sm:rounded-2xl sm:shadow-2xl">
+          <div className="flex items-center justify-between px-4 py-4 sm:px-6 sm:py-6 border-b border-slate-100">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
               {mode === 'edit' ? 'Termin bearbeiten' : 'Neuen Termin erstellen'}
             </h2>
             <button
@@ -325,7 +330,7 @@ const EventModal = memo(({ isOpen, onClose, onSave, selectedDate, event = null, 
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="px-4 py-6 sm:px-6 sm:py-6 space-y-6">
             {/* Title */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">

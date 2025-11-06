@@ -613,7 +613,7 @@ const Dashboard = () => {
             </div>
           )}
 
-          <div className={`relative mt-6 ${isMobile ? 'h-[520px]' : 'h-[720px]'}`}>
+          <div className="relative mt-6 w-full">
             {eventsLoading && (
               <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70 backdrop-blur-sm">
                 <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-200 border-t-blue-500" />
