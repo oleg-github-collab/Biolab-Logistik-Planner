@@ -373,8 +373,8 @@ const KnowledgeBase = () => {
                         </span>
                       )}
                     </div>
-                    {article.excerpt && (
-                      <p className="text-gray-600 mb-4 line-clamp-2">{article.excerpt}</p>
+                    {(article.summary || article.excerpt) && (
+                      <p className="text-gray-600 mb-4 line-clamp-2">{article.summary || article.excerpt}</p>
                     )}
                     <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm text-gray-500">
                       <span className="flex items-center gap-1.5">

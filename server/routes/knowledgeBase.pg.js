@@ -66,7 +66,7 @@ router.get('/articles', auth, async (req, res) => {
       LEFT JOIN users u ON a.author_id = u.id
       LEFT JOIN kb_categories c ON a.category_id = c.id
       LEFT JOIN kb_article_comments acm ON a.id = acm.article_id
-      LEFT JOIN kb_article_media am ON a.id = am.article_id
+      LEFT JOIN kb_media am ON a.id = am.article_id
       WHERE a.status = $1
     `;
     const params = [status];
@@ -134,7 +134,7 @@ router.get('/articles/:id', auth, async (req, res) => {
 
     const mediaResult = await client.query(`
       SELECT m.*, u.name as uploaded_by_name
-      FROM kb_article_media m LEFT JOIN users u ON m.uploaded_by = u.id
+      FROM kb_media m LEFT JOIN users u ON m.uploaded_by = u.id
       WHERE m.article_id = $1 ORDER BY m.display_order ASC, m.created_at DESC
     `, [id]);
 
@@ -287,7 +287,7 @@ router.post('/articles/:id/media', auth, uploadSingle('file'), async (req, res) 
     else if (req.file.mimetype.startsWith('video/')) media_type = 'video';
 
     const result = await pool.query(`
-      INSERT INTO kb_article_media (article_id, media_type, file_url, file_name, file_size, mime_type, caption, display_order, uploaded_by)
+      INSERT INTO kb_media (article_id, media_type, file_url, file_name, file_size, mime_type, caption, display_order, uploaded_by)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *
     `, [id, media_type, req.file.path, req.file.originalname, req.file.size, req.file.mimetype, caption, display_order, req.user.id]);
 

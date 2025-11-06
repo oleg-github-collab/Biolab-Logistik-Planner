@@ -878,7 +878,7 @@ const KistenManager = () => {
               Timeline der nächsten Prüfungen
             </h3>
             <a
-              href="/schedule"
+              href="/dashboard"
               className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
             >
               Kalender öffnen
