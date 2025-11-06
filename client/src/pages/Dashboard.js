@@ -27,6 +27,8 @@ const EVENT_COLOR_MAP = {
   Termin: '#06B6D4',
   Deadline: '#DC2626',
   Personal: '#84CC16',
+  inspection: '#FB923C',
+  disposal: '#22C55E',
   default: '#475569'
 };
 
@@ -187,7 +189,9 @@ const EVENT_TYPES = [
   { value: 'Meeting', label: 'Meetings', chipClass: 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200' },
   { value: 'Urlaub', label: 'Urlaub', chipClass: 'bg-amber-100 text-amber-700 hover:bg-amber-200' },
   { value: 'Krankheit', label: 'Ausfälle', chipClass: 'bg-rose-100 text-rose-700 hover:bg-rose-200' },
-  { value: 'Projekt', label: 'Projekt', chipClass: 'bg-violet-100 text-violet-700 hover:bg-violet-200' }
+  { value: 'Projekt', label: 'Projekt', chipClass: 'bg-violet-100 text-violet-700 hover:bg-violet-200' },
+  { value: 'inspection', label: 'Kisten', chipClass: 'bg-orange-100 text-orange-700 hover:bg-orange-200' },
+  { value: 'disposal', label: 'Entsorgung', chipClass: 'bg-green-100 text-green-700 hover:bg-green-200' }
 ];
 
 const PRIORITY_FILTERS = [
