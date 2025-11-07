@@ -118,8 +118,7 @@ router.post('/tasks', auth, async (req, res) => {
       assigned_to,
       due_date,
       estimated_hours,
-      labels,
-      checklist
+      tags
     } = req.body;
 
     if (!title) {
@@ -129,14 +128,13 @@ router.post('/tasks', auth, async (req, res) => {
     const result = await client.query(`
       INSERT INTO tasks (
         title, description, status, priority, assigned_to, due_date,
-        estimated_hours, labels, checklist, created_by
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10)
+        estimated_hours, tags, created_by
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9)
       RETURNING *
     `, [
       title, description, status, priority, assigned_to, due_date,
       estimated_hours,
-      labels ? JSON.stringify(labels) : JSON.stringify([]),
-      checklist ? JSON.stringify(checklist) : JSON.stringify([]),
+      tags ? JSON.stringify(tags) : JSON.stringify([]),
       req.user.id
     ]);
 
@@ -191,7 +189,7 @@ router.put('/tasks/:id', auth, async (req, res) => {
     const { id } = req.params;
     const {
       title, description, status, priority, assigned_to, due_date,
-      estimated_hours, actual_hours, labels, checklist, cover_image
+      estimated_hours, actual_hours, tags, cover_image
     } = req.body;
 
     // Get old task for activity log
@@ -210,18 +208,15 @@ router.put('/tasks/:id', auth, async (req, res) => {
         due_date = COALESCE($6, due_date),
         estimated_hours = COALESCE($7, estimated_hours),
         actual_hours = COALESCE($8, actual_hours),
-        labels = COALESCE($9::jsonb, labels),
-        checklist = COALESCE($10::jsonb, checklist),
-        cover_image = COALESCE($11, cover_image),
+        tags = COALESCE($9::jsonb, tags),
         updated_at = CURRENT_TIMESTAMP
-      WHERE id = $12
+      WHERE id = $10
       RETURNING *
     `, [
       title, description, status, priority, assigned_to, due_date,
       estimated_hours, actual_hours,
-      labels ? JSON.stringify(labels) : null,
-      checklist ? JSON.stringify(checklist) : null,
-      cover_image, id
+      tags ? JSON.stringify(tags) : null,
+      id
     ]);
 
     const task = result.rows[0];
