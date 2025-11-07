@@ -385,12 +385,11 @@ const DirectMessenger = () => {
       if (eventToShare) {
         payload.metadata = payload.metadata || {};
         payload.metadata.shared_event = {
-            id: eventToShare.id,
-            title: eventToShare.title,
-            start_time: eventToShare.start_time,
-            end_time: eventToShare.end_time,
-            location: eventToShare.location || null
-          }
+          id: eventToShare.id,
+          title: eventToShare.title,
+          start_time: eventToShare.start_time,
+          end_time: eventToShare.end_time,
+          location: eventToShare.location || null
         };
       }
 
