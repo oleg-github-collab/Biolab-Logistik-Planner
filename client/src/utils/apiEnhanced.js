@@ -407,4 +407,26 @@ export const markGroupAsRead = (groupKey) =>
 export const getNotificationAnalytics = (days = 30) =>
   api.get('/notifications/analytics', { params: { days } });
 
+// ============================================
+// TASK TEMPLATES
+// ============================================
+
+export const getTaskTemplates = (params = {}) =>
+  api.get('/tasks/templates', { params });
+
+export const getTaskTemplate = (id) =>
+  api.get(`/tasks/templates/${id}`);
+
+export const createTaskTemplate = (data) =>
+  api.post('/tasks/templates', data);
+
+export const updateTaskTemplate = (id, data) =>
+  api.put(`/tasks/templates/${id}`, data);
+
+export const deleteTaskTemplate = (id) =>
+  api.delete(`/tasks/templates/${id}`);
+
+export const createTaskFromTemplate = (templateId, data = {}) =>
+  api.post(`/tasks/templates/${templateId}/use`, data);
+
 export default api;
