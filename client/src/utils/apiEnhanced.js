@@ -376,4 +376,35 @@ export const uploadVoiceMessage = (conversationId, formData) =>
 export const forwardMessage = (messageId, recipientIds, comment) =>
   api.post(`/messages/${messageId}/forward`, { recipientIds, comment });
 
+// ============================================
+// SMART NOTIFICATIONS
+// ============================================
+
+export const getSmartNotifications = (params = {}) =>
+  api.get('/notifications/smart', { params });
+
+export const getNotificationPreferences = () =>
+  api.get('/notifications/preferences');
+
+export const updateNotificationPreferences = (preferences) =>
+  api.put('/notifications/preferences', preferences);
+
+export const snoozeNotification = (id, minutes = 60) =>
+  api.put(`/notifications/${id}/snooze`, { minutes });
+
+export const dismissNotification = (id) =>
+  api.put(`/notifications/${id}/dismiss`);
+
+export const takeNotificationAction = (id, action_type, metadata = {}) =>
+  api.put(`/notifications/${id}/action`, { action_type, metadata });
+
+export const getGroupNotifications = (groupKey) =>
+  api.get(`/notifications/groups/${groupKey}`);
+
+export const markGroupAsRead = (groupKey) =>
+  api.put(`/notifications/groups/${groupKey}/read`);
+
+export const getNotificationAnalytics = (days = 30) =>
+  api.get('/notifications/analytics', { params: { days } });
+
 export default api;

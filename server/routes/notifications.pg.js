@@ -227,4 +227,392 @@ router.post('/test', auth, async (req, res) => {
   }
 });
 
+// ============================================================================
+// SMART NOTIFICATIONS - AI Prioritization & Advanced Features
+// ============================================================================
+
+// @route   GET /api/notifications/smart
+// @desc    Get smart notifications with AI prioritization and grouping
+router.get('/smart', auth, async (req, res) => {
+  try {
+    const { limit = 50, offset = 0, include_grouped = 'false' } = req.query;
+
+    // Check if DND is active
+    const dndResult = await pool.query(
+      'SELECT is_dnd_active($1) as is_dnd',
+      [req.user.id]
+    );
+    const isDnd = dndResult.rows[0]?.is_dnd || false;
+
+    // Get notifications sorted by AI priority
+    const query = `
+      SELECT
+        n.*,
+        u.name as related_user_name,
+        ng.notification_count as group_size,
+        ng.summary as group_summary
+      FROM notifications n
+      LEFT JOIN users u ON n.related_user_id = u.id
+      LEFT JOIN notification_groups ng ON n.group_key = ng.group_key AND n.user_id = ng.user_id
+      WHERE n.user_id = $1
+        AND (n.snoozed_until IS NULL OR n.snoozed_until <= CURRENT_TIMESTAMP)
+        AND n.dismissed_at IS NULL
+        ${include_grouped === 'false' ? 'AND (n.is_grouped = FALSE OR n.parent_notification_id IS NULL)' : ''}
+      ORDER BY n.ai_priority_score DESC, n.created_at DESC
+      LIMIT $2 OFFSET $3
+    `;
+
+    const result = await pool.query(query, [req.user.id, limit, offset]);
+
+    // Get grouped notifications
+    const groupsResult = await pool.query(
+      `SELECT * FROM notification_groups
+       WHERE user_id = $1 AND is_read = FALSE AND dismissed_at IS NULL
+       ORDER BY last_updated_at DESC`,
+      [req.user.id]
+    );
+
+    // Get unread count
+    const countResult = await pool.query(
+      'SELECT COUNT(*) as unread_count FROM notifications WHERE user_id = $1 AND is_read = FALSE AND dismissed_at IS NULL',
+      [req.user.id]
+    );
+
+    res.json({
+      notifications: result.rows,
+      groups: groupsResult.rows,
+      unread_count: parseInt(countResult.rows[0].unread_count),
+      is_dnd_active: isDnd,
+      total: result.rows.length
+    });
+
+  } catch (error) {
+    logger.error('Error fetching smart notifications', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   GET /api/notifications/preferences
+// @desc    Get user notification preferences
+router.get('/preferences', auth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM notification_preferences WHERE user_id = $1',
+      [req.user.id]
+    );
+
+    // Return default preferences if none exist
+    if (result.rows.length === 0) {
+      const defaultPrefs = await pool.query(
+        `INSERT INTO notification_preferences (user_id) VALUES ($1) RETURNING *`,
+        [req.user.id]
+      );
+      return res.json(defaultPrefs.rows[0]);
+    }
+
+    res.json(result.rows[0]);
+
+  } catch (error) {
+    logger.error('Error fetching notification preferences', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   PUT /api/notifications/preferences
+// @desc    Update notification preferences
+router.put('/preferences', auth, async (req, res) => {
+  try {
+    const {
+      dnd_enabled,
+      dnd_start_time,
+      dnd_end_time,
+      dnd_days,
+      auto_group_enabled,
+      group_window_minutes,
+      priority_weight_urgency,
+      priority_weight_sender,
+      priority_weight_content,
+      notify_messages,
+      notify_tasks,
+      notify_events,
+      notify_waste,
+      notify_system,
+      desktop_notifications,
+      sound_enabled,
+      vibration_enabled,
+      vip_user_ids,
+      muted_keywords
+    } = req.body;
+
+    const updates = [];
+    const params = [req.user.id];
+    let paramIndex = 2;
+
+    const fields = {
+      dnd_enabled, dnd_start_time, dnd_end_time, dnd_days,
+      auto_group_enabled, group_window_minutes,
+      priority_weight_urgency, priority_weight_sender, priority_weight_content,
+      notify_messages, notify_tasks, notify_events, notify_waste, notify_system,
+      desktop_notifications, sound_enabled, vibration_enabled,
+      vip_user_ids, muted_keywords
+    };
+
+    Object.entries(fields).forEach(([key, value]) => {
+      if (value !== undefined) {
+        updates.push(`${key} = $${paramIndex}`);
+        params.push(value);
+        paramIndex++;
+      }
+    });
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    const query = `
+      INSERT INTO notification_preferences (user_id, ${Object.keys(fields).filter(k => fields[k] !== undefined).join(', ')})
+      VALUES ($1, ${params.slice(1).map((_, i) => `$${i + 2}`).join(', ')})
+      ON CONFLICT (user_id) DO UPDATE SET
+        ${updates.join(', ')},
+        updated_at = CURRENT_TIMESTAMP
+      RETURNING *
+    `;
+
+    const result = await pool.query(query, params);
+
+    logger.info('Notification preferences updated', { userId: req.user.id });
+    res.json(result.rows[0]);
+
+  } catch (error) {
+    logger.error('Error updating notification preferences', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   PUT /api/notifications/:id/snooze
+// @desc    Snooze notification
+router.put('/:id/snooze', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { minutes = 60 } = req.body;
+
+    const result = await pool.query(
+      `UPDATE notifications SET
+        snoozed_until = CURRENT_TIMESTAMP + INTERVAL '${minutes} minutes'
+      WHERE id = $1 AND user_id = $2
+      RETURNING *`,
+      [id, req.user.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+
+    // Log action
+    await pool.query(
+      `INSERT INTO notification_actions (notification_id, user_id, action_type, action_metadata)
+       VALUES ($1, $2, 'snooze', $3)`,
+      [id, req.user.id, JSON.stringify({ minutes })]
+    );
+
+    logger.info('Notification snoozed', { notificationId: id, userId: req.user.id, minutes });
+    res.json(result.rows[0]);
+
+  } catch (error) {
+    logger.error('Error snoozing notification', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   PUT /api/notifications/:id/dismiss
+// @desc    Dismiss notification
+router.put('/:id/dismiss', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query(
+      `UPDATE notifications SET
+        dismissed_at = CURRENT_TIMESTAMP
+      WHERE id = $1 AND user_id = $2
+      RETURNING *`,
+      [id, req.user.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+
+    // Log action
+    await pool.query(
+      `INSERT INTO notification_actions (notification_id, user_id, action_type)
+       VALUES ($1, $2, 'dismiss')`,
+      [id, req.user.id]
+    );
+
+    logger.info('Notification dismissed', { notificationId: id, userId: req.user.id });
+    res.json(result.rows[0]);
+
+  } catch (error) {
+    logger.error('Error dismissing notification', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   PUT /api/notifications/:id/action
+// @desc    Mark notification action taken
+router.put('/:id/action', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { action_type, metadata = {} } = req.body;
+
+    const result = await pool.query(
+      `UPDATE notifications SET
+        action_taken = $3,
+        action_taken_at = CURRENT_TIMESTAMP,
+        is_read = TRUE,
+        read_at = COALESCE(read_at, CURRENT_TIMESTAMP)
+      WHERE id = $1 AND user_id = $2
+      RETURNING *`,
+      [id, req.user.id, action_type]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+
+    // Log action
+    await pool.query(
+      `INSERT INTO notification_actions (notification_id, user_id, action_type, action_metadata)
+       VALUES ($1, $2, $3, $4)`,
+      [id, req.user.id, action_type, metadata]
+    );
+
+    logger.info('Notification action taken', { notificationId: id, userId: req.user.id, action: action_type });
+    res.json(result.rows[0]);
+
+  } catch (error) {
+    logger.error('Error recording notification action', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   GET /api/notifications/groups/:groupKey
+// @desc    Get all notifications in a group
+router.get('/groups/:groupKey', auth, async (req, res) => {
+  try {
+    const { groupKey } = req.params;
+
+    const result = await pool.query(
+      `SELECT n.*, u.name as related_user_name
+       FROM notifications n
+       LEFT JOIN users u ON n.related_user_id = u.id
+       WHERE n.user_id = $1 AND n.group_key = $2
+       ORDER BY n.created_at DESC`,
+      [req.user.id, groupKey]
+    );
+
+    res.json({ notifications: result.rows });
+
+  } catch (error) {
+    logger.error('Error fetching group notifications', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   PUT /api/notifications/groups/:groupKey/read
+// @desc    Mark all notifications in group as read
+router.put('/groups/:groupKey/read', auth, async (req, res) => {
+  try {
+    const { groupKey } = req.params;
+
+    // Update all notifications in group
+    await pool.query(
+      `UPDATE notifications SET
+        is_read = TRUE,
+        read_at = CURRENT_TIMESTAMP
+       WHERE user_id = $1 AND group_key = $2 AND is_read = FALSE`,
+      [req.user.id, groupKey]
+    );
+
+    // Update group
+    const result = await pool.query(
+      `UPDATE notification_groups SET
+        is_read = TRUE,
+        read_at = CURRENT_TIMESTAMP
+       WHERE user_id = $1 AND group_key = $2
+       RETURNING *`,
+      [req.user.id, groupKey]
+    );
+
+    logger.info('Notification group marked as read', { groupKey, userId: req.user.id });
+    res.json(result.rows[0] || { success: true });
+
+  } catch (error) {
+    logger.error('Error marking group as read', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   GET /api/notifications/analytics
+// @desc    Get notification analytics
+router.get('/analytics', auth, async (req, res) => {
+  try {
+    const { days = 30 } = req.query;
+
+    // Get notification stats
+    const statsResult = await pool.query(
+      `SELECT
+        type,
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE is_read = TRUE) as read,
+        COUNT(*) FILTER (WHERE dismissed_at IS NOT NULL) as dismissed,
+        COUNT(*) FILTER (WHERE action_taken IS NOT NULL) as acted_upon,
+        AVG(ai_priority_score) as avg_priority,
+        AVG(EXTRACT(EPOCH FROM (COALESCE(read_at, CURRENT_TIMESTAMP) - created_at))) as avg_time_to_read
+       FROM notifications
+       WHERE user_id = $1
+         AND created_at >= CURRENT_TIMESTAMP - INTERVAL '${days} days'
+       GROUP BY type`,
+      [req.user.id]
+    );
+
+    // Get action distribution
+    const actionsResult = await pool.query(
+      `SELECT
+        action_type,
+        COUNT(*) as count
+       FROM notification_actions
+       WHERE user_id = $1
+         AND created_at >= CURRENT_TIMESTAMP - INTERVAL '${days} days'
+       GROUP BY action_type
+       ORDER BY count DESC`,
+      [req.user.id]
+    );
+
+    // Get daily trend
+    const trendResult = await pool.query(
+      `SELECT
+        DATE(created_at) as date,
+        COUNT(*) as count,
+        AVG(ai_priority_score) as avg_priority
+       FROM notifications
+       WHERE user_id = $1
+         AND created_at >= CURRENT_TIMESTAMP - INTERVAL '${days} days'
+       GROUP BY DATE(created_at)
+       ORDER BY date DESC`,
+      [req.user.id]
+    );
+
+    res.json({
+      stats_by_type: statsResult.rows,
+      actions: actionsResult.rows,
+      daily_trend: trendResult.rows
+    });
+
+  } catch (error) {
+    logger.error('Error fetching notification analytics', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 module.exports = router;
