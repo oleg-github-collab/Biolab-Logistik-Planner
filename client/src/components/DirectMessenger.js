@@ -22,7 +22,9 @@ import {
   Smile,
   Reply,
   Pin,
-  MoreVertical
+  Zap,
+  FileText,
+  Forward
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useWebSocketContext } from '../context/WebSocketContext';
@@ -44,6 +46,12 @@ import {
   getPinnedMessages
 } from '../utils/apiEnhanced';
 import GifPicker from './GifPicker';
+import TypingIndicator from './TypingIndicator';
+import MessageSearch from './MessageSearch';
+import QuickRepliesPanel from './QuickRepliesPanel';
+import ContactNotesPanel from './ContactNotesPanel';
+import MessageForwardModal from './MessageForwardModal';
+import VoiceMessagePlayer from './VoiceMessagePlayer';
 import { showError, showSuccess } from '../utils/toast';
 import { getAssetUrl } from '../utils/media';
 
@@ -81,12 +89,28 @@ const DirectMessenger = () => {
   const [hoveredMessage, setHoveredMessage] = useState(null);
   const [showContactPicker, setShowContactPicker] = useState(false);
   const [pendingEventShare, setPendingEventShare] = useState(null);
+  const [showSearch, setShowSearch] = useState(false);
+  const [showQuickReplies, setShowQuickReplies] = useState(false);
+  const [showContactNotes, setShowContactNotes] = useState(false);
+  const [showForwardModal, setShowForwardModal] = useState(false);
+  const [messageToForward, setMessageToForward] = useState(null);
+  const [typingUsers, setTypingUsers] = useState({});
 
   const fileInputRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const recordingChunksRef = useRef([]);
   const recordingStreamRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
+
+  // Simple debounce utility
+  const debounce = (func, delay) => {
+    let timeoutId;
+    return (...args) => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => func(...args), delay);
+    };
+  };
 
   const normalizeMessage = useCallback((message) => {
     if (!message) return message;
@@ -275,16 +299,48 @@ const DirectMessenger = () => {
       }
     };
 
+    const handleUserTyping = (data) => {
+      if (data.conversationId === selectedThreadId && data.userId !== user.id) {
+        setTypingUsers(prev => ({
+          ...prev,
+          [data.userId]: { name: data.userName, timestamp: Date.now() }
+        }));
+
+        // Auto-clear after 3 seconds
+        setTimeout(() => {
+          setTypingUsers(prev => {
+            const updated = { ...prev };
+            delete updated[data.userId];
+            return updated;
+          });
+        }, 3000);
+      }
+    };
+
+    const handleUserStopTyping = (data) => {
+      if (data.conversationId === selectedThreadId) {
+        setTypingUsers(prev => {
+          const updated = { ...prev };
+          delete updated[data.userId];
+          return updated;
+        });
+      }
+    };
+
     const unsubscribeNewMessage = onConversationEvent('new_message', handleNewMessage);
     const unsubscribeReaction = onConversationEvent('message:reaction', handleMessageReaction);
     const unsubscribePin = onConversationEvent('message:pin', handleMessagePin);
+    const unsubscribeTyping = onConversationEvent('typing:start', handleUserTyping);
+    const unsubscribeStopTyping = onConversationEvent('typing:stop', handleUserStopTyping);
 
     return () => {
       unsubscribeNewMessage();
       unsubscribeReaction();
       unsubscribePin();
+      unsubscribeTyping();
+      unsubscribeStopTyping();
     };
-  }, [selectedThreadId, isConnected, joinConversationRoom, onConversationEvent, normalizeMessage]);
+  }, [selectedThreadId, isConnected, joinConversationRoom, onConversationEvent, normalizeMessage, user]);
 
   const loadMessages = useCallback(async (threadId) => {
     try {
@@ -684,6 +740,72 @@ const DirectMessenger = () => {
     }
   }, [pendingEventShare, handleContactClick]);
 
+  // Send typing indicator (debounced)
+  const sendTypingIndicator = useMemo(
+    () => debounce((isTyping) => {
+      if (selectedThreadId && isConnected) {
+        const eventName = isTyping ? 'typing:start' : 'typing:stop';
+        // Emit through WebSocket context if available
+        if (window.socket) {
+          window.socket.emit(eventName, {
+            conversationId: selectedThreadId,
+            userId: user.id,
+            userName: user.name
+          });
+        }
+      }
+    }, 300),
+    [selectedThreadId, isConnected, user]
+  );
+
+  const handleInputChange = useCallback((e) => {
+    const value = e.target.value;
+    setMessageInput(value);
+
+    // Send typing indicator
+    if (value.trim()) {
+      sendTypingIndicator(true);
+
+      // Clear previous timeout
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+
+      // Stop typing indicator after 3 seconds of inactivity
+      typingTimeoutRef.current = setTimeout(() => {
+        sendTypingIndicator(false);
+      }, 3000);
+    } else {
+      sendTypingIndicator(false);
+    }
+  }, [sendTypingIndicator]);
+
+  const handleMessageSearchSelect = useCallback((message) => {
+    setShowSearch(false);
+    // Scroll to message if it's in current conversation
+    const messageElement = document.getElementById(`message-${message.id}`);
+    if (messageElement) {
+      messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      messageElement.classList.add('highlight-flash');
+      setTimeout(() => messageElement.classList.remove('highlight-flash'), 2000);
+    }
+  }, []);
+
+  const handleQuickReplySelect = useCallback((content) => {
+    setMessageInput(content);
+    setShowQuickReplies(false);
+  }, []);
+
+  const handleForwardMessage = useCallback((message) => {
+    setMessageToForward(message);
+    setShowForwardModal(true);
+  }, []);
+
+  const handleForwardSuccess = useCallback(() => {
+    setShowForwardModal(false);
+    setMessageToForward(null);
+  }, []);
+
   const filteredContacts = useMemo(
     () =>
       contacts.filter(
@@ -824,7 +946,14 @@ const DirectMessenger = () => {
             </div>
           )}
 
-          {msg.message_type === 'gif' || (msg.message && (msg.message.includes('giphy.com') || msg.message.includes('tenor.com') || msg.message.match(/\.(gif|webp)(\?|$)/i))) ? (
+          {/* Voice Message Player */}
+          {msg.audio_duration && msg.attachments?.length > 0 && msg.attachments[0].type === 'audio' ? (
+            <VoiceMessagePlayer
+              audioUrl={msg.attachments[0].url}
+              duration={msg.audio_duration}
+              className="mt-2"
+            />
+          ) : msg.message_type === 'gif' || (msg.message && (msg.message.includes('giphy.com') || msg.message.includes('tenor.com') || msg.message.match(/\.(gif|webp)(\?|$)/i))) ? (
             <img src={msg.message} alt="GIF" className="rounded-lg max-h-60 w-full object-contain" />
           ) : (
             <p className={`${isMobile ? 'message-text' : 'text-sm whitespace-pre-wrap break-words'}`}>
@@ -994,6 +1123,13 @@ const DirectMessenger = () => {
               <Reply className="w-4 h-4 text-slate-600" />
             </button>
             <button
+              onClick={() => handleForwardMessage(msg)}
+              className="p-2.5 bg-white border-2 border-slate-300 rounded-full hover:bg-purple-50 hover:border-purple-400 hover:scale-110 shadow-lg transition-all duration-200 cursor-pointer"
+              title="Weiterleiten"
+            >
+              <Forward className="w-4 h-4 text-slate-600" />
+            </button>
+            <button
               onClick={() => handlePinMessage(msg)}
               className={`p-2.5 border-2 rounded-full shadow-lg hover:scale-110 transition-all duration-200 cursor-pointer ${
                 isPinned
@@ -1065,6 +1201,7 @@ const DirectMessenger = () => {
       return (
         <div
           key={msg.id}
+          id={`message-${msg.id}`}
           className={`flex mb-3 ${isMine ? 'justify-end' : 'justify-start'}`}
         >
           {/* Message bubble with max-width, NOT full width */}
@@ -1087,6 +1224,13 @@ const DirectMessenger = () => {
                   title="Antworten"
                 >
                   <Reply className="w-3.5 h-3.5 text-slate-600" />
+                </button>
+                <button
+                  onClick={() => handleForwardMessage(msg)}
+                  className="p-1.5 bg-white/90 backdrop-blur border border-slate-200 rounded-full hover:bg-slate-50 shadow-sm transition"
+                  title="Weiterleiten"
+                >
+                  <Forward className="w-3.5 h-3.5 text-slate-600" />
                 </button>
                 <button
                   onClick={() => handlePinMessage(msg)}
@@ -1297,10 +1441,44 @@ const DirectMessenger = () => {
                   </p>
                 </div>
               </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowSearch(true)}
+                  className="p-2 hover:bg-slate-100 rounded-lg transition"
+                  title="Nachrichten durchsuchen"
+                >
+                  <Search className="w-5 h-5 text-slate-600" />
+                </button>
+                <button
+                  onClick={() => setShowContactNotes(!showContactNotes)}
+                  className={`p-2 rounded-lg transition ${
+                    showContactNotes ? 'bg-blue-100 text-blue-600' : 'hover:bg-slate-100 text-slate-600'
+                  }`}
+                  title="Kontaktnotizen"
+                >
+                  <FileText className="w-5 h-5" />
+                </button>
+              </div>
             </div>
+
+            {/* Contact Notes Panel */}
+            {showContactNotes && selectedContact && (
+              <div className="px-6 py-4 border-b border-slate-200 bg-white">
+                <ContactNotesPanel
+                  contactId={selectedContact.id}
+                  contactName={selectedContact.name}
+                />
+              </div>
+            )}
 
             <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50">
               {renderMessages()}
+
+              {/* Typing Indicators */}
+              {Object.entries(typingUsers).map(([userId, data]) => (
+                <TypingIndicator key={userId} userName={data.name} />
+              ))}
+
               <div ref={messagesEndRef} />
             </div>
 
@@ -1379,6 +1557,14 @@ const DirectMessenger = () => {
                   </button>
                   <button
                     type="button"
+                    onClick={() => setShowQuickReplies(true)}
+                    className="p-3 hover:bg-slate-100 rounded-xl transition"
+                    title="Schnellantworten"
+                  >
+                    <Zap className="w-5 h-5 text-slate-600" />
+                  </button>
+                  <button
+                    type="button"
                     onClick={isRecording ? stopRecording : startRecording}
                     className={`p-3 rounded-xl transition ${
                       isRecording ? 'bg-red-100 text-red-600' : 'hover:bg-slate-100'
@@ -1396,7 +1582,7 @@ const DirectMessenger = () => {
                 <input
                   type="text"
                   value={messageInput}
-                  onChange={(e) => setMessageInput(e.target.value)}
+                  onChange={handleInputChange}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
@@ -1485,6 +1671,12 @@ const DirectMessenger = () => {
             <p className="text-sm text-blue-200 mt-1">Tippe auf die Liste, um einen Chat zu starten</p>
           </div>
         )}
+
+        {/* Typing Indicators */}
+        {Object.entries(typingUsers).map(([userId, data]) => (
+          <TypingIndicator key={userId} userName={data.name} />
+        ))}
+
         <div ref={messagesEndRef} />
       </div>
 
@@ -1563,6 +1755,13 @@ const DirectMessenger = () => {
           </button>
           <button
             type="button"
+            onClick={() => setShowQuickReplies(true)}
+            className="p-2 text-blue-300 hover:text-white transition"
+          >
+            <Zap className="w-5 h-5" />
+          </button>
+          <button
+            type="button"
             onClick={isRecording ? stopRecording : startRecording}
             className={`p-2 transition ${
               isRecording ? 'text-red-400' : 'text-blue-300 hover:text-white'
@@ -1573,7 +1772,7 @@ const DirectMessenger = () => {
           <input
             type="text"
             value={messageInput}
-            onChange={(e) => setMessageInput(e.target.value)}
+            onChange={handleInputChange}
             placeholder="Nachricht..."
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
@@ -1805,6 +2004,34 @@ const DirectMessenger = () => {
         <GifPicker
           onSelectGif={handleSelectGif}
           onClose={() => setShowGifPicker(false)}
+        />
+      )}
+
+      {/* Message Search Modal */}
+      {showSearch && (
+        <MessageSearch
+          onClose={() => setShowSearch(false)}
+          onMessageSelect={handleMessageSearchSelect}
+        />
+      )}
+
+      {/* Quick Replies Panel */}
+      {showQuickReplies && (
+        <QuickRepliesPanel
+          onSelect={handleQuickReplySelect}
+          onClose={() => setShowQuickReplies(false)}
+        />
+      )}
+
+      {/* Message Forward Modal */}
+      {showForwardModal && messageToForward && (
+        <MessageForwardModal
+          message={messageToForward}
+          onClose={() => {
+            setShowForwardModal(false);
+            setMessageToForward(null);
+          }}
+          onSuccess={handleForwardSuccess}
         />
       )}
     </>

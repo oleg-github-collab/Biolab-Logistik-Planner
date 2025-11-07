@@ -325,4 +325,55 @@ export const uploadAttachment = (formData) =>
     headers: { 'Content-Type': 'multipart/form-data' }
   });
 
+// ============================================
+// QUICK REPLY TEMPLATES
+// ============================================
+
+export const getQuickReplies = (params = {}) =>
+  api.get('/messages/quick-replies', { params });
+
+export const createQuickReply = (data) =>
+  api.post('/messages/quick-replies', data);
+
+export const updateQuickReply = (id, data) =>
+  api.put(`/messages/quick-replies/${id}`, data);
+
+export const deleteQuickReply = (id) =>
+  api.delete(`/messages/quick-replies/${id}`);
+
+export const useQuickReply = (id) =>
+  api.post(`/messages/quick-replies/${id}/use`);
+
+// ============================================
+// CONTACT NOTES
+// ============================================
+
+export const getContactNote = (contactId) =>
+  api.get(`/messages/contacts/${contactId}/notes`);
+
+export const saveContactNote = (contactId, data) =>
+  api.put(`/messages/contacts/${contactId}/notes`, data);
+
+export const deleteContactNote = (contactId) =>
+  api.delete(`/messages/contacts/${contactId}/notes`);
+
+// ============================================
+// MESSAGE SEARCH
+// ============================================
+
+export const searchMessages = (params) =>
+  api.get('/messages/search', { params });
+
+// ============================================
+// VOICE MESSAGES & MESSAGE FORWARDING
+// ============================================
+
+export const uploadVoiceMessage = (conversationId, formData) =>
+  api.post(`/messages/conversations/${conversationId}/messages`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+
+export const forwardMessage = (messageId, recipientIds, comment) =>
+  api.post(`/messages/${messageId}/forward`, { recipientIds, comment });
+
 export default api;

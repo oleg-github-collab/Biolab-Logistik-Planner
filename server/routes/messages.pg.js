@@ -1868,4 +1868,462 @@ router.get('/conversations/:conversationId/pins', auth, async (req, res) => {
   }
 });
 
+// ============================================
+// QUICK REPLY TEMPLATES
+// ============================================
+
+// @route   GET /api/messages/quick-replies
+// @desc    Get user's quick reply templates
+router.get('/quick-replies', auth, async (req, res) => {
+  try {
+    const { category } = req.query;
+    let query = 'SELECT * FROM quick_reply_templates WHERE user_id = $1';
+    const params = [req.user.id];
+
+    if (category) {
+      query += ' AND category = $2';
+      params.push(category);
+    }
+
+    query += ' ORDER BY usage_count DESC, title ASC';
+
+    const result = await pool.query(query, params);
+    res.json(result.rows);
+  } catch (error) {
+    logger.error('Error fetching quick replies:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// @route   POST /api/messages/quick-replies
+// @desc    Create quick reply template
+router.post('/quick-replies', auth, async (req, res) => {
+  try {
+    const { title, content, shortcut, category = 'general' } = req.body;
+
+    if (!title || !content) {
+      return res.status(400).json({ error: 'Titel und Inhalt sind erforderlich' });
+    }
+
+    if (content.length > 5000) {
+      return res.status(400).json({ error: 'Inhalt zu lang (max 5000 Zeichen)' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO quick_reply_templates (user_id, title, content, shortcut, category)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [req.user.id, title, content, shortcut || null, category]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    logger.error('Error creating quick reply:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// @route   PUT /api/messages/quick-replies/:id
+// @desc    Update quick reply template
+router.put('/quick-replies/:id', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, content, shortcut, category } = req.body;
+
+    // Verify ownership
+    const checkResult = await pool.query(
+      'SELECT id FROM quick_reply_templates WHERE id = $1 AND user_id = $2',
+      [id, req.user.id]
+    );
+
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Vorlage nicht gefunden' });
+    }
+
+    const updates = [];
+    const values = [];
+    let paramIndex = 1;
+
+    if (title !== undefined) {
+      updates.push(`title = $${paramIndex++}`);
+      values.push(title);
+    }
+    if (content !== undefined) {
+      if (content.length > 5000) {
+        return res.status(400).json({ error: 'Inhalt zu lang (max 5000 Zeichen)' });
+      }
+      updates.push(`content = $${paramIndex++}`);
+      values.push(content);
+    }
+    if (shortcut !== undefined) {
+      updates.push(`shortcut = $${paramIndex++}`);
+      values.push(shortcut);
+    }
+    if (category !== undefined) {
+      updates.push(`category = $${paramIndex++}`);
+      values.push(category);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'Keine Aktualisierungen angegeben' });
+    }
+
+    values.push(id, req.user.id);
+
+    const result = await pool.query(
+      `UPDATE quick_reply_templates
+       SET ${updates.join(', ')}
+       WHERE id = $${paramIndex} AND user_id = $${paramIndex + 1}
+       RETURNING *`,
+      values
+    );
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    logger.error('Error updating quick reply:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// @route   DELETE /api/messages/quick-replies/:id
+// @desc    Delete quick reply template
+router.delete('/quick-replies/:id', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query(
+      'DELETE FROM quick_reply_templates WHERE id = $1 AND user_id = $2 RETURNING id',
+      [id, req.user.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Vorlage nicht gefunden' });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Error deleting quick reply:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// @route   POST /api/messages/quick-replies/:id/use
+// @desc    Increment usage count
+router.post('/quick-replies/:id/use', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query(
+      `UPDATE quick_reply_templates
+       SET usage_count = usage_count + 1
+       WHERE id = $1 AND user_id = $2
+       RETURNING *`,
+      [id, req.user.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Vorlage nicht gefunden' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    logger.error('Error incrementing usage count:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// ============================================
+// CONTACT NOTES
+// ============================================
+
+// @route   GET /api/messages/contacts/:contactId/notes
+// @desc    Get note for contact
+router.get('/contacts/:contactId/notes', auth, async (req, res) => {
+  try {
+    const { contactId } = req.params;
+
+    const result = await pool.query(
+      'SELECT * FROM contact_notes WHERE user_id = $1 AND contact_id = $2',
+      [req.user.id, contactId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.json(null);
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    logger.error('Error fetching contact note:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// @route   PUT /api/messages/contacts/:contactId/notes
+// @desc    Create or update contact note
+router.put('/contacts/:contactId/notes', auth, async (req, res) => {
+  try {
+    const { contactId } = req.params;
+    const { note, tags = [] } = req.body;
+
+    if (!note || !note.trim()) {
+      return res.status(400).json({ error: 'Notiz darf nicht leer sein' });
+    }
+
+    // Verify contact exists
+    const contactCheck = await pool.query(
+      'SELECT id FROM users WHERE id = $1',
+      [contactId]
+    );
+
+    if (contactCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Kontakt nicht gefunden' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO contact_notes (user_id, contact_id, note, tags)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (user_id, contact_id)
+       DO UPDATE SET note = EXCLUDED.note, tags = EXCLUDED.tags, updated_at = CURRENT_TIMESTAMP
+       RETURNING *`,
+      [req.user.id, contactId, note, tags]
+    );
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    logger.error('Error saving contact note:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// @route   DELETE /api/messages/contacts/:contactId/notes
+// @desc    Delete contact note
+router.delete('/contacts/:contactId/notes', auth, async (req, res) => {
+  try {
+    const { contactId } = req.params;
+
+    const result = await pool.query(
+      'DELETE FROM contact_notes WHERE user_id = $1 AND contact_id = $2 RETURNING id',
+      [req.user.id, contactId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Notiz nicht gefunden' });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Error deleting contact note:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// ============================================
+// MESSAGE SEARCH
+// ============================================
+
+// @route   GET /api/messages/search
+// @desc    Full-text search messages
+router.get('/search', auth, async (req, res) => {
+  try {
+    const { q, from, date, type = 'text', limit = 50, offset = 0 } = req.query;
+
+    if (!q || q.trim().length < 2) {
+      return res.status(400).json({ error: 'Suchanfrage muss mindestens 2 Zeichen lang sein' });
+    }
+
+    const conditions = [];
+    const params = [];
+    let paramIndex = 1;
+
+    // User must be sender or receiver
+    conditions.push(`(m.sender_id = $${paramIndex} OR m.receiver_id = $${paramIndex})`);
+    params.push(req.user.id);
+    paramIndex++;
+
+    // Full-text search
+    const searchTerm = q.trim().replace(/\s+/g, ' & ');
+    conditions.push(
+      `(to_tsvector('english', m.message) @@ to_tsquery('english', $${paramIndex}) OR
+        to_tsvector('english', COALESCE(m.transcription, '')) @@ to_tsquery('english', $${paramIndex}))`
+    );
+    params.push(searchTerm);
+    paramIndex++;
+
+    // Filter by sender
+    if (from) {
+      conditions.push(`m.sender_id = $${paramIndex}`);
+      params.push(parseInt(from, 10));
+      paramIndex++;
+    }
+
+    // Filter by date
+    if (date) {
+      conditions.push(`DATE(m.created_at) = $${paramIndex}`);
+      params.push(date);
+      paramIndex++;
+    }
+
+    // Filter by type
+    if (type && type !== 'all') {
+      conditions.push(`m.message_type = $${paramIndex}`);
+      params.push(type);
+      paramIndex++;
+    }
+
+    params.push(parseInt(limit, 10) || 50);
+    params.push(parseInt(offset, 10) || 0);
+
+    const query = `
+      SELECT
+        m.*,
+        sender.name AS sender_name,
+        sender.profile_photo AS sender_photo,
+        receiver.name AS receiver_name,
+        ts_rank(to_tsvector('english', m.message), to_tsquery('english', $2)) AS rank
+      FROM messages m
+      LEFT JOIN users sender ON m.sender_id = sender.id
+      LEFT JOIN users receiver ON m.receiver_id = receiver.id
+      WHERE ${conditions.join(' AND ')}
+      ORDER BY rank DESC, m.created_at DESC
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+
+    const result = await pool.query(query, params);
+
+    // Get total count
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM messages m
+      WHERE ${conditions.join(' AND ')}
+    `;
+    const countResult = await pool.query(countQuery, params.slice(0, -2));
+
+    res.json({
+      results: result.rows,
+      total: parseInt(countResult.rows[0].total, 10),
+      limit: parseInt(limit, 10) || 50,
+      offset: parseInt(offset, 10) || 0
+    });
+  } catch (error) {
+    logger.error('Error searching messages:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// ============================================
+// MESSAGE FORWARDING
+// ============================================
+
+// @route   POST /api/messages/:messageId/forward
+// @desc    Forward message to multiple recipients
+router.post('/:messageId/forward', auth, async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const { recipientIds = [], comment } = req.body;
+
+    if (!Array.isArray(recipientIds) || recipientIds.length === 0) {
+      return res.status(400).json({ error: 'Mindestens ein Empfänger erforderlich' });
+    }
+
+    // Get original message
+    const originalResult = await pool.query(
+      `SELECT m.*, sender.name as sender_name
+       FROM messages m
+       LEFT JOIN users sender ON m.sender_id = sender.id
+       WHERE m.id = $1 AND (m.sender_id = $2 OR m.receiver_id = $2)`,
+      [messageId, req.user.id]
+    );
+
+    if (originalResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Nachricht nicht gefunden' });
+    }
+
+    const original = originalResult.rows[0];
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      const forwardedMessages = [];
+
+      for (const recipientId of recipientIds) {
+        const parsedRecipientId = parseInt(recipientId, 10);
+
+        // Ensure conversation exists
+        const conversation = await ensureDirectConversation(client, req.user.id, parsedRecipientId);
+
+        // Create forwarded message
+        let messageContent = original.message;
+        if (comment) {
+          messageContent = `${comment}\n\n--- Weitergeleitete Nachricht ---\n${original.message}`;
+        }
+
+        const result = await createMessageRecord(client, {
+          senderId: req.user.id,
+          conversationId: conversation.id,
+          receiverId: parsedRecipientId,
+          messageContent,
+          messageType: original.message_type,
+          attachments: original.attachments || [],
+          metadata: {
+            is_forwarded: true,
+            forwarded_from_id: original.id,
+            forwarded_from_name: original.sender_name,
+            forwarded_comment: comment || null
+          }
+        });
+
+        // Update the message with forwarding info
+        await client.query(
+          `UPDATE messages
+           SET is_forwarded = true,
+               forwarded_from_id = $1,
+               forwarded_from_name = $2
+           WHERE id = $3`,
+          [original.id, original.sender_name, result.id]
+        );
+
+        forwardedMessages.push(result);
+
+        // Emit WebSocket event
+        const io = getIO();
+        if (io) {
+          io.to(`user_${parsedRecipientId}`).emit('conversation:new_message', {
+            conversationId: conversation.id,
+            message: result
+          });
+        }
+
+        // Send notification
+        sendNotificationToUser(parsedRecipientId, {
+          type: 'message',
+          title: `${req.user.name} hat eine Nachricht weitergeleitet`,
+          message: messageContent.substring(0, 100),
+          data: {
+            url: '/messages',
+            conversationId: conversation.id,
+            messageId: result.id
+          }
+        });
+      }
+
+      await client.query('COMMIT');
+
+      res.json({
+        success: true,
+        forwardedCount: forwardedMessages.length,
+        messages: forwardedMessages
+      });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    logger.error('Error forwarding message:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
 module.exports = router;
