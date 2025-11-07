@@ -3,6 +3,7 @@ import { X, Calendar, User, Flag, Tag, Clock, Plus, MessageCircle } from 'lucide
 import toast from 'react-hot-toast';
 import TaskComments from './TaskComments';
 import VoiceRecorder from './VoiceRecorder';
+import TaskChecklist from './TaskChecklist';
 import { getAssetUrl } from '../utils/media';
 
 const PRIORITIES = [
@@ -20,7 +21,8 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
     due_date: '',
     priority: 'medium',
     category: '',
-    tags: []
+    tags: [],
+    checklist: []
   });
 
   const [tagInput, setTagInput] = useState('');
@@ -64,7 +66,8 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
         due_date: task.due_date ? task.due_date.split('T')[0] : '',
         priority: task.priority || 'medium',
         category: task.category || '',
-        tags: Array.isArray(task.tags) ? task.tags : []
+        tags: Array.isArray(task.tags) ? task.tags : [],
+        checklist: Array.isArray(task.checklist) ? task.checklist : []
       });
     } else {
       setFormData({
@@ -74,7 +77,8 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
         due_date: '',
         priority: 'medium',
         category: '',
-        tags: []
+        tags: [],
+        checklist: []
       });
     }
   }, [task, isOpen]);
@@ -101,6 +105,10 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
 
   const removeTag = (tagToRemove) => {
     setFormData({ ...formData, tags: formData.tags.filter(tag => tag !== tagToRemove) });
+  };
+
+  const handleChecklistChange = (newChecklist) => {
+    setFormData({ ...formData, checklist: newChecklist });
   };
 
   if (!isOpen) return null;
@@ -321,6 +329,15 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
                     Hinzufügen
                   </button>
                 </div>
+              </div>
+
+              {/* Checklist */}
+              <div>
+                <TaskChecklist
+                  checklist={formData.checklist}
+                  onChange={handleChecklistChange}
+                  readOnly={false}
+                />
               </div>
 
               {/* Voice Instruction */}
