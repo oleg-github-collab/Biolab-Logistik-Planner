@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { format, parseISO, formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Send,
   Search,
@@ -42,6 +42,7 @@ import { getAssetUrl } from '../utils/media';
 
 const DirectMessenger = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const { isConnected, onConversationEvent, joinConversationRoom } = useWebSocketContext();
   const { isMobile } = useMobile();
@@ -182,6 +183,16 @@ const DirectMessenger = () => {
   useEffect(() => {
     setSelectedEvent(null);
   }, [selectedThreadId]);
+
+  // Handle shared event from navigation state
+  useEffect(() => {
+    if (location.state?.shareEvent) {
+      const sharedEvent = location.state.shareEvent;
+      setSelectedEvent(sharedEvent);
+      // Clear the navigation state so it doesn't persist on refresh
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, location.pathname, navigate]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

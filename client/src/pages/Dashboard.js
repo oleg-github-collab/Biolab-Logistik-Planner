@@ -1,187 +1,29 @@
 import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { CalendarDays, LayoutDashboard, Recycle, Plus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import CalendarWithViews from '../components/CalendarWithViews';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useWebSocketContext } from '../context/WebSocketContext';
+import CalendarView from '../components/CalendarView';
 import EventDetailsModal from '../components/EventDetailsModal';
-import EventDetailsPanel from '../components/EventDetailsPanel';
-import EventModal from '../components/EventModal';
+import EventFormModal from '../components/EventFormModal';
 import AbsenceModal from '../components/AbsenceModal';
 import UnifiedTaskBoard from '../components/UnifiedTaskBoard';
 import WasteManagementV2 from '../components/WasteManagementV2';
 import {
-  getEvents,
-  createEvent,
-  updateEvent,
-  deleteEvent,
-  createAbsenceEvent
-} from '../utils/api';
+  fetchEvents,
+  createEventWithRefetch,
+  updateEventWithRefetch,
+  deleteEventWithRefetch,
+  duplicateEventWithRefetch,
+  setupCalendarWebSocketListeners,
+  transformApiEventToUi,
+  transformUiEventToApi,
+  getEventColor
+} from '../utils/calendarApi';
+import { createAbsenceEvent } from '../utils/api';
 import { format, addDays, addMinutes, startOfWeek, endOfWeek, formatISO } from 'date-fns';
 
-const EVENT_COLOR_MAP = {
-  Arbeit: '#0EA5E9',
-  Meeting: '#6366F1',
-  Urlaub: '#F97316',
-  Krankheit: '#EF4444',
-  Training: '#10B981',
-  Projekt: '#8B5CF6',
-  Termin: '#06B6D4',
-  Deadline: '#DC2626',
-  Personal: '#84CC16',
-  inspection: '#FB923C',
-  disposal: '#22C55E',
-  default: '#475569'
-};
-
-const getEventColor = (type = 'Arbeit') => EVENT_COLOR_MAP[type] || EVENT_COLOR_MAP.default;
-
-const parseDbDateTime = (value) => {
-  if (!value) return null;
-  if (value instanceof Date) return value;
-  if (typeof value === 'string') {
-    const isoLike = value.includes('T') ? value : value.replace(' ', 'T');
-    const parsed = new Date(isoLike);
-    if (!Number.isNaN(parsed.getTime())) {
-      return parsed;
-    }
-  }
-  return null;
-};
-
-const safeParseJson = (value, fallback = []) => {
-  if (!value) return fallback;
-  if (Array.isArray(value)) return value;
-  if (typeof value === 'string') {
-    try {
-      const parsed = JSON.parse(value);
-      if (Array.isArray(parsed)) {
-        return parsed;
-      }
-    } catch (error) {
-      const split = value
-        .split(/[;,]/)
-        .map((entry) => entry.trim())
-        .filter(Boolean);
-      if (split.length > 0) {
-        return split;
-      }
-    }
-    return fallback;
-  }
-  return fallback;
-};
-
-const normalizeAttachmentList = (value) => {
-  if (!value) return [];
-  if (Array.isArray(value)) return value;
-  if (typeof value === 'string') {
-    try {
-      const parsed = JSON.parse(value);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (error) {
-      return [];
-    }
-  }
-  return [];
-};
-
-const mapApiEventToUi = (event) => {
-  const start = parseDbDateTime(event.start_time) ?? new Date();
-  const end = parseDbDateTime(event.end_time) ?? addMinutes(start, 60);
-  const allDay = Boolean(event.all_day);
-  const type = event.event_type || event.type || 'Termin';
-
-  const attachments = normalizeAttachmentList(event.attachments);
-  const attendeeList = Array.isArray(event.attendees)
-    ? event.attendees
-    : safeParseJson(event.attendees);
-  const tags = Array.isArray(event.tags) ? event.tags : safeParseJson(event.tags);
-
-  const recurring = Boolean(event.is_recurring);
-  const recurrenceEnd = recurring && event.recurrence_end_date
-    ? format(parseDbDateTime(event.recurrence_end_date), 'yyyy-MM-dd')
-    : '';
-
-  return {
-    id: event.id,
-    title: event.title,
-    description: event.description || '',
-    start,
-    end,
-    start_date: format(start, 'yyyy-MM-dd'),
-    end_date: format(end, 'yyyy-MM-dd'),
-    start_time: allDay ? '' : format(start, 'HH:mm'),
-    end_time: allDay ? '' : format(end, 'HH:mm'),
-    all_day: allDay,
-    type,
-    priority: event.priority || 'medium',
-    location: event.location || '',
-    attendees: attendeeList,
-    reminder: event.reminder ?? 15,
-    status: event.status || 'confirmed',
-    color: event.color || getEventColor(type),
-    notes: event.notes || '',
-    category: event.category || 'work',
-    recurring,
-    recurring_pattern: recurring ? (event.recurrence_pattern || 'weekly') : null,
-    recurring_end: recurrenceEnd,
-    tags,
-    attachments,
-    cover_image: event.cover_image || null,
-    raw: event
-  };
-};
-
-const combineDateAndTime = (dateStr, timeStr, allDay = false) => {
-  if (!dateStr) return null;
-  if (allDay || !timeStr) {
-    return new Date(`${dateStr}T00:00:00`);
-  }
-  return new Date(`${dateStr}T${timeStr}`);
-};
-
-const buildEventPayload = (event) => {
-  const startDate = combineDateAndTime(event.start_date, event.start_time, event.all_day);
-  const endDate = combineDateAndTime(event.end_date || event.start_date, event.end_time || event.start_time, event.all_day);
-  const recurring = Boolean(event.recurring);
-  const eventType = event.type || event.event_type || 'Termin';
-  const recurrencePattern = recurring ? (event.recurring_pattern || event.recurrence_pattern || null) : null;
-  const recurrenceEndIso = recurring && (event.recurring_end || event.recurrence_end)
-    ? new Date(event.recurring_end || event.recurrence_end).toISOString()
-    : null;
-  const attendees = Array.isArray(event.attendees) ? event.attendees : [];
-  const tags = Array.isArray(event.tags) ? event.tags : [];
-  const attachments = Array.isArray(event.attachments) ? event.attachments : [];
-
-  return {
-    title: event.title,
-    description: event.description || '',
-    startDate: startDate?.toISOString(),
-    endDate: endDate?.toISOString(),
-    startTime: event.all_day ? null : (event.start_time || (startDate ? format(startDate, 'HH:mm') : null)),
-    endTime: event.all_day ? null : (event.end_time || (endDate ? format(endDate, 'HH:mm') : null)),
-    event_type: eventType,
-    type: eventType,
-    all_day: Boolean(event.all_day),
-    isAllDay: Boolean(event.all_day),
-    is_recurring: recurring,
-    isRecurring: recurring,
-    recurrence_pattern: recurrencePattern,
-    recurrencePattern,
-    recurrence_end_date: recurrenceEndIso,
-    recurrenceEndDate: recurrenceEndIso,
-    priority: event.priority || 'medium',
-    status: event.status || 'confirmed',
-    category: event.category || 'work',
-    location: event.location || '',
-    attendees,
-    reminder: event.reminder ?? 15,
-    notes: event.notes || '',
-    color: event.color || null,
-    tags,
-    attachments,
-    cover_image: event.cover_image || null
-  };
-};
+// Helper functions moved to calendarApi.js - using transformApiEventToUi and transformUiEventToApi
 
 const EVENT_TYPES = [
   { value: null, label: 'Alle', chipClass: 'bg-slate-100 text-slate-600 hover:bg-slate-200' },
@@ -242,13 +84,18 @@ const Toast = memo(({ toast, onClose }) => {
 });
 
 const Dashboard = () => {
-  const auth = useAuth(); const user = auth?.user;
+  const auth = useAuth();
+  const user = auth?.user;
+  const websocketContext = useWebSocketContext();
+  const socket = websocketContext?.socket;
+  const location = useLocation();
+  const navigate = useNavigate();
+
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [activeTab, setActiveTab] = useState('calendar');
   const [selectedEvent, setSelectedEvent] = useState(null);
-  const [eventPanelMode, setEventPanelMode] = useState('view');
-  const [showEventPanel, setShowEventPanel] = useState(false);
-  const [showEventModal, setShowEventModal] = useState(false);
+  const [eventFormMode, setEventFormMode] = useState('create');
+  const [showEventFormModal, setShowEventFormModal] = useState(false);
   const [showEventDetailsModal, setShowEventDetailsModal] = useState(false);
   const [showAbsenceModal, setShowAbsenceModal] = useState(false);
   const [events, setEvents] = useState([]);
@@ -303,53 +150,68 @@ const Dashboard = () => {
     };
   }, []);
 
-  useEffect(() => {
-    const fetchEvents = async () => {
-      try {
-        setEventsLoading(true);
-        const startParam = eventRange?.start ? formatISO(eventRange.start) : null;
-        const endParam = eventRange?.end ? formatISO(eventRange.end) : null;
-        const response = await getEvents(startParam, endParam, eventTypeFilter || undefined, priorityFilter || undefined);
+  // Refetch function for calendar operations
+  const refetchEvents = useCallback(async () => {
+    try {
+      setEventsLoading(true);
+      const startParam = eventRange?.start ? formatISO(eventRange.start) : null;
+      const endParam = eventRange?.end ? formatISO(eventRange.end) : null;
+      const result = await fetchEvents(startParam, endParam, eventTypeFilter || undefined, priorityFilter || undefined);
 
-        if (response?.status === 304) {
-          return; // retain current events when upstream indicates no change
-        }
-
-        const payload = Array.isArray(response?.data)
-          ? response.data
-          : Array.isArray(response?.data?.data)
-          ? response.data.data
-          : [];
-
-        setEvents(payload.map(mapApiEventToUi));
-      } catch (err) {
-        console.error('Error loading events:', err);
-        showToast({ type: 'error', title: 'Termine konnten nicht geladen werden', message: 'Bitte überprüfe deine Verbindung und versuche es erneut.' });
-      } finally {
-        setEventsLoading(false);
+      if (!result.noChange) {
+        setEvents(result.data.map(transformApiEventToUi));
       }
-    };
-
-    fetchEvents();
+    } catch (err) {
+      console.error('Error loading events:', err);
+      showToast({ type: 'error', title: 'Termine konnten nicht geladen werden', message: 'Bitte überprüfe deine Verbindung und versuche es erneut.' });
+    } finally {
+      setEventsLoading(false);
+    }
   }, [eventRange?.start, eventRange?.end, eventTypeFilter, priorityFilter, showToast]);
 
-  // ✅ OPTIMIZED: useCallback for date and event selection handlers
-  const handleDateSelect = useCallback((date) => {
-    setSelectedDate(date);
-    setEventRange((prev) => ({
-      start: startOfWeek(date, { weekStartsOn: 1 }),
-      end: endOfWeek(date, { weekStartsOn: 1 }),
-      view: prev?.view || 'week'
-    }));
-  }, [setEventRange]);
+  // Fetch events on mount and when filters change
+  useEffect(() => {
+    refetchEvents();
+  }, [refetchEvents]);
 
-  const handleEventClick = useCallback((event, mode = 'view') => {
-    setSelectedEvent(event);
-    setEventPanelMode(mode);
-    setShowEventDetailsModal(true); // Use EventDetailsModal instead
+  // Setup WebSocket listeners for real-time updates
+  useEffect(() => {
+    if (socket) {
+      const cleanup = setupCalendarWebSocketListeners(socket, refetchEvents);
+      return cleanup;
+    }
+  }, [socket, refetchEvents]);
+
+  // Handle focusEventId from navigation state (when coming from messages)
+  useEffect(() => {
+    if (location.state?.focusEventId && events.length > 0) {
+      const eventId = location.state.focusEventId;
+      const event = events.find(e => e.id === eventId);
+
+      if (event) {
+        // Switch to calendar tab
+        setActiveTab('calendar');
+        // Open event details modal
+        setSelectedEvent(event);
+        setShowEventDetailsModal(true);
+        // Clear the navigation state so it doesn't persist on refresh
+        navigate(location.pathname, { replace: true, state: {} });
+      }
+    }
+  }, [location.state, location.pathname, navigate, events]);
+
+  // Handle calendar range changes (for view changes like month/week/day)
+  const handleRangeChange = useCallback((range) => {
+    setEventRange(range);
   }, []);
 
-  // ✅ OPTIMIZED: useCallback for event CRUD operations
+  // Handle event click (opens details modal)
+  const handleEventClick = useCallback((event) => {
+    setSelectedEvent(event);
+    setShowEventDetailsModal(true);
+  }, []);
+
+  // Handle event save (create or update)
   const handleEventSave = useCallback(async (eventData) => {
     if (!eventData?.title?.trim()) {
       showToast({ type: 'error', title: 'Titel fehlt', message: 'Bitte gib einen aussagekräftigen Titel für den Termin an.' });
@@ -357,75 +219,90 @@ const Dashboard = () => {
     }
 
     try {
-      if (eventPanelMode === 'create') {
-        const response = await createEvent(buildEventPayload(eventData));
-        setEvents((prev) => [...prev, mapApiEventToUi(response.data)]);
+      const payload = transformUiEventToApi(eventData);
+
+      if (eventFormMode === 'create') {
+        await createEventWithRefetch(payload, refetchEvents);
         showToast({ type: 'success', title: 'Termin erstellt', message: `${eventData.title} wurde hinzugefügt.` });
       } else {
-        const response = await updateEvent(eventData.id, buildEventPayload(eventData));
-        setEvents((prev) => prev.map((event) => (event.id === eventData.id ? mapApiEventToUi(response.data) : event)));
+        await updateEventWithRefetch(eventData.id, payload, refetchEvents);
         showToast({ type: 'success', title: 'Termin aktualisiert' });
       }
-      setShowEventPanel(false);
-      setShowEventModal(false);
+
+      setShowEventFormModal(false);
       setShowEventDetailsModal(false);
+      setSelectedEvent(null);
     } catch (err) {
       console.error('Error saving event:', err);
       showToast({ type: 'error', title: 'Speichern fehlgeschlagen', message: 'Der Termin konnte nicht gespeichert werden.' });
     }
-  }, [eventPanelMode, showToast]);
+  }, [eventFormMode, refetchEvents, showToast]);
 
-  const handleEventModalClose = useCallback(() => {
-    setShowEventModal(false);
-    setSelectedEvent(null);
-  }, []);
+  // Handle event update (for drag-and-drop and resize)
+  const handleEventUpdate = useCallback(async (eventId, updatedData) => {
+    try {
+      const payload = transformUiEventToApi(updatedData);
+      await updateEventWithRefetch(eventId, payload, refetchEvents);
+      showToast({ type: 'success', title: 'Termin verschoben' });
+    } catch (err) {
+      console.error('Error updating event:', err);
+      showToast({ type: 'error', title: 'Aktualisierung fehlgeschlagen', message: 'Der Termin konnte nicht verschoben werden.' });
+    }
+  }, [refetchEvents, showToast]);
 
+  // Handle event delete
   const handleEventDelete = useCallback(async (eventId) => {
     try {
-      await deleteEvent(eventId);
-      setEvents((prev) => prev.filter((event) => event.id !== eventId));
+      await deleteEventWithRefetch(eventId, refetchEvents);
       showToast({ type: 'success', title: 'Termin gelöscht' });
-      setShowEventPanel(false);
       setShowEventDetailsModal(false);
+      setSelectedEvent(null);
     } catch (err) {
       console.error('Error deleting event:', err);
       showToast({ type: 'error', title: 'Löschen fehlgeschlagen', message: 'Bitte versuche es in ein paar Sekunden erneut.' });
     }
-  }, [showToast]);
+  }, [refetchEvents, showToast]);
 
+  // Handle event duplicate
   const handleEventDuplicate = useCallback(async (eventData) => {
     try {
-      const start = combineDateAndTime(eventData.start_date, eventData.start_time, eventData.all_day) ?? new Date();
-      const end = combineDateAndTime(eventData.end_date || eventData.start_date, eventData.end_time || eventData.start_time, eventData.all_day) ?? addMinutes(start, 60);
+      const start = eventData.start instanceof Date ? eventData.start : new Date(eventData.start);
+      const end = eventData.end instanceof Date ? eventData.end : new Date(eventData.end);
       const duplicateStart = addDays(start, 1);
       const duplicateEnd = addDays(end, 1);
-      const payload = buildEventPayload({
+
+      const duplicateData = {
         ...eventData,
         title: `${eventData.title || 'Termin'} (Kopie)`,
+        start: duplicateStart,
+        end: duplicateEnd,
         start_date: format(duplicateStart, 'yyyy-MM-dd'),
         end_date: format(duplicateEnd, 'yyyy-MM-dd'),
         start_time: eventData.all_day ? '' : format(duplicateStart, 'HH:mm'),
         end_time: eventData.all_day ? '' : format(duplicateEnd, 'HH:mm')
-      });
-      const response = await createEvent(payload);
-      setEvents((prev) => [...prev, mapApiEventToUi(response.data)]);
+      };
+
+      const payload = transformUiEventToApi(duplicateData);
+      await createEventWithRefetch(payload, refetchEvents);
       showToast({ type: 'success', title: 'Termin dupliziert', message: `${eventData.title} wurde auf den Folgetag kopiert.` });
-      setShowEventPanel(false);
       setShowEventDetailsModal(false);
+      setSelectedEvent(null);
     } catch (err) {
       console.error('Error duplicating event:', err);
       showToast({ type: 'error', title: 'Duplizieren fehlgeschlagen' });
     }
-  }, [showToast]);
+  }, [refetchEvents, showToast]);
 
-  const handleCalendarEventCreate = async (details = {}) => {
-    // Set selected event for the modal
+  // Handle create event from calendar slot
+  const handleCalendarEventCreate = useCallback((details = {}) => {
     const start = details.start ? new Date(details.start) : selectedDate || new Date();
     const end = details.end ? new Date(details.end) : addMinutes(start, 60);
 
     setSelectedEvent({
       title: details.title || '',
       description: details.description || '',
+      start,
+      end,
       start_date: format(start, 'yyyy-MM-dd'),
       end_date: format(end, 'yyyy-MM-dd'),
       start_time: details.all_day ? '' : format(start, 'HH:mm'),
@@ -438,12 +315,14 @@ const Dashboard = () => {
       reminder: details.reminder ?? 15,
       status: 'confirmed',
       category: details.category || 'work',
-      notes: details.notes || ''
+      notes: details.notes || '',
+      attachments: [],
+      audio_url: null
     });
 
-    setEventPanelMode('create');
-    setShowEventModal(true);
-  };
+    setEventFormMode('create');
+    setShowEventFormModal(true);
+  }, [selectedDate]);
 
   // ✅ OPTIMIZED: useCallback for filter change handlers
   const handleTypeFilterChange = useCallback((value) => {
@@ -457,7 +336,8 @@ const Dashboard = () => {
   const activeType = useMemo(() => EVENT_TYPES.find((type) => type.value === eventTypeFilter), [eventTypeFilter]);
   const activePriority = useMemo(() => PRIORITY_FILTERS.find((priority) => priority.value === priorityFilter), [priorityFilter]);
 
-  const handleAbsenceSave = async (absenceData) => {
+  // Handle absence save
+  const handleAbsenceSave = useCallback(async (absenceData) => {
     try {
       await createAbsenceEvent(absenceData);
       showToast({
@@ -467,12 +347,7 @@ const Dashboard = () => {
       });
 
       // Refresh events to show the new absence
-      const startParam = eventRange?.start ? formatISO(eventRange.start) : null;
-      const endParam = eventRange?.end ? formatISO(eventRange.end) : null;
-      const response = await getEvents(startParam, endParam, eventTypeFilter || undefined, priorityFilter || undefined);
-      const payload = Array.isArray(response?.data) ? response.data : Array.isArray(response?.data?.data) ? response.data.data : [];
-      setEvents(payload.map(mapApiEventToUi));
-
+      await refetchEvents();
       setShowAbsenceModal(false);
     } catch (err) {
       console.error('Error creating absence:', err);
@@ -482,11 +357,11 @@ const Dashboard = () => {
         message: 'Die Abwesenheit konnte nicht gespeichert werden. Bitte versuche es erneut.'
       });
     }
-  };
+  }, [refetchEvents, showToast]);
 
-  const handleAbsenceModalClose = () => {
+  const handleAbsenceModalClose = useCallback(() => {
     setShowAbsenceModal(false);
-  };
+  }, []);
 
   return (
     <div className={`mx-auto max-w-7xl px-3 sm:px-6 lg:px-8 ${isMobile ? 'pt-5 pb-24' : 'py-6'}`}>
@@ -618,17 +493,14 @@ const Dashboard = () => {
           )}
 
           <div className="relative mt-6 w-full">
-            {eventsLoading && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70 backdrop-blur-sm">
-                <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-200 border-t-blue-500" />
-              </div>
-            )}
-
-            <CalendarWithViews
+            <CalendarView
               events={events}
               onEventClick={handleEventClick}
               onEventCreate={handleCalendarEventCreate}
-              onSelectSlot={(slotInfo) => handleDateSelect(slotInfo.start)}
+              onEventUpdate={handleEventUpdate}
+              onRangeChange={handleRangeChange}
+              loading={eventsLoading}
+              isMobile={isMobile}
             />
           </div>
         </div>
@@ -644,36 +516,20 @@ const Dashboard = () => {
         <WasteManagementV2 />
       )}
 
-      {/* Event Details Panel */}
-      <EventDetailsPanel
-        event={selectedEvent}
-        isOpen={showEventPanel}
-        onClose={() => setShowEventPanel(false)}
+      {/* Event Form Modal (for create/edit) */}
+      <EventFormModal
+        isOpen={showEventFormModal}
+        onClose={() => {
+          setShowEventFormModal(false);
+          setSelectedEvent(null);
+        }}
         onSave={handleEventSave}
-        onDelete={handleEventDelete}
-        onDuplicate={handleEventDuplicate}
-        mode={eventPanelMode}
-      />
-
-      {/* Event Modal */}
-      <EventModal
-        isOpen={showEventModal}
-        onClose={handleEventModalClose}
-        onSave={handleEventSave}
-        selectedDate={selectedDate}
         event={selectedEvent}
-        mode={eventPanelMode}
-      />
-
-      {/* Absence Modal */}
-      <AbsenceModal
-        isOpen={showAbsenceModal}
-        onClose={handleAbsenceModalClose}
-        onSave={handleAbsenceSave}
         selectedDate={selectedDate}
+        mode={eventFormMode}
       />
 
-      {/* Event Details Modal */}
+      {/* Event Details Modal (for viewing) */}
       {selectedEvent && (
         <EventDetailsModal
           isOpen={showEventDetailsModal}
@@ -685,13 +541,21 @@ const Dashboard = () => {
           onEdit={(event) => {
             setShowEventDetailsModal(false);
             setSelectedEvent(event);
-            setEventPanelMode('edit');
-            setShowEventModal(true);
+            setEventFormMode('edit');
+            setShowEventFormModal(true);
           }}
           onDelete={handleEventDelete}
           onDuplicate={handleEventDuplicate}
         />
       )}
+
+      {/* Absence Modal */}
+      <AbsenceModal
+        isOpen={showAbsenceModal}
+        onClose={handleAbsenceModalClose}
+        onSave={handleAbsenceSave}
+        selectedDate={selectedDate}
+      />
 
       {isMobile && (
         <>

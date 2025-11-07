@@ -1,777 +1,468 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameDay, isToday, getWeek, subMonths, addMonths, parseISO, isSameMonth } from 'date-fns';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import PropTypes from 'prop-types';
+import { Calendar as BigCalendar, momentLocalizer } from 'react-big-calendar';
+import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
+import moment from 'moment';
+import 'moment/locale/de';
+import 'react-big-calendar/lib/css/react-big-calendar.css';
+import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
+import { format, addMinutes, differenceInMinutes } from 'date-fns';
 import { de } from 'date-fns/locale';
-import EventModal from './EventModal';
-import EventDetailsModal from './EventDetailsModal';
-import QuickActionsModal from './QuickActionsModal';
 
-// Waste type templates imported as constants for performance
-const WASTE_TEMPLATES = {
-  "aceton": { name: "Aceton", color: "#FF6B6B", icon: "⚗️", hazard_level: "high", category: "chemical" },
-  "chloroform": { name: "Chloroform", color: "#C92A2A", icon: "☠️", hazard_level: "critical", category: "chemical" },
-  "methanol": { name: "Methanol", color: "#FA5252", icon: "⚠️", hazard_level: "high", category: "chemical" },
-  "ethanol": { name: "Ethanol", color: "#FFA94D", icon: "🍷", hazard_level: "medium", category: "chemical" },
-  "formaldehyd": { name: "Formaldehyd", color: "#E03131", icon: "☢️", hazard_level: "critical", category: "chemical" },
-  "saeuren": { name: "Säuren", color: "#E64980", icon: "🧪", hazard_level: "high", category: "chemical" },
-  "laugen": { name: "Laugen", color: "#BE4BDB", icon: "🔬", hazard_level: "high", category: "chemical" },
-  "loesungsmittel_gemische": { name: "Lösungsmittel-Gemische", color: "#FF8787", icon: "🧴", hazard_level: "high", category: "chemical" },
-  "schwermetalle": { name: "Schwermetalle", color: "#495057", icon: "⚫", hazard_level: "critical", category: "heavy_metal" },
-  "quecksilber": { name: "Quecksilber", color: "#868E96", icon: "💧", hazard_level: "critical", category: "heavy_metal" },
-  "waessrige_loesungen": { name: "Wässrige Lösungen", color: "#4DABF7", icon: "💦", hazard_level: "medium", category: "aqueous" },
-  "asbest": { name: "Asbest", color: "#212529", icon: "⚠️", hazard_level: "critical", category: "hazardous" },
-  "infektioese_abfaelle": { name: "Infektiöse Abfälle", color: "#C92A2A", icon: "🦠", hazard_level: "critical", category: "biological" },
-  "scharfe_gegenstaende": { name: "Scharfe Gegenstände", color: "#868E96", icon: "🔪", hazard_level: "high", category: "hazardous" },
-  "bauschutt": { name: "Bauschutt", color: "#A0826D", icon: "🧱", hazard_level: "low", category: "construction" },
-  "kontaminierter_boden": { name: "Kontaminierter Boden", color: "#8B4513", icon: "🌍", hazard_level: "high", category: "soil" },
-  "leere_behaelter": { name: "Leere Behälter", color: "#ADB5BD", icon: "📦", hazard_level: "low", category: "container" },
-  "spraydosen": { name: "Spraydosen", color: "#74C0FC", icon: "💨", hazard_level: "medium", category: "container" },
-  "biologische_abfaelle": { name: "Biologische Abfälle", color: "#51CF66", icon: "🧬", hazard_level: "high", category: "biological" },
-  "zellkultur": { name: "Zellkultur", color: "#69DB7C", icon: "🔬", hazard_level: "high", category: "biological" },
-  "glas": { name: "Glas", color: "#228BE6", icon: "🔷", hazard_level: "low", category: "general" },
-  "plastik": { name: "Plastik", color: "#FCC419", icon: "♻️", hazard_level: "low", category: "general" },
-  "papier": { name: "Papier", color: "#94D82D", icon: "📄", hazard_level: "low", category: "general" }
-};
+// Initialize moment with German locale
+moment.locale('de');
+const localizer = momentLocalizer(moment);
 
-const HAZARD_LEVEL_CONFIG = {
-  critical: { badge: 'Kritisch', color: '#C92A2A', bgColor: '#FFF5F5', borderColor: '#C92A2A' },
-  high: { badge: 'Hoch', color: '#E64980', bgColor: '#FFF0F6', borderColor: '#E64980' },
-  medium: { badge: 'Mittel', color: '#FFA94D', bgColor: '#FFF4E6', borderColor: '#FFA94D' },
-  low: { badge: 'Niedrig', color: '#51CF66', bgColor: '#F4FCE3', borderColor: '#51CF66' }
-};
+// Create drag-and-drop enabled calendar
+const DragAndDropCalendar = withDragAndDrop(BigCalendar);
 
+/**
+ * CalendarView Component
+ * A robust calendar component with drag-and-drop, resize, and real-time update capabilities
+ *
+ * @param {Array} events - Array of event objects to display
+ * @param {Function} onEventClick - Callback when an event is clicked
+ * @param {Function} onEventCreate - Callback when a new event is created
+ * @param {Function} onEventUpdate - Callback when an event is updated (moved/resized)
+ * @param {Function} onSelectSlot - Callback when a time slot is selected
+ * @param {Function} onRangeChange - Callback when the calendar view range changes
+ * @param {Boolean} loading - Loading state
+ * @param {Boolean} isMobile - Mobile view flag
+ */
 const CalendarView = ({
   events = [],
-  onDateSelect,
   onEventClick,
-  selectedDate,
-  viewType = 'month',
-  onEventCreate
+  onEventCreate,
+  onEventUpdate,
+  onSelectSlot,
+  onRangeChange,
+  loading = false,
+  isMobile = false
 }) => {
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [showEventModal, setShowEventModal] = useState(false);
-  const [showEventDetailsModal, setShowEventDetailsModal] = useState(false);
-  const [showQuickActionsModal, setShowQuickActionsModal] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState(null);
-  const [quickActionDate, setQuickActionDate] = useState(null);
-  const [newEvent, setNewEvent] = useState({
-    title: '',
-    description: '',
-    startTime: '09:00',
-    endTime: '17:00',
-    type: 'Arbeit',
-    isRecurring: false,
-    recurrencePattern: 'weekly'
-  });
-  const [hoveredDate, setHoveredDate] = useState(null);
+  const [view, setView] = useState(isMobile ? 'agenda' : 'month');
+  const [date, setDate] = useState(new Date());
   const [draggedEvent, setDraggedEvent] = useState(null);
-  const [showMiniCalendar, setShowMiniCalendar] = useState(false);
-  const [screenSize, setScreenSize] = useState('desktop');
-  const [filterWasteType, setFilterWasteType] = useState(null);
-  const [filterCategory, setFilterCategory] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [showLegend, setShowLegend] = useState(false);
-  const [touchStart, setTouchStart] = useState(null);
 
-  // Responsive screen detection
-  useEffect(() => {
-    const updateScreenSize = () => {
-      const width = window.innerWidth;
-      if (width < 640) setScreenSize('mobile');
-      else if (width < 1024) setScreenSize('tablet');
-      else setScreenSize('desktop');
-    };
+  // Transform events for BigCalendar with proper date parsing
+  const calendarEvents = useMemo(() => {
+    return events.map(event => {
+      // Parse dates safely
+      const start = event.start instanceof Date
+        ? event.start
+        : new Date(event.start_date || event.start);
 
-    updateScreenSize();
-    window.addEventListener('resize', updateScreenSize);
-    return () => window.removeEventListener('resize', updateScreenSize);
-  }, []);
+      const end = event.end instanceof Date
+        ? event.end
+        : new Date(event.end_date || event.end || event.start_date || event.start);
 
-  // Helper function to get waste type styling
-  const getWasteTypeStyle = useCallback((wasteType) => {
-    const template = WASTE_TEMPLATES[wasteType];
-    if (!template) return null;
-
-    const hazardConfig = HAZARD_LEVEL_CONFIG[template.hazard_level] || HAZARD_LEVEL_CONFIG.low;
-    return {
-      ...template,
-      hazardConfig
-    };
-  }, []);
-
-  // Helper to check if event is waste-related
-  const isWasteEvent = useCallback((event) => {
-    return event.type === 'waste' || event.waste_type || event.wasteType;
-  }, []);
-
-  // Memoized filtered events for performance
-  const filteredEvents = useMemo(() => {
-    let filtered = events;
-
-    if (filterWasteType) {
-      filtered = filtered.filter(event =>
-        isWasteEvent(event) && (event.waste_type === filterWasteType || event.wasteType === filterWasteType)
-      );
-    }
-
-    if (filterCategory) {
-      filtered = filtered.filter(event => {
-        if (!isWasteEvent(event)) return false;
-        const wasteType = event.waste_type || event.wasteType;
-        const template = WASTE_TEMPLATES[wasteType];
-        return template && template.category === filterCategory;
-      });
-    }
-
-    return filtered;
-  }, [events, filterWasteType, filterCategory, isWasteEvent]);
-
-  // Get unique waste categories for filter
-  const wasteCategories = useMemo(() => {
-    const categories = new Set();
-    Object.values(WASTE_TEMPLATES).forEach(template => {
-      categories.add(template.category);
+      return {
+        ...event,
+        id: event.id,
+        title: event.title || 'Unbenannt',
+        start: start,
+        end: end,
+        allDay: Boolean(event.all_day || event.isAllDay),
+        resource: event,
+      };
     });
-    return Array.from(categories);
-  }, []);
+  }, [events]);
 
-  // Swipe navigation for mobile
-  const handleTouchStart = useCallback((e) => {
-    setTouchStart(e.touches[0].clientX);
-  }, []);
+  // Handle event drag-and-drop (move)
+  const handleEventDrop = useCallback(async ({ event, start, end }) => {
+    if (!onEventUpdate) return;
 
-  const handleTouchEnd = useCallback((e) => {
-    if (!touchStart) return;
+    try {
+      setDraggedEvent(event.id);
 
-    const touchEnd = e.changedTouches[0].clientX;
-    const diff = touchStart - touchEnd;
+      // Calculate the time difference
+      const originalStart = event.start;
+      const originalEnd = event.end;
+      const duration = differenceInMinutes(originalEnd, originalStart);
 
-    if (Math.abs(diff) > 50) { // Minimum swipe distance
-      if (diff > 0) {
-        // Swipe left - next
-        setCurrentDate(addDays(currentDate, screenSize === 'mobile' ? 1 : 7));
-      } else {
-        // Swipe right - previous
-        setCurrentDate(addDays(currentDate, screenSize === 'mobile' ? -1 : -7));
-      }
+      // Create updated event data
+      const updatedEvent = {
+        ...event.resource,
+        start,
+        end: end || addMinutes(start, duration),
+        start_date: format(start, 'yyyy-MM-dd'),
+        end_date: format(end || addMinutes(start, duration), 'yyyy-MM-dd'),
+        start_time: event.allDay ? '' : format(start, 'HH:mm'),
+        end_time: event.allDay ? '' : format(end || addMinutes(start, duration), 'HH:mm'),
+      };
+
+      // Call the update callback - it will handle API call and refetch
+      await onEventUpdate(event.id, updatedEvent);
+
+    } catch (error) {
+      console.error('Error moving event:', error);
+    } finally {
+      setDraggedEvent(null);
     }
+  }, [onEventUpdate]);
 
-    setTouchStart(null);
-  }, [touchStart, currentDate, screenSize]);
+  // Handle event resize
+  const handleEventResize = useCallback(async ({ event, start, end }) => {
+    if (!onEventUpdate) return;
 
-  const renderHeader = () => {
-    const dateFormat = viewType === 'month' ? 'MMMM yyyy' : 'yyyy';
+    try {
+      setDraggedEvent(event.id);
 
-    return (
-      <div className="flex items-center justify-between p-3 md:p-4 bg-gradient-to-r from-blue-50 via-white to-purple-50 rounded-t-lg shadow-sm border-b border-blue-100">
-        <button
-          onClick={() => setCurrentDate(subMonths(currentDate, 1))}
-          className="p-2 md:p-2.5 hover:bg-white hover:shadow-md rounded-full transition-all active:scale-95 min-h-[44px] min-w-[44px] flex items-center justify-center"
-          aria-label="Vorheriger Monat"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className={`${screenSize === 'mobile' ? 'h-4 w-4' : 'h-5 w-5'}`} viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
-          </svg>
-        </button>
+      // Create updated event data with new times
+      const updatedEvent = {
+        ...event.resource,
+        start,
+        end,
+        start_date: format(start, 'yyyy-MM-dd'),
+        end_date: format(end, 'yyyy-MM-dd'),
+        start_time: event.allDay ? '' : format(start, 'HH:mm'),
+        end_time: event.allDay ? '' : format(end, 'HH:mm'),
+      };
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setCurrentDate(new Date())}
-            className={`${screenSize === 'mobile' ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-sm'} bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-all hover:shadow-md font-medium`}
-          >
-            Heute
-          </button>
-          <h2 className={`${screenSize === 'mobile' ? 'text-sm' : 'text-lg'} font-bold text-gray-800 capitalize`}>
-            {format(currentDate, dateFormat, { locale: de })}
-          </h2>
-        </div>
+      // Call the update callback - it will handle API call and refetch
+      await onEventUpdate(event.id, updatedEvent);
 
-        <button
-          onClick={() => setCurrentDate(addMonths(currentDate, 1))}
-          className="p-2 md:p-2.5 hover:bg-white hover:shadow-md rounded-full transition-all active:scale-95 min-h-[44px] min-w-[44px] flex items-center justify-center"
-          aria-label="Nächster Monat"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className={`${screenSize === 'mobile' ? 'h-4 w-4' : 'h-5 w-5'}`} viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-          </svg>
-        </button>
-      </div>
-    );
-  };
-
-  const renderMonthView = () => {
-    const monthStart = startOfMonth(currentDate);
-    const monthEnd = endOfMonth(monthStart);
-    const startDate = startOfWeek(monthStart, { weekStartsOn: 1 });
-    const endDate = endOfWeek(monthEnd, { weekStartsOn: 1 });
-
-    const rows = [];
-    let days = [];
-    let day = startDate;
-    let formattedDate = '';
-
-    while (day <= endDate) {
-      for (let i = 0; i < 7; i++) {
-        formattedDate = format(day, 'd');
-        const cloneDay = day;
-
-        // Get events for this day - use filtered events
-        const dayEvents = filteredEvents.filter(event => {
-          const eventDate = typeof event.date === 'string' ? parseISO(event.date) : event.date;
-          return isSameDay(eventDate, cloneDay);
-        });
-
-        const hasImportantEvents = dayEvents.some(event =>
-          event.type === 'Krankheit' || event.type === 'Urlaub' || event.priority === 'high'
-        );
-
-        const dayCapacity = dayEvents.reduce((total, event) => {
-          if (event.startTime && event.endTime) {
-            const start = parseInt(event.startTime.split(':')[0]);
-            const end = parseInt(event.endTime.split(':')[0]);
-            return total + (end - start);
-          }
-          return total + 8; // Default full day
-        }, 0);
-
-        days.push(
-          <div
-            key={day}
-            className={`relative p-2 border-r border-b border-gray-200 transition-all duration-200 ${
-              screenSize === 'mobile' ? 'h-20 min-h-[80px]' : screenSize === 'tablet' ? 'h-24 min-h-[96px]' : 'h-28 min-h-[112px]'
-            } ${hasImportantEvents ? 'ring-2 ring-red-200' : ''} ${
-              !isSameMonth(day, monthStart) ? 'bg-gray-50 opacity-60' : 'bg-white'
-            } ${isToday(day) ? 'bg-blue-50 border-blue-200 ring-2 ring-blue-300' : ''} ${
-              selectedDate && isSameDay(day, selectedDate) ? 'bg-blue-100 border-blue-300' : ''
-            } hover:bg-gray-50 hover:shadow-md cursor-pointer group active:scale-[0.99]`}
-            onMouseEnter={() => setHoveredDate(cloneDay)}
-            onMouseLeave={() => setHoveredDate(null)}
-            onDoubleClick={() => {
-              setQuickActionDate(cloneDay);
-              setShowQuickActionsModal(true);
-            }}
-            onClick={() => {
-              onDateSelect(cloneDay);
-              setNewEvent(prev => ({ ...prev, date: cloneDay }));
-            }}
-          >
-            <div className="flex justify-between items-center mb-1">
-              <span className={`text-sm font-medium ${
-                isToday(day) ? 'text-blue-600 font-bold bg-blue-100 px-2 py-1 rounded-full' : 'text-gray-700'
-              }`}>
-                {formattedDate}
-              </span>
-              <div className="flex items-center space-x-1">
-                {dayEvents.length > 0 && (
-                  <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
-                    hasImportantEvents ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'
-                  }`}>
-                    {dayEvents.length}
-                  </span>
-                )}
-                {dayCapacity > 8 && (
-                  <span className="text-xs bg-orange-100 text-orange-600 px-1 rounded-full" title="Überbucht">
-                    !
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Quick Add Button */}
-            {hoveredDate && isSameDay(hoveredDate, cloneDay) && (
-              <button
-                className="absolute top-1 right-1 w-5 h-5 bg-blue-500 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-blue-600"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setQuickActionDate(cloneDay);
-                  setShowQuickActionsModal(true);
-                }}
-                title="Schnell hinzufügen"
-              >
-                +
-              </button>
-            )}
-
-            <div className="space-y-1 overflow-y-auto flex-1">
-              {dayEvents.slice(0, screenSize === 'mobile' ? 2 : 3).map((event, index) => {
-                const isWaste = isWasteEvent(event);
-                const wasteStyle = isWaste ? getWasteTypeStyle(event.waste_type || event.wasteType) : null;
-
-                // Event styling with waste type support
-                let eventStyle = {};
-                let eventClasses = 'text-xs p-1.5 rounded-md cursor-pointer transition-all hover:shadow-md transform hover:-translate-y-0.5 border-l-3';
-
-                if (isWaste && wasteStyle) {
-                  eventStyle = {
-                    backgroundColor: `${wasteStyle.color}15`,
-                    color: wasteStyle.color,
-                    borderLeftColor: wasteStyle.hazardConfig.borderColor,
-                    borderLeftWidth: '3px'
-                  };
-                } else {
-                  eventClasses += event.type === 'Arbeit' ? ' bg-green-50 text-green-800 border-green-400 hover:bg-green-100' :
-                    event.type === 'Urlaub' ? ' bg-purple-50 text-purple-800 border-purple-400 hover:bg-purple-100' :
-                    event.type === 'Krankheit' ? ' bg-red-50 text-red-800 border-red-400 hover:bg-red-100' :
-                    event.type === 'Meeting' ? ' bg-blue-50 text-blue-800 border-blue-400 hover:bg-blue-100' :
-                    ' bg-gray-50 text-gray-800 border-gray-400 hover:bg-gray-100';
-                }
-
-                return (
-                  <div
-                    key={index}
-                    className={eventClasses}
-                    style={isWaste && wasteStyle ? eventStyle : {}}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedEvent(event);
-                      setShowEventDetailsModal(true);
-                    }}
-                    title={isWaste && wasteStyle ?
-                      `${wasteStyle.icon} ${event.title} - ${wasteStyle.hazardConfig.badge}` :
-                      `${event.title} ${event.startTime ? `(${event.startTime}-${event.endTime})` : ''}`
-                    }
-                  >
-                    <div className="flex items-center gap-1.5">
-                      {isWaste && wasteStyle && (
-                        <span className="text-sm flex-shrink-0">{wasteStyle.icon}</span>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium truncate flex items-center gap-1">
-                          {event.title}
-                          {isWaste && wasteStyle && screenSize !== 'mobile' && (
-                            <span
-                              className="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide"
-                              style={{
-                                backgroundColor: wasteStyle.hazardConfig.bgColor,
-                                color: wasteStyle.hazardConfig.color,
-                                fontSize: '8px'
-                              }}
-                            >
-                              {wasteStyle.hazardConfig.badge}
-                            </span>
-                          )}
-                        </div>
-                        {event.startTime && (
-                          <div className="text-xs opacity-75 mt-0.5">
-                            {event.startTime}-{event.endTime}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-              {dayEvents.length > (screenSize === 'mobile' ? 2 : 3) && (
-                <button
-                  className="text-xs text-blue-600 hover:text-blue-800 font-medium w-full text-left pl-1.5 py-1 hover:bg-blue-50 rounded transition-colors"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDateSelect(cloneDay);
-                  }}
-                >
-                  +{dayEvents.length - (screenSize === 'mobile' ? 2 : 3)} weitere
-                </button>
-              )}
-            </div>
-          </div>
-        );
-        day = addDays(day, 1);
-      }
-      rows.push(
-        <div key={rows.length} className="flex">
-          {days}
-        </div>
-      );
-      days = [];
+    } catch (error) {
+      console.error('Error resizing event:', error);
+    } finally {
+      setDraggedEvent(null);
     }
+  }, [onEventUpdate]);
 
-    return (
-      <div className="bg-white rounded-b-lg shadow-sm overflow-hidden animate-fadeIn">
-        <div className="grid grid-cols-7 bg-gradient-to-r from-gray-50 to-gray-100 sticky top-0 z-10 shadow-sm">
-          {['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map(day => (
-            <div key={day} className={`${screenSize === 'mobile' ? 'p-1.5 text-xs' : 'p-2 text-sm'} text-center font-semibold text-gray-700 uppercase tracking-wide`}>
-              {screenSize === 'mobile' ? day.charAt(0) : day}
-            </div>
-          ))}
-        </div>
-        <div className="transition-all duration-300 ease-in-out">
-          {rows}
-        </div>
-      </div>
-    );
-  };
-
-  const renderWeekView = () => {
-    const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
-    const days = [];
-
-    for (let i = 0; i < 7; i++) {
-      const day = addDays(weekStart, i);
-      const dayEvents = filteredEvents.filter(event => {
-        const eventDate = typeof event.date === 'string' ? parseISO(event.date) : event.date;
-        return isSameDay(eventDate, day);
-      });
-
-      days.push(
-        <div key={i} className={`flex-1 border-r border-gray-200 last:border-r-0 ${screenSize === 'mobile' ? 'min-w-[100px]' : ''}`}>
-          <div className={`p-2 md:p-3 text-center border-b border-gray-200 transition-colors ${
-            isToday(day) ? 'bg-blue-50 border-blue-300' : 'bg-gray-50'
-          }`}>
-            <div className={`${screenSize === 'mobile' ? 'text-xs' : 'text-sm'} font-medium text-gray-700`}>
-              {format(day, screenSize === 'mobile' ? 'EEE' : 'EEEE', { locale: de }).substring(0, screenSize === 'mobile' ? 2 : 3)}
-            </div>
-            <div className={`${screenSize === 'mobile' ? 'text-base' : 'text-lg'} font-bold ${
-              isToday(day) ? 'text-blue-600 bg-blue-100 w-8 h-8 rounded-full flex items-center justify-center mx-auto' : 'text-gray-900'
-            }`}>
-              {format(day, 'd')}
-            </div>
-          </div>
-
-          <div className="h-96 p-2 overflow-y-auto">
-            {dayEvents.map((event, index) => {
-              const isWaste = isWasteEvent(event);
-              const wasteStyle = isWaste ? getWasteTypeStyle(event.waste_type || event.wasteType) : null;
-
-              let eventStyle = {};
-              let eventClasses = 'mb-2 p-2 rounded text-xs cursor-pointer transition-all hover:shadow-md transform hover:-translate-y-0.5';
-
-              if (isWaste && wasteStyle) {
-                eventStyle = {
-                  backgroundColor: `${wasteStyle.color}20`,
-                  color: wasteStyle.color,
-                  borderLeft: `4px solid ${wasteStyle.hazardConfig.borderColor}`
-                };
-              } else {
-                eventClasses += event.type === 'Arbeit' ? ' bg-green-100 text-green-800' :
-                  event.type === 'Urlaub' ? ' bg-purple-100 text-purple-800' :
-                  event.type === 'Krankheit' ? ' bg-red-100 text-red-800' :
-                  ' bg-gray-100 text-gray-800';
-              }
-
-              return (
-                <div
-                  key={index}
-                  className={eventClasses}
-                  style={isWaste && wasteStyle ? eventStyle : {}}
-                  onClick={() => {
-                    setSelectedEvent(event);
-                    setShowEventDetailsModal(true);
-                  }}
-                >
-                  <div className="flex items-center gap-2 font-medium">
-                    {isWaste && wasteStyle && <span>{wasteStyle.icon}</span>}
-                    <span className="flex-1">{event.title}</span>
-                    {isWaste && wasteStyle && (
-                      <span
-                        className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase"
-                        style={{
-                          backgroundColor: wasteStyle.hazardConfig.bgColor,
-                          color: wasteStyle.hazardConfig.color
-                        }}
-                      >
-                        {wasteStyle.hazardConfig.badge}
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-xs opacity-75 mt-1">
-                    {event.startTime} - {event.endTime}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      );
+  // Handle event click
+  const handleSelectEvent = useCallback((event) => {
+    if (onEventClick) {
+      // Pass the original event resource data
+      onEventClick(event.resource || event);
     }
+  }, [onEventClick]);
 
-    return (
-      <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-        <div className={`flex ${screenSize === 'mobile' ? 'overflow-x-auto' : ''}`}>
-          {days}
-        </div>
-      </div>
-    );
-  };
-
-  const handleEventSubmit = (eventData) => {
-    if (onEventCreate && eventData.title) {
+  // Handle slot selection (click to create)
+  const handleSelectSlot = useCallback((slotInfo) => {
+    if (onEventCreate) {
       onEventCreate({
-        ...eventData,
-        id: Date.now(),
-        date: eventData.date || selectedDate || new Date()
-      });
-      setShowEventModal(false);
-      setNewEvent({
-        title: '',
-        description: '',
-        startTime: '09:00',
-        endTime: '17:00',
-        type: 'Arbeit',
-        isRecurring: false,
-        recurrencePattern: 'weekly'
+        start: slotInfo.start,
+        end: slotInfo.end,
+        all_day: slotInfo.action === 'select' && slotInfo.slots.length > 1,
       });
     }
+    if (onSelectSlot) {
+      onSelectSlot(slotInfo);
+    }
+  }, [onEventCreate, onSelectSlot]);
+
+  // Handle navigation (prev/next/today)
+  const handleNavigate = useCallback((direction) => {
+    const unit = view === 'agenda' ? 'day' : view;
+    const nextDate = moment(date)[direction](1, unit).toDate();
+    setDate(nextDate);
+  }, [view, date]);
+
+  const handleToday = useCallback(() => {
+    setDate(new Date());
+  }, []);
+
+  // Handle view change
+  const handleViewChange = useCallback((newView) => {
+    setView(newView);
+  }, []);
+
+  // Handle date change
+  const handleDateChange = useCallback((newDate) => {
+    setDate(newDate);
+  }, []);
+
+  // Notify parent of range changes for data fetching
+  useEffect(() => {
+    if (onRangeChange) {
+      const getRange = () => {
+        const currentDate = moment(date);
+        switch (view) {
+          case 'month':
+            return {
+              start: currentDate.clone().startOf('month').startOf('week').toDate(),
+              end: currentDate.clone().endOf('month').endOf('week').toDate(),
+              view: 'month'
+            };
+          case 'week':
+            return {
+              start: currentDate.clone().startOf('week').toDate(),
+              end: currentDate.clone().endOf('week').toDate(),
+              view: 'week'
+            };
+          case 'day':
+            return {
+              start: currentDate.clone().startOf('day').toDate(),
+              end: currentDate.clone().endOf('day').toDate(),
+              view: 'day'
+            };
+          case 'agenda':
+            return {
+              start: currentDate.clone().startOf('day').toDate(),
+              end: currentDate.clone().add(30, 'days').endOf('day').toDate(),
+              view: 'agenda'
+            };
+          default:
+            return {
+              start: currentDate.clone().startOf('month').toDate(),
+              end: currentDate.clone().endOf('month').toDate(),
+              view: 'month'
+            };
+        }
+      };
+
+      onRangeChange(getRange());
+    }
+  }, [date, view, onRangeChange]);
+
+  // German translations for calendar
+  const messages = {
+    today: 'Heute',
+    previous: 'Zurück',
+    next: 'Weiter',
+    month: 'Monat',
+    week: 'Woche',
+    day: 'Tag',
+    agenda: 'Agenda',
+    date: 'Datum',
+    time: 'Zeit',
+    event: 'Ereignis',
+    noEventsInRange: 'Keine Ereignisse in diesem Zeitraum.',
+    showMore: total => `+ ${total} mehr`,
+    allDay: 'Ganztägig',
+    yesterday: 'Gestern',
+    tomorrow: 'Morgen',
+    work_week: 'Arbeitswoche',
   };
+
+  // View options based on device
+  const viewOptions = useMemo(
+    () => (isMobile ? ['agenda', 'day', 'week', 'month'] : ['month', 'week', 'day', 'agenda']),
+    [isMobile]
+  );
+
+  // Calendar height responsive to device
+  const calendarHeight = isMobile ? 'min(680px, calc(100vh - 220px))' : 'min(840px, calc(100vh - 260px))';
+  const calendarMinHeight = isMobile ? '420px' : '600px';
+
+  // Custom event style getter
+  const eventStyleGetter = useCallback((event) => {
+    const isDragging = draggedEvent === event.id;
+
+    return {
+      style: {
+        backgroundColor: event.color || '#3b82f6',
+        borderRadius: '6px',
+        opacity: isDragging ? 0.5 : 0.95,
+        color: 'white',
+        border: '0px',
+        display: 'block',
+        fontWeight: 600,
+        padding: '2px 6px',
+        cursor: 'pointer',
+        transition: 'opacity 0.2s ease',
+      }
+    };
+  }, [draggedEvent]);
+
+  // Day prop getter for custom styling
+  const dayPropGetter = useCallback((date) => {
+    const isToday = moment(date).isSame(moment(), 'day');
+    return {
+      style: {
+        backgroundColor: isToday ? '#eff6ff' : undefined,
+      }
+    };
+  }, []);
+
+  // Slot prop getter for custom styling
+  const slotPropGetter = useCallback((date) => {
+    const isToday = moment(date).isSame(moment(), 'day');
+    return {
+      style: {
+        backgroundColor: isToday ? '#fafafa' : undefined,
+      }
+    };
+  }, []);
 
   return (
-    <div className="h-full flex flex-col">
-      {renderHeader()}
-
-      <div className="bg-white border-b border-gray-200">
-        {/* Main toolbar */}
-        <div className="flex flex-wrap gap-3 items-center justify-between p-3 md:p-4">
-          {/* View switcher - responsive */}
-          <div className="flex space-x-1 md:space-x-2">
-            <button
-              onClick={() => viewType !== 'month' && onDateSelect(new Date())}
-              className={`px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-medium transition-colors ${
-                viewType === 'month'
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
-            >
-              {screenSize === 'mobile' ? 'M' : 'Monat'}
-            </button>
-            <button
-              onClick={() => viewType !== 'week' && onDateSelect(new Date())}
-              className={`px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-medium transition-colors ${
-                viewType === 'week'
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
-            >
-              {screenSize === 'mobile' ? 'W' : 'Woche'}
-            </button>
-          </div>
-
-          {/* Actions */}
+    <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+      {/* Custom Toolbar */}
+      <div className="flex flex-col gap-4 p-4 sm:p-6 border-b border-slate-200">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          {/* Date Navigation */}
           <div className="flex items-center gap-2">
-            {/* Legend toggle */}
             <button
-              onClick={() => setShowLegend(!showLegend)}
-              className="px-3 py-2 text-xs md:text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-1"
-              title="Legende anzeigen"
+              type="button"
+              onClick={() => handleNavigate('subtract')}
+              className="inline-flex items-center justify-center rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200 w-10 h-10 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+              aria-label="Vorheriger Zeitraum"
+              disabled={loading}
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-              </svg>
-              {screenSize !== 'mobile' && <span>Legende</span>}
+              <ChevronLeft className="w-5 h-5" />
             </button>
 
-            {/* New event button */}
+            <div className="text-center min-w-[200px]">
+              <p className="text-sm text-slate-500">
+                {moment(date).format('dddd, DD.MM.YYYY')}
+              </p>
+              <p className="text-lg font-semibold text-slate-900">
+                {view === 'month' ? moment(date).format('MMMM YYYY') : moment(date).format('DD. MMM YYYY')}
+              </p>
+            </div>
+
             <button
-              onClick={() => {
-                setNewEvent({ ...newEvent, date: selectedDate || new Date() });
-                setShowEventModal(true);
-              }}
-              className="px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all hover:shadow-lg text-xs md:text-sm font-medium flex items-center gap-2 min-h-[44px]"
+              type="button"
+              onClick={() => handleNavigate('add')}
+              className="inline-flex items-center justify-center rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200 w-10 h-10 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+              aria-label="Nächster Zeitraum"
+              disabled={loading}
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              {screenSize !== 'mobile' && <span>Neuer Termin</span>}
+              <ChevronRight className="w-5 h-5" />
             </button>
+          </div>
+
+          {/* View Controls */}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleToday}
+              className="px-3 py-2 rounded-full bg-blue-50 text-blue-600 text-sm font-semibold hover:bg-blue-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={loading}
+            >
+              <CalendarIcon className="w-4 h-4 inline mr-1" />
+              Heute
+            </button>
+
+            <div className="flex gap-2 overflow-x-auto">
+              {viewOptions.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => handleViewChange(option)}
+                  className={`px-3 py-2 rounded-full text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    view === option
+                      ? 'bg-blue-600 text-white shadow'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                  disabled={loading}
+                >
+                  {messages[option]}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Filters - collapsible on mobile */}
-        <div className="px-3 md:px-4 pb-3 flex flex-wrap gap-2">
-          {/* Category filter */}
-          <select
-            value={filterCategory || ''}
-            onChange={(e) => setFilterCategory(e.target.value || null)}
-            className="px-3 py-1.5 text-xs md:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-          >
-            <option value="">Alle Kategorien</option>
-            {wasteCategories.map(category => (
-              <option key={category} value={category}>
-                {category.charAt(0).toUpperCase() + category.slice(1)}
-              </option>
-            ))}
-          </select>
-
-          {/* Waste type filter */}
-          <select
-            value={filterWasteType || ''}
-            onChange={(e) => setFilterWasteType(e.target.value || null)}
-            className="px-3 py-1.5 text-xs md:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-          >
-            <option value="">Alle Abfalltypen</option>
-            {Object.entries(WASTE_TEMPLATES).map(([id, template]) => (
-              <option key={id} value={id}>
-                {template.icon} {template.name}
-              </option>
-            ))}
-          </select>
-
-          {/* Clear filters */}
-          {(filterCategory || filterWasteType) && (
-            <button
-              onClick={() => {
-                setFilterCategory(null);
-                setFilterWasteType(null);
-              }}
-              className="px-3 py-1.5 text-xs md:text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-            >
-              Filter zurücksetzen
-            </button>
-          )}
-        </div>
-      </div>
-
-      <div
-        className="flex-1 overflow-auto"
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-      >
-        {isLoading ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        {/* Loading Indicator */}
+        {loading && (
+          <div className="flex items-center justify-center py-2">
+            <div className="flex items-center gap-2 text-blue-600">
+              <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+              <span className="text-sm font-medium">Laden...</span>
+            </div>
           </div>
-        ) : (
-          viewType === 'month' ? renderMonthView() : renderWeekView()
         )}
       </div>
 
-      {/* Legend Modal */}
-      {showLegend && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onClick={() => setShowLegend(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[80vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl">
-              <h3 className="text-xl font-bold text-gray-900">Abfalltypen Legende</h3>
-              <button
-                onClick={() => setShowLegend(false)}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="p-6">
-              {/* Hazard Levels */}
-              <div className="mb-6">
-                <h4 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Gefahrenstufen</h4>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {Object.entries(HAZARD_LEVEL_CONFIG).map(([level, config]) => (
-                    <div
-                      key={level}
-                      className="flex items-center gap-2 p-3 rounded-lg border-2"
-                      style={{
-                        borderColor: config.borderColor,
-                        backgroundColor: config.bgColor
-                      }}
-                    >
-                      <div className="w-4 h-4 rounded-full" style={{ backgroundColor: config.color }}></div>
-                      <span className="text-sm font-medium" style={{ color: config.color }}>
-                        {config.badge}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Waste Types by Category */}
-              {wasteCategories.map(category => {
-                const categoryWastes = Object.entries(WASTE_TEMPLATES).filter(([_, template]) => template.category === category);
-
-                return (
-                  <div key={category} className="mb-6 last:mb-0">
-                    <h4 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">
-                      {category.charAt(0).toUpperCase() + category.slice(1)}
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {categoryWastes.map(([id, template]) => {
-                        const hazardConfig = HAZARD_LEVEL_CONFIG[template.hazard_level];
-                        return (
-                          <div
-                            key={id}
-                            className="flex items-center gap-3 p-3 rounded-lg border-l-4 transition-all hover:shadow-md cursor-pointer"
-                            style={{
-                              backgroundColor: `${template.color}10`,
-                              borderLeftColor: hazardConfig.borderColor
-                            }}
-                            onClick={() => {
-                              setFilterWasteType(id);
-                              setShowLegend(false);
-                            }}
-                          >
-                            <span className="text-2xl flex-shrink-0">{template.icon}</span>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium text-sm text-gray-900 truncate">{template.name}</div>
-                              <div className="flex items-center gap-2 mt-1">
-                                <span
-                                  className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide"
-                                  style={{
-                                    backgroundColor: hazardConfig.bgColor,
-                                    color: hazardConfig.color
-                                  }}
-                                >
-                                  {hazardConfig.badge}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 rounded-b-2xl">
-              <p className="text-xs text-gray-500 text-center">
-                Klicken Sie auf einen Abfalltyp, um nach diesem zu filtern
-              </p>
-            </div>
-          </div>
+      {/* Calendar */}
+      <div className="rounded-xl overflow-hidden">
+        <div
+          className={`relative ${isMobile ? 'overflow-x-auto' : ''}`}
+          style={{ minWidth: isMobile ? '580px' : 'auto' }}
+        >
+          <DragAndDropCalendar
+            localizer={localizer}
+            events={calendarEvents}
+            view={view}
+            date={date}
+            onView={handleViewChange}
+            onNavigate={handleDateChange}
+            onSelectEvent={handleSelectEvent}
+            onSelectSlot={handleSelectSlot}
+            onEventDrop={handleEventDrop}
+            onEventResize={handleEventResize}
+            selectable
+            resizable
+            draggableAccessor={() => true}
+            resizableAccessor={() => true}
+            messages={messages}
+            style={{
+              height: calendarHeight,
+              minHeight: calendarMinHeight,
+              opacity: loading ? 0.6 : 1,
+              transition: 'opacity 0.2s ease'
+            }}
+            views={['month', 'week', 'day', 'agenda']}
+            toolbar={false}
+            popup={!isMobile}
+            eventPropGetter={eventStyleGetter}
+            dayPropGetter={dayPropGetter}
+            slotPropGetter={slotPropGetter}
+            step={30}
+            timeslots={2}
+            defaultDate={new Date()}
+            scrollToTime={new Date(1970, 1, 1, 8, 0, 0)}
+            culture="de"
+            formats={{
+              dateFormat: 'DD',
+              dayFormat: (date, culture, localizer) =>
+                localizer.format(date, 'ddd DD.MM', culture),
+              weekdayFormat: (date, culture, localizer) =>
+                localizer.format(date, 'ddd', culture),
+              monthHeaderFormat: (date, culture, localizer) =>
+                localizer.format(date, 'MMMM YYYY', culture),
+              dayHeaderFormat: (date, culture, localizer) =>
+                localizer.format(date, 'dddd, DD.MM.YYYY', culture),
+              dayRangeHeaderFormat: ({ start, end }, culture, localizer) =>
+                `${localizer.format(start, 'DD.MM', culture)} - ${localizer.format(end, 'DD.MM.YYYY', culture)}`,
+              agendaHeaderFormat: ({ start, end }, culture, localizer) =>
+                `${localizer.format(start, 'DD.MM', culture)} - ${localizer.format(end, 'DD.MM.YYYY', culture)}`,
+              agendaDateFormat: (date, culture, localizer) =>
+                localizer.format(date, 'ddd DD.MM', culture),
+              agendaTimeFormat: (date, culture, localizer) =>
+                localizer.format(date, 'HH:mm', culture),
+              agendaTimeRangeFormat: ({ start, end }, culture, localizer) =>
+                `${localizer.format(start, 'HH:mm', culture)} - ${localizer.format(end, 'HH:mm', culture)}`,
+              timeGutterFormat: (date, culture, localizer) =>
+                localizer.format(date, 'HH:mm', culture),
+              eventTimeRangeFormat: ({ start, end }, culture, localizer) =>
+                `${localizer.format(start, 'HH:mm', culture)} - ${localizer.format(end, 'HH:mm', culture)}`,
+            }}
+          />
         </div>
-      )}
+      </div>
 
-      {/* Event Modal */}
-      {showEventModal && (
-        <EventModal
-          isOpen={showEventModal}
-          onClose={() => setShowEventModal(false)}
-          event={newEvent}
-          onSave={handleEventSubmit}
-          onChange={setNewEvent}
-        />
-      )}
-
-      {/* Event Details Modal */}
-      {showEventDetailsModal && selectedEvent && (
-        <EventDetailsModal
-          isOpen={showEventDetailsModal}
-          onClose={() => setShowEventDetailsModal(false)}
-          event={selectedEvent}
-          onEdit={(event) => {
-            setNewEvent(event);
-            setShowEventDetailsModal(false);
-            setShowEventModal(true);
-          }}
-          onDelete={(eventId) => {
-            // Handle delete
-            setShowEventDetailsModal(false);
-          }}
-        />
-      )}
-
-      {/* Quick Actions Modal */}
-      {showQuickActionsModal && quickActionDate && (
-        <QuickActionsModal
-          isOpen={showQuickActionsModal}
-          onClose={() => setShowQuickActionsModal(false)}
-          date={quickActionDate}
-          onQuickAdd={(eventData) => {
-            handleEventSubmit({ ...eventData, date: quickActionDate });
-            setShowQuickActionsModal(false);
-          }}
-        />
+      {/* Help Text */}
+      {!isMobile && (
+        <div className="px-6 py-3 bg-slate-50 border-t border-slate-200">
+          <p className="text-xs text-slate-600 text-center">
+            Klicken Sie auf einen Termin zum Ansehen/Bearbeiten. Ziehen Sie Termine zum Verschieben. Ziehen Sie an den Rändern zum Ändern der Dauer.
+          </p>
+        </div>
       )}
     </div>
   );
+};
+
+CalendarView.propTypes = {
+  events: PropTypes.arrayOf(PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+    title: PropTypes.string.isRequired,
+    start: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    end: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    start_date: PropTypes.string,
+    end_date: PropTypes.string,
+    all_day: PropTypes.bool,
+    color: PropTypes.string,
+  })),
+  onEventClick: PropTypes.func,
+  onEventCreate: PropTypes.func,
+  onEventUpdate: PropTypes.func,
+  onSelectSlot: PropTypes.func,
+  onRangeChange: PropTypes.func,
+  loading: PropTypes.bool,
+  isMobile: PropTypes.bool,
 };
 
 export default CalendarView;
