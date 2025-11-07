@@ -12,8 +12,8 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import TaskModal from './TaskModal';
-import KanbanTaskModal from './KanbanTaskModal';
+import TaskModal from '../components/TaskModal';
+import KanbanTaskModal from '../components/KanbanTaskModal';
 import useWebSocket from '../hooks/useWebSocket';
 import {
   fetchTasks,

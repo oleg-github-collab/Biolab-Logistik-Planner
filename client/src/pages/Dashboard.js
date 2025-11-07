@@ -8,7 +8,7 @@ import EventDetailsModal from '../components/EventDetailsModal';
 import EventFormModal from '../components/EventFormModal';
 import AbsenceModal from '../components/AbsenceModal';
 import UnifiedTaskBoard from '../components/UnifiedTaskBoard';
-import WasteManagementV2 from '../components/WasteManagementV2';
+import WasteManagementV4 from '../components/WasteManagementV4';
 import {
   fetchEvents,
   createEventWithRefetch,
@@ -513,7 +513,7 @@ const Dashboard = () => {
 
       {/* Waste Manager */}
       {activeTab === 'waste-manager' && (
-        <WasteManagementV2 />
+        <WasteManagementV4 />
       )}
 
       {/* Event Form Modal (for create/edit) */}
