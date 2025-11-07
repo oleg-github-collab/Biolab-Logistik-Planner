@@ -16,11 +16,11 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    assignee_id: '',
+    assigned_to: '',
     due_date: '',
     priority: 'medium',
-    tags: [],
-    estimated_hours: ''
+    category: '',
+    tags: []
   });
 
   const [tagInput, setTagInput] = useState('');
@@ -60,21 +60,21 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
       setFormData({
         title: task.title || '',
         description: task.description || '',
-        assignee_id: task.assignee_id || '',
+        assigned_to: task.assigned_to || '',
         due_date: task.due_date ? task.due_date.split('T')[0] : '',
         priority: task.priority || 'medium',
-        tags: task.tags || [],
-        estimated_hours: task.estimated_hours || ''
+        category: task.category || '',
+        tags: Array.isArray(task.tags) ? task.tags : []
       });
     } else {
       setFormData({
         title: '',
         description: '',
-        assignee_id: '',
+        assigned_to: '',
         due_date: '',
         priority: 'medium',
-        tags: [],
-        estimated_hours: ''
+        category: '',
+        tags: []
       });
     }
   }, [task, isOpen]);
@@ -248,8 +248,8 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
                     Zugewiesen an
                   </label>
                   <select
-                    value={formData.assignee_id}
-                    onChange={(e) => setFormData({ ...formData, assignee_id: e.target.value })}
+                    value={formData.assigned_to}
+                    onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })}
                     className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-200/70 transition"
                   >
                     <option value="">Nicht zugewiesen</option>
@@ -261,34 +261,17 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
                   </select>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-800 mb-2 flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-blue-600" />
-                      Fälligkeitsdatum
-                    </label>
-                    <input
-                      type="date"
-                      value={formData.due_date}
-                      onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
-                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-200/70 transition"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-800 mb-2 flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-blue-600" />
-                      Geschätzte Stunden
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.5"
-                      value={formData.estimated_hours}
-                      onChange={(e) => setFormData({ ...formData, estimated_hours: e.target.value })}
-                      placeholder="z.B. 4"
-                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-200/70 transition"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-800 mb-2 flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-blue-600" />
+                    Fälligkeitsdatum
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.due_date}
+                    onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-200/70 transition"
+                  />
                 </div>
               </div>
 

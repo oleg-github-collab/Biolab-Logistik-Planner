@@ -192,7 +192,7 @@ const KanbanBoard = () => {
       const newTask = await createTask({
         ...taskData,
         status: createModalStatus,
-        assigned_to: taskData.assignee_id || null,
+        assigned_to: taskData.assigned_to || null,
       });
 
       toast.success('Aufgabe erstellt');
