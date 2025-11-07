@@ -66,7 +66,7 @@ router.get('/articles', auth, async (req, res) => {
       LEFT JOIN users u ON a.author_id = u.id
       LEFT JOIN kb_categories c ON a.category_id = c.id
       LEFT JOIN kb_article_comments acm ON a.id = acm.article_id
-      LEFT JOIN kb_media am ON a.id = am.article_id
+      LEFT JOIN kb_article_media am ON a.id = am.article_id
       WHERE a.status = $1
     `;
     const params = [status];
@@ -90,7 +90,7 @@ router.get('/articles', auth, async (req, res) => {
       paramIndex += 2;
     }
 
-    query += ' GROUP BY a.id, u.name, u.profile_photo, c.name, c.color';
+    query += ' GROUP BY a.id, u.name, u.profile_photo, c.name, c.color, c.id';
     
     if (sort === 'popular') query += ' ORDER BY a.views_count DESC';
     else if (sort === 'helpful') query += ' ORDER BY a.helpful_count DESC';
@@ -134,7 +134,7 @@ router.get('/articles/:id', auth, async (req, res) => {
 
     const mediaResult = await client.query(`
       SELECT m.*, u.name as uploaded_by_name
-      FROM kb_media m LEFT JOIN users u ON m.uploaded_by = u.id
+      FROM kb_article_media m LEFT JOIN users u ON m.uploaded_by = u.id
       WHERE m.article_id = $1 ORDER BY m.display_order ASC, m.created_at DESC
     `, [id]);
 
@@ -175,12 +175,12 @@ router.post('/articles', auth, async (req, res) => {
     }
 
     const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Date.now();
-    const articleSummary = summary || excerpt || null;
+    const articleExcerpt = excerpt || summary || null;
 
     const result = await client.query(`
-      INSERT INTO kb_articles (title, slug, content, summary, category_id, author_id, status, visibility, tags, published_at)
+      INSERT INTO kb_articles (title, slug, content, excerpt, category_id, author_id, status, visibility, tags, published_at)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *
-    `, [title, slug, content, articleSummary, category_id, req.user.id, status, visibility, tags, status === 'published' ? new Date() : null]);
+    `, [title, slug, content, articleExcerpt, category_id, req.user.id, status, visibility, tags, status === 'published' ? new Date() : null]);
 
     // Handle tags - insert/update in kb_tags table
     if (tags && Array.isArray(tags) && tags.length > 0) {
@@ -232,18 +232,18 @@ router.put('/articles/:id', auth, async (req, res) => {
       VALUES ($1, $2, $3, $4)
     `, [id, oldArticle.rows[0].title, oldArticle.rows[0].content, req.user.id]);
 
-    const articleSummary = summary || excerpt || null;
+    const articleExcerpt = excerpt || summary || null;
 
     const result = await client.query(`
       UPDATE kb_articles SET
         title = COALESCE($1, title), content = COALESCE($2, content),
-        summary = COALESCE($3, summary), category_id = COALESCE($4, category_id),
+        excerpt = COALESCE($3, excerpt), category_id = COALESCE($4, category_id),
         tags = COALESCE($5, tags), status = COALESCE($6, status),
         visibility = COALESCE($7, visibility), is_featured = COALESCE($8, is_featured),
         published_at = CASE WHEN $6 = 'published' AND published_at IS NULL THEN CURRENT_TIMESTAMP ELSE published_at END,
         updated_at = CURRENT_TIMESTAMP
       WHERE id = $9 RETURNING *
-    `, [title, content, articleSummary, category_id, tags, status, visibility, featured, id]);
+    `, [title, content, articleExcerpt, category_id, tags, status, visibility, featured, id]);
 
     // Handle tags - insert/update in kb_tags table
     if (tags && Array.isArray(tags) && tags.length > 0) {
@@ -309,7 +309,7 @@ router.post('/articles/:id/media', auth, uploadSingle('file'), async (req, res) 
     else if (req.file.mimetype.startsWith('video/')) media_type = 'video';
 
     const result = await pool.query(`
-      INSERT INTO kb_media (article_id, media_type, file_url, file_name, file_size, mime_type, caption, display_order, uploaded_by)
+      INSERT INTO kb_article_media (article_id, media_type, file_url, file_name, file_size, mime_type, caption, display_order, uploaded_by)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *
     `, [id, media_type, req.file.path, req.file.originalname, req.file.size, req.file.mimetype, caption, display_order, req.user.id]);
 
@@ -497,10 +497,10 @@ router.post('/articles/:id/versions/:versionId/restore', auth, async (req, res) 
     // Update the article with version data
     await client.query(
       `UPDATE kb_articles
-       SET title = $1, content = $2, summary = $3, category_id = $4,
+       SET title = $1, content = $2, excerpt = $3, category_id = $4,
            tags = $5, last_edited_by = $6, last_edited_at = NOW(), updated_at = NOW()
        WHERE id = $7`,
-      [v.title, v.content, v.summary, v.category_id, v.tags, req.user.id, id]
+      [v.title, v.content, v.excerpt || v.summary, v.category_id, v.tags, req.user.id, id]
     );
 
     await client.query('COMMIT');

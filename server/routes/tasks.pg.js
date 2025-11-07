@@ -68,11 +68,9 @@ router.get('/board', auth, async (req, res) => {
         claim_user.name AS pool_claimed_by_name,
         tp_data.assigned_to AS pool_assigned_to,
         pool_assignee.name AS pool_assigned_to_name,
-        tp_data.help_request_status,
-        tp_data.help_requested_from,
+        tp_data.help_requested_user_id,
         help_user.name AS help_requested_from_name,
         tp_data.help_request_message,
-        tp_data.help_requested_at,
         tp_data.created_at AS pool_created_at,
         tp_data.updated_at AS pool_updated_at,
         attachments_data.attachments_count,
@@ -90,10 +88,8 @@ router.get('/board', auth, async (req, res) => {
           tp.estimated_duration,
           tp.claimed_by,
           tp.assigned_to,
-          tp.help_request_status,
-          tp.help_requested_from,
+          tp.help_requested_user_id,
           tp.help_request_message,
-          tp.help_requested_at,
           tp.created_at,
           tp.updated_at
         FROM task_pool tp
@@ -104,7 +100,7 @@ router.get('/board', auth, async (req, res) => {
       ) tp_data ON TRUE
       LEFT JOIN users claim_user ON tp_data.claimed_by = claim_user.id
       LEFT JOIN users pool_assignee ON tp_data.assigned_to = pool_assignee.id
-      LEFT JOIN users help_user ON tp_data.help_requested_from = help_user.id
+      LEFT JOIN users help_user ON tp_data.help_requested_user_id = help_user.id
       LEFT JOIN LATERAL (
         SELECT
           COUNT(*) AS attachments_count,
@@ -171,11 +167,9 @@ router.get('/board', auth, async (req, res) => {
               claimedByName: row.pool_claimed_by_name,
               assignedTo: row.pool_assigned_to,
               assignedToName: row.pool_assigned_to_name,
-              helpStatus: row.help_request_status,
-              helpRequestedFrom: row.help_requested_from,
+              helpRequestedFrom: row.help_requested_user_id,
               helpRequestedFromName: row.help_requested_from_name,
               helpMessage: row.help_request_message,
-              helpRequestedAt: row.help_requested_at,
               createdAt: row.pool_created_at,
               updatedAt: row.pool_updated_at
             }
@@ -201,7 +195,7 @@ router.get('/board', auth, async (req, res) => {
         counts.inProgress += 1;
       }
 
-      if (task.pool?.helpStatus === 'pending') {
+      if (task.pool?.helpRequestedFrom) {
         counts.needsHelp += 1;
       }
 
