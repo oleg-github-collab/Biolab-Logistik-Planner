@@ -1,18 +1,19 @@
 const express = require('express');
 const { pool } = require('../config/database');
 const { auth } = require('../middleware/auth');
-const { uploadSingle, uploadMultiple } = require('../services/fileService');
 const { getIO } = require('../websocket');
 const logger = require('../utils/logger');
 
 const router = express.Router();
 
 // ============================================
-// TASKS CRUD
+// TASKS CRUD - Based on exact DB schema
 // ============================================
+// Tasks table columns: id, title, description, status, priority, due_date,
+// category, assigned_to, created_by, created_at, updated_at, tags
 
 // @route   GET /api/kanban/tasks
-// @desc    Get all tasks with attachments and comments count
+// @desc    Get all tasks with user info and counts
 router.get('/tasks', auth, async (req, res) => {
   try {
     const result = await pool.query(`
@@ -20,28 +21,22 @@ router.get('/tasks', auth, async (req, res) => {
         t.*,
         u1.name as creator_name,
         u2.name as assignee_name,
+        u2.profile_photo as assignee_photo,
         COUNT(DISTINCT ta.id) as attachments_count,
-        COUNT(DISTINCT tc.id) as comments_count,
-        COALESCE(json_agg(DISTINCT jsonb_build_object(
-          'id', ta.id,
-          'file_type', ta.file_type,
-          'file_url', ta.file_url,
-          'file_name', ta.file_name,
-          'mime_type', ta.mime_type
-        )) FILTER (WHERE ta.id IS NOT NULL), '[]') as attachments
+        COUNT(DISTINCT tc.id) as comments_count
       FROM tasks t
       LEFT JOIN users u1 ON t.created_by = u1.id
       LEFT JOIN users u2 ON t.assigned_to = u2.id
       LEFT JOIN task_attachments ta ON t.id = ta.task_id
       LEFT JOIN task_comments tc ON t.id = tc.task_id
-      GROUP BY t.id, u1.name, u2.name
+      GROUP BY t.id, u1.name, u2.name, u2.profile_photo
       ORDER BY t.created_at DESC
     `);
 
     res.json(result.rows);
   } catch (error) {
     logger.error('Error fetching tasks:', error);
-    res.status(500).json({ error: 'Serverfehler beim Laden der Aufgaben' });
+    res.status(500).json({ error: 'Serverfehler beim Abrufen der Aufgaben' });
   }
 });
 
@@ -55,7 +50,6 @@ router.get('/tasks/:id', auth, async (req, res) => {
       SELECT
         t.*,
         u1.name as creator_name,
-        u1.profile_photo as creator_photo,
         u2.name as assignee_name,
         u2.profile_photo as assignee_photo
       FROM tasks t
@@ -70,19 +64,12 @@ router.get('/tasks/:id', auth, async (req, res) => {
 
     // Get attachments
     const attachmentsResult = await pool.query(`
-      SELECT ta.*, u.name as uploaded_by_name
-      FROM task_attachments ta
-      LEFT JOIN users u ON ta.uploaded_by = u.id
-      WHERE ta.task_id = $1
-      ORDER BY ta.created_at DESC
+      SELECT * FROM task_attachments WHERE task_id = $1 ORDER BY created_at DESC
     `, [id]);
 
     // Get comments with user info
     const commentsResult = await pool.query(`
-      SELECT
-        tc.*,
-        u.name as user_name,
-        u.profile_photo as user_photo
+      SELECT tc.*, u.name as user_name, u.profile_photo as user_photo
       FROM task_comments tc
       LEFT JOIN users u ON tc.user_id = u.id
       WHERE tc.task_id = $1
@@ -97,8 +84,8 @@ router.get('/tasks/:id', auth, async (req, res) => {
 
     res.json(task);
   } catch (error) {
-    logger.error('Error fetching task details:', error);
-    res.status(500).json({ error: 'Serverfehler' });
+    logger.error('Error fetching task:', error);
+    res.status(500).json({ error: 'Serverfehler beim Abrufen der Aufgabe' });
   }
 });
 
@@ -117,51 +104,40 @@ router.post('/tasks', auth, async (req, res) => {
       priority = 'medium',
       assigned_to,
       due_date,
+      category,
       tags
     } = req.body;
 
-    if (!title) {
+    if (!title || !title.trim()) {
       return res.status(400).json({ error: 'Titel ist erforderlich' });
     }
 
     const result = await client.query(`
       INSERT INTO tasks (
         title, description, status, priority, assigned_to, due_date,
-        tags, created_by
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8)
+        category, tags, created_by, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, NOW(), NOW())
       RETURNING *
     `, [
-      title, description, status, priority, assigned_to, due_date,
-      tags ? JSON.stringify(tags) : JSON.stringify([]),
+      title.trim(),
+      description || null,
+      status,
+      priority,
+      assigned_to || null,
+      due_date || null,
+      category || null,
+      tags ? JSON.stringify(tags) : '[]',
       req.user.id
     ]);
 
     const task = result.rows[0];
-
-    // Log activity (skip if table doesn't exist)
-    try {
-      await client.query(`
-        INSERT INTO task_activity_log (task_id, user_id, action_type, new_value)
-        VALUES ($1, $2, 'created', $3)
-      `, [task.id, req.user.id, title]);
-    } catch (activityError) {
-      logger.warn('Activity log table may not exist', activityError.message);
-    }
 
     await client.query('COMMIT');
 
     // Broadcast via WebSocket
     const io = getIO();
     if (io) {
-      io.emit('task:created', {
-        task: {
-          ...task,
-          creator_name: req.user.name,
-          attachments: [],
-          comments_count: 0,
-          attachments_count: 0
-        }
-      });
+      io.emit('task:created', { task });
     }
 
     logger.info('Task created', { taskId: task.id, userId: req.user.id });
@@ -186,12 +162,20 @@ router.put('/tasks/:id', auth, async (req, res) => {
 
     const { id } = req.params;
     const {
-      title, description, status, priority, assigned_to, due_date, tags
+      title,
+      description,
+      status,
+      priority,
+      assigned_to,
+      due_date,
+      category,
+      tags
     } = req.body;
 
-    // Get old task for activity log
+    // Get old task for comparison
     const oldTask = await client.query('SELECT * FROM tasks WHERE id = $1', [id]);
     if (oldTask.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Aufgabe nicht gefunden' });
     }
 
@@ -201,49 +185,45 @@ router.put('/tasks/:id', auth, async (req, res) => {
         description = COALESCE($2, description),
         status = COALESCE($3, status),
         priority = COALESCE($4, priority),
-        assigned_to = COALESCE($5, assigned_to),
-        due_date = COALESCE($6, due_date),
-        tags = COALESCE($7::jsonb, tags),
-        updated_at = CURRENT_TIMESTAMP
-      WHERE id = $8
+        assigned_to = $5,
+        due_date = $6,
+        category = COALESCE($7, category),
+        tags = COALESCE($8::jsonb, tags),
+        updated_at = NOW()
+      WHERE id = $9
       RETURNING *
     `, [
-      title, description, status, priority, assigned_to, due_date,
+      title,
+      description,
+      status,
+      priority,
+      assigned_to,
+      due_date,
+      category,
       tags ? JSON.stringify(tags) : null,
       id
     ]);
 
     const task = result.rows[0];
 
-    // Log activity for status change (skip if table doesn't exist)
+    // Handle waste items status sync if status changed
     if (status && status !== oldTask.rows[0].status) {
-      try {
-        await client.query(`
-          INSERT INTO task_activity_log (task_id, user_id, action_type, old_value, new_value)
-          VALUES ($1, $2, 'status_changed', $3, $4)
-        `, [id, req.user.id, oldTask.rows[0].status, status]);
-      } catch (activityError) {
-        logger.warn('Activity log table may not exist', activityError.message);
-      }
-
       if (status === 'done') {
-        await client.query(
-          `UPDATE waste_items
-              SET status = 'disposed',
-                  last_disposal_date = COALESCE(last_disposal_date, CURRENT_TIMESTAMP),
-                  updated_at = CURRENT_TIMESTAMP
-            WHERE kanban_task_id = $1`,
-          [id]
-        );
+        await client.query(`
+          UPDATE waste_items
+          SET status = 'disposed',
+              last_disposal_date = COALESCE(last_disposal_date, NOW()),
+              updated_at = NOW()
+          WHERE kanban_task_id = $1
+        `, [id]);
       } else if (['todo', 'in_progress', 'backlog'].includes(status)) {
-        await client.query(
-          `UPDATE waste_items
-              SET status = 'active',
-                  last_disposal_date = NULL,
-                  updated_at = CURRENT_TIMESTAMP
-            WHERE kanban_task_id = $1`,
-          [id]
-        );
+        await client.query(`
+          UPDATE waste_items
+          SET status = 'active',
+              last_disposal_date = NULL,
+              updated_at = NOW()
+          WHERE kanban_task_id = $1
+        `, [id]);
       }
     }
 
@@ -280,6 +260,7 @@ router.delete('/tasks/:id', auth, async (req, res) => {
     const result = await client.query('DELETE FROM tasks WHERE id = $1 RETURNING *', [id]);
 
     if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Aufgabe nicht gefunden' });
     }
 
@@ -288,12 +269,12 @@ router.delete('/tasks/:id', auth, async (req, res) => {
     // Broadcast via WebSocket
     const io = getIO();
     if (io) {
-      io.emit('task:deleted', { taskId: parseInt(id) });
+      io.emit('task:deleted', { taskId: id });
     }
 
     logger.info('Task deleted', { taskId: id, userId: req.user.id });
 
-    res.json({ success: true, message: 'Aufgabe gelöscht' });
+    res.json({ message: 'Aufgabe erfolgreich gelöscht' });
   } catch (error) {
     await client.query('ROLLBACK');
     logger.error('Error deleting task:', error);
@@ -303,241 +284,48 @@ router.delete('/tasks/:id', auth, async (req, res) => {
   }
 });
 
-// ============================================
-// ATTACHMENTS
-// ============================================
-
-// @route   POST /api/kanban/tasks/:id/attachments
-// @desc    Upload attachment to task
-router.post('/tasks/:id/attachments', auth, uploadSingle('file'), async (req, res) => {
-  const client = await pool.connect();
-
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'Keine Datei hochgeladen' });
-    }
-
-    await client.query('BEGIN');
-
-    const { id } = req.params;
-    const { file_type = 'document', caption } = req.body;
-
-    // Determine file type from mime type
-    let detectedType = 'document';
-    if (req.file.mimetype.startsWith('image/')) detectedType = 'image';
-    else if (req.file.mimetype.startsWith('audio/')) detectedType = 'audio';
-    else if (req.file.mimetype.startsWith('video/')) detectedType = 'video';
-
-    const result = await client.query(`
-      INSERT INTO task_attachments (
-        task_id, file_type, file_url, file_name, file_size, mime_type, uploaded_by
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING *
-    `, [
-      id,
-      file_type || detectedType,
-      req.file.path,
-      req.file.originalname,
-      req.file.size,
-      req.file.mimetype,
-      req.user.id
-    ]);
-
-    // Log activity
-    await client.query(`
-      INSERT INTO task_activity_log (task_id, user_id, action_type, new_value)
-      VALUES ($1, $2, 'attachment_added', $3)
-    `, [id, req.user.id, req.file.originalname]);
-
-    await client.query('COMMIT');
-
-    const attachment = result.rows[0];
-
-    // Broadcast via WebSocket
-    const io = getIO();
-    if (io) {
-      io.emit('task:attachment_added', { taskId: parseInt(id), attachment });
-    }
-
-    logger.info('Attachment uploaded', { taskId: id, attachmentId: attachment.id });
-
-    res.status(201).json(attachment);
-  } catch (error) {
-    await client.query('ROLLBACK');
-    logger.error('Error uploading attachment:', error);
-    res.status(500).json({ error: 'Serverfehler beim Hochladen' });
-  } finally {
-    client.release();
-  }
-});
-
-// @route   DELETE /api/kanban/attachments/:id
-// @desc    Delete attachment
-router.delete('/attachments/:id', auth, async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const result = await pool.query(
-      'DELETE FROM task_attachments WHERE id = $1 RETURNING task_id, file_name',
-      [id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Anhang nicht gefunden' });
-    }
-
-    const { task_id, file_name } = result.rows[0];
-
-    // Broadcast via WebSocket
-    const io = getIO();
-    if (io) {
-      io.emit('task:attachment_removed', { taskId: task_id, attachmentId: parseInt(id) });
-    }
-
-    logger.info('Attachment deleted', { attachmentId: id, taskId: task_id });
-
-    res.json({ success: true, message: 'Anhang gelöscht' });
-  } catch (error) {
-    logger.error('Error deleting attachment:', error);
-    res.status(500).json({ error: 'Serverfehler' });
-  }
-});
-
-// ============================================
-// COMMENTS
-// ============================================
-
 // @route   POST /api/kanban/tasks/:id/comments
-// @desc    Add comment to task (text, images, audio)
-router.post('/tasks/:id/comments', auth, uploadMultiple('attachments', 5), async (req, res) => {
-  const client = await pool.connect();
-
-  try {
-    await client.query('BEGIN');
-
-    const { id } = req.params;
-    const { comment_text, parent_comment_id } = req.body;
-
-    // Process uploaded attachments
-    let attachments = [];
-    if (req.files && req.files.length > 0) {
-      attachments = req.files.map(file => ({
-        file_url: `/uploads/${file.filename}`,
-        file_name: file.originalname,
-        mime_type: file.mimetype,
-        file_size: file.size
-      }));
-    }
-
-    if (!comment_text && attachments.length === 0) {
-      return res.status(400).json({ error: 'Kommentar oder Anhänge erforderlich' });
-    }
-
-    const result = await client.query(`
-      INSERT INTO task_comments (
-        task_id, user_id, comment_text, attachments, parent_comment_id
-      ) VALUES ($1, $2, $3, $4, $5)
-      RETURNING *
-    `, [id, req.user.id, comment_text, JSON.stringify(attachments), parent_comment_id]);
-
-    // Log activity
-    await client.query(`
-      INSERT INTO task_activity_log (task_id, user_id, action_type, new_value)
-      VALUES ($1, $2, 'comment_added', $3)
-    `, [id, req.user.id, comment_text || `[${attachments.length} Anhang/Anhänge]`]);
-
-    await client.query('COMMIT');
-
-    const comment = {
-      ...result.rows[0],
-      user_name: req.user.name,
-      user_photo: req.user.profile_photo
-    };
-
-    // Broadcast via WebSocket
-    const io = getIO();
-    if (io) {
-      io.emit('task:comment_added', { taskId: parseInt(id), comment });
-    }
-
-    logger.info('Comment added', { taskId: id, commentId: comment.id });
-
-    res.status(201).json(comment);
-  } catch (error) {
-    await client.query('ROLLBACK');
-    logger.error('Error adding comment:', error);
-    res.status(500).json({ error: 'Serverfehler beim Hinzufügen des Kommentars' });
-  } finally {
-    client.release();
-  }
-});
-
-// @route   GET /api/kanban/tasks/:id/comments
-// @desc    Get comments for a task
-router.get('/tasks/:id/comments', auth, async (req, res) => {
+// @desc    Add comment to task
+router.post('/tasks/:id/comments', auth, async (req, res) => {
   try {
     const { id } = req.params;
+    const { comment } = req.body;
+
+    if (!comment || !comment.trim()) {
+      return res.status(400).json({ error: 'Kommentar ist erforderlich' });
+    }
 
     const result = await pool.query(`
-      SELECT
-        tc.*,
-        u.name as user_name,
-        u.profile_photo as user_photo
+      INSERT INTO task_comments (task_id, user_id, comment, created_at)
+      VALUES ($1, $2, $3, NOW())
+      RETURNING *
+    `, [id, req.user.id, comment.trim()]);
+
+    const commentWithUser = await pool.query(`
+      SELECT tc.*, u.name as user_name, u.profile_photo as user_photo
       FROM task_comments tc
       LEFT JOIN users u ON tc.user_id = u.id
-      WHERE tc.task_id = $1
-      ORDER BY tc.created_at ASC
-    `, [id]);
-
-    res.json(result.rows);
-  } catch (error) {
-    logger.error('Error fetching comments:', error);
-    res.status(500).json({ error: 'Serverfehler beim Laden der Kommentare' });
-  }
-});
-
-// @route   DELETE /api/kanban/comments/:id
-// @desc    Delete comment
-router.delete('/comments/:id', auth, async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const result = await pool.query(
-      'DELETE FROM task_comments WHERE id = $1 AND user_id = $2 RETURNING task_id',
-      [id, req.user.id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Kommentar nicht gefunden oder keine Berechtigung' });
-    }
-
-    const { task_id } = result.rows[0];
+      WHERE tc.id = $1
+    `, [result.rows[0].id]);
 
     // Broadcast via WebSocket
     const io = getIO();
     if (io) {
-      io.emit('task:comment_removed', { taskId: task_id, commentId: parseInt(id) });
+      io.emit('task:comment', { taskId: id, comment: commentWithUser.rows[0] });
     }
 
-    logger.info('Comment deleted', { commentId: id, taskId: task_id });
-
-    res.json({ success: true, message: 'Kommentar gelöscht' });
+    res.status(201).json(commentWithUser.rows[0]);
   } catch (error) {
-    logger.error('Error deleting comment:', error);
-    res.status(500).json({ error: 'Serverfehler' });
+    logger.error('Error adding comment:', error);
+    res.status(500).json({ error: 'Serverfehler beim Hinzufügen des Kommentars' });
   }
 });
 
 // @route   GET /api/kanban/tasks/:id/activity
-// @desc    Get task activity log
+// @desc    Get task activity log (placeholder - table doesn't exist)
 router.get('/tasks/:id/activity', auth, async (req, res) => {
-  try {
-    // Return empty array if table doesn't exist
-    res.json([]);
-  } catch (error) {
-    logger.error('Error fetching task activity:', error);
-    res.status(500).json({ error: 'Serverfehler' });
-  }
+  // Activity log table doesn't exist, return empty array
+  res.json([]);
 });
 
 module.exports = router;
