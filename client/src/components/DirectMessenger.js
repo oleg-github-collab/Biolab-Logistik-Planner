@@ -780,7 +780,11 @@ const DirectMessenger = () => {
     const isPinned = pinnedMessages.some((m) => m.id === msg.id);
 
     return (
-      <div className="relative group">
+      <div
+        className="relative group"
+        onMouseEnter={() => !isMobile && setHoveredMessage(msg.id)}
+        onMouseLeave={() => !isMobile && setHoveredMessage(null)}
+      >
         {/* Message bubble with pinned highlight */}
         <div
           className={`${
@@ -788,8 +792,6 @@ const DirectMessenger = () => {
               ? baseClassMobile
               : `rounded-2xl px-4 py-3 shadow-sm ${baseClassDesktop} transition-all duration-200 hover:shadow-md`
           } ${isPinned && !isMobile ? 'ring-2 ring-yellow-300 bg-yellow-50/20' : ''}`}
-          onMouseEnter={() => !isMobile && setHoveredMessage(msg.id)}
-          onMouseLeave={() => !isMobile && setHoveredMessage(null)}
         >
           {/* Pinned indicator badge */}
           {isPinned && !isMobile && (
@@ -974,29 +976,29 @@ const DirectMessenger = () => {
         {!isMobile && (isHovered || showReactionPicker === msg.id) && (
           <div
             className={`absolute top-0 ${
-              isMine ? 'left-0 -translate-x-full pr-2' : 'right-0 translate-x-full pl-2'
-            } flex items-center gap-1.5`}
+              isMine ? 'left-0 -translate-x-full pr-3' : 'right-0 translate-x-full pl-3'
+            } flex items-center gap-2`}
           >
             <button
               onClick={() => setShowReactionPicker(showReactionPicker === msg.id ? null : msg.id)}
-              className="p-2 bg-white border border-slate-300 rounded-full hover:bg-slate-50 hover:border-slate-400 shadow-md transition-all duration-200"
+              className="p-2.5 bg-white border-2 border-slate-300 rounded-full hover:bg-blue-50 hover:border-blue-400 hover:scale-110 shadow-lg transition-all duration-200 cursor-pointer"
               title="Reagieren"
             >
               <Smile className="w-4 h-4 text-slate-600" />
             </button>
             <button
               onClick={() => handleReplyTo(msg)}
-              className="p-2 bg-white border border-slate-300 rounded-full hover:bg-slate-50 hover:border-slate-400 shadow-md transition-all duration-200"
+              className="p-2.5 bg-white border-2 border-slate-300 rounded-full hover:bg-green-50 hover:border-green-400 hover:scale-110 shadow-lg transition-all duration-200 cursor-pointer"
               title="Antworten"
             >
               <Reply className="w-4 h-4 text-slate-600" />
             </button>
             <button
               onClick={() => handlePinMessage(msg)}
-              className={`p-2 border rounded-full shadow-md transition-all duration-200 ${
+              className={`p-2.5 border-2 rounded-full shadow-lg hover:scale-110 transition-all duration-200 cursor-pointer ${
                 isPinned
                   ? 'bg-yellow-100 border-yellow-400 text-yellow-700 hover:bg-yellow-200'
-                  : 'bg-white border-slate-300 hover:bg-slate-50 hover:border-slate-400 text-slate-600'
+                  : 'bg-white border-slate-300 hover:bg-yellow-50 hover:border-yellow-400 text-slate-600'
               }`}
               title={isPinned ? 'Entfestigen' : 'Anpinnen'}
             >
@@ -1005,7 +1007,7 @@ const DirectMessenger = () => {
             {isMine && (
               <button
                 onClick={() => handleDeleteMessage(msg.id)}
-                className="p-2 bg-white border border-slate-300 rounded-full hover:bg-red-50 hover:border-red-400 shadow-md transition-all duration-200"
+                className="p-2.5 bg-white border-2 border-slate-300 rounded-full hover:bg-red-50 hover:border-red-400 hover:scale-110 shadow-lg transition-all duration-200 cursor-pointer"
                 title="Löschen"
               >
                 <Trash2 className="w-4 h-4 text-red-600" />
