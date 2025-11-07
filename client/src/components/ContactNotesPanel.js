@@ -55,17 +55,17 @@ const ContactNotesPanel = ({ contactId, contactName }) => {
   };
 
   const handleDelete = async () => {
-    if (!window.confirm('Notiz wirklich löschen?')) return;
+    if (!window.confirm('Notiz wirklich lÃ¶schen?')) return;
 
     try {
       await deleteContactNote(contactId);
       setNote('');
       setTags([]);
       setHasChanges(false);
-      showSuccess('Notiz gelöscht');
+      showSuccess('Notiz gelÃ¶scht');
     } catch (error) {
       console.error('Error deleting note:', error);
-      showError('Fehler beim Löschen');
+      showError('Fehler beim LÃ¶schen');
     }
   };
 
@@ -113,7 +113,7 @@ const ContactNotesPanel = ({ contactId, contactName }) => {
                 setNote(e.target.value);
                 setHasChanges(true);
               }}
-              placeholder="Notizen über diesen Kontakt..."
+              placeholder="Notizen Ã¼ber diesen Kontakt..."
               className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
               rows={4}
             />
@@ -152,7 +152,7 @@ const ContactNotesPanel = ({ contactId, contactName }) => {
                     addTag();
                   }
                 }}
-                placeholder="Tag hinzufügen..."
+                placeholder="Tag hinzufÃ¼gen..."
                 className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
               />
               <button
@@ -160,7 +160,7 @@ const ContactNotesPanel = ({ contactId, contactName }) => {
                 disabled={!tagInput.trim()}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition text-sm font-medium"
               >
-                Hinzufügen
+                HinzufÃ¼gen
               </button>
             </div>
           </div>
@@ -179,7 +179,7 @@ const ContactNotesPanel = ({ contactId, contactName }) => {
               <button
                 onClick={handleDelete}
                 className="px-4 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition font-medium"
-                title="Notiz löschen"
+                title="Notiz lÃ¶schen"
               >
                 <Trash2 className="w-4 h-4" />
               </button>

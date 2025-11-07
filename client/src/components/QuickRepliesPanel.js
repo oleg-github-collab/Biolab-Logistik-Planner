@@ -56,14 +56,14 @@ const QuickRepliesPanel = ({ onSelect, onClose }) => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Vorlage wirklich löschen?')) return;
+    if (!window.confirm('Vorlage wirklich lÃ¶schen?')) return;
     try {
       await deleteQuickReply(id);
-      showSuccess('Vorlage gelöscht');
+      showSuccess('Vorlage gelÃ¶scht');
       loadTemplates();
     } catch (error) {
       console.error('Error deleting template:', error);
-      showError('Fehler beim Löschen');
+      showError('Fehler beim LÃ¶schen');
     }
   };
 
@@ -164,7 +164,7 @@ const QuickRepliesPanel = ({ onSelect, onClose }) => {
               <div className="grid grid-cols-2 gap-3">
                 <input
                   type="text"
-                  placeholder="Kürzel (z.B. /hi)"
+                  placeholder="KÃ¼rzel (z.B. /hi)"
                   value={formData.shortcut}
                   onChange={(e) => setFormData({ ...formData, shortcut: e.target.value })}
                   className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -260,7 +260,7 @@ const QuickRepliesPanel = ({ onSelect, onClose }) => {
                   <button
                     onClick={() => handleDelete(template.id)}
                     className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition"
-                    title="Löschen"
+                    title="LÃ¶schen"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>

@@ -38,14 +38,14 @@ const MessageForwardModal = ({ message, onClose, onSuccess }) => {
 
   const handleForward = async () => {
     if (selectedIds.length === 0) {
-      showError('W‰hle mindestens einen Empf‰nger');
+      showError('W√§hle mindestens einen Empf√§nger');
       return;
     }
 
     setForwarding(true);
     try {
       await forwardMessage(message.id, selectedIds, comment);
-      showSuccess(`Nachricht an ${selectedIds.length} Empf‰nger weitergeleitet`);
+      showSuccess(`Nachricht an ${selectedIds.length} Empf√§nger weitergeleitet`);
       onSuccess?.();
       onClose();
     } catch (error) {
@@ -88,12 +88,12 @@ const MessageForwardModal = ({ message, onClose, onSuccess }) => {
         {/* Comment Input */}
         <div className="p-4 border-b border-slate-200">
           <label className="text-sm font-medium text-slate-700 mb-2 block">
-            Kommentar hinzuf¸gen (optional)
+            Kommentar hinzuf√ºgen (optional)
           </label>
           <textarea
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            placeholder="F¸ge einen Kommentar hinzu..."
+            placeholder="F√ºge einen Kommentar hinzu..."
             className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 resize-none"
             rows={2}
           />
@@ -113,7 +113,7 @@ const MessageForwardModal = ({ message, onClose, onSuccess }) => {
           </div>
           {selectedIds.length > 0 && (
             <p className="mt-2 text-sm text-green-600 font-medium">
-              {selectedIds.length} Empf‰nger ausgew‰hlt
+              {selectedIds.length} Empf√§nger ausgew√§hlt
             </p>
           )}
         </div>
