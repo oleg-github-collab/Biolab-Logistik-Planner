@@ -2,8 +2,6 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
-import SimpleMDE from 'react-simplemde-editor';
-import 'easymde/dist/easymde.min.css';
 import 'highlight.js/styles/github-dark.css';
 import {
   BookOpen,
@@ -395,20 +393,6 @@ const ArticleEditorModal = ({ article, categories, allTags, onSave, onClose }) =
     }
   };
 
-  const simpleMdeOptions = useMemo(() => ({
-    spellChecker: false,
-    placeholder: 'Artikel-Inhalt in Markdown schreiben...',
-    status: false,
-    toolbar: [
-      'bold', 'italic', 'heading', '|',
-      'quote', 'unordered-list', 'ordered-list', '|',
-      'link', 'image', '|',
-      'code', 'table', '|',
-      'preview', 'side-by-side', 'fullscreen', '|',
-      'guide'
-    ],
-    minHeight: '400px'
-  }), []);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -586,10 +570,11 @@ const ArticleEditorModal = ({ article, categories, allTags, onSave, onClose }) =
                   </ReactMarkdown>
                 </div>
               ) : (
-                <SimpleMDE
+                <textarea
                   value={content}
-                  onChange={setContent}
-                  options={simpleMdeOptions}
+                  onChange={(e) => setContent(e.target.value)}
+                  placeholder="Artikel-Inhalt in Markdown schreiben..."
+                  className="w-full h-96 p-4 border border-gray-300 rounded-md font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               )}
             </div>
