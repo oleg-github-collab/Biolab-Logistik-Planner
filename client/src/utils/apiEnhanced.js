@@ -341,7 +341,7 @@ export const updateQuickReply = (id, data) =>
 export const deleteQuickReply = (id) =>
   api.delete(`/messages/quick-replies/${id}`);
 
-export const useQuickReply = (id) =>
+export const trackQuickReplyUsage = (id) =>
   api.post(`/messages/quick-replies/${id}/use`);
 
 // ============================================

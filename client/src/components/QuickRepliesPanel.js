@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Zap, Plus, X, Edit, Trash2, Save } from 'lucide-react';
-import { getQuickReplies, createQuickReply, updateQuickReply, deleteQuickReply, useQuickReply } from '../utils/apiEnhanced';
+import { getQuickReplies, createQuickReply, updateQuickReply, deleteQuickReply, trackQuickReplyUsage } from '../utils/apiEnhanced';
 import { showError, showSuccess } from '../utils/toast';
 
 const QuickRepliesPanel = ({ onSelect, onClose }) => {
@@ -69,7 +69,7 @@ const QuickRepliesPanel = ({ onSelect, onClose }) => {
 
   const handleSelect = async (template) => {
     try {
-      await useQuickReply(template.id);
+      await trackQuickReplyUsage(template.id);
       onSelect(template.content);
     } catch (error) {
       console.error('Error using template:', error);
