@@ -1724,4 +1724,148 @@ router.post('/upload', auth, upload.single('file'), async (req, res) => {
   }
 });
 
+// @route   POST /api/messages/:messageId/pin
+// @desc    Pin a message in a conversation
+router.post('/:messageId/pin', auth, async (req, res) => {
+  const messageId = parseInt(req.params.messageId, 10);
+
+  if (!Number.isInteger(messageId)) {
+    return res.status(400).json({ error: 'Ungültige Nachrichten-ID' });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const messageResult = await client.query(
+      `SELECT id, sender_id, receiver_id, conversation_id FROM messages WHERE id = $1`,
+      [messageId]
+    );
+
+    if (messageResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Nachricht nicht gefunden' });
+    }
+
+    const message = messageResult.rows[0];
+
+    if (!message.conversation_id) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Nur Nachrichten in Konversationen können angepinnt werden' });
+    }
+
+    // Check if user is member of conversation
+    const membership = await client.query(
+      `SELECT role FROM message_conversation_members WHERE conversation_id = $1 AND user_id = $2`,
+      [message.conversation_id, req.user.id]
+    );
+
+    if (membership.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'Kein Zugriff auf diese Konversation' });
+    }
+
+    // Check if already pinned
+    const existingPin = await client.query(
+      `SELECT id FROM message_pins WHERE message_id = $1 AND conversation_id = $2`,
+      [messageId, message.conversation_id]
+    );
+
+    let action;
+
+    if (existingPin.rows.length > 0) {
+      // Unpin
+      await client.query(
+        `DELETE FROM message_pins WHERE id = $1`,
+        [existingPin.rows[0].id]
+      );
+      action = 'unpinned';
+    } else {
+      // Pin
+      await client.query(
+        `INSERT INTO message_pins (message_id, conversation_id, pinned_by, pinned_at)
+         VALUES ($1, $2, $3, CURRENT_TIMESTAMP)`,
+        [messageId, message.conversation_id, req.user.id]
+      );
+      action = 'pinned';
+    }
+
+    await client.query('COMMIT');
+
+    // Emit WebSocket event
+    const io = getIO();
+    if (io) {
+      io.to(`conversation_${message.conversation_id}`).emit('message:pin', {
+        messageId,
+        conversationId: message.conversation_id,
+        action,
+        user: {
+          id: req.user.id,
+          name: req.user.name
+        }
+      });
+    }
+
+    logger.info(`Message ${action}`, { messageId, userId: req.user.id, conversationId: message.conversation_id });
+
+    res.json({ success: true, action });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    logger.error('Error toggling message pin:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  } finally {
+    client.release();
+  }
+});
+
+// @route   GET /api/messages/conversations/:conversationId/pins
+// @desc    Get all pinned messages for a conversation
+router.get('/conversations/:conversationId/pins', auth, async (req, res) => {
+  const conversationId = parseInt(req.params.conversationId, 10);
+
+  if (!Number.isInteger(conversationId)) {
+    return res.status(400).json({ error: 'Ungültige Konversations-ID' });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    // Check if user is member
+    const membership = await client.query(
+      `SELECT role FROM message_conversation_members WHERE conversation_id = $1 AND user_id = $2`,
+      [conversationId, req.user.id]
+    );
+
+    if (membership.rows.length === 0) {
+      return res.status(403).json({ error: 'Kein Zugriff auf diese Konversation' });
+    }
+
+    const result = await client.query(
+      `SELECT
+        mp.*,
+        m.message,
+        m.message_type,
+        m.created_at as message_created_at,
+        sender.name as sender_name,
+        sender.profile_photo as sender_photo,
+        pinner.name as pinned_by_name
+       FROM message_pins mp
+       INNER JOIN messages m ON mp.message_id = m.id
+       LEFT JOIN users sender ON m.sender_id = sender.id
+       LEFT JOIN users pinner ON mp.pinned_by = pinner.id
+       WHERE mp.conversation_id = $1
+       ORDER BY mp.pinned_at DESC`,
+      [conversationId]
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    logger.error('Error fetching pinned messages:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router;
