@@ -143,7 +143,7 @@ export const getUsersForMessaging = () =>
 
 // Waste endpoints
 export const getWasteCategories = () =>
-  api.get('/waste/categories');
+  api.get('/waste-categories');
 
 export const getWasteItems = () =>
   api.get('/waste/items');

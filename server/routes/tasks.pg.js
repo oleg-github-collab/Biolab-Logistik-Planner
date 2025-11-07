@@ -149,7 +149,6 @@ router.get('/board', auth, async (req, res) => {
         assigneeName: row.task_assignee_name,
         createdById: row.created_by,
         createdByName: row.created_by_name,
-        estimatedHours: row.estimated_hours,
         tags: row.tags || [],
         completedAt: row.completed_at,
         updatedAt: row.updated_at,

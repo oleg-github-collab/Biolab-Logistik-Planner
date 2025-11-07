@@ -94,6 +94,8 @@ app.use('/api/kisten', require('./routes/kisten.pg'));
 // Waste management routes (PostgreSQL)
 console.log('  ✓ waste');
 app.use('/api/waste', require('./routes/waste.pg'));
+console.log('  ✓ waste-categories');
+app.use('/api/waste-categories', require('./routes/wasteCategories.pg'));
 
 // Admin routes (PostgreSQL)
 console.log('  ✓ admin');
