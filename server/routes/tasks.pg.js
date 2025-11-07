@@ -536,4 +536,286 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
+// ============================================================================
+// TASK TEMPLATES
+// ============================================================================
+
+// @route   GET /api/tasks/templates
+// @desc    Get all task templates
+router.get('/templates', auth, async (req, res) => {
+  try {
+    const { category } = req.query;
+
+    let query = `
+      SELECT * FROM task_templates
+      WHERE is_public = TRUE OR created_by = $1
+    `;
+    const params = [req.user.id];
+
+    if (category) {
+      query += ' AND category = $2';
+      params.push(category);
+    }
+
+    query += ' ORDER BY usage_count DESC, name ASC';
+
+    const result = await pool.query(query, params);
+
+    res.json(result.rows);
+  } catch (error) {
+    logger.error('Error fetching task templates', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   GET /api/tasks/templates/:id
+// @desc    Get single template
+router.get('/templates/:id', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query(
+      'SELECT * FROM task_templates WHERE id = $1 AND (is_public = TRUE OR created_by = $2)',
+      [id, req.user.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    logger.error('Error fetching template', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   POST /api/tasks/templates
+// @desc    Create new template
+router.post('/templates', auth, async (req, res) => {
+  try {
+    const {
+      name,
+      description,
+      category,
+      priority = 'medium',
+      estimated_duration,
+      tags = [],
+      checklist = [],
+      is_public = false
+    } = req.body;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'Name is required' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO task_templates (
+        name, description, category, priority, estimated_duration,
+        tags, checklist, created_by, is_public
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      RETURNING *`,
+      [
+        name.trim(),
+        description,
+        category,
+        priority,
+        estimated_duration,
+        JSON.stringify(tags),
+        JSON.stringify(checklist),
+        req.user.id,
+        is_public
+      ]
+    );
+
+    logger.info('Task template created', {
+      templateId: result.rows[0].id,
+      userId: req.user.id,
+      name
+    });
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    logger.error('Error creating task template', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   PUT /api/tasks/templates/:id
+// @desc    Update template
+router.put('/templates/:id', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      name,
+      description,
+      category,
+      priority,
+      estimated_duration,
+      tags,
+      checklist,
+      is_public
+    } = req.body;
+
+    // Check if user owns the template
+    const checkResult = await pool.query(
+      'SELECT * FROM task_templates WHERE id = $1',
+      [id]
+    );
+
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+
+    const template = checkResult.rows[0];
+    if (template.created_by !== req.user.id) {
+      return res.status(403).json({ error: 'Not authorized to edit this template' });
+    }
+
+    const updates = [];
+    const params = [id];
+    let paramIndex = 2;
+
+    const fields = {
+      name, description, category, priority, estimated_duration, is_public
+    };
+
+    Object.entries(fields).forEach(([key, value]) => {
+      if (value !== undefined) {
+        updates.push(`${key} = $${paramIndex}`);
+        params.push(value);
+        paramIndex++;
+      }
+    });
+
+    if (tags !== undefined) {
+      updates.push(`tags = $${paramIndex}`);
+      params.push(JSON.stringify(tags));
+      paramIndex++;
+    }
+
+    if (checklist !== undefined) {
+      updates.push(`checklist = $${paramIndex}`);
+      params.push(JSON.stringify(checklist));
+      paramIndex++;
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    const result = await pool.query(
+      `UPDATE task_templates SET
+        ${updates.join(', ')},
+        updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1
+       RETURNING *`,
+      params
+    );
+
+    logger.info('Task template updated', {
+      templateId: id,
+      userId: req.user.id
+    });
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    logger.error('Error updating task template', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   DELETE /api/tasks/templates/:id
+// @desc    Delete template
+router.delete('/templates/:id', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if user owns the template
+    const checkResult = await pool.query(
+      'SELECT * FROM task_templates WHERE id = $1',
+      [id]
+    );
+
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+
+    const template = checkResult.rows[0];
+    if (template.created_by !== req.user.id) {
+      return res.status(403).json({ error: 'Not authorized to delete this template' });
+    }
+
+    await pool.query('DELETE FROM task_templates WHERE id = $1', [id]);
+
+    logger.info('Task template deleted', {
+      templateId: id,
+      userId: req.user.id
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Error deleting task template', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   POST /api/tasks/templates/:id/use
+// @desc    Create task from template
+router.post('/templates/:id/use', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { assigned_to, due_date } = req.body;
+
+    // Get template
+    const templateResult = await pool.query(
+      'SELECT * FROM task_templates WHERE id = $1 AND (is_public = TRUE OR created_by = $2)',
+      [id, req.user.id]
+    );
+
+    if (templateResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+
+    const template = templateResult.rows[0];
+
+    // Create task from template
+    const taskResult = await pool.query(
+      `INSERT INTO tasks (
+        title, description, category, priority, tags, checklist,
+        assigned_to, due_date, status, created_by
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'todo', $9)
+      RETURNING *`,
+      [
+        template.name,
+        template.description,
+        template.category,
+        template.priority,
+        template.tags,
+        template.checklist,
+        assigned_to || req.user.id,
+        due_date,
+        req.user.id
+      ]
+    );
+
+    // Increment usage count
+    await pool.query(
+      'UPDATE task_templates SET usage_count = usage_count + 1 WHERE id = $1',
+      [id]
+    );
+
+    logger.info('Task created from template', {
+      templateId: id,
+      taskId: taskResult.rows[0].id,
+      userId: req.user.id
+    });
+
+    res.status(201).json(taskResult.rows[0]);
+  } catch (error) {
+    logger.error('Error creating task from template', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 module.exports = router;
