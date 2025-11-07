@@ -38,7 +38,10 @@ import {
   getStoriesFeed,
   markStoryViewed,
   linkCalendarToMessage,
-  getCalendarEvents
+  getCalendarEvents,
+  addMessageReaction,
+  pinMessage,
+  getPinnedMessages
 } from '../utils/apiEnhanced';
 import GifPicker from './GifPicker';
 import { showError, showSuccess } from '../utils/toast';
@@ -194,6 +197,26 @@ const DirectMessenger = () => {
     setSelectedEvent(null);
   }, [selectedThreadId]);
 
+  // Load pinned messages when conversation changes
+  useEffect(() => {
+    const loadPinnedMessages = async () => {
+      if (!selectedThreadId) {
+        setPinnedMessages([]);
+        return;
+      }
+
+      try {
+        const response = await getPinnedMessages(selectedThreadId);
+        setPinnedMessages(response.data || []);
+      } catch (error) {
+        console.error('Error loading pinned messages:', error);
+        setPinnedMessages([]);
+      }
+    };
+
+    loadPinnedMessages();
+  }, [selectedThreadId]);
+
   // Handle shared event from navigation state
   useEffect(() => {
     if (location.state?.shareEvent) {
@@ -221,8 +244,46 @@ const DirectMessenger = () => {
       }
     };
 
-    const unsubscribe = onConversationEvent('new_message', handleNewMessage);
-    return unsubscribe;
+    const handleMessageReaction = (data) => {
+      if (data.conversationId === selectedThreadId && data.messageId) {
+        setMessages((prev) =>
+          prev.map((msg) => {
+            if (msg.id === data.messageId) {
+              return {
+                ...msg,
+                reactions: data.reactions || msg.reactions
+              };
+            }
+            return msg;
+          })
+        );
+      }
+    };
+
+    const handleMessagePin = (data) => {
+      if (data.conversationId === selectedThreadId && data.message) {
+        const isPinned = data.isPinned ?? true;
+        if (isPinned) {
+          setPinnedMessages((prev) => {
+            const alreadyExists = prev.some((m) => m.id === data.message.id);
+            if (alreadyExists) return prev;
+            return [...prev, normalizeMessage(data.message)];
+          });
+        } else {
+          setPinnedMessages((prev) => prev.filter((m) => m.id !== data.message.id));
+        }
+      }
+    };
+
+    const unsubscribeNewMessage = onConversationEvent('new_message', handleNewMessage);
+    const unsubscribeReaction = onConversationEvent('message:reaction', handleMessageReaction);
+    const unsubscribePin = onConversationEvent('message:pin', handleMessagePin);
+
+    return () => {
+      unsubscribeNewMessage();
+      unsubscribeReaction();
+      unsubscribePin();
+    };
   }, [selectedThreadId, isConnected, joinConversationRoom, onConversationEvent, normalizeMessage]);
 
   const loadMessages = useCallback(async (threadId) => {
@@ -528,7 +589,8 @@ const DirectMessenger = () => {
     }
   };
 
-  const handleReaction = useCallback((messageId, emoji) => {
+  const handleReaction = useCallback(async (messageId, emoji) => {
+    // Optimistic UI update
     setMessages((prev) =>
       prev.map((msg) => {
         if (msg.id !== messageId) return msg;
@@ -552,7 +614,17 @@ const DirectMessenger = () => {
       })
     );
     setShowReactionPicker(null);
-  }, [user]);
+
+    // Call backend API
+    try {
+      await addMessageReaction(messageId, emoji);
+    } catch (error) {
+      console.error('Error adding reaction:', error);
+      showError('Fehler beim Hinzufügen der Reaktion');
+      // Revert optimistic update on error
+      await loadMessages(selectedThreadId);
+    }
+  }, [user, selectedThreadId, loadMessages]);
 
   const handleReplyTo = useCallback((message) => {
     setReplyToMessage(message);
@@ -562,18 +634,35 @@ const DirectMessenger = () => {
     setReplyToMessage(null);
   }, []);
 
-  const handlePinMessage = useCallback((message) => {
+  const handlePinMessage = useCallback(async (message) => {
+    const isAlreadyPinned = pinnedMessages.some((m) => m.id === message.id);
+
+    // Optimistic UI update
     setPinnedMessages((prev) => {
-      const isAlreadyPinned = prev.some((m) => m.id === message.id);
       if (isAlreadyPinned) {
-        showSuccess('Nachricht entfestigt');
         return prev.filter((m) => m.id !== message.id);
       } else {
-        showSuccess('Nachricht angepinnt');
         return [...prev, message];
       }
     });
-  }, []);
+
+    // Call backend API
+    try {
+      await pinMessage(message.id);
+      showSuccess(isAlreadyPinned ? 'Nachricht entfestigt' : 'Nachricht angepinnt');
+    } catch (error) {
+      console.error('Error pinning message:', error);
+      showError('Fehler beim Pinnen der Nachricht');
+      // Revert optimistic update on error
+      setPinnedMessages((prev) => {
+        if (isAlreadyPinned) {
+          return [...prev, message];
+        } else {
+          return prev.filter((m) => m.id !== message.id);
+        }
+      });
+    }
+  }, [pinnedMessages]);
 
   const handleContactSelectForEventShare = useCallback(async (contact) => {
     if (!pendingEventShare) return;

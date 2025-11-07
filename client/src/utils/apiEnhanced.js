@@ -122,8 +122,14 @@ export const markMentionAsRead = (mentionId) =>
 export const deleteMessage = (messageId) =>
   api.delete(`/messages/${messageId}`);
 
+export const pinMessage = (messageId) =>
+  api.post(`/messages/${messageId}/pin`);
+
+export const getPinnedMessages = (conversationId) =>
+  api.get(`/messages/conversations/${conversationId}/pins`);
+
 export const linkCalendarToMessage = (messageId, eventId, refType = 'mention') =>
-  api.post(`/messages/${messageId}/calendar-ref`, { eventId, refType });
+  api.post(`/messages/${messageId}/calendar-ref`, { eventId, refType});
 
 export const linkTaskToMessage = (messageId, taskId, refType = 'mention') =>
   api.post(`/messages/${messageId}/task-ref`, { taskId, refType });
