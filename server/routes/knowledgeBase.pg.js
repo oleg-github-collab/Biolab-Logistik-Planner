@@ -178,7 +178,7 @@ router.post('/articles', auth, async (req, res) => {
     const articleExcerpt = excerpt || summary || null;
 
     const result = await client.query(`
-      INSERT INTO kb_articles (title, slug, content, excerpt, category_id, author_id, status, visibility, tags, published_at)
+      INSERT INTO kb_articles (title, slug, content, summary, category_id, author_id, status, visibility, tags, published_at)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *
     `, [title, slug, content, articleExcerpt, category_id, req.user.id, status, visibility, tags, status === 'published' ? new Date() : null]);
 
@@ -237,7 +237,7 @@ router.put('/articles/:id', auth, async (req, res) => {
     const result = await client.query(`
       UPDATE kb_articles SET
         title = COALESCE($1, title), content = COALESCE($2, content),
-        excerpt = COALESCE($3, excerpt), category_id = COALESCE($4, category_id),
+        summary = COALESCE($3, summary), category_id = COALESCE($4, category_id),
         tags = COALESCE($5, tags), status = COALESCE($6, status),
         visibility = COALESCE($7, visibility), is_featured = COALESCE($8, is_featured),
         published_at = CASE WHEN $6 = 'published' AND published_at IS NULL THEN CURRENT_TIMESTAMP ELSE published_at END,
