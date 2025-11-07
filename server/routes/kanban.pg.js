@@ -117,7 +117,6 @@ router.post('/tasks', auth, async (req, res) => {
       priority = 'medium',
       assigned_to,
       due_date,
-      estimated_hours,
       tags
     } = req.body;
 
@@ -128,12 +127,11 @@ router.post('/tasks', auth, async (req, res) => {
     const result = await client.query(`
       INSERT INTO tasks (
         title, description, status, priority, assigned_to, due_date,
-        estimated_hours, tags, created_by
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9)
+        tags, created_by
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8)
       RETURNING *
     `, [
       title, description, status, priority, assigned_to, due_date,
-      estimated_hours,
       tags ? JSON.stringify(tags) : JSON.stringify([]),
       req.user.id
     ]);
@@ -188,8 +186,7 @@ router.put('/tasks/:id', auth, async (req, res) => {
 
     const { id } = req.params;
     const {
-      title, description, status, priority, assigned_to, due_date,
-      estimated_hours, actual_hours, tags, cover_image
+      title, description, status, priority, assigned_to, due_date, tags
     } = req.body;
 
     // Get old task for activity log
@@ -206,15 +203,12 @@ router.put('/tasks/:id', auth, async (req, res) => {
         priority = COALESCE($4, priority),
         assigned_to = COALESCE($5, assigned_to),
         due_date = COALESCE($6, due_date),
-        estimated_hours = COALESCE($7, estimated_hours),
-        actual_hours = COALESCE($8, actual_hours),
-        tags = COALESCE($9::jsonb, tags),
+        tags = COALESCE($7::jsonb, tags),
         updated_at = CURRENT_TIMESTAMP
-      WHERE id = $10
+      WHERE id = $8
       RETURNING *
     `, [
       title, description, status, priority, assigned_to, due_date,
-      estimated_hours, actual_hours,
       tags ? JSON.stringify(tags) : null,
       id
     ]);
