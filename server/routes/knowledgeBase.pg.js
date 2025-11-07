@@ -182,6 +182,17 @@ router.post('/articles', auth, async (req, res) => {
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *
     `, [title, slug, content, articleSummary, category_id, req.user.id, status, visibility, tags, status === 'published' ? new Date() : null]);
 
+    // Handle tags - insert/update in kb_tags table
+    if (tags && Array.isArray(tags) && tags.length > 0) {
+      for (const tag of tags) {
+        await client.query(`
+          INSERT INTO kb_tags (name, usage_count)
+          VALUES ($1, 1)
+          ON CONFLICT (name) DO UPDATE SET usage_count = kb_tags.usage_count + 1
+        `, [tag]);
+      }
+    }
+
     await client.query('COMMIT');
 
     if (status === 'published') {
@@ -233,6 +244,17 @@ router.put('/articles/:id', auth, async (req, res) => {
         updated_at = CURRENT_TIMESTAMP
       WHERE id = $9 RETURNING *
     `, [title, content, articleSummary, category_id, tags, status, visibility, featured, id]);
+
+    // Handle tags - insert/update in kb_tags table
+    if (tags && Array.isArray(tags) && tags.length > 0) {
+      for (const tag of tags) {
+        await client.query(`
+          INSERT INTO kb_tags (name, usage_count)
+          VALUES ($1, 1)
+          ON CONFLICT (name) DO UPDATE SET usage_count = kb_tags.usage_count + 1
+        `, [tag]);
+      }
+    }
 
     await client.query('COMMIT');
 
@@ -402,6 +424,97 @@ router.get('/search', auth, async (req, res) => {
   } catch (error) {
     logger.error('Error searching KB:', error);
     res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// @route   GET /api/kb/tags
+// @desc    Get all tags and popular tags
+router.get('/tags', auth, async (req, res) => {
+  try {
+    const allTags = await pool.query(
+      'SELECT * FROM kb_tags ORDER BY name ASC'
+    );
+
+    const popularTags = await pool.query(
+      'SELECT * FROM kb_tags ORDER BY usage_count DESC LIMIT 10'
+    );
+
+    res.json({
+      all: allTags.rows,
+      popular: popularTags.rows
+    });
+  } catch (error) {
+    console.error('Error fetching tags:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   GET /api/kb/articles/:id/versions
+// @desc    Get version history for an article
+router.get('/articles/:id/versions', auth, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const versions = await pool.query(
+      `SELECT v.*, u.name as author_name, a.current_version
+       FROM kb_article_versions v
+       LEFT JOIN users u ON v.author_id = u.id
+       LEFT JOIN kb_articles a ON v.article_id = a.id
+       WHERE v.article_id = $1
+       ORDER BY v.version_number DESC`,
+      [id]
+    );
+
+    res.json(versions.rows);
+  } catch (error) {
+    console.error('Error fetching versions:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// @route   POST /api/kb/articles/:id/versions/:versionId/restore
+// @desc    Restore an article to a specific version
+router.post('/articles/:id/versions/:versionId/restore', auth, async (req, res) => {
+  const { id, versionId } = req.params;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Get the version data
+    const version = await client.query(
+      'SELECT * FROM kb_article_versions WHERE id = $1 AND article_id = $2',
+      [versionId, id]
+    );
+
+    if (version.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Version not found' });
+    }
+
+    const v = version.rows[0];
+
+    // Update the article with version data
+    await client.query(
+      `UPDATE kb_articles
+       SET title = $1, content = $2, summary = $3, category_id = $4,
+           tags = $5, last_edited_by = $6, last_edited_at = NOW(), updated_at = NOW()
+       WHERE id = $7`,
+      [v.title, v.content, v.summary, v.category_id, v.tags, req.user.id, id]
+    );
+
+    await client.query('COMMIT');
+
+    // Return updated article
+    const updated = await pool.query('SELECT * FROM kb_articles WHERE id = $1', [id]);
+    res.json(updated.rows[0]);
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error restoring version:', error);
+    res.status(500).json({ error: 'Server error' });
+  } finally {
+    client.release();
   }
 });
 

@@ -51,9 +51,28 @@ async function ensureWasteKanbanLinkColumn() {
       );
     }
 
+    // Check for display_order column
+    const displayOrderCheck = await pool.query(
+      `SELECT 1
+         FROM information_schema.columns
+        WHERE table_name = 'waste_items'
+          AND column_name = 'display_order'
+        LIMIT 1`
+    );
+
+    if (displayOrderCheck.rows.length === 0) {
+      await pool.query(
+        `ALTER TABLE waste_items
+           ADD COLUMN display_order INTEGER DEFAULT 0`
+      );
+      await pool.query(
+        `CREATE INDEX IF NOT EXISTS idx_waste_items_display_order ON waste_items(display_order)`
+      );
+    }
+
     wasteKanbanColumnEnsured = true;
   } catch (error) {
-    console.error('Failed to ensure waste_items.kanban_task_id column:', error);
+    console.error('Failed to ensure waste_items columns:', error);
   }
 }
 
@@ -584,25 +603,34 @@ router.post('/items', auth, async (req, res) => {
 // @route   PUT /api/waste/items/:id
 // @desc    Update a waste item
 router.put('/items/:id', auth, async (req, res) => {
-  const { name, location, quantity, unit, status, next_disposal_date, last_disposal_date, notes } = req.body;
+  const { name, location, quantity, unit, status, next_disposal_date, last_disposal_date, notes, assigned_to } = req.body;
   const { id } = req.params;
+
+  const client = await pool.connect();
 
   try {
     await ensureWasteKanbanLinkColumn();
     // Validate ID
     if (!id || isNaN(parseInt(id))) {
+      client.release();
       return res.status(400).json({ error: 'Ungültige ID' });
     }
 
-    // Check if item exists
-    const itemCheck = await pool.query(
-      'SELECT id FROM waste_items WHERE id = $1',
+    await client.query('BEGIN');
+
+    // Check if item exists and get kanban_task_id
+    const itemCheck = await client.query(
+      'SELECT id, kanban_task_id FROM waste_items WHERE id = $1',
       [id]
     );
 
     if (itemCheck.rows.length === 0) {
+      await client.query('ROLLBACK');
+      client.release();
       return res.status(404).json({ error: 'Abfallelement nicht gefunden' });
     }
+
+    const taskId = itemCheck.rows[0].kanban_task_id;
 
     // Build dynamic update query
     const updateFields = [];
@@ -611,6 +639,8 @@ router.put('/items/:id', auth, async (req, res) => {
 
     if (name !== undefined) {
       if (!name.trim()) {
+        await client.query('ROLLBACK');
+        client.release();
         return res.status(400).json({ error: 'Name darf nicht leer sein' });
       }
       updateFields.push(`name = $${paramCount}`);
@@ -626,6 +656,8 @@ router.put('/items/:id', auth, async (req, res) => {
 
     if (quantity !== undefined) {
       if (quantity !== null && isNaN(parseFloat(quantity))) {
+        await client.query('ROLLBACK');
+        client.release();
         return res.status(400).json({ error: 'Ungültige Menge' });
       }
       updateFields.push(`quantity = $${paramCount}`);
@@ -642,6 +674,8 @@ router.put('/items/:id', auth, async (req, res) => {
     if (status !== undefined) {
       const validStatuses = ['active', 'disposed', 'archived'];
       if (!validStatuses.includes(status)) {
+        await client.query('ROLLBACK');
+        client.release();
         return res.status(400).json({ error: 'Ungültiger Status' });
       }
       updateFields.push(`status = $${paramCount}`);
@@ -668,6 +702,8 @@ router.put('/items/:id', auth, async (req, res) => {
     }
 
     if (updateFields.length === 0) {
+      await client.query('ROLLBACK');
+      client.release();
       return res.status(400).json({ error: 'Keine zu aktualisierenden Felder angegeben' });
     }
 
@@ -676,66 +712,105 @@ router.put('/items/:id', auth, async (req, res) => {
 
     const query = `UPDATE waste_items SET ${updateFields.join(', ')} WHERE id = $${paramCount} RETURNING *`;
 
-    const result = await pool.query(query, values);
+    const result = await client.query(query, values);
     const updatedItem = result.rows[0];
 
-    if (updatedItem.kanban_task_id) {
+    // Update linked kanban task
+    if (taskId) {
+      const taskUpdateFields = [];
+      const taskValues = [];
+      let taskParamCount = 1;
+
       if (status === 'disposed') {
-        await pool.query(
-          `UPDATE tasks
-              SET status = 'done',
-                  completed_at = COALESCE(completed_at, CURRENT_TIMESTAMP),
-                  updated_at = CURRENT_TIMESTAMP
-            WHERE id = $1`,
-          [updatedItem.kanban_task_id]
-        );
+        taskUpdateFields.push(`status = 'done'`);
+        taskUpdateFields.push(`completed_at = COALESCE(completed_at, CURRENT_TIMESTAMP)`);
       } else if (status === 'active') {
-        await pool.query(
-          `UPDATE tasks
-              SET status = 'todo',
-                  updated_at = CURRENT_TIMESTAMP
-            WHERE id = $1`,
-          [updatedItem.kanban_task_id]
-        );
+        taskUpdateFields.push(`status = 'todo'`);
+      }
+
+      if (assigned_to !== undefined) {
+        if (assigned_to === null) {
+          taskUpdateFields.push('assigned_to = NULL');
+        } else {
+          // Validate user exists
+          const userCheck = await client.query(
+            'SELECT id FROM users WHERE id = $1',
+            [assigned_to]
+          );
+
+          if (userCheck.rows.length === 0) {
+            await client.query('ROLLBACK');
+            client.release();
+            return res.status(400).json({ error: 'Ungültige Benutzer-ID' });
+          }
+
+          taskUpdateFields.push(`assigned_to = $${taskParamCount}`);
+          taskValues.push(assigned_to);
+          taskParamCount++;
+        }
+      }
+
+      if (taskUpdateFields.length > 0) {
+        taskUpdateFields.push('updated_at = CURRENT_TIMESTAMP');
+        taskValues.push(taskId);
+        const taskQuery = `UPDATE tasks SET ${taskUpdateFields.join(', ')} WHERE id = $${taskParamCount}`;
+        await client.query(taskQuery, taskValues);
       }
     }
 
+    await client.query('COMMIT');
     res.json({ message: 'Abfallelement erfolgreich aktualisiert', item: updatedItem });
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error('Datenbankfehler:', error);
     res.status(500).json({ error: 'Serverfehler' });
+  } finally {
+    client.release();
   }
 });
 
 // @route   DELETE /api/waste/items/:id
-// @desc    Delete a waste item (admin only)
-router.delete('/items/:id', auth, adminAuth, async (req, res) => {
+// @desc    Delete a waste item and its linked kanban task
+router.delete('/items/:id', auth, async (req, res) => {
   const { id } = req.params;
 
   try {
     await ensureWasteKanbanLinkColumn();
-    // Validate ID
-    if (!id || isNaN(parseInt(id))) {
-      return res.status(400).json({ error: 'Ungültige ID' });
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Get linked task ID
+      const wasteItem = await client.query(
+        'SELECT kanban_task_id FROM waste_items WHERE id = $1',
+        [id]
+      );
+
+      if (wasteItem.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Abfallelement nicht gefunden' });
+      }
+
+      const taskId = wasteItem.rows[0].kanban_task_id;
+
+      // Delete waste item (cascade will handle attachments)
+      await client.query('DELETE FROM waste_items WHERE id = $1', [id]);
+
+      // Delete linked task if exists
+      if (taskId) {
+        await client.query('DELETE FROM tasks WHERE id = $1', [taskId]);
+      }
+
+      await client.query('COMMIT');
+      res.json({ success: true, message: 'Abfallelement gelöscht' });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
     }
-
-    const itemResult = await pool.query(
-      'DELETE FROM waste_items WHERE id = $1 RETURNING id, kanban_task_id',
-      [id]
-    );
-
-    if (itemResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Abfallelement nicht gefunden' });
-    }
-
-    const taskId = itemResult.rows[0].kanban_task_id;
-    if (taskId) {
-      await pool.query('DELETE FROM tasks WHERE id = $1', [taskId]);
-    }
-
-    res.json({ message: 'Abfallelement erfolgreich gelöscht' });
   } catch (error) {
-    console.error('Datenbankfehler:', error);
+    console.error('Error deleting waste item:', error);
     res.status(500).json({ error: 'Serverfehler' });
   }
 });
@@ -806,6 +881,37 @@ router.post('/notifications', auth, async (req, res) => {
     res.json({ message: 'Benachrichtigungen erfolgreich gesendet' });
   } catch (error) {
     console.error('Fehler beim Senden von Benachrichtigungen:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// @route   PUT /api/waste/items/reorder
+// @desc    Reorder waste items (for drag-and-drop)
+router.put('/items/reorder', auth, async (req, res) => {
+  const { items } = req.body; // array of {id, order}
+
+  try {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      for (const item of items) {
+        await client.query(
+          'UPDATE waste_items SET display_order = $1, updated_at = NOW() WHERE id = $2',
+          [item.order, item.id]
+        );
+      }
+
+      await client.query('COMMIT');
+      res.json({ success: true });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Error reordering items:', error);
     res.status(500).json({ error: 'Serverfehler' });
   }
 });
