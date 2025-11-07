@@ -700,6 +700,24 @@ router.put('/items/:id', auth, async (req, res) => {
       paramCount++;
     }
 
+    if (assigned_to !== undefined) {
+      if (assigned_to !== null && assigned_to !== '') {
+        // Validate user exists
+        const userCheck = await client.query(
+          'SELECT id FROM users WHERE id = $1',
+          [assigned_to]
+        );
+        if (userCheck.rows.length === 0) {
+          await client.query('ROLLBACK');
+          client.release();
+          return res.status(400).json({ error: 'Ungültige Benutzer-ID' });
+        }
+      }
+      updateFields.push(`assigned_to = $${paramCount}`);
+      values.push(assigned_to || null);
+      paramCount++;
+    }
+
     if (updateFields.length === 0) {
       await client.query('ROLLBACK');
       client.release();
