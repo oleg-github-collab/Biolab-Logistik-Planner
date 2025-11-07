@@ -18,7 +18,11 @@ import {
   User,
   ChevronLeft,
   ChevronRight,
-  CalendarDays
+  CalendarDays,
+  Smile,
+  Reply,
+  Pin,
+  MoreVertical
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useWebSocketContext } from '../context/WebSocketContext';
@@ -68,6 +72,10 @@ const DirectMessenger = () => {
   const [eventsLoading, setEventsLoading] = useState(false);
   const [eventError, setEventError] = useState('');
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [replyToMessage, setReplyToMessage] = useState(null);
+  const [pinnedMessages, setPinnedMessages] = useState([]);
+  const [showReactionPicker, setShowReactionPicker] = useState(null);
+  const [hoveredMessage, setHoveredMessage] = useState(null);
 
   const fileInputRef = useRef(null);
   const mediaRecorderRef = useRef(null);
@@ -272,8 +280,10 @@ const DirectMessenger = () => {
     const inputValue = messageInput;
     const attachments = [...pendingAttachments];
     const eventToShare = selectedEvent;
+    const replyTo = replyToMessage;
     setMessageInput('');
     setPendingAttachments([]);
+    setReplyToMessage(null);
     setSending(true);
 
     try {
@@ -299,9 +309,18 @@ const DirectMessenger = () => {
         attachments: attachmentsData
       };
 
+      if (replyTo) {
+        payload.metadata = payload.metadata || {};
+        payload.metadata.reply_to = {
+          id: replyTo.id,
+          message: replyTo.message,
+          sender_name: replyTo.sender_name
+        };
+      }
+
       if (eventToShare) {
-        payload.metadata = {
-          shared_event: {
+        payload.metadata = payload.metadata || {};
+        payload.metadata.shared_event = {
             id: eventToShare.id,
             title: eventToShare.title,
             start_time: eventToShare.start_time,
@@ -506,6 +525,53 @@ const DirectMessenger = () => {
     }
   };
 
+  const handleReaction = useCallback((messageId, emoji) => {
+    setMessages((prev) =>
+      prev.map((msg) => {
+        if (msg.id !== messageId) return msg;
+
+        const reactions = { ...(msg.reactions || {}) };
+        if (!reactions[emoji]) {
+          reactions[emoji] = [];
+        }
+
+        const userIndex = reactions[emoji].indexOf(user.id);
+        if (userIndex > -1) {
+          reactions[emoji].splice(userIndex, 1);
+          if (reactions[emoji].length === 0) {
+            delete reactions[emoji];
+          }
+        } else {
+          reactions[emoji].push(user.id);
+        }
+
+        return { ...msg, reactions };
+      })
+    );
+    setShowReactionPicker(null);
+  }, [user]);
+
+  const handleReplyTo = useCallback((message) => {
+    setReplyToMessage(message);
+  }, []);
+
+  const cancelReply = useCallback(() => {
+    setReplyToMessage(null);
+  }, []);
+
+  const handlePinMessage = useCallback((message) => {
+    setPinnedMessages((prev) => {
+      const isAlreadyPinned = prev.some((m) => m.id === message.id);
+      if (isAlreadyPinned) {
+        showSuccess('Nachricht entfestigt');
+        return prev.filter((m) => m.id !== message.id);
+      } else {
+        showSuccess('Nachricht angepinnt');
+        return [...prev, message];
+      }
+    });
+  }, []);
+
   const filteredContacts = useMemo(
     () =>
       contacts.filter(
@@ -598,147 +664,269 @@ const DirectMessenger = () => {
       ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white'
       : 'bg-white text-slate-900 border border-slate-200';
 
+    const isHovered = hoveredMessage === msg.id;
+    const isPinned = pinnedMessages.some((m) => m.id === msg.id);
+
     return (
-      <div
-        className={
-          isMobile
-            ? baseClassMobile
-            : `max-w-md lg:max-w-lg rounded-2xl px-4 py-3 shadow-sm ${baseClassDesktop}`
-        }
-      >
-        {!isMine && msg.sender_name && !isMobile && (
-          <p className="text-xs font-semibold text-blue-600 mb-1">
-            {msg.sender_name}
-          </p>
-        )}
-
-        {msg.message_type === 'gif' || (msg.message && (msg.message.includes('giphy.com') || msg.message.includes('tenor.com') || msg.message.match(/\.(gif|webp)(\?|$)/i))) ? (
-          <img src={msg.message} alt="GIF" className="rounded-lg max-h-60 w-full object-contain" />
-        ) : (
-          <p className={`${isMobile ? 'message-text' : 'text-sm whitespace-pre-wrap break-words'}`}>
-            {msg.message}
-          </p>
-        )}
-
-        {msg.attachments?.length > 0 && (
-          <div className="mt-2 space-y-2">
-            {msg.attachments.map((att, idx) => {
-              if (att.type === 'image') {
-                return (
-                  <img
-                    key={`${att.url}-${idx}`}
-                    src={att.url}
-                    alt="Anhang"
-                    className="rounded-xl max-h-48 w-full object-cover"
-                  />
-                );
-              }
-              if (att.type === 'audio') {
-                return (
-                  <audio key={`${att.url}-${idx}`} controls src={att.url} className="w-full mt-2" />
-                );
-              }
-              return (
-                <a
-                  key={`${att.url}-${idx}`}
-                  href={att.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-xs underline text-blue-600"
-                >
-                  📎 {att.name || 'Datei'}
-                </a>
-              );
-            })}
-          </div>
-        )}
-
-        {(() => {
-          const calendarRefsRaw = Array.isArray(msg.calendar_refs) ? msg.calendar_refs : [];
-          const metadataEvent = msg.metadata?.shared_event;
-          const calendarRefs = [...calendarRefsRaw];
-
-          if (!calendarRefs.length && metadataEvent) {
-            calendarRefs.push({
-              id: `meta-${msg.id}`,
-              event_id: metadataEvent.id,
-              event_title: metadataEvent.title,
-              event_start_time: metadataEvent.start_time,
-              event_end_time: metadataEvent.end_time,
-              location: metadataEvent.location || null
-            });
+      <div className="relative group">
+        <div
+          className={
+            isMobile
+              ? baseClassMobile
+              : `max-w-md lg:max-w-lg rounded-2xl px-4 py-3 shadow-sm ${baseClassDesktop}`
           }
+          onMouseEnter={() => setHoveredMessage(msg.id)}
+          onMouseLeave={() => setHoveredMessage(null)}
+        >
+          {!isMine && msg.sender_name && !isMobile && (
+            <p className="text-xs font-semibold text-blue-600 mb-1">
+              {msg.sender_name}
+            </p>
+          )}
 
-          if (!calendarRefs.length) {
-            return null;
-          }
-
-          return calendarRefs.map((ref) => (
+          {/* Reply-to display */}
+          {msg.metadata?.reply_to && (
             <div
-              key={`${msg.id}-event-${ref.id || ref.event_id}`}
-              className={`mt-3 w-full max-w-md rounded-2xl border ${
-                isMine ? 'border-blue-200 bg-blue-50/80' : 'border-slate-200 bg-white'
-              } shadow-sm`}
+              className={`mb-2 px-3 py-2 rounded-lg border-l-4 ${
+                isMine
+                  ? 'bg-blue-500/20 border-blue-300'
+                  : 'bg-slate-100 border-slate-400'
+              }`}
             >
-              <div className="flex items-start gap-3 px-4 py-3">
-                <div
-                  className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl ${
-                    isMine ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-700'
-                  }`}
-                >
-                  <CalendarDays className="w-5 h-5" />
+              <p className={`text-xs font-semibold ${isMine ? 'text-blue-100' : 'text-slate-600'}`}>
+                {msg.metadata.reply_to.sender_name}
+              </p>
+              <p className={`text-xs ${isMine ? 'text-blue-200' : 'text-slate-500'} truncate`}>
+                {msg.metadata.reply_to.message}
+              </p>
+            </div>
+          )}
+
+          {msg.message_type === 'gif' || (msg.message && (msg.message.includes('giphy.com') || msg.message.includes('tenor.com') || msg.message.match(/\.(gif|webp)(\?|$)/i))) ? (
+            <img src={msg.message} alt="GIF" className="rounded-lg max-h-60 w-full object-contain" />
+          ) : (
+            <p className={`${isMobile ? 'message-text' : 'text-sm whitespace-pre-wrap break-words'}`}>
+              {msg.message}
+            </p>
+          )}
+
+          {msg.attachments?.length > 0 && (
+            <div className="mt-2 space-y-2">
+              {msg.attachments.map((att, idx) => {
+                if (att.type === 'image') {
+                  return (
+                    <img
+                      key={`${att.url}-${idx}`}
+                      src={att.url}
+                      alt="Anhang"
+                      className="rounded-xl max-h-48 w-full object-cover"
+                    />
+                  );
+                }
+                if (att.type === 'audio') {
+                  return (
+                    <audio key={`${att.url}-${idx}`} controls src={att.url} className="w-full mt-2" />
+                  );
+                }
+                return (
+                  <a
+                    key={`${att.url}-${idx}`}
+                    href={att.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-xs underline text-blue-600"
+                  >
+                    📎 {att.name || 'Datei'}
+                  </a>
+                );
+              })}
+            </div>
+          )}
+
+          {(() => {
+            const calendarRefsRaw = Array.isArray(msg.calendar_refs) ? msg.calendar_refs : [];
+            const metadataEvent = msg.metadata?.shared_event;
+            const calendarRefs = [...calendarRefsRaw];
+
+            if (!calendarRefs.length && metadataEvent) {
+              calendarRefs.push({
+                id: `meta-${msg.id}`,
+                event_id: metadataEvent.id,
+                event_title: metadataEvent.title,
+                event_start_time: metadataEvent.start_time,
+                event_end_time: metadataEvent.end_time,
+                location: metadataEvent.location || null
+              });
+            }
+
+            if (!calendarRefs.length) {
+              return null;
+            }
+
+            return calendarRefs.map((ref) => (
+              <div
+                key={`${msg.id}-event-${ref.id || ref.event_id}`}
+                className={`mt-3 w-full max-w-md rounded-2xl border ${
+                  isMine ? 'border-blue-200 bg-blue-50/80' : 'border-slate-200 bg-white'
+                } shadow-sm`}
+              >
+                <div className="flex items-start gap-3 px-4 py-3">
+                  <div
+                    className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl ${
+                      isMine ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-700'
+                    }`}
+                  >
+                    <CalendarDays className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-slate-900">
+                      {ref.event_title || 'Kalenderereignis'}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {formatEventDateRange(ref.event_start_time, ref.event_end_time)}
+                    </p>
+                    {ref.location && (
+                      <p className="text-xs text-slate-500 mt-1">Ort: {ref.location}</p>
+                    )}
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-slate-900">
-                    {ref.event_title || 'Kalenderereignis'}
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    {formatEventDateRange(ref.event_start_time, ref.event_end_time)}
-                  </p>
-                  {ref.location && (
-                    <p className="text-xs text-slate-500 mt-1">Ort: {ref.location}</p>
-                  )}
+                <div className="border-t border-slate-200 px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate('/dashboard', {
+                        state: { focusEventId: ref.event_id }
+                      })
+                    }
+                    className={`text-xs font-semibold uppercase tracking-wide ${
+                      isMine
+                        ? 'text-blue-700 hover:text-blue-900'
+                        : 'text-slate-600 hover:text-slate-800'
+                    }`}
+                  >
+                    Im Kalender öffnen →
+                  </button>
                 </div>
               </div>
-              <div className="border-t border-slate-200 px-4 py-3">
+            ));
+          })()}
+
+          {/* Reactions display */}
+          {msg.reactions && Object.keys(msg.reactions).length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {Object.entries(msg.reactions).map(([emoji, userIds]) => (
                 <button
-                  type="button"
-                  onClick={() =>
-                    navigate('/dashboard', {
-                      state: { focusEventId: ref.event_id }
-                    })
-                  }
-                  className={`text-xs font-semibold uppercase tracking-wide ${
-                    isMine
-                      ? 'text-blue-700 hover:text-blue-900'
-                      : 'text-slate-600 hover:text-slate-800'
-                  }`}
+                  key={emoji}
+                  onClick={() => handleReaction(msg.id, emoji)}
+                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${
+                    userIds.includes(user.id)
+                      ? 'bg-blue-100 border border-blue-300'
+                      : 'bg-slate-100 border border-slate-200'
+                  } hover:scale-110 transition-transform`}
                 >
-                  Im Kalender öffnen →
+                  <span>{emoji}</span>
+                  <span className="font-semibold">{userIds.length}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div
+            className={`mt-2 text-xs opacity-75 flex items-center justify-between ${
+              isMobile ? 'message-time' : ''
+            }`}
+          >
+            <span>{format(parseISO(msg.created_at), 'HH:mm', { locale: de })}</span>
+            {isMine && (
+              <div className="flex items-center gap-1">
+                {msg.read ? <CheckCheck className="w-4 h-4" /> : <Check className="w-4 h-4" />}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Message action buttons - show on hover (desktop only) */}
+        {!isMobile && (isHovered || showReactionPicker === msg.id) && (
+          <div
+            className={`absolute top-0 ${
+              isMine ? 'left-0 -translate-x-full' : 'right-0 translate-x-full'
+            } flex items-center gap-1 px-2`}
+          >
+            <button
+              onClick={() => setShowReactionPicker(showReactionPicker === msg.id ? null : msg.id)}
+              className="p-1.5 bg-white border border-slate-200 rounded-full hover:bg-slate-50 shadow-sm transition"
+              title="Reagieren"
+            >
+              <Smile className="w-4 h-4 text-slate-600" />
+            </button>
+            <button
+              onClick={() => handleReplyTo(msg)}
+              className="p-1.5 bg-white border border-slate-200 rounded-full hover:bg-slate-50 shadow-sm transition"
+              title="Antworten"
+            >
+              <Reply className="w-4 h-4 text-slate-600" />
+            </button>
+            <button
+              onClick={() => handlePinMessage(msg)}
+              className={`p-1.5 border rounded-full shadow-sm transition ${
+                isPinned
+                  ? 'bg-yellow-100 border-yellow-300 text-yellow-600'
+                  : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-600'
+              }`}
+              title={isPinned ? 'Entfestigen' : 'Anpinnen'}
+            >
+              <Pin className="w-4 h-4" />
+            </button>
+            <div className="relative">
+              <button
+                onClick={() => {
+                  const dropdown = document.getElementById(`dropdown-${msg.id}`);
+                  if (dropdown) {
+                    dropdown.classList.toggle('hidden');
+                  }
+                }}
+                className="p-1.5 bg-white border border-slate-200 rounded-full hover:bg-slate-50 shadow-sm transition"
+                title="Mehr"
+              >
+                <MoreVertical className="w-4 h-4 text-slate-600" />
+              </button>
+              <div
+                id={`dropdown-${msg.id}`}
+                className="hidden absolute top-full mt-1 right-0 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-10 min-w-[120px]"
+              >
+                <button
+                  onClick={() => {
+                    handleDeleteMessage(msg.id);
+                    document.getElementById(`dropdown-${msg.id}`)?.classList.add('hidden');
+                  }}
+                  className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Löschen
                 </button>
               </div>
             </div>
-          ));
-        })()}
+          </div>
+        )}
 
-        <div
-          className={`mt-2 text-xs opacity-75 flex items-center justify-between ${
-            isMobile ? 'message-time' : ''
-          }`}
-        >
-          <span>{format(parseISO(msg.created_at), 'HH:mm', { locale: de })}</span>
-          {isMine && (
-            <div className="flex items-center gap-1">
-              {msg.read ? <CheckCheck className="w-4 h-4" /> : <Check className="w-4 h-4" />}
+        {/* Reaction picker popup */}
+        {showReactionPicker === msg.id && (
+          <div
+            className={`absolute ${
+              isMine ? 'right-0' : 'left-0'
+            } top-full mt-2 bg-white border border-slate-200 rounded-xl shadow-xl p-2 flex gap-2 z-20`}
+          >
+            {['👍', '❤️', '😂', '😮', '😢', '🙏'].map((emoji) => (
               <button
-                onClick={() => handleDeleteMessage(msg.id)}
-                className="ml-2 hover:text-red-400 transition"
+                key={emoji}
+                onClick={() => handleReaction(msg.id, emoji)}
+                className="text-2xl hover:scale-125 transition-transform p-1"
               >
-                <Trash2 className="w-3 h-3" />
+                {emoji}
               </button>
-            </div>
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   };
@@ -756,6 +944,8 @@ const DirectMessenger = () => {
 
     return messages.map((msg) => {
       const isMine = msg.sender_id === user?.id;
+      const isPinned = pinnedMessages.some((m) => m.id === msg.id);
+
       return (
         <div
           key={msg.id}
@@ -763,7 +953,49 @@ const DirectMessenger = () => {
             isMobile ? '' : 'px-1'
           }`}
         >
-          {renderMessageContent(msg, isMine)}
+          <div className="relative w-full flex items-center gap-2">
+            {renderMessageContent(msg, isMine)}
+
+            {/* Mobile action buttons - always visible on mobile */}
+            {isMobile && (
+              <div className="flex flex-col gap-1">
+                <button
+                  onClick={() => setShowReactionPicker(showReactionPicker === msg.id ? null : msg.id)}
+                  className="p-1.5 bg-white/90 backdrop-blur border border-slate-200 rounded-full hover:bg-slate-50 shadow-sm transition"
+                  title="Reagieren"
+                >
+                  <Smile className="w-3.5 h-3.5 text-slate-600" />
+                </button>
+                <button
+                  onClick={() => handleReplyTo(msg)}
+                  className="p-1.5 bg-white/90 backdrop-blur border border-slate-200 rounded-full hover:bg-slate-50 shadow-sm transition"
+                  title="Antworten"
+                >
+                  <Reply className="w-3.5 h-3.5 text-slate-600" />
+                </button>
+                <button
+                  onClick={() => handlePinMessage(msg)}
+                  className={`p-1.5 border rounded-full shadow-sm transition backdrop-blur ${
+                    isPinned
+                      ? 'bg-yellow-100/90 border-yellow-300 text-yellow-600'
+                      : 'bg-white/90 border-slate-200 hover:bg-slate-50 text-slate-600'
+                  }`}
+                  title={isPinned ? 'Entfestigen' : 'Anpinnen'}
+                >
+                  <Pin className="w-3.5 h-3.5" />
+                </button>
+                {isMine && (
+                  <button
+                    onClick={() => handleDeleteMessage(msg.id)}
+                    className="p-1.5 bg-white/90 backdrop-blur border border-slate-200 rounded-full hover:bg-red-50 shadow-sm transition"
+                    title="Löschen"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       );
     });
@@ -918,7 +1150,7 @@ const DirectMessenger = () => {
   );
 
   const renderDesktopLayout = () => (
-    <div className="flex flex-1 bg-gradient-to-br from-slate-50 to-slate-100 rounded-2xl overflow-hidden border border-slate-200 shadow-lg">
+    <div className="flex h-full bg-gradient-to-br from-slate-50 to-slate-100 rounded-2xl overflow-hidden border border-slate-200 shadow-lg">
       {showSidebar && (
         <ContactList
           variant="panel"
@@ -929,7 +1161,7 @@ const DirectMessenger = () => {
         />
       )}
 
-      <div className="flex-1 flex flex-col bg-white">
+      <div className="flex-1 flex flex-col bg-white min-h-0">
         {selectedContact ? (
           <>
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white shadow-sm">
@@ -958,6 +1190,25 @@ const DirectMessenger = () => {
             </div>
 
             <div className="border-t border-slate-200 bg-white p-4">
+              {replyToMessage && (
+                <div className="mb-3 flex items-center gap-3 px-4 py-2 rounded-xl bg-slate-100 text-slate-700 shadow-sm border border-slate-300">
+                  <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-slate-600 text-white">
+                    <Reply className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-slate-600">Antwort an {replyToMessage.sender_name}</p>
+                    <p className="text-sm truncate">{replyToMessage.message}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={cancelReply}
+                    className="p-1 rounded-full hover:bg-slate-200 transition"
+                    title="Antwort abbrechen"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
               {selectedEvent && (
                 <div className="mb-3 flex items-center gap-3 px-4 py-2 rounded-xl bg-blue-50 text-blue-700 shadow-sm border border-blue-200">
                   <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-600 text-white">
@@ -1121,6 +1372,26 @@ const DirectMessenger = () => {
         )}
         <div ref={messagesEndRef} />
       </div>
+
+      {replyToMessage && (
+        <div className="px-4 py-3 bg-slate-800 text-slate-100 flex items-center gap-3 border-t border-slate-700">
+          <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-slate-600 text-white">
+            <Reply className="w-5 h-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-slate-400">Antwort an {replyToMessage.sender_name}</p>
+            <p className="text-sm truncate">{replyToMessage.message}</p>
+          </div>
+          <button
+            type="button"
+            onClick={cancelReply}
+            className="p-2 rounded-full hover:bg-slate-700 transition"
+            title="Antwort abbrechen"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {selectedEvent && (
         <div className="px-4 py-3 bg-slate-900 text-blue-100 flex items-center gap-3 border-t border-slate-800">

@@ -2,7 +2,7 @@ import React from 'react';
 import DirectMessenger from '../components/DirectMessenger';
 
 const Messages = () => (
-  <div className="min-h-screen bg-slate-50 pt-4 pb-24 lg:pb-8">
+  <div className="fixed inset-0 top-16 lg:top-20 bottom-0 bg-slate-50 px-4 py-4 lg:px-6">
     <DirectMessenger />
   </div>
 );
