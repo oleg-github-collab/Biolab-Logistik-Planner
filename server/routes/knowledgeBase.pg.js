@@ -176,11 +176,12 @@ router.post('/articles', auth, async (req, res) => {
 
     const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Date.now();
     const articleExcerpt = excerpt || summary || null;
+    const tagsJson = Array.isArray(tags) ? JSON.stringify(tags) : '[]';
 
     const result = await client.query(`
       INSERT INTO kb_articles (title, slug, content, summary, category_id, author_id, status, visibility, tags, published_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *
-    `, [title, slug, content, articleExcerpt, category_id, req.user.id, status, visibility, tags, status === 'published' ? new Date() : null]);
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10) RETURNING *
+    `, [title, slug, content, articleExcerpt, category_id, req.user.id, status, visibility, tagsJson, status === 'published' ? new Date() : null]);
 
     // Handle tags - insert/update in kb_tags table
     if (tags && Array.isArray(tags) && tags.length > 0) {
@@ -233,17 +234,18 @@ router.put('/articles/:id', auth, async (req, res) => {
     `, [id, oldArticle.rows[0].title, oldArticle.rows[0].content, req.user.id]);
 
     const articleExcerpt = excerpt || summary || null;
+    const tagsJson = tags && Array.isArray(tags) ? JSON.stringify(tags) : null;
 
     const result = await client.query(`
       UPDATE kb_articles SET
         title = COALESCE($1, title), content = COALESCE($2, content),
         summary = COALESCE($3, summary), category_id = COALESCE($4, category_id),
-        tags = COALESCE($5, tags), status = COALESCE($6, status),
+        tags = COALESCE($5::jsonb, tags), status = COALESCE($6, status),
         visibility = COALESCE($7, visibility), is_featured = COALESCE($8, is_featured),
         published_at = CASE WHEN $6 = 'published' AND published_at IS NULL THEN CURRENT_TIMESTAMP ELSE published_at END,
         updated_at = CURRENT_TIMESTAMP
       WHERE id = $9 RETURNING *
-    `, [title, content, articleExcerpt, category_id, tags, status, visibility, featured, id]);
+    `, [title, content, articleExcerpt, category_id, tagsJson, status, visibility, featured, id]);
 
     // Handle tags - insert/update in kb_tags table
     if (tags && Array.isArray(tags) && tags.length > 0) {
