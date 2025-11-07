@@ -5,6 +5,7 @@ import React, {
   useCallback,
   useMemo
 } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Package,
   Scan,
@@ -72,6 +73,7 @@ const sortOptions = [
 ];
 
 const KistenManager = () => {
+  const navigate = useNavigate();
   const [bins, setBins] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('pending');
@@ -809,13 +811,16 @@ const KistenManager = () => {
                         Zum Kanban
                         <ArrowUpRight className="w-4 h-4" />
                       </a>
-                      <a
-                        href="/dashboard"
-                        className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700"
-                      >
-                        Zum Kalender
-                        <ArrowUpRight className="w-4 h-4" />
-                      </a>
+                      {bin.calendar_event_id && (
+                        <button
+                          type="button"
+                          onClick={() => navigate('/dashboard', { state: { focusEventId: bin.calendar_event_id } })}
+                          className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700"
+                        >
+                          Zum Kalender
+                          <ArrowUpRight className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 );

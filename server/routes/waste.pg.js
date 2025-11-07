@@ -493,16 +493,15 @@ router.post('/items', auth, async (req, res) => {
     const taskResult = await client.query(
       `INSERT INTO tasks (
         title, description, status, priority, due_date, category,
-        created_by, labels, checklist, created_at, updated_at
-      ) VALUES ($1, $2, 'todo', 'high', $3, 'waste', $4, $5::jsonb, $6::jsonb, NOW(), NOW())
+        created_by, tags, created_at, updated_at
+      ) VALUES ($1, $2, 'todo', 'high', $3, 'waste', $4, $5::jsonb, NOW(), NOW())
       RETURNING *`,
       [
         taskTitle,
         taskDescription || `Abfall aus Kategorie ${template.name}`,
         dueDate,
         req.user.id,
-        JSON.stringify(['waste', template.category || '']),
-        JSON.stringify([])
+        JSON.stringify(['waste', template.category || ''])
       ]
     );
 
