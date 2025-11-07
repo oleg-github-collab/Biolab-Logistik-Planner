@@ -216,7 +216,7 @@ router.put('/tasks/:id', auth, async (req, res) => {
               updated_at = NOW()
           WHERE kanban_task_id = $1
         `, [id]);
-      } else if (['todo', 'in_progress', 'backlog'].includes(status)) {
+      } else if (['todo', 'in_progress', 'backlog', 'review'].includes(status)) {
         await client.query(`
           UPDATE waste_items
           SET status = 'active',
