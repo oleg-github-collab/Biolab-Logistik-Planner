@@ -520,4 +520,122 @@ router.post('/articles/:id/versions/:versionId/restore', auth, async (req, res) 
   }
 });
 
+// POST /api/kb/articles/:id/media - Upload media (image, video, audio)
+router.post('/articles/:id/media', auth, uploadSingle('media'), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'Keine Datei hochgeladen' });
+    }
+
+    // Check if article exists
+    const articleCheck = await pool.query(
+      'SELECT id, author_id FROM kb_articles WHERE id = $1',
+      [id]
+    );
+
+    if (articleCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Artikel nicht gefunden' });
+    }
+
+    const isOwner = articleCheck.rows[0].author_id === req.user.id;
+    const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ error: 'Keine Berechtigung' });
+    }
+
+    const file = req.file;
+    const fileType = file.mimetype.startsWith('image/') ? 'image' :
+                     file.mimetype.startsWith('video/') ? 'video' :
+                     file.mimetype.startsWith('audio/') ? 'audio' : 'document';
+
+    const result = await pool.query(`
+      INSERT INTO kb_media (
+        article_id, filename, original_filename, file_path,
+        file_size, mime_type, file_type, uploaded_by
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING *
+    `, [
+      id,
+      file.filename,
+      file.originalname,
+      file.path.replace(/\\/g, '/'),
+      file.size,
+      file.mimetype,
+      fileType,
+      req.user.id
+    ]);
+
+    logger.info('KB media uploaded', { mediaId: result.rows[0].id, articleId: id });
+
+    res.status(201).json({
+      ...result.rows[0],
+      url: `/uploads/${file.filename}`
+    });
+  } catch (error) {
+    logger.error('Error uploading media:', error);
+    res.status(500).json({ error: 'Serverfehler beim Hochladen' });
+  }
+});
+
+// GET /api/kb/articles/:id/media - Get all media for an article
+router.get('/articles/:id/media', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query(`
+      SELECT m.*, u.name as uploader_name
+      FROM kb_media m
+      LEFT JOIN users u ON m.uploaded_by = u.id
+      WHERE m.article_id = $1
+      ORDER BY m.display_order ASC, m.created_at DESC
+    `, [id]);
+
+    const media = result.rows.map(m => ({
+      ...m,
+      url: `/uploads/${m.filename}`
+    }));
+
+    res.json(media);
+  } catch (error) {
+    logger.error('Error fetching media:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// DELETE /api/kb/media/:id - Delete media
+router.delete('/media/:id', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const mediaCheck = await pool.query(`
+      SELECT m.*, a.author_id
+      FROM kb_media m
+      JOIN kb_articles a ON m.article_id = a.id
+      WHERE m.id = $1
+    `, [id]);
+
+    if (mediaCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Mediadatei nicht gefunden' });
+    }
+
+    const isOwner = mediaCheck.rows[0].author_id === req.user.id;
+    const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ error: 'Keine Berechtigung' });
+    }
+
+    await pool.query('DELETE FROM kb_media WHERE id = $1', [id]);
+
+    logger.info('KB media deleted', { mediaId: id });
+    res.json({ message: 'Mediadatei erfolgreich gelöscht' });
+  } catch (error) {
+    logger.error('Error deleting media:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
 module.exports = router;
