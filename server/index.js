@@ -142,13 +142,28 @@ app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 if (process.env.NODE_ENV === 'production') {
   console.log('🌐 Production mode - setting up static file serving');
 
-  // Serve static files from React build
+  // Serve static files from React build - BUT SKIP API ROUTES
   const buildPath = path.join(__dirname, '..', 'client', 'build');
   console.log('📁 Serving static files from:', buildPath);
-  app.use(express.static(buildPath));
 
-  // SPA fallback - send index.html for any route that doesn't match API
+  app.use((req, res, next) => {
+    // Skip static file serving for API routes
+    if (req.path.startsWith('/api/')) {
+      console.log(`[STATIC-SKIP] API route: ${req.path}`);
+      return next();
+    }
+    // Serve static files for non-API routes
+    console.log(`[STATIC-SERVE] ${req.path}`);
+    express.static(buildPath)(req, res, next);
+  });
+
+  // SPA fallback - send index.html for any route that doesn't match API or static files
   app.get('*', (req, res) => {
+    // This should never happen for API routes since they're handled above
+    if (req.path.startsWith('/api/')) {
+      console.log(`[SPA-FALLBACK-ERROR] API route reached fallback: ${req.path}`);
+      return res.status(404).json({ error: 'API endpoint not found' });
+    }
     console.log(`[SPA-FALLBACK] ${req.path} -> index.html`);
     res.sendFile(path.join(buildPath, 'index.html'));
   });
