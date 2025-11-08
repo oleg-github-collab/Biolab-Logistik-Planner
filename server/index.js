@@ -68,6 +68,12 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 
+// Debug middleware - log all requests
+app.use((req, res, next) => {
+  console.log(`[REQUEST] ${req.method} ${req.path}`);
+  next();
+});
+
 // API routes - PostgreSQL only (SQLite removed)
 console.log('📊 Loading routes...');
 console.log('  ✓ auth');
@@ -114,19 +120,25 @@ app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 // Serve static assets if in production - BUT only for non-API paths
 if (process.env.NODE_ENV === 'production') {
+  console.log('🌐 Production mode - setting up static file serving');
+
   // Static files middleware - skip API routes completely
   app.use((req, res, next) => {
     if (req.path.startsWith('/api/')) {
+      console.log(`[STATIC] Skipping static for API route: ${req.path}`);
       return next(); // Skip static file serving for API routes
     }
+    console.log(`[STATIC] Serving static for: ${req.path}`);
     express.static(path.join(__dirname, '..', 'client', 'build'))(req, res, next);
   });
 
   // Fallback to index.html for client-side routing
   app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api/')) {
+      console.log(`[FALLBACK] Skipping fallback for API route: ${req.path}`);
       return next(); // API routes should 404 if not found
     }
+    console.log(`[FALLBACK] Serving index.html for: ${req.path}`);
     res.sendFile(path.resolve(__dirname, '..', 'client', 'build', 'index.html'));
   });
 }
