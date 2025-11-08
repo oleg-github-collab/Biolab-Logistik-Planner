@@ -135,16 +135,24 @@ const WasteManagementNew = () => {
     e.preventDefault();
     if (!selectedCategory) return;
 
-    const normalizedCategory = selectedCategory.name?.toLowerCase();
-    const matchingTemplates = normalizedCategory ? templateGroups[normalizedCategory] : undefined;
-    const templateId = selectedCategory.templateId || matchingTemplates?.[0]?.id;
+    const templateId = selectedCategory.template_id;
 
     if (!templateId) {
+      console.error('No template_id for category:', selectedCategory);
       toast.error('Keine passende Vorlage für diese Kategorie gefunden');
       return;
     }
 
     try {
+      console.log('[CREATE-ITEM] Sending:', {
+        template_id: templateId,
+        name: formData.name?.trim() || selectedCategory.name,
+        location: formData.location?.trim() || null,
+        quantity: formData.quantity ? parseFloat(formData.quantity) : null,
+        unit: formData.unit,
+        notes: formData.notes?.trim() || null
+      });
+
       await api.post('/waste/items', {
         template_id: templateId,
         name: formData.name?.trim() || selectedCategory.name,
@@ -159,8 +167,9 @@ const WasteManagementNew = () => {
       setShowCreateModal(false);
       loadData();
     } catch (error) {
-      console.error('Error creating waste item:', error);
-      toast.error('Fehler beim Erstellen');
+      console.error('[CREATE-ITEM] Error:', error);
+      console.error('[CREATE-ITEM] Error response:', error.response?.data);
+      toast.error(error.response?.data?.error || 'Fehler beim Erstellen');
     }
   };
 

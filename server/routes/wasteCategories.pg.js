@@ -12,16 +12,21 @@ const router = express.Router();
 // instructions, safety_notes, image_url, disposal_frequency, created_at, updated_at
 
 // @route   GET /api/waste-categories
-// @desc    Get all waste categories (NO AUTH - public endpoint for testing)
+// @desc    Get all waste categories with matching template IDs (NO AUTH - public endpoint for testing)
 router.get('/', async (req, res) => {
   try {
     logger.info('GET /api/waste-categories - fetching categories');
     const result = await pool.query(`
-      SELECT * FROM waste_categories ORDER BY name ASC
+      SELECT
+        wc.*,
+        wt.id as template_id
+      FROM waste_categories wc
+      LEFT JOIN waste_templates wt ON LOWER(wt.category) = LOWER(wc.name)
+      ORDER BY wc.name ASC
     `);
 
     logger.info('Waste categories fetched', { count: result.rows.length });
-    console.log('[WASTE-CATEGORIES] Returning:', result.rows.length, 'categories');
+    console.log('[WASTE-CATEGORIES] Returning:', result.rows.length, 'categories with template_ids');
     res.json(result.rows);
   } catch (error) {
     logger.error('Error fetching waste categories:', error);
