@@ -252,7 +252,7 @@ router.post('/', auth, async (req, res) => {
     const insertResult = await pool.query(
       `INSERT INTO tasks (
         title, description, status, priority, assigned_to, due_date, category, tags, created_by, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       RETURNING id`,
       [
         title.trim(),
@@ -395,7 +395,7 @@ router.put('/:id', auth, async (req, res) => {
     }
 
     if (tags !== undefined) {
-      updates.push(`tags = $${paramIndex++}`);
+      updates.push(`tags = $${paramIndex++}::jsonb`);
       values.push(JSON.stringify(tags));
     }
 
@@ -614,7 +614,7 @@ router.post('/templates', auth, async (req, res) => {
       `INSERT INTO task_templates (
         name, description, category, priority, estimated_duration,
         tags, checklist, created_by, is_public
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      ) VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9)
       RETURNING *`,
       [
         name.trim(),
@@ -690,13 +690,13 @@ router.put('/templates/:id', auth, async (req, res) => {
     });
 
     if (tags !== undefined) {
-      updates.push(`tags = $${paramIndex}`);
+      updates.push(`tags = $${paramIndex}::jsonb`);
       params.push(JSON.stringify(tags));
       paramIndex++;
     }
 
     if (checklist !== undefined) {
-      updates.push(`checklist = $${paramIndex}`);
+      updates.push(`checklist = $${paramIndex}::jsonb`);
       params.push(JSON.stringify(checklist));
       paramIndex++;
     }
