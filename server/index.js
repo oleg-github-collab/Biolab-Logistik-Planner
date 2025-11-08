@@ -1,4 +1,5 @@
 // Immediate startup logging
+// Build: 2025-01-08 - API routes fix deployed
 console.log('='.repeat(80));
 console.log('🚀 BIOLAB LOGISTIK PLANNER - SERVER STARTING');
 console.log('='.repeat(80));
