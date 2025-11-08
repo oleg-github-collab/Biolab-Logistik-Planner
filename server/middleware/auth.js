@@ -87,7 +87,11 @@ const getUserFromPostgres = async (userId) => {
 const auth = async (req, res, next) => {
   const token = req.header('Authorization')?.replace('Bearer ', '');
 
+  console.log('[AUTH] Request:', req.method, req.originalUrl);
+  console.log('[AUTH] Token present:', !!token);
+
   if (!token) {
+    console.log('[AUTH] FAILED: No token');
     logger.security('Authentication attempt without token', {
       ip: req.ip,
       userAgent: req.get('User-Agent'),

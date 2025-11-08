@@ -416,6 +416,10 @@ router.get('/items', auth, async (req, res) => {
 // @route   POST /api/waste/items
 // @desc    Create a new waste item
 router.post('/items', auth, async (req, res) => {
+  console.log('[POST /api/waste/items] Request received');
+  console.log('[POST /api/waste/items] Body:', JSON.stringify(req.body, null, 2));
+  console.log('[POST /api/waste/items] User:', req.user?.id);
+
   const {
     template_id,
     name,
@@ -428,14 +432,17 @@ router.post('/items', auth, async (req, res) => {
   } = req.body;
 
   if (!template_id) {
+    console.log('[POST /api/waste/items] ERROR: Missing template_id');
     return res.status(400).json({ error: 'Template-ID ist erforderlich' });
   }
 
   if (!name || !name.trim()) {
+    console.log('[POST /api/waste/items] ERROR: Missing name');
     return res.status(400).json({ error: 'Name ist erforderlich' });
   }
 
   if (quantity !== undefined && quantity !== null && isNaN(parseFloat(quantity))) {
+    console.log('[POST /api/waste/items] ERROR: Invalid quantity:', quantity);
     return res.status(400).json({ error: 'Ungültige Menge' });
   }
 
