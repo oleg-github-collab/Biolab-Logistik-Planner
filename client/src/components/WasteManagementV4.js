@@ -13,6 +13,7 @@ import {
   Filter,
   ChevronDown,
   ChevronUp,
+  ChevronRight,
   X,
   AlertCircle,
   CheckCircle,
@@ -29,6 +30,7 @@ const WasteManagementV4 = () => {
 
   // Data state
   const [categories, setCategories] = useState([]);
+  const [wasteCategories, setWasteCategories] = useState([]);
   const [wasteItems, setWasteItems] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -36,6 +38,7 @@ const WasteManagementV4 = () => {
 
   // Quick entry form state
   const [formData, setFormData] = useState({
+    category_id: '',
     template_id: '',
     name: '',
     location: '',
@@ -60,6 +63,39 @@ const WasteManagementV4 = () => {
   // Sort state
   const [sortBy, setSortBy] = useState('date'); // date, category, status
 
+  const categoryIdToName = useMemo(() => {
+    const map = {};
+    wasteCategories.forEach((category) => {
+      if (category?.name) {
+        map[String(category.id)] = category.name.toLowerCase();
+      }
+    });
+    return map;
+  }, [wasteCategories]);
+
+  const categoryNameToId = useMemo(() => {
+    const map = {};
+    wasteCategories.forEach((category) => {
+      if (category?.name) {
+        map[category.name.toLowerCase()] = String(category.id);
+      }
+    });
+    return map;
+  }, [wasteCategories]);
+
+  const filteredTemplates = useMemo(() => {
+    if (!formData.category_id) {
+      return categories;
+    }
+    const matchName = categoryIdToName[formData.category_id];
+    if (!matchName) {
+      return categories;
+    }
+    return categories.filter((template) =>
+      (template.category || '').toLowerCase() === matchName
+    );
+  }, [categories, formData.category_id, categoryIdToName]);
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
@@ -73,9 +109,13 @@ const WasteManagementV4 = () => {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [categoriesRes, itemsRes, usersRes] = await Promise.all([
+      const [templatesRes, categoryListRes, itemsRes, usersRes] = await Promise.all([
         api.get('/waste/templates').catch(err => {
           console.error('Error loading templates:', err);
+          return { data: [] };
+        }),
+        api.get('/waste-categories').catch(err => {
+          console.error('Error loading waste categories:', err);
           return { data: [] };
         }),
         api.get('/waste/items').catch(err => {
@@ -85,7 +125,8 @@ const WasteManagementV4 = () => {
         api.get('/admin/users').catch(() => ({ data: [] }))
       ]);
 
-      setCategories(categoriesRes.data || []);
+      setCategories(templatesRes.data || []);
+      setWasteCategories(categoryListRes.data || []);
 
       const items = itemsRes.data;
       if (Array.isArray(items)) {
@@ -132,14 +173,62 @@ const WasteManagementV4 = () => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  // Handle category selection
-  const handleCategorySelect = (categoryId) => {
-    const category = categories.find(c => c.id === categoryId);
+  // Handle template selection
+  const handleTemplateSelect = (templateId) => {
+    if (!templateId) {
+      setFormData(prev => ({
+        ...prev,
+        template_id: '',
+        unit: 'Stück'
+      }));
+      return;
+    }
+
+    const template = categories.find(c => String(c.id) === String(templateId));
+    const normalizedCategory = template?.category?.toLowerCase();
+    const derivedCategoryId = normalizedCategory ? categoryNameToId[normalizedCategory] : null;
+
     setFormData(prev => ({
       ...prev,
-      template_id: categoryId,
-      unit: category?.default_unit || 'Stück'
+      template_id: templateId,
+      unit: template?.default_unit || 'Stück',
+      category_id: derivedCategoryId || prev.category_id
     }));
+  };
+
+  const handleFormCategoryChange = (categoryId) => {
+    setFormData(prev => ({
+      ...prev,
+      category_id: categoryId,
+      template_id: ''
+    }));
+  };
+
+  const toggleCategoryFilter = (categoryId) => {
+    setFilters(prev => ({
+      ...prev,
+      category: prev.category === String(categoryId) ? '' : String(categoryId)
+    }));
+    setCurrentPage(1);
+  };
+
+  const handlePrefillCategory = (categoryId) => {
+    const normalizedName = categoryIdToName[String(categoryId)];
+    const matchingTemplate = normalizedName
+      ? categories.find((template) => (template.category || '').toLowerCase() === normalizedName)
+      : null;
+
+    setFormData(prev => ({
+      ...prev,
+      category_id: String(categoryId),
+      template_id: matchingTemplate ? matchingTemplate.id : ''
+    }));
+
+    if (matchingTemplate) {
+      handleTemplateSelect(matchingTemplate.id);
+    }
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // Create new waste item
@@ -170,6 +259,7 @@ const WasteManagementV4 = () => {
 
       showSuccess('Abfallelement erfolgreich erstellt');
       setFormData({
+        category_id: '',
         template_id: '',
         name: '',
         location: '',
@@ -252,12 +342,21 @@ const WasteManagementV4 = () => {
 
     // Filter by category
     if (filters.category) {
-      filtered = filtered.filter(item => item.template_id === parseInt(filters.category));
+      const normalizedCategory = categoryIdToName[String(filters.category)];
+      if (normalizedCategory) {
+        filtered = filtered.filter(
+          (item) => (item.category || '').toLowerCase() === normalizedCategory
+        );
+      }
     }
 
     // Filter by status
     if (filters.status !== 'all') {
-      filtered = filtered.filter(item => item.status === filters.status);
+      if (filters.status === 'scheduled') {
+        filtered = filtered.filter(item => Boolean(item.next_disposal_date));
+      } else {
+        filtered = filtered.filter(item => item.status === filters.status);
+      }
     }
 
     // Filter by assigned user
@@ -318,7 +417,43 @@ const WasteManagementV4 = () => {
     });
 
     return filtered;
-  }, [wasteItems, filters, sortBy]);
+  }, [wasteItems, filters, sortBy, categoryIdToName]);
+
+  const categoryCards = useMemo(() => {
+    if (!wasteCategories.length) return [];
+
+    const statsByCategory = wasteItems.reduce((acc, item) => {
+      const key = (item.category || '').toLowerCase();
+      if (!acc[key]) {
+        acc[key] = { active: 0, disposed: 0, nextDate: null };
+      }
+
+      if (item.status === 'disposed') {
+        acc[key].disposed += 1;
+      } else {
+        acc[key].active += 1;
+        if (item.next_disposal_date) {
+          const date = new Date(item.next_disposal_date);
+          if (!acc[key].nextDate || date < acc[key].nextDate) {
+            acc[key].nextDate = date;
+          }
+        }
+      }
+
+      return acc;
+    }, {});
+
+    return wasteCategories.map((category) => {
+      const key = (category.name || '').toLowerCase();
+      const stats = statsByCategory[key] || { active: 0, disposed: 0, nextDate: null };
+      return {
+        ...category,
+        activeCount: stats.active,
+        recycledCount: stats.disposed,
+        nextDate: stats.nextDate ? stats.nextDate.toISOString() : null
+      };
+    });
+  }, [wasteCategories, wasteItems]);
 
   // Pagination
   const totalPages = Math.ceil(filteredAndSortedItems.length / itemsPerPage);
@@ -388,6 +523,74 @@ const WasteManagementV4 = () => {
           </div>
         </div>
 
+        {/* Category Overview */}
+        {categoryCards.length > 0 && (
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-semibold text-gray-900">Kategorien im Überblick</h2>
+              {filters.category && (
+                <button
+                  onClick={() => setFilters(prev => ({ ...prev, category: '' }))}
+                  className="text-sm text-blue-600 hover:text-blue-700"
+                >
+                  Filter zurücksetzen
+                </button>
+              )}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {categoryCards.map((category) => (
+                <button
+                  key={category.id}
+                  type="button"
+                  onClick={() => toggleCategoryFilter(category.id)}
+                  className={`text-left p-4 rounded-2xl border transition-all ${
+                    filters.category === String(category.id)
+                      ? 'border-blue-500 shadow-lg shadow-blue-100'
+                      : 'border-gray-200 hover:border-blue-300 hover:shadow'
+                  }`}
+                  style={{
+                    background: `${category.color || '#F8FAFC'}15`
+                  }}
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className="text-2xl">
+                      {category.icon || '♻️'}
+                    </span>
+                    <div>
+                      <p className="font-semibold text-gray-900">{category.name}</p>
+                      <p className="text-sm text-gray-500">
+                        {category.activeCount} aktiv · {category.recycledCount} entsorgt
+                      </p>
+                    </div>
+                  </div>
+                  {category.nextDate && (
+                    <p className="text-xs text-gray-500 mb-3">
+                      Nächste Entsorgung:{' '}
+                      {new Date(category.nextDate).toLocaleDateString('de-DE')}
+                    </p>
+                  )}
+                  <div className="flex items-center justify-between text-sm text-blue-600 font-medium">
+                    <span>In Kategorie filtern</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </div>
+                  <div className="mt-3">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handlePrefillCategory(category.id);
+                      }}
+                      className="text-xs font-semibold text-blue-700 hover:text-blue-900"
+                    >
+                      Neue Entsorgung planen →
+                    </button>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Quick Entry Form */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-8">
           <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
@@ -399,16 +602,37 @@ const WasteManagementV4 = () => {
               {/* Category */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Kategorie *
+                  Abfallbereich
+                </label>
+                <select
+                  value={formData.category_id}
+                  onChange={(e) => handleFormCategoryChange(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Bereich wählen...</option>
+                  {wasteCategories.map(cat => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.icon || '•'} {cat.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Template */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Abfalltyp *
                 </label>
                 <select
                   value={formData.template_id}
-                  onChange={(e) => handleCategorySelect(e.target.value)}
+                  onChange={(e) => handleTemplateSelect(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   required
                 >
-                  <option value="">Kategorie wählen...</option>
-                  {categories.map(cat => (
+                  <option value="">
+                    {formData.category_id ? 'Abfalltyp wählen...' : 'Bitte Bereich auswählen'}
+                  </option>
+                  {filteredTemplates.map(cat => (
                     <option key={cat.id} value={cat.id}>
                       {cat.name} {cat.hazard_level && `(${cat.hazard_level})`}
                     </option>
@@ -583,7 +807,7 @@ const WasteManagementV4 = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Alle Kategorien</option>
-                  {categories.map(cat => (
+                  {wasteCategories.map(cat => (
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
                   ))}
                 </select>
@@ -602,7 +826,7 @@ const WasteManagementV4 = () => {
                   <option value="all">Alle Status</option>
                   <option value="active">Aktiv</option>
                   <option value="disposed">Entsorgt</option>
-                  <option value="scheduled">Geplant</option>
+                  <option value="scheduled">Geplant (Termin)</option>
                 </select>
               </div>
 

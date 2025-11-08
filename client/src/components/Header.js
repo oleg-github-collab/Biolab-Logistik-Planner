@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import usePermissions from '../hooks/usePermissions';
 import { useLocale } from '../context/LocaleContext';
 import NotificationDropdown from './NotificationDropdown';
 import { getAssetUrl } from '../utils/media';
+import { Search } from 'lucide-react';
 
 const NAV_ITEMS = [
   { to: '/dashboard', labelKey: 'navigation.dashboard', icon: '📊', permission: 'schedule:read' },
@@ -24,6 +25,8 @@ const Header = () => {
   const navigate = useNavigate();
   const { hasPermission } = usePermissions();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [globalSearch, setGlobalSearch] = useState('');
+  const searchInputRef = useRef(null);
   const { t } = useLocale();
 
   // Безпечна перевірка контексту
@@ -34,12 +37,31 @@ const Header = () => {
   const { state, logout } = authContext;
   const { user } = state || {};
   const profilePhotoUrl = user?.profile_photo ? getAssetUrl(user.profile_photo) : null;
+  useEffect(() => {
+    const handleShortcut = (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handleShortcut);
+    return () => window.removeEventListener('keydown', handleShortcut);
+  }, []);
 
   const getRoleLabel = (role) => t(`roles.${role}`) || role;
 
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const handleGlobalSearch = (event) => {
+    event.preventDefault();
+    const query = globalSearch.trim();
+    if (!query) return;
+    navigate(`/knowledge-base?q=${encodeURIComponent(query)}`);
+    setMobileMenuOpen(false);
+    setGlobalSearch('');
   };
 
   if (!user) return null;
@@ -88,6 +110,21 @@ const Header = () => {
 
           {/* Right Side - Notifications & User */}
           <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+            {/* Global Search */}
+            <form onSubmit={handleGlobalSearch} className="hidden lg:block">
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={globalSearch}
+                  onChange={(e) => setGlobalSearch(e.target.value)}
+                  placeholder="Globale Suche (⌘K)"
+                  className="pl-9 pr-3 py-2 bg-slate-100/70 border border-transparent rounded-xl text-sm text-slate-700 focus:bg-white focus:border-blue-400 focus:outline-none transition"
+                />
+              </div>
+            </form>
+
             {/* Notifications */}
             <NotificationDropdown />
 

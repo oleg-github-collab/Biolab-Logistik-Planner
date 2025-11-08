@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -607,6 +608,7 @@ const ArticleEditorModal = ({ article, categories, allTags, onSave, onClose }) =
 
 // Main Knowledge Base Component
 const KnowledgeBaseV3 = () => {
+  const location = useLocation();
   // State Management
   const [categories, setCategories] = useState([]);
   const [articles, setArticles] = useState([]);
@@ -636,6 +638,14 @@ const KnowledgeBaseV3 = () => {
     };
     fetchUser();
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const queryParam = params.get('q');
+    if (queryParam && queryParam !== searchQuery) {
+      setSearchQuery(queryParam);
+    }
+  }, [location.search, searchQuery]);
 
   // Fetch categories
   useEffect(() => {

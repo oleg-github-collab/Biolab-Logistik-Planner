@@ -203,6 +203,18 @@ const NotificationDropdown = () => {
     return icons[type] || <Bell className="w-4 h-4 text-gray-500" />;
   }, []);
 
+  const getNotificationLabel = useCallback((type) => {
+    const labels = {
+      message: 'Nachricht',
+      mention: 'Erwähnung',
+      reaction: 'Reaktion',
+      task_assigned: 'Aufgabe',
+      calendar_event: 'Kalender',
+      system: 'System'
+    };
+    return labels[type] || 'Info';
+  }, []);
+
   const formatTimestamp = useCallback((timestamp) => {
     if (!timestamp) return '';
     return formatDistanceToNow(new Date(timestamp), {
@@ -256,6 +268,10 @@ const NotificationDropdown = () => {
             </div>
 
             <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-gray-400">
+                <span>{getNotificationLabel(notification.type)}</span>
+                {!notification.is_read && <span className="text-blue-600 font-semibold">Neu</span>}
+              </div>
               <p
                 className={`text-sm font-semibold ${
                   notification.is_read ? 'text-gray-700' : 'text-gray-900'
@@ -300,6 +316,19 @@ const NotificationDropdown = () => {
     );
   }, [formatTimestamp, getNotificationIcon, handleNotificationClick, handleMarkAsRead, handleDelete, isMobile, loading, notifications]);
 
+  const notificationStats = useMemo(() => {
+    const base = { pending: unreadCount, tasks: 0, alerts: 0 };
+    notifications.forEach((notification) => {
+      if (notification.type === 'task_assigned') {
+        base.tasks += 1;
+      }
+      if (['calendar_event', 'system', 'warning'].includes(notification.type)) {
+        base.alerts += 1;
+      }
+    });
+    return base;
+  }, [notifications, unreadCount]);
+
   const dropdownPanel = (
     <div className="absolute right-0 mt-2 w-screen max-w-md sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 max-h-[80vh] flex flex-col overflow-hidden">
       <div className="p-4 border-b border-gray-200">
@@ -339,6 +368,20 @@ const NotificationDropdown = () => {
               {item.label}
             </button>
           ))}
+        </div>
+        <div className="grid grid-cols-3 gap-2 mt-4 text-center text-xs text-gray-500">
+          <div className="rounded-lg bg-blue-50 py-2">
+            <p className="text-base font-semibold text-gray-900">{notificationStats.pending}</p>
+            <p>Ungelesen</p>
+          </div>
+          <div className="rounded-lg bg-emerald-50 py-2">
+            <p className="text-base font-semibold text-gray-900">{notificationStats.tasks}</p>
+            <p>Aufgaben</p>
+          </div>
+          <div className="rounded-lg bg-amber-50 py-2">
+            <p className="text-base font-semibold text-gray-900">{notificationStats.alerts}</p>
+            <p>Termine/System</p>
+          </div>
         </div>
       </div>
 
@@ -380,6 +423,20 @@ const NotificationDropdown = () => {
                 {item.label}
               </button>
             ))}
+          </div>
+          <div className="grid grid-cols-3 gap-2 mt-4 text-center text-xs text-gray-500">
+            <div className="rounded-lg bg-blue-50 py-2">
+              <p className="text-base font-semibold text-gray-900">{notificationStats.pending}</p>
+              <p>Ungelesen</p>
+            </div>
+            <div className="rounded-lg bg-emerald-50 py-2">
+              <p className="text-base font-semibold text-gray-900">{notificationStats.tasks}</p>
+              <p>Aufgaben</p>
+            </div>
+            <div className="rounded-lg bg-amber-50 py-2">
+              <p className="text-base font-semibold text-gray-900">{notificationStats.alerts}</p>
+              <p>Termine/System</p>
+            </div>
           </div>
         </div>
 

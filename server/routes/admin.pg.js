@@ -1,10 +1,37 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const { pool } = require('../config/database');
 const { auth, adminAuth } = require('../middleware/auth');
 const logger = require('../utils/logger');
+const auditLogger = require('../utils/auditLog');
 const { getIO, getOnlineUsers } = require('../websocket');
 const router = express.Router();
+
+const formatUptime = (seconds = 0) => {
+  const totalSeconds = Math.max(0, Math.floor(seconds));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const secs = totalSeconds % 60;
+  const parts = [];
+  if (hours) parts.push(`${hours}h`);
+  if (minutes) parts.push(`${minutes}m`);
+  if (!parts.length || secs) parts.push(`${secs}s`);
+  return parts.join(' ');
+};
+
+const buildDateWindow = (days) => {
+  const parsedDays = Number.isFinite(days) && days > 0 ? days : 7;
+  const end = new Date();
+  const start = new Date();
+  start.setDate(end.getDate() - parsedDays);
+  return { start, end };
+};
+
+const generateTemporaryPassword = () => {
+  const raw = crypto.randomBytes(8).toString('base64').replace(/[^a-zA-Z0-9]/g, '');
+  return `${raw.slice(0, 8)}!a1`;
+};
 
 // XSS protection helper function
 const sanitizeInput = (input) => {
@@ -32,6 +59,175 @@ router.get('/users', [auth, adminAuth], async (req, res) => {
   } catch (err) {
     console.error('Fehler beim Abrufen der Benutzer:', err.message);
     res.status(500).json({ error: 'Serverfehler beim Abrufen der Benutzer' });
+  }
+});
+
+// @route   GET /api/admin/stats
+// @desc    Aggregated dashboard metrics
+router.get('/stats', [auth, adminAuth], async (req, res) => {
+  try {
+    const [
+      totalUsersRes,
+      activeUsersRes,
+      eventsRes,
+      tasksRes,
+      wasteItemsRes,
+      wasteScheduleRes,
+      kbArticlesRes,
+      messagesRes
+    ] = await Promise.all([
+      pool.query('SELECT COUNT(*) AS total FROM users'),
+      pool.query("SELECT COUNT(*) AS active_today FROM users WHERE DATE(last_seen_at) = CURRENT_DATE"),
+      pool.query(`
+        SELECT COUNT(*) AS events
+        FROM calendar_events
+        WHERE start_time >= date_trunc('month', CURRENT_DATE)
+          AND start_time < date_trunc('month', CURRENT_DATE) + INTERVAL '1 month'
+      `),
+      pool.query(`
+        SELECT
+          COUNT(*) FILTER (WHERE status = 'todo')        AS todo,
+          COUNT(*) FILTER (WHERE status = 'in_progress') AS in_progress,
+          COUNT(*) FILTER (WHERE status = 'done')        AS done,
+          COUNT(*) FILTER (WHERE status = 'backlog')     AS backlog,
+          COUNT(*) FILTER (WHERE status = 'review')      AS review
+        FROM tasks
+      `),
+      pool.query(`
+        SELECT
+          COUNT(*) FILTER (WHERE status = 'active')  AS active,
+          COUNT(*) FILTER (WHERE status = 'disposed') AS disposed
+        FROM waste_items
+      `),
+      pool.query(`
+        SELECT
+          COUNT(*) FILTER (WHERE status IN ('scheduled','rescheduled')) AS scheduled
+        FROM waste_disposal_schedule
+      `),
+      pool.query("SELECT COUNT(*) AS articles FROM kb_articles WHERE status = 'published'"),
+      pool.query("SELECT COUNT(*) AS messages FROM messages WHERE created_at::date = CURRENT_DATE")
+    ]);
+
+    const taskCountsRow = tasksRes.rows[0] || {};
+    const wasteItemsRow = wasteItemsRes.rows[0] || {};
+    const wasteScheduleRow = wasteScheduleRes.rows[0] || {};
+
+    res.json({
+      totalUsers: parseInt(totalUsersRes.rows[0]?.total, 10) || 0,
+      activeUsersToday: parseInt(activeUsersRes.rows[0]?.active_today, 10) || 0,
+      totalEventsThisMonth: parseInt(eventsRes.rows[0]?.events, 10) || 0,
+      totalTasks: {
+        todo: parseInt(taskCountsRow.todo, 10) || 0,
+        'in-progress': parseInt(taskCountsRow.in_progress, 10) || 0,
+        done: parseInt(taskCountsRow.done, 10) || 0,
+        backlog: parseInt(taskCountsRow.backlog, 10) || 0,
+        review: parseInt(taskCountsRow.review, 10) || 0
+      },
+      totalWasteItems: {
+        pending: parseInt(wasteItemsRow.active, 10) || 0,
+        completed: parseInt(wasteItemsRow.disposed, 10) || 0,
+        scheduled: parseInt(wasteScheduleRow.scheduled, 10) || 0
+      },
+      totalKbArticles: parseInt(kbArticlesRes.rows[0]?.articles, 10) || 0,
+      totalMessagesToday: parseInt(messagesRes.rows[0]?.messages, 10) || 0
+    });
+  } catch (error) {
+    logger.error('Error building admin stats', { error: error.message });
+    res.status(500).json({ error: 'Serverfehler beim Laden der Statistiken' });
+  }
+});
+
+// @route   GET /api/admin/system-health
+// @desc    Provide realtime system diagnostics
+router.get('/system-health', [auth, adminAuth], async (req, res) => {
+  const health = {
+    database: 'healthy',
+    dbLatencyMs: null,
+    server: 'online',
+    uptime: formatUptime(process.uptime()),
+    activeConnections: 0,
+    recentErrors: []
+  };
+
+  try {
+    const started = Date.now();
+    await pool.query('SELECT NOW()');
+    health.dbLatencyMs = Date.now() - started;
+  } catch (error) {
+    health.database = 'error';
+    health.recentErrors.push({
+      message: `Datenbankfehler: ${error.message}`,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  try {
+    const io = getIO();
+    if (io?.engine) {
+      health.activeConnections = io.engine.clientsCount;
+    } else {
+      const list = getOnlineUsers();
+      health.activeConnections = Array.isArray(list) ? list.length : 0;
+    }
+  } catch (error) {
+    logger.warn('Unable to determine active socket connections', { error: error.message });
+  }
+
+  try {
+    const recentAudit = await auditLogger.query({ limit: 50 });
+    const critical = recentAudit
+      .filter((entry) => ['high', 'critical'].includes(entry.severity))
+      .slice(-5)
+      .map((entry) => ({
+        message: `${entry.category}: ${entry.action}`,
+        timestamp: entry.timestamp
+      }));
+    health.recentErrors.push(...critical);
+  } catch (error) {
+    logger.warn('Unable to read audit log for system health', { error: error.message });
+  }
+
+  res.json(health);
+});
+
+// @route   GET /api/admin/activity
+// @desc    Recent operational activity feed
+router.get('/activity', [auth, adminAuth], async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        al.id,
+        al.task_id,
+        al.action_type,
+        al.metadata,
+        al.created_at,
+        t.title AS task_title,
+        u.name  AS actor_name
+      FROM task_activity_log al
+      LEFT JOIN tasks t ON al.task_id = t.id
+      LEFT JOIN users u ON al.user_id = u.id
+      ORDER BY al.created_at DESC
+      LIMIT 25
+    `);
+
+    const feed = result.rows.map((row) => ({
+      id: row.id,
+      type: 'task',
+      title: row.task_title || `Aufgabe #${row.task_id}`,
+      action: row.action_type,
+      actor: row.actor_name || 'System',
+      metadata: row.metadata,
+      timestamp: row.created_at
+    }));
+
+    res.json({ activities: feed });
+  } catch (error) {
+    if (error.code === '42P01') {
+      logger.warn('task_activity_log table missing, returning empty activity feed');
+      return res.json({ activities: [] });
+    }
+    logger.error('Error loading activity feed', { error: error.message });
+    res.status(500).json({ error: 'Serverfehler beim Laden des Aktivitätsprotokolls' });
   }
 });
 
@@ -477,60 +673,183 @@ router.post('/users/:id/deactivate', [auth, adminAuth], async (req, res) => {
   }
 });
 
-// @route   GET /api/admin/audit/stats
-// @desc    Get audit statistics (admin only)
-router.get('/audit/stats', [auth, adminAuth], async (req, res) => {
-  try {
-    // Simple stats from database
-    const stats = {
-      totalUsers: 0,
-      activeUsers: 0,
-      totalActions: 0,
-      errorRate: 0
-    };
+// @route   POST /api/admin/users/:id/reset-password
+// @desc    Generate a temporary password for a user
+router.post('/users/:id/reset-password', [auth, adminAuth], async (req, res) => {
+  const { id } = req.params;
 
-    const usersResult = await pool.query('SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE is_active = true) as active FROM users');
-    if (usersResult.rows.length > 0) {
-      stats.totalUsers = parseInt(usersResult.rows[0].total) || 0;
-      stats.activeUsers = parseInt(usersResult.rows[0].active) || 0;
+  try {
+    const userResult = await pool.query(
+      'SELECT id, role, email FROM users WHERE id = $1',
+      [id]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Benutzer nicht gefunden' });
     }
 
+    const targetUser = userResult.rows[0];
+
+    if (targetUser.role === 'superadmin' && req.user.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Nur Superadmins können Superadmin-Konten zurücksetzen' });
+    }
+
+    const newPassword = generateTemporaryPassword();
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+    await pool.query(
+      'UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2',
+      [hashedPassword, id]
+    );
+
+    auditLogger.logSecurity('password_reset', req.user.id, {
+      targetUserId: id,
+      targetEmail: targetUser.email
+    });
+
+    res.json({
+      message: 'Passwort erfolgreich zurückgesetzt',
+      newPassword
+    });
+  } catch (error) {
+    logger.error('Error resetting user password', { error: error.message });
+    res.status(500).json({ error: 'Serverfehler beim Zurücksetzen des Passworts' });
+  }
+});
+
+// @route   GET /api/admin/export/:type
+// @desc    Export core datasets as JSON download
+router.get('/export/:type', [auth, adminAuth], async (req, res) => {
+  const { type } = req.params;
+
+  const queries = {
+    users: `
+      SELECT id, name, email, role, employment_type, weekly_hours_quota, created_at, updated_at
+      FROM users
+      ORDER BY name
+    `,
+    events: `
+      SELECT id, title, start_time, end_time, event_type, status, priority, created_by
+      FROM calendar_events
+      ORDER BY start_time DESC
+      LIMIT 500
+    `,
+    tasks: `
+      SELECT id, title, status, priority, assigned_to, due_date, category, created_by, created_at, updated_at
+      FROM tasks
+      ORDER BY updated_at DESC
+    `,
+    waste: `
+      SELECT id, name, status, location, quantity, unit, next_disposal_date, template_id, created_at, updated_at
+      FROM waste_items
+      ORDER BY created_at DESC
+    `,
+    'kb-articles': `
+      SELECT id, title, status, category_id, tags, author_id, created_at, updated_at
+      FROM kb_articles
+      ORDER BY created_at DESC
+    `
+  };
+
+  if (!queries[type]) {
+    return res.status(400).json({ error: 'Unbekannter Export-Typ' });
+  }
+
+  try {
+    const result = await pool.query(queries[type]);
+    const payload = JSON.stringify(result.rows, null, 2);
+    const filename = `${type}-export-${new Date().toISOString().split('T')[0]}.json`;
+
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(payload);
+  } catch (error) {
+    logger.error('Error exporting admin data', { type, error: error.message });
+    res.status(500).json({ error: 'Serverfehler beim Exportieren der Daten' });
+  }
+});
+
+const handleAuditStats = async (req, res) => {
+  try {
+    const days = parseInt(req.query.days, 10) || 7;
+    const stats = await auditLogger.getStatistics(days);
     res.json(stats);
-  } catch (err) {
-    logger.error('Error getting audit stats:', err);
+  } catch (error) {
+    logger.error('Error getting audit stats', { error: error.message });
     res.status(500).json({ error: 'Serverfehler beim Abrufen der Audit-Statistiken' });
   }
-});
+};
 
-// @route   GET /api/admin/audit/logs
-// @desc    Get audit logs (admin only)
-router.get('/audit/logs', [auth, adminAuth], async (req, res) => {
+router.get('/audit/stats', [auth, adminAuth], handleAuditStats);
+
+const handleAuditLogs = async (req, res) => {
+  const {
+    category,
+    severity,
+    action,
+    userId,
+    resource,
+    start_date,
+    end_date,
+    days,
+    limit = 100
+  } = req.query;
+
   try {
-    // Return empty logs for now - can be extended later with actual audit table
-    res.json({ logs: [] });
-  } catch (err) {
-    logger.error('Error getting audit logs:', err);
+    const window = buildDateWindow(parseInt(days, 10) || 7);
+    const fetchLimit = Math.min(Math.max(parseInt(limit, 10) || 100, 200), 1000);
+    const logs = await auditLogger.query({
+      startDate: start_date || window.start.toISOString(),
+      endDate: end_date || window.end.toISOString(),
+      category: category && category !== 'all' ? category : undefined,
+      action: action || undefined,
+      userId: userId ? parseInt(userId, 10) : undefined,
+      limit: fetchLimit
+    });
+
+    const filtered = logs
+      .filter((entry) => {
+        if (resource && entry.resource !== resource) return false;
+        if (severity && severity !== 'all' && entry.severity !== severity) return false;
+        return true;
+      })
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+      .slice(0, parseInt(limit, 10) || 100);
+
+    res.json({ logs: filtered });
+  } catch (error) {
+    logger.error('Error getting audit logs', { error: error.message });
     res.status(500).json({ error: 'Serverfehler beim Abrufen der Audit-Logs' });
   }
-});
+};
 
-// @route   GET /api/admin/audit/export
-// @desc    Export audit logs (admin only)
-router.get('/audit/export', [auth, adminAuth], async (req, res) => {
+router.get('/audit/logs', [auth, adminAuth], handleAuditLogs);
+
+const handleAuditExport = async (req, res) => {
   try {
-    const { format = 'json' } = req.query;
+    const { format = 'json', category, start_date, end_date, days } = req.query;
+    if (!['json', 'csv'].includes(format)) {
+      return res.status(400).json({ error: 'Ungültiges Export-Format' });
+    }
 
-    // Simple export - return empty for now
-    const exportData = format === 'csv' ? 'timestamp,action,user,details\n' : '[]';
+    const window = buildDateWindow(parseInt(days, 10) || 30);
+    const payload = await auditLogger.export({
+      startDate: start_date || window.start.toISOString(),
+      endDate: end_date || window.end.toISOString(),
+      category: category && category !== 'all' ? category : undefined
+    }, format);
 
+    const filename = `audit-logs-${new Date().toISOString().split('T')[0]}.${format}`;
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.setHeader('Content-Type', format === 'csv' ? 'text/csv' : 'application/json');
-    res.setHeader('Content-Disposition', `attachment; filename=audit-logs-${new Date().toISOString().split('T')[0]}.${format}`);
-    res.send(exportData);
-  } catch (err) {
-    logger.error('Error exporting audit logs:', err);
+    res.send(payload);
+  } catch (error) {
+    logger.error('Error exporting audit logs', { error: error.message });
     res.status(500).json({ error: 'Serverfehler beim Exportieren der Audit-Logs' });
   }
-});
+};
+
+router.get('/audit/export', [auth, adminAuth], handleAuditExport);
 
 // @route   GET /api/admin/users/online
 // @desc    Get list of online users (admin only)
@@ -617,236 +936,8 @@ router.post('/broadcast', [auth, adminAuth], async (req, res) => {
 
 // ==================== AUDIT LOG ====================
 
-/**
- * @route   GET /api/admin/audit-log
- * @desc    Get audit log with filtering
- * @access  Private (admin only)
- */
-router.get('/audit-log', auth, async (req, res) => {
-  try {
-    // Check admin permissions
-    if (req.user.role !== 'superadmin' && req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Keine Berechtigung' });
-    }
-
-    const {
-      page = 1,
-      limit = 50,
-      action,
-      userId,
-      resource,
-      start_date,
-      end_date
-    } = req.query;
-
-    const offset = (page - 1) * limit;
-
-    // Build query
-    let query = `
-      SELECT
-        al.*,
-        u.name as user_name,
-        u.email as user_email
-      FROM audit_logs al
-      LEFT JOIN users u ON al.user_id = u.id
-      WHERE 1=1
-    `;
-
-    const params = [];
-    let paramIndex = 1;
-
-    if (action) {
-      query += ` AND al.action = $${paramIndex}`;
-      params.push(action);
-      paramIndex++;
-    }
-
-    if (userId) {
-      query += ` AND al.user_id = $${paramIndex}`;
-      params.push(userId);
-      paramIndex++;
-    }
-
-    if (resource) {
-      query += ` AND al.resource = $${paramIndex}`;
-      params.push(resource);
-      paramIndex++;
-    }
-
-    if (start_date) {
-      query += ` AND al.created_at >= $${paramIndex}`;
-      params.push(start_date);
-      paramIndex++;
-    }
-
-    if (end_date) {
-      query += ` AND al.created_at <= $${paramIndex}`;
-      params.push(end_date);
-      paramIndex++;
-    }
-
-    query += ` ORDER BY al.created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-    params.push(limit, offset);
-
-    const result = await pool.query(query, params);
-
-    // Get total count for pagination
-    let countQuery = 'SELECT COUNT(*) FROM audit_logs WHERE 1=1';
-    const countParams = [];
-    let countIndex = 1;
-
-    if (action) {
-      countQuery += ` AND action = $${countIndex}`;
-      countParams.push(action);
-      countIndex++;
-    }
-
-    if (userId) {
-      countQuery += ` AND user_id = $${countIndex}`;
-      countParams.push(userId);
-      countIndex++;
-    }
-
-    if (resource) {
-      countQuery += ` AND resource = $${countIndex}`;
-      countParams.push(resource);
-      countIndex++;
-    }
-
-    if (start_date) {
-      countQuery += ` AND created_at >= $${countIndex}`;
-      countParams.push(start_date);
-      countIndex++;
-    }
-
-    if (end_date) {
-      countQuery += ` AND created_at <= $${countIndex}`;
-      countParams.push(end_date);
-      countIndex++;
-    }
-
-    const countResult = await pool.query(countQuery, countParams);
-    const total = parseInt(countResult.rows[0].count);
-
-    res.json({
-      logs: result.rows,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        totalPages: Math.ceil(total / limit)
-      }
-    });
-  } catch (err) {
-    logger.error('Error fetching audit log:', err);
-    res.status(500).json({ error: 'Serverfehler' });
-  }
-});
-
-/**
- * @route   GET /api/admin/audit-log/stats
- * @desc    Get audit log statistics
- * @access  Private (admin only)
- */
-router.get('/audit-log/stats', auth, async (req, res) => {
-  try {
-    // Check admin permissions
-    if (req.user.role !== 'superadmin' && req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Keine Berechtigung' });
-    }
-
-    const { start_date, end_date } = req.query;
-
-    // Total actions
-    let totalQuery = 'SELECT COUNT(*) as total FROM audit_logs WHERE 1=1';
-    const totalParams = [];
-
-    if (start_date) {
-      totalQuery += ' AND created_at >= $1';
-      totalParams.push(start_date);
-      if (end_date) {
-        totalQuery += ' AND created_at <= $2';
-        totalParams.push(end_date);
-      }
-    } else if (end_date) {
-      totalQuery += ' AND created_at <= $1';
-      totalParams.push(end_date);
-    }
-
-    const totalResult = await pool.query(totalQuery, totalParams);
-
-    // By action
-    let actionQuery = `
-      SELECT action, COUNT(*) as count
-      FROM audit_logs
-      WHERE 1=1
-    `;
-
-    if (start_date) {
-      actionQuery += ' AND created_at >= $1';
-      if (end_date) {
-        actionQuery += ' AND created_at <= $2';
-      }
-    } else if (end_date) {
-      actionQuery += ' AND created_at <= $1';
-    }
-
-    actionQuery += ' GROUP BY action ORDER BY count DESC LIMIT 10';
-    const actionResult = await pool.query(actionQuery, totalParams);
-
-    // By user
-    let userQuery = `
-      SELECT
-        al.user_id,
-        u.name,
-        u.email,
-        COUNT(*) as count
-      FROM audit_logs al
-      LEFT JOIN users u ON al.user_id = u.id
-      WHERE 1=1
-    `;
-
-    if (start_date) {
-      userQuery += ' AND al.created_at >= $1';
-      if (end_date) {
-        userQuery += ' AND al.created_at <= $2';
-      }
-    } else if (end_date) {
-      userQuery += ' AND al.created_at <= $1';
-    }
-
-    userQuery += ' GROUP BY al.user_id, u.name, u.email ORDER BY count DESC LIMIT 10';
-    const userResult = await pool.query(userQuery, totalParams);
-
-    // By resource
-    let resourceQuery = `
-      SELECT resource, COUNT(*) as count
-      FROM audit_logs
-      WHERE 1=1
-    `;
-
-    if (start_date) {
-      resourceQuery += ' AND created_at >= $1';
-      if (end_date) {
-        resourceQuery += ' AND created_at <= $2';
-      }
-    } else if (end_date) {
-      resourceQuery += ' AND created_at <= $1';
-    }
-
-    resourceQuery += ' GROUP BY resource ORDER BY count DESC';
-    const resourceResult = await pool.query(resourceQuery, totalParams);
-
-    res.json({
-      total: parseInt(totalResult.rows[0].total),
-      byAction: actionResult.rows,
-      byUser: userResult.rows,
-      byResource: resourceResult.rows
-    });
-  } catch (err) {
-    logger.error('Error fetching audit log stats:', err);
-    res.status(500).json({ error: 'Serverfehler' });
-  }
-});
+router.get('/audit-log', [auth, adminAuth], handleAuditLogs);
+router.get('/audit-log/stats', [auth, adminAuth], handleAuditStats);
+router.get('/audit-log/export', [auth, adminAuth], handleAuditExport);
 
 module.exports = router;
