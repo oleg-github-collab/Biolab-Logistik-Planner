@@ -26,6 +26,7 @@ const Header = () => {
   const { hasPermission } = usePermissions();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [globalSearch, setGlobalSearch] = useState('');
+  const [desktopOverflowOpen, setDesktopOverflowOpen] = useState(false);
   const searchInputRef = useRef(null);
   const { t } = useLocale();
 
