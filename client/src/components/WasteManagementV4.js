@@ -139,12 +139,24 @@ const WasteManagementV4 = () => {
         api.get('/admin/users').catch(() => ({ data: [] }))
       ]);
 
-      console.log('[WasteManagement] Templates loaded:', templatesRes.data?.length);
-      console.log('[WasteManagement] Waste categories loaded:', categoryListRes.data?.length, categoryListRes.data);
-      console.log('[WasteManagement] Items loaded:', itemsRes.data?.length || itemsRes.data);
+      console.log('[WasteManagement] ===== DATA LOADING =====');
+      console.log('[WasteManagement] Templates response:', templatesRes);
+      console.log('[WasteManagement] Templates data:', templatesRes.data);
+      console.log('[WasteManagement] Categories response:', categoryListRes);
+      console.log('[WasteManagement] Categories data:', categoryListRes.data);
+      console.log('[WasteManagement] Items response:', itemsRes);
 
-      setCategories(Array.isArray(templatesRes.data) ? templatesRes.data : []);
-      setWasteCategories(Array.isArray(categoryListRes.data) ? categoryListRes.data : []);
+      const finalTemplates = Array.isArray(templatesRes.data) ? templatesRes.data : [];
+      const finalCategories = Array.isArray(categoryListRes.data) ? categoryListRes.data : [];
+
+      console.log('[WasteManagement] Final templates count:', finalTemplates.length);
+      console.log('[WasteManagement] Final categories count:', finalCategories.length);
+      console.log('[WasteManagement] Final categories:', finalCategories);
+
+      setCategories(finalTemplates);
+      setWasteCategories(finalCategories);
+
+      console.log('[WasteManagement] State set! wasteCategories should now have', finalCategories.length, 'items');
 
       const items = itemsRes.data;
       if (Array.isArray(items)) {
