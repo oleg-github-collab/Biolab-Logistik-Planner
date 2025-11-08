@@ -25,6 +25,7 @@ const {
   runEntsorgungReminderJob
 } = require('./services/entsorgungReminder');
 const { runPendingMigrations } = require('./utils/postgresMigrations');
+const { scheduleDeadlineReminders } = require('./utils/deadlineReminders');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -218,6 +219,13 @@ const startServer = async () => {
         await runEntsorgungReminderJob({ triggeredByScheduler: false });
       } catch (entsorgungError) {
         logger.error('Failed to initialize Entsorgungs reminders', { error: entsorgungError.message });
+      }
+
+      try {
+        scheduleDeadlineReminders(60); // Run every 60 minutes
+        logger.info('✅ Deadline and event reminders scheduled');
+      } catch (deadlineError) {
+        logger.error('Failed to initialize deadline reminders', { error: deadlineError.message });
       }
     });
 

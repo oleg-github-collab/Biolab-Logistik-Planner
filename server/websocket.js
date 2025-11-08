@@ -468,30 +468,69 @@ const initializeSocket = (server) => {
       }
     });
 
-    // Handle typing indicator
+    // Handle typing indicator (enhanced with conversationId support)
     socket.on('typing_start', (data) => {
-      const { receiverId } = data;
-      const receiverConnection = Array.from(activeUsers.entries())
-        .find(([id]) => id == receiverId);
+      const { receiverId, conversationId } = data;
 
-      if (receiverConnection) {
-        const [, receiverData] = receiverConnection;
-        io.to(receiverData.socketId).emit('user_typing', {
+      // Support both direct (receiverId) and conversation-based typing
+      if (conversationId) {
+        socket.to(`conversation_${conversationId}`).emit('user_typing', {
           userId,
-          userName: userInfo.name
+          userName: userInfo.name,
+          conversationId
         });
+      } else if (receiverId) {
+        const receiverConnection = Array.from(activeUsers.entries())
+          .find(([id]) => id == receiverId);
+
+        if (receiverConnection) {
+          const [, receiverData] = receiverConnection;
+          io.to(receiverData.socketId).emit('user_typing', {
+            userId,
+            userName: userInfo.name
+          });
+        }
       }
     });
 
     socket.on('typing_stop', (data) => {
-      const { receiverId } = data;
-      const receiverConnection = Array.from(activeUsers.entries())
-        .find(([id]) => id == receiverId);
+      const { receiverId, conversationId } = data;
 
-      if (receiverConnection) {
-        const [, receiverData] = receiverConnection;
-        io.to(receiverData.socketId).emit('user_stopped_typing', {
-          userId
+      // Support both direct (receiverId) and conversation-based typing
+      if (conversationId) {
+        socket.to(`conversation_${conversationId}`).emit('user_stopped_typing', {
+          userId,
+          conversationId
+        });
+      } else if (receiverId) {
+        const receiverConnection = Array.from(activeUsers.entries())
+          .find(([id]) => id == receiverId);
+
+        if (receiverConnection) {
+          const [, receiverData] = receiverConnection;
+          io.to(receiverData.socketId).emit('user_stopped_typing', {
+            userId
+          });
+        }
+      }
+    });
+
+    // Enhanced typing indicator with conversationId (modern approach)
+    socket.on('typing:start', ({ conversationId, userId: typingUserId, userName }) => {
+      if (conversationId) {
+        io.to(`conversation_${conversationId}`).emit('user:typing', {
+          userId: typingUserId || userId,
+          userName: userName || userInfo.name,
+          conversationId
+        });
+      }
+    });
+
+    socket.on('typing:stop', ({ conversationId, userId: typingUserId }) => {
+      if (conversationId) {
+        io.to(`conversation_${conversationId}`).emit('user:typing_stop', {
+          userId: typingUserId || userId,
+          conversationId
         });
       }
     });

@@ -615,4 +615,238 @@ router.post('/broadcast', [auth, adminAuth], async (req, res) => {
   }
 });
 
+// ==================== AUDIT LOG ====================
+
+/**
+ * @route   GET /api/admin/audit-log
+ * @desc    Get audit log with filtering
+ * @access  Private (admin only)
+ */
+router.get('/audit-log', auth, async (req, res) => {
+  try {
+    // Check admin permissions
+    if (req.user.role !== 'superadmin' && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Keine Berechtigung' });
+    }
+
+    const {
+      page = 1,
+      limit = 50,
+      action,
+      userId,
+      resource,
+      start_date,
+      end_date
+    } = req.query;
+
+    const offset = (page - 1) * limit;
+
+    // Build query
+    let query = `
+      SELECT
+        al.*,
+        u.name as user_name,
+        u.email as user_email
+      FROM audit_logs al
+      LEFT JOIN users u ON al.user_id = u.id
+      WHERE 1=1
+    `;
+
+    const params = [];
+    let paramIndex = 1;
+
+    if (action) {
+      query += ` AND al.action = $${paramIndex}`;
+      params.push(action);
+      paramIndex++;
+    }
+
+    if (userId) {
+      query += ` AND al.user_id = $${paramIndex}`;
+      params.push(userId);
+      paramIndex++;
+    }
+
+    if (resource) {
+      query += ` AND al.resource = $${paramIndex}`;
+      params.push(resource);
+      paramIndex++;
+    }
+
+    if (start_date) {
+      query += ` AND al.created_at >= $${paramIndex}`;
+      params.push(start_date);
+      paramIndex++;
+    }
+
+    if (end_date) {
+      query += ` AND al.created_at <= $${paramIndex}`;
+      params.push(end_date);
+      paramIndex++;
+    }
+
+    query += ` ORDER BY al.created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    params.push(limit, offset);
+
+    const result = await pool.query(query, params);
+
+    // Get total count for pagination
+    let countQuery = 'SELECT COUNT(*) FROM audit_logs WHERE 1=1';
+    const countParams = [];
+    let countIndex = 1;
+
+    if (action) {
+      countQuery += ` AND action = $${countIndex}`;
+      countParams.push(action);
+      countIndex++;
+    }
+
+    if (userId) {
+      countQuery += ` AND user_id = $${countIndex}`;
+      countParams.push(userId);
+      countIndex++;
+    }
+
+    if (resource) {
+      countQuery += ` AND resource = $${countIndex}`;
+      countParams.push(resource);
+      countIndex++;
+    }
+
+    if (start_date) {
+      countQuery += ` AND created_at >= $${countIndex}`;
+      countParams.push(start_date);
+      countIndex++;
+    }
+
+    if (end_date) {
+      countQuery += ` AND created_at <= $${countIndex}`;
+      countParams.push(end_date);
+      countIndex++;
+    }
+
+    const countResult = await pool.query(countQuery, countParams);
+    const total = parseInt(countResult.rows[0].count);
+
+    res.json({
+      logs: result.rows,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        totalPages: Math.ceil(total / limit)
+      }
+    });
+  } catch (err) {
+    logger.error('Error fetching audit log:', err);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+/**
+ * @route   GET /api/admin/audit-log/stats
+ * @desc    Get audit log statistics
+ * @access  Private (admin only)
+ */
+router.get('/audit-log/stats', auth, async (req, res) => {
+  try {
+    // Check admin permissions
+    if (req.user.role !== 'superadmin' && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Keine Berechtigung' });
+    }
+
+    const { start_date, end_date } = req.query;
+
+    // Total actions
+    let totalQuery = 'SELECT COUNT(*) as total FROM audit_logs WHERE 1=1';
+    const totalParams = [];
+
+    if (start_date) {
+      totalQuery += ' AND created_at >= $1';
+      totalParams.push(start_date);
+      if (end_date) {
+        totalQuery += ' AND created_at <= $2';
+        totalParams.push(end_date);
+      }
+    } else if (end_date) {
+      totalQuery += ' AND created_at <= $1';
+      totalParams.push(end_date);
+    }
+
+    const totalResult = await pool.query(totalQuery, totalParams);
+
+    // By action
+    let actionQuery = `
+      SELECT action, COUNT(*) as count
+      FROM audit_logs
+      WHERE 1=1
+    `;
+
+    if (start_date) {
+      actionQuery += ' AND created_at >= $1';
+      if (end_date) {
+        actionQuery += ' AND created_at <= $2';
+      }
+    } else if (end_date) {
+      actionQuery += ' AND created_at <= $1';
+    }
+
+    actionQuery += ' GROUP BY action ORDER BY count DESC LIMIT 10';
+    const actionResult = await pool.query(actionQuery, totalParams);
+
+    // By user
+    let userQuery = `
+      SELECT
+        al.user_id,
+        u.name,
+        u.email,
+        COUNT(*) as count
+      FROM audit_logs al
+      LEFT JOIN users u ON al.user_id = u.id
+      WHERE 1=1
+    `;
+
+    if (start_date) {
+      userQuery += ' AND al.created_at >= $1';
+      if (end_date) {
+        userQuery += ' AND al.created_at <= $2';
+      }
+    } else if (end_date) {
+      userQuery += ' AND al.created_at <= $1';
+    }
+
+    userQuery += ' GROUP BY al.user_id, u.name, u.email ORDER BY count DESC LIMIT 10';
+    const userResult = await pool.query(userQuery, totalParams);
+
+    // By resource
+    let resourceQuery = `
+      SELECT resource, COUNT(*) as count
+      FROM audit_logs
+      WHERE 1=1
+    `;
+
+    if (start_date) {
+      resourceQuery += ' AND created_at >= $1';
+      if (end_date) {
+        resourceQuery += ' AND created_at <= $2';
+      }
+    } else if (end_date) {
+      resourceQuery += ' AND created_at <= $1';
+    }
+
+    resourceQuery += ' GROUP BY resource ORDER BY count DESC';
+    const resourceResult = await pool.query(resourceQuery, totalParams);
+
+    res.json({
+      total: parseInt(totalResult.rows[0].total),
+      byAction: actionResult.rows,
+      byUser: userResult.rows,
+      byResource: resourceResult.rows
+    });
+  } catch (err) {
+    logger.error('Error fetching audit log stats:', err);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
 module.exports = router;

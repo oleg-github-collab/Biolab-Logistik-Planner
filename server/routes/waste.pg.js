@@ -1400,4 +1400,137 @@ router.delete('/schedule/:id', auth, async (req, res) => {
   }
 });
 
+// ==================== WASTE STATISTICS ====================
+
+/**
+ * @route   GET /api/waste/statistics
+ * @desc    Get comprehensive waste statistics with trends
+ * @access  Private
+ */
+router.get('/statistics', auth, async (req, res) => {
+  try {
+    const { start_date, end_date, group_by = 'month' } = req.query;
+
+    // Total waste items count
+    const totalResult = await pool.query(`
+      SELECT COUNT(*) as total,
+             SUM(CASE WHEN disposal_status = 'disposed' THEN 1 ELSE 0 END) as disposed,
+             SUM(CASE WHEN disposal_status = 'pending' THEN 1 ELSE 0 END) as pending
+      FROM waste_items
+      WHERE ($1::date IS NULL OR created_at >= $1)
+        AND ($2::date IS NULL OR created_at <= $2)
+    `, [start_date || null, end_date || null]);
+
+    // By category
+    const categoryResult = await pool.query(`
+      SELECT
+        wc.name as category,
+        wc.color,
+        COUNT(wi.id) as count,
+        SUM(CASE WHEN wi.disposal_status = 'disposed' THEN 1 ELSE 0 END) as disposed
+      FROM waste_categories wc
+      LEFT JOIN waste_items wi ON wi.category_id = wc.id
+        AND ($1::date IS NULL OR wi.created_at >= $1)
+        AND ($2::date IS NULL OR wi.created_at <= $2)
+      GROUP BY wc.id, wc.name, wc.color
+      ORDER BY count DESC
+    `, [start_date || null, end_date || null]);
+
+    // By hazard level
+    const hazardResult = await pool.query(`
+      SELECT
+        hazard_level,
+        COUNT(*) as count,
+        ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (), 2) as percentage
+      FROM waste_items
+      WHERE ($1::date IS NULL OR created_at >= $1)
+        AND ($2::date IS NULL OR created_at <= $2)
+      GROUP BY hazard_level
+      ORDER BY
+        CASE hazard_level
+          WHEN 'critical' THEN 1
+          WHEN 'high' THEN 2
+          WHEN 'medium' THEN 3
+          WHEN 'low' THEN 4
+        END
+    `, [start_date || null, end_date || null]);
+
+    // Trend over time
+    let timeGrouping;
+    switch (group_by) {
+      case 'day':
+        timeGrouping = "DATE_TRUNC('day', created_at)";
+        break;
+      case 'week':
+        timeGrouping = "DATE_TRUNC('week', created_at)";
+        break;
+      case 'year':
+        timeGrouping = "DATE_TRUNC('year', created_at)";
+        break;
+      default: // month
+        timeGrouping = "DATE_TRUNC('month', created_at)";
+    }
+
+    const trendResult = await pool.query(`
+      SELECT
+        ${timeGrouping} as period,
+        COUNT(*) as count,
+        SUM(CASE WHEN disposal_status = 'disposed' THEN 1 ELSE 0 END) as disposed,
+        SUM(CASE WHEN disposal_status = 'pending' THEN 1 ELSE 0 END) as pending
+      FROM waste_items
+      WHERE ($1::date IS NULL OR created_at >= $1)
+        AND ($2::date IS NULL OR created_at <= $2)
+      GROUP BY period
+      ORDER BY period ASC
+    `, [start_date || null, end_date || null]);
+
+    // Top locations
+    const locationResult = await pool.query(`
+      SELECT
+        location,
+        COUNT(*) as count
+      FROM waste_items
+      WHERE location IS NOT NULL
+        AND ($1::date IS NULL OR created_at >= $1)
+        AND ($2::date IS NULL OR created_at <= $2)
+      GROUP BY location
+      ORDER BY count DESC
+      LIMIT 10
+    `, [start_date || null, end_date || null]);
+
+    // Average disposal time (for disposed items)
+    const avgDisposalTime = await pool.query(`
+      SELECT
+        AVG(EXTRACT(EPOCH FROM (disposal_date - created_at))/86400)::numeric(10,2) as avg_days
+      FROM waste_items
+      WHERE disposal_status = 'disposed'
+        AND disposal_date IS NOT NULL
+        AND ($1::date IS NULL OR created_at >= $1)
+        AND ($2::date IS NULL OR created_at <= $2)
+    `, [start_date || null, end_date || null]);
+
+    res.json({
+      summary: {
+        total: parseInt(totalResult.rows[0].total),
+        disposed: parseInt(totalResult.rows[0].disposed),
+        pending: parseInt(totalResult.rows[0].pending),
+        avgDisposalDays: avgDisposalTime.rows[0].avg_days || 0
+      },
+      byCategory: categoryResult.rows,
+      byHazardLevel: hazardResult.rows,
+      trend: trendResult.rows.map(row => ({
+        period: row.period,
+        count: parseInt(row.count),
+        disposed: parseInt(row.disposed),
+        pending: parseInt(row.pending)
+      })),
+      topLocations: locationResult.rows
+    });
+
+  } catch (error) {
+    console.error('Error fetching waste statistics:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
 module.exports = router;

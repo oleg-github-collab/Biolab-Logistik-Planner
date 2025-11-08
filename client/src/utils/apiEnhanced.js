@@ -429,4 +429,70 @@ export const deleteTaskTemplate = (id) =>
 export const createTaskFromTemplate = (templateId, data = {}) =>
   api.post(`/tasks/templates/${templateId}/use`, data);
 
+// ==================== BULK OPERATIONS ====================
+
+// Bulk update tasks
+export const bulkUpdateTasks = (taskIds, updates) =>
+  api.post('/tasks/bulk/update', { taskIds, updates });
+
+// Bulk delete tasks
+export const bulkDeleteTasks = (taskIds) =>
+  api.post('/tasks/bulk/delete', { taskIds });
+
+// Bulk assign tasks
+export const bulkAssignTasks = (taskIds, assignedTo) =>
+  api.post('/tasks/bulk/assign', { taskIds, assignedTo });
+
+// Bulk delete messages
+export const bulkDeleteMessages = (messageIds) =>
+  api.post('/messages/bulk/delete', { messageIds });
+
+// Bulk mark messages as read
+export const bulkMarkMessagesAsRead = (messageIds) =>
+  api.post('/messages/bulk/mark-read', { messageIds });
+
+// ==================== EVENT CONFLICT DETECTION ====================
+
+// Get all event conflicts
+export const getEventConflicts = (params = {}) =>
+  api.get('/events/conflicts', { params });
+
+// Check if event would conflict
+export const checkEventConflict = (eventData) =>
+  api.post('/events/check-conflict', eventData);
+
+// ==================== WASTE STATISTICS ====================
+
+// Get waste statistics
+export const getWasteStatistics = (params = {}) =>
+  api.get('/waste/statistics', { params });
+
+// ==================== KB ARTICLE VERSIONING ====================
+
+// Get all versions of an article
+export const getArticleVersions = (articleId) =>
+  api.get(`/kb/articles/${articleId}/versions`);
+
+// Get specific version
+export const getArticleVersion = (articleId, versionNumber) =>
+  api.get(`/kb/articles/${articleId}/versions/${versionNumber}`);
+
+// Restore article to version
+export const restoreArticleVersion = (articleId, versionNumber) =>
+  api.post(`/kb/articles/${articleId}/versions/${versionNumber}/restore`);
+
+// Compare two versions
+export const compareArticleVersions = (articleId, v1, v2) =>
+  api.get(`/kb/articles/${articleId}/versions/compare/${v1}/${v2}`);
+
+// ==================== AUDIT LOG ====================
+
+// Get audit log
+export const getAuditLog = (params = {}) =>
+  api.get('/admin/audit-log', { params });
+
+// Get audit log statistics
+export const getAuditLogStats = (params = {}) =>
+  api.get('/admin/audit-log/stats', { params });
+
 export default api;

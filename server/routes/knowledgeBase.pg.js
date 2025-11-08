@@ -638,4 +638,166 @@ router.delete('/media/:id', auth, async (req, res) => {
   }
 });
 
+// ==================== ARTICLE VERSIONING ====================
+
+/**
+ * @route   GET /api/kb/articles/:id/versions
+ * @desc    Get all versions of an article
+ * @access  Private
+ */
+router.get('/articles/:id/versions', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query(`
+      SELECT
+        v.*,
+        u.name as author_name
+      FROM kb_article_versions v
+      LEFT JOIN users u ON v.author_id = u.id
+      WHERE v.article_id = $1
+      ORDER BY v.version_number DESC
+    `, [id]);
+
+    res.json(result.rows);
+  } catch (error) {
+    logger.error('Error fetching article versions:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+/**
+ * @route   GET /api/kb/articles/:id/versions/:versionNumber
+ * @desc    Get specific version of an article
+ * @access  Private
+ */
+router.get('/articles/:id/versions/:versionNumber', auth, async (req, res) => {
+  try {
+    const { id, versionNumber } = req.params;
+
+    const result = await pool.query(`
+      SELECT
+        v.*,
+        u.name as author_name
+      FROM kb_article_versions v
+      LEFT JOIN users u ON v.author_id = u.id
+      WHERE v.article_id = $1 AND v.version_number = $2
+    `, [id, versionNumber]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Version nicht gefunden' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    logger.error('Error fetching article version:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+/**
+ * @route   POST /api/kb/articles/:id/versions/:versionNumber/restore
+ * @desc    Restore article to a specific version
+ * @access  Private (admin only)
+ */
+router.post('/articles/:id/versions/:versionNumber/restore', auth, async (req, res) => {
+  try {
+    const { id, versionNumber } = req.params;
+
+    // Check admin permissions
+    if (req.user.role !== 'superadmin' && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Keine Berechtigung' });
+    }
+
+    // Get the version to restore
+    const versionResult = await pool.query(
+      'SELECT * FROM kb_article_versions WHERE article_id = $1 AND version_number = $2',
+      [id, versionNumber]
+    );
+
+    if (versionResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Version nicht gefunden' });
+    }
+
+    const version = versionResult.rows[0];
+
+    // Update article with version content (trigger will create new version)
+    const updateResult = await pool.query(`
+      UPDATE kb_articles
+      SET
+        title = $1,
+        slug = $2,
+        content = $3,
+        excerpt = $4,
+        category_id = $5,
+        tags = $6,
+        status = $7,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $8
+      RETURNING *
+    `, [
+      version.title,
+      version.slug,
+      version.content,
+      version.excerpt,
+      version.category_id,
+      version.tags,
+      version.status,
+      id
+    ]);
+
+    // Update the change summary of the newly created version
+    await pool.query(`
+      UPDATE kb_article_versions
+      SET change_summary = $1
+      WHERE article_id = $2 AND version_number = (
+        SELECT current_version FROM kb_articles WHERE id = $2
+      )
+    `, [`Wiederhergestellt von Version ${versionNumber}`, id]);
+
+    logger.info('Article restored to version', { articleId: id, versionNumber, userId: req.user.id });
+
+    res.json({
+      message: `Artikel auf Version ${versionNumber} wiederhergestellt`,
+      article: updateResult.rows[0]
+    });
+  } catch (error) {
+    logger.error('Error restoring article version:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+/**
+ * @route   GET /api/kb/articles/:id/versions/compare/:v1/:v2
+ * @desc    Compare two versions of an article
+ * @access  Private
+ */
+router.get('/articles/:id/versions/compare/:v1/:v2', auth, async (req, res) => {
+  try {
+    const { id, v1, v2 } = req.params;
+
+    const result = await pool.query(`
+      SELECT
+        v.*,
+        u.name as author_name
+      FROM kb_article_versions v
+      LEFT JOIN users u ON v.author_id = u.id
+      WHERE v.article_id = $1 AND v.version_number IN ($2, $3)
+      ORDER BY v.version_number ASC
+    `, [id, v1, v2]);
+
+    if (result.rows.length !== 2) {
+      return res.status(404).json({ error: 'Versionen nicht gefunden' });
+    }
+
+    res.json({
+      version1: result.rows[0],
+      version2: result.rows[1]
+    });
+  } catch (error) {
+    logger.error('Error comparing versions:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
 module.exports = router;

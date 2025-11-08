@@ -2326,4 +2326,110 @@ router.post('/:messageId/forward', auth, async (req, res) => {
   }
 });
 
+// ==================== BULK OPERATIONS ====================
+
+/**
+ * @route   POST /api/messages/bulk/delete
+ * @desc    Bulk delete messages
+ * @access  Private
+ */
+router.post('/bulk/delete', auth, async (req, res) => {
+  try {
+    const { messageIds } = req.body;
+
+    if (!Array.isArray(messageIds) || messageIds.length === 0) {
+      return res.status(400).json({ error: 'Message IDs array is required' });
+    }
+
+    // Verify user owns the messages
+    const checkResult = await pool.query(
+      'SELECT id FROM messages WHERE id = ANY($1) AND sender_id = $2',
+      [messageIds, req.user.id]
+    );
+
+    if (checkResult.rowCount !== messageIds.length) {
+      return res.status(403).json({ error: 'You can only delete your own messages' });
+    }
+
+    // Delete messages
+    const result = await pool.query(
+      `UPDATE messages SET deleted_at = CURRENT_TIMESTAMP
+       WHERE id = ANY($1) RETURNING id`,
+      [messageIds]
+    );
+
+    // Emit WebSocket events
+    const io = getIO();
+    if (io) {
+      result.rows.forEach(msg => {
+        io.emit('message:deleted', { id: msg.id });
+      });
+    }
+
+    // Audit log
+    auditLogger.log({
+      action: 'bulk_delete_messages',
+      userId: req.user.id,
+      resource: 'messages',
+      details: {
+        messageIds,
+        deletedCount: result.rowCount
+      }
+    });
+
+    res.json({
+      success: true,
+      deletedCount: result.rowCount
+    });
+
+  } catch (error) {
+    logger.error('Error bulk deleting messages', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * @route   POST /api/messages/bulk/mark-read
+ * @desc    Bulk mark messages as read
+ * @access  Private
+ */
+router.post('/bulk/mark-read', auth, async (req, res) => {
+  try {
+    const { messageIds } = req.body;
+
+    if (!Array.isArray(messageIds) || messageIds.length === 0) {
+      return res.status(400).json({ error: 'Message IDs array is required' });
+    }
+
+    // Mark as read (only for recipient)
+    const result = await pool.query(
+      `UPDATE messages
+       SET read_at = CURRENT_TIMESTAMP
+       WHERE id = ANY($1) AND recipient_id = $2 AND read_at IS NULL
+       RETURNING id`,
+      [messageIds, req.user.id]
+    );
+
+    // Emit WebSocket events
+    const io = getIO();
+    if (io) {
+      result.rows.forEach(msg => {
+        io.emit('message:read', {
+          id: msg.id,
+          readBy: req.user.id
+        });
+      });
+    }
+
+    res.json({
+      success: true,
+      markedCount: result.rowCount
+    });
+
+  } catch (error) {
+    logger.error('Error bulk marking messages as read', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 module.exports = router;

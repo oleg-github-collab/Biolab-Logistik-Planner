@@ -818,4 +818,222 @@ router.post('/templates/:id/use', auth, async (req, res) => {
   }
 });
 
+// ==================== BULK OPERATIONS ====================
+
+/**
+ * @route   POST /api/tasks/bulk/update
+ * @desc    Bulk update multiple tasks
+ * @access  Private
+ */
+router.post('/bulk/update', auth, async (req, res) => {
+  try {
+    const { taskIds, updates } = req.body;
+
+    if (!Array.isArray(taskIds) || taskIds.length === 0) {
+      return res.status(400).json({ error: 'Task IDs array is required' });
+    }
+
+    if (!updates || Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'Updates object is required' });
+    }
+
+    // Build dynamic SET clause
+    const allowedFields = ['status', 'priority', 'assigned_to', 'due_date', 'category', 'tags'];
+    const setClauses = [];
+    const params = [];
+    let paramIndex = 1;
+
+    Object.keys(updates).forEach(field => {
+      if (allowedFields.includes(field)) {
+        if (field === 'tags' && Array.isArray(updates[field])) {
+          setClauses.push(`${field} = $${paramIndex}::jsonb`);
+          params.push(JSON.stringify(updates[field]));
+        } else {
+          setClauses.push(`${field} = $${paramIndex}`);
+          params.push(updates[field]);
+        }
+        paramIndex++;
+      }
+    });
+
+    if (setClauses.length === 0) {
+      return res.status(400).json({ error: 'No valid fields to update' });
+    }
+
+    // Add taskIds to params
+    params.push(taskIds);
+
+    const query = `
+      UPDATE tasks
+      SET ${setClauses.join(', ')}, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ANY($${paramIndex})
+      RETURNING *
+    `;
+
+    const result = await pool.query(query, params);
+
+    // Emit WebSocket events
+    const io = getIO();
+    if (io) {
+      result.rows.forEach(task => {
+        io.emit('task:updated', task);
+      });
+    }
+
+    // Audit log
+    auditLogger.log({
+      action: 'bulk_update_tasks',
+      userId: req.user.id,
+      resource: 'tasks',
+      details: {
+        taskIds,
+        updates,
+        affectedCount: result.rowCount
+      }
+    });
+
+    res.json({
+      success: true,
+      updatedCount: result.rowCount,
+      tasks: result.rows
+    });
+
+  } catch (error) {
+    logger.error('Error bulk updating tasks', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * @route   POST /api/tasks/bulk/delete
+ * @desc    Bulk delete multiple tasks
+ * @access  Private
+ */
+router.post('/bulk/delete', auth, async (req, res) => {
+  try {
+    const { taskIds } = req.body;
+
+    if (!Array.isArray(taskIds) || taskIds.length === 0) {
+      return res.status(400).json({ error: 'Task IDs array is required' });
+    }
+
+    // Delete tasks
+    const result = await pool.query(
+      'DELETE FROM tasks WHERE id = ANY($1) RETURNING id, title',
+      [taskIds]
+    );
+
+    // Emit WebSocket events
+    const io = getIO();
+    if (io) {
+      result.rows.forEach(task => {
+        io.emit('task:deleted', { id: task.id });
+      });
+    }
+
+    // Audit log
+    auditLogger.log({
+      action: 'bulk_delete_tasks',
+      userId: req.user.id,
+      resource: 'tasks',
+      details: {
+        taskIds,
+        deletedCount: result.rowCount,
+        deletedTasks: result.rows.map(t => ({ id: t.id, title: t.title }))
+      }
+    });
+
+    res.json({
+      success: true,
+      deletedCount: result.rowCount,
+      deletedTasks: result.rows
+    });
+
+  } catch (error) {
+    logger.error('Error bulk deleting tasks', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * @route   POST /api/tasks/bulk/assign
+ * @desc    Bulk assign tasks to a user
+ * @access  Private
+ */
+router.post('/bulk/assign', auth, async (req, res) => {
+  try {
+    const { taskIds, assignedTo } = req.body;
+
+    if (!Array.isArray(taskIds) || taskIds.length === 0) {
+      return res.status(400).json({ error: 'Task IDs array is required' });
+    }
+
+    if (!assignedTo) {
+      return res.status(400).json({ error: 'Assigned user ID is required' });
+    }
+
+    const result = await pool.query(
+      `UPDATE tasks
+       SET assigned_to = $1, updated_at = CURRENT_TIMESTAMP
+       WHERE id = ANY($2)
+       RETURNING *`,
+      [assignedTo, taskIds]
+    );
+
+    // Create notifications for assigned user
+    const notificationPromises = result.rows.map(task =>
+      pool.query(
+        `INSERT INTO notifications
+         (user_id, type, title, content, priority, task_id, action_url)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          assignedTo,
+          'task_assigned',
+          'Neue Aufgaben zugewiesen',
+          `Dir wurden ${result.rowCount} Aufgaben zugewiesen`,
+          'normal',
+          task.id,
+          '/dashboard'
+        ]
+      )
+    );
+
+    await Promise.all(notificationPromises);
+
+    // Emit WebSocket events
+    const io = getIO();
+    if (io) {
+      result.rows.forEach(task => {
+        io.emit('task:updated', task);
+        io.to(`user_${assignedTo}`).emit('notification:new', {
+          type: 'task_assigned',
+          taskId: task.id
+        });
+      });
+    }
+
+    // Audit log
+    auditLogger.log({
+      action: 'bulk_assign_tasks',
+      userId: req.user.id,
+      resource: 'tasks',
+      details: {
+        taskIds,
+        assignedTo,
+        assignedCount: result.rowCount
+      }
+    });
+
+    res.json({
+      success: true,
+      assignedCount: result.rowCount,
+      tasks: result.rows
+    });
+
+  } catch (error) {
+    logger.error('Error bulk assigning tasks', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 module.exports = router;
