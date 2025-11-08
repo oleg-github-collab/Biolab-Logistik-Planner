@@ -190,16 +190,27 @@ const DirectMessenger = () => {
         setLoading(true);
         setStoriesLoading(true);
         const [contactsRes, threadsRes, storiesRes] = await Promise.all([
-          getAllContacts(),
-          getMessageThreads(),
-          getStoriesFeed()
+          getAllContacts().catch(err => {
+            console.error('Error loading contacts:', err);
+            return { data: [] };
+          }),
+          getMessageThreads().catch(err => {
+            console.error('Error loading threads:', err);
+            return { data: [] };
+          }),
+          getStoriesFeed().catch(err => {
+            console.error('Error loading stories:', err);
+            return { data: { stories: [] } };
+          })
         ]);
-        setContacts(contactsRes.data || []);
-        setThreads(threadsRes.data || []);
-        setStories(storiesRes.data?.stories || []);
+        setContacts(Array.isArray(contactsRes?.data) ? contactsRes.data : []);
+        setThreads(Array.isArray(threadsRes?.data) ? threadsRes.data : []);
+        setStories(Array.isArray(storiesRes?.data?.stories) ? storiesRes.data.stories : []);
       } catch (error) {
         console.error('Error loading data:', error);
         showError('Fehler beim Laden der Daten');
+        setContacts([]);
+        setThreads([]);
         setStories([]);
       } finally {
         setLoading(false);
@@ -263,7 +274,7 @@ const DirectMessenger = () => {
 
     const handleNewMessage = (data) => {
       if (data?.conversationId === selectedThreadId && data?.message) {
-        setMessages((prev) => [...prev, normalizeMessage(data.message)]);
+        setMessages((prev) => Array.isArray(prev) ? [...prev, normalizeMessage(data.message)] : [normalizeMessage(data.message)]);
         setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 30);
       }
     };
@@ -271,15 +282,17 @@ const DirectMessenger = () => {
     const handleMessageReaction = (data) => {
       if (data?.conversationId === selectedThreadId && data?.messageId) {
         setMessages((prev) =>
-          prev.map((msg) => {
-            if (msg.id === data.messageId) {
-              return {
-                ...msg,
-                reactions: data.reactions || msg.reactions
-              };
-            }
-            return msg;
-          })
+          Array.isArray(prev)
+            ? prev.map((msg) => {
+                if (msg?.id === data.messageId) {
+                  return {
+                    ...msg,
+                    reactions: data.reactions || msg.reactions || {}
+                  };
+                }
+                return msg;
+              })
+            : prev
         );
       }
     };
@@ -343,39 +356,58 @@ const DirectMessenger = () => {
   }, [selectedThreadId, isConnected, joinConversationRoom, onConversationEvent, normalizeMessage, user]);
 
   const loadMessages = useCallback(async (threadId) => {
+    if (!threadId) {
+      console.warn('loadMessages called without threadId');
+      return;
+    }
+
     try {
       const response = await getConversationMessages(threadId);
-      const msgs = Array.isArray(response.data) ? response.data : [];
+      const msgs = Array.isArray(response?.data) ? response.data : [];
       setMessages(msgs.map((msg) => normalizeMessage(msg)));
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
     } catch (error) {
       console.error('Error loading messages:', error);
       showError('Fehler beim Laden der Nachrichten');
+      setMessages([]);
     }
   }, [normalizeMessage]);
 
   const handleContactClick = async (contact) => {
+    if (!contact?.id) {
+      showError('Kontakt nicht gefunden');
+      return;
+    }
+
     try {
       setSelectedContact(contact);
 
-      const existingThread = threads.find(
-        (t) =>
-          t.type === 'direct' &&
-          t.members?.some((member) => member.user_id === contact.id)
-      );
+      const existingThread = Array.isArray(threads)
+        ? threads.find(
+            (t) =>
+              t?.type === 'direct' &&
+              Array.isArray(t.members) &&
+              t.members.some((member) => member?.user_id === contact.id)
+          )
+        : null;
 
-      if (existingThread) {
+      if (existingThread?.id) {
         setSelectedThreadId(existingThread.id);
         await loadMessages(existingThread.id);
       } else {
         const response = await createConversationThread({
-          name: contact.name,
+          name: contact.name || 'Unbekannt',
           type: 'direct',
           memberIds: [contact.id]
         });
-        setSelectedThreadId(response.data.id);
-        setMessages([]);
-        setThreads((prev) => [...prev, response.data]);
+
+        if (response?.data?.id) {
+          setSelectedThreadId(response.data.id);
+          setMessages([]);
+          setThreads((prev) => Array.isArray(prev) ? [...prev, response.data] : [response.data]);
+        } else {
+          throw new Error('Invalid response from createConversationThread');
+        }
       }
 
       if (isMobile) {
@@ -383,22 +415,23 @@ const DirectMessenger = () => {
       }
     } catch (error) {
       console.error('Error selecting contact:', error);
-      showError('Fehler beim Öffnen des Chats');
+      showError('Fehler beim Öffnen des Chats: ' + (error.message || 'Unbekannter Fehler'));
     }
   };
 
   const handleSendMessage = async (event) => {
     event?.preventDefault();
 
-    const trimmed = messageInput.trim();
-    if (!trimmed && pendingAttachments.length === 0 && !selectedEvent) return;
+    const trimmed = messageInput?.trim() || '';
+    if (!trimmed && (!Array.isArray(pendingAttachments) || pendingAttachments.length === 0) && !selectedEvent) return;
+
     if (!selectedThreadId) {
       showError('Kein Chat ausgewählt');
       return;
     }
 
     const inputValue = messageInput;
-    const attachments = [...pendingAttachments];
+    const attachments = Array.isArray(pendingAttachments) ? [...pendingAttachments] : [];
     const eventToShare = selectedEvent;
     const replyTo = replyToMessage;
     setMessageInput('');
@@ -411,38 +444,44 @@ const DirectMessenger = () => {
       if (attachments.length > 0) {
         attachmentsData = await Promise.all(
           attachments.map(async (file) => {
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('context', 'message');
-            formData.append('conversationId', selectedThreadId);
-            const res = await uploadAttachment(formData);
-            return res.data;
+            try {
+              const formData = new FormData();
+              formData.append('file', file);
+              formData.append('context', 'message');
+              formData.append('conversationId', selectedThreadId);
+              const res = await uploadAttachment(formData);
+              return res?.data || null;
+            } catch (err) {
+              console.error('Error uploading attachment:', err);
+              return null;
+            }
           })
         );
+        attachmentsData = attachmentsData.filter(a => a !== null);
       }
 
       setShowGifPicker(false);
 
-     const messageBody = trimmed || (eventToShare ? `Kalender: ${eventToShare.title}` : '');
+      const messageBody = trimmed || (eventToShare?.title ? `Kalender: ${eventToShare.title}` : '');
       const payload = {
         message: messageBody,
         attachments: attachmentsData
       };
 
-      if (replyTo) {
+      if (replyTo?.id) {
         payload.metadata = payload.metadata || {};
         payload.metadata.reply_to = {
           id: replyTo.id,
-          message: replyTo.message,
-          sender_name: replyTo.sender_name
+          message: replyTo.message || '',
+          sender_name: replyTo.sender_name || 'Unknown'
         };
       }
 
-      if (eventToShare) {
+      if (eventToShare?.id) {
         payload.metadata = payload.metadata || {};
         payload.metadata.shared_event = {
           id: eventToShare.id,
-          title: eventToShare.title,
+          title: eventToShare.title || 'Untitled',
           start_time: eventToShare.start_time,
           end_time: eventToShare.end_time,
           location: eventToShare.location || null
@@ -450,16 +489,16 @@ const DirectMessenger = () => {
       }
 
       const response = await sendConversationMessage(selectedThreadId, payload);
-      let newMessage = normalizeMessage(response?.data?.message);
+      let newMessage = response?.data?.message ? normalizeMessage(response.data.message) : null;
 
-      if (newMessage && eventToShare && newMessage.id) {
+      if (newMessage?.id && eventToShare?.id) {
         try {
           const linkResponse = await linkCalendarToMessage(newMessage.id, eventToShare.id, 'share');
           const referenceId = linkResponse?.data?.id || `event-ref-${newMessage.id}-${eventToShare.id}`;
           const eventReference = {
             id: referenceId,
             event_id: eventToShare.id,
-            event_title: eventToShare.title,
+            event_title: eventToShare.title || 'Untitled',
             event_start_time: eventToShare.start_time,
             event_end_time: eventToShare.end_time,
             location: eventToShare.location || null
@@ -467,12 +506,14 @@ const DirectMessenger = () => {
 
           newMessage = {
             ...newMessage,
-            calendar_refs: [...(newMessage.calendar_refs || []), eventReference],
+            calendar_refs: Array.isArray(newMessage.calendar_refs)
+              ? [...newMessage.calendar_refs, eventReference]
+              : [eventReference],
             metadata: {
               ...(newMessage.metadata || {}),
               shared_event: {
                 id: eventToShare.id,
-                title: eventToShare.title,
+                title: eventToShare.title || 'Untitled',
                 start_time: eventToShare.start_time,
                 end_time: eventToShare.end_time,
                 location: eventToShare.location || null
@@ -486,7 +527,7 @@ const DirectMessenger = () => {
       }
 
       if (newMessage) {
-        setMessages((prev) => [...prev, newMessage]);
+        setMessages((prev) => Array.isArray(prev) ? [...prev, newMessage] : [newMessage]);
         setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 30);
       } else {
         await loadMessages(selectedThreadId);
@@ -498,9 +539,9 @@ const DirectMessenger = () => {
       const errorMsg =
         error?.response?.data?.error || error?.message || 'Fehler beim Senden';
       showError(errorMsg);
-      setMessageInput(inputValue);
-      setPendingAttachments(attachments);
-      setSelectedEvent(eventToShare);
+      setMessageInput(inputValue || '');
+      setPendingAttachments(Array.isArray(attachments) ? attachments : []);
+      setSelectedEvent(eventToShare || null);
     } finally {
       setSending(false);
     }
