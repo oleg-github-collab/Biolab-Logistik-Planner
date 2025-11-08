@@ -152,11 +152,27 @@ const DirectMessenger = () => {
       }
     }
 
+    // Transform reactions from array format to object format
+    // Backend returns: [{ emoji: '👍', count: 2, users: [{user_id: 1, ...}, {user_id: 2, ...}] }]
+    // Frontend expects: { '👍': [1, 2] }
+    let reactions = {};
+    if (Array.isArray(message.reactions)) {
+      message.reactions.forEach((reaction) => {
+        if (reaction.emoji && Array.isArray(reaction.users)) {
+          reactions[reaction.emoji] = reaction.users.map(u => u.user_id);
+        }
+      });
+    } else if (message.reactions && typeof message.reactions === 'object') {
+      // Already in object format
+      reactions = message.reactions;
+    }
+
     return {
       ...message,
       attachments,
       calendar_refs: calendarRefs,
-      metadata
+      metadata,
+      reactions
     };
   }, []);
 
@@ -285,9 +301,18 @@ const DirectMessenger = () => {
           Array.isArray(prev)
             ? prev.map((msg) => {
                 if (msg?.id === data.messageId) {
+                  // Transform reactions from array to object format
+                  let reactions = {};
+                  if (Array.isArray(data.reactions)) {
+                    data.reactions.forEach((reaction) => {
+                      if (reaction.emoji && Array.isArray(reaction.users)) {
+                        reactions[reaction.emoji] = reaction.users.map(u => u.user_id);
+                      }
+                    });
+                  }
                   return {
                     ...msg,
-                    reactions: data.reactions || msg.reactions || {}
+                    reactions
                   };
                 }
                 return msg;
