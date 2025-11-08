@@ -136,6 +136,10 @@ const WasteManagementV4 = () => {
         api.get('/admin/users').catch(() => ({ data: [] }))
       ]);
 
+      console.log('[WasteManagement] Templates loaded:', templatesRes.data?.length);
+      console.log('[WasteManagement] Waste categories loaded:', categoryListRes.data?.length, categoryListRes.data);
+      console.log('[WasteManagement] Items loaded:', itemsRes.data?.length || itemsRes.data);
+
       setCategories(templatesRes.data || []);
       setWasteCategories(categoryListRes.data || []);
 

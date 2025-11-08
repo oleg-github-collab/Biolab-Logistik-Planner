@@ -196,16 +196,19 @@ router.post('/articles', auth, async (req, res) => {
           .filter(Boolean)
       : [];
 
+    const tagsJson = tagsArray.length > 0 ? JSON.stringify(tagsArray) : '[]';
+
     logger.info('KB article prepared', {
       slug,
       tagsArray,
-      tagsArrayLength: tagsArray.length
+      tagsArrayLength: tagsArray.length,
+      tagsJson
     });
 
     const result = await client.query(`
       INSERT INTO kb_articles (title, slug, content, summary, category_id, author_id, status, visibility, tags, published_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9::text[], ARRAY[]::text[]), $10) RETURNING *
-    `, [title, slug, content, articleExcerpt, category_id, req.user.id, status, visibility, tagsArray, status === 'published' ? new Date() : null]);
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10) RETURNING *
+    `, [title, slug, content, articleExcerpt, category_id, req.user.id, status, visibility, tagsJson, status === 'published' ? new Date() : null]);
 
     // Handle tags - insert/update in kb_tags table
     if (tagsArray.length > 0) {

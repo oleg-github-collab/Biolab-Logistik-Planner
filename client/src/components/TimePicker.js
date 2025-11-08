@@ -1,10 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Clock, X } from 'lucide-react';
-import { useMobile, useScrollLock } from '../hooks/useMobile';
+import { useMobile } from '../hooks/useMobile';
 
 const TimePicker = ({ value, onChange, label, disabled = false }) => {
   const { isMobile } = useMobile();
-  const { lockScroll, unlockScroll } = useScrollLock();
   const [showPicker, setShowPicker] = useState(false);
   const [hour, setHour] = useState('08');
   const [minute, setMinute] = useState('00');
@@ -23,14 +22,12 @@ const TimePicker = ({ value, onChange, label, disabled = false }) => {
   }, [value]);
 
   useEffect(() => {
-    if (!showPicker || !isMobile) {
-      if (isMobile) {
-        unlockScroll();
-      }
+    if (!isMobile || !showPicker) {
       return undefined;
     }
 
-    lockScroll();
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
 
     const timer = setTimeout(() => {
       if (hourScrollRef.current) {
@@ -46,9 +43,9 @@ const TimePicker = ({ value, onChange, label, disabled = false }) => {
 
     return () => {
       clearTimeout(timer);
-      unlockScroll();
+      document.body.style.overflow = originalOverflow;
     };
-  }, [showPicker, isMobile, hour, minute, lockScroll, unlockScroll]);
+  }, [showPicker, isMobile, hour, minute]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
