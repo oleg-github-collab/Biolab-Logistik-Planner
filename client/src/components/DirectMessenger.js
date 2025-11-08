@@ -722,7 +722,9 @@ const DirectMessenger = () => {
         if (msg.id !== messageId) return msg;
 
         const reactions = { ...(msg.reactions || {}) };
-        if (!reactions[emoji]) {
+
+        // ENSURE reactions[emoji] is ALWAYS an array
+        if (!Array.isArray(reactions[emoji])) {
           reactions[emoji] = [];
         }
 
