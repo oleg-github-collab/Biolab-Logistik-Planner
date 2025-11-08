@@ -47,14 +47,22 @@ const CalendarView = ({
   // Transform events for BigCalendar with proper date parsing
   const calendarEvents = useMemo(() => {
     return events.map(event => {
-      // Parse dates safely
-      const start = event.start instanceof Date
-        ? event.start
-        : new Date(event.start_date || event.start);
+      // Parse dates safely with validation
+      const startValue = event.start_date || event.start;
+      const endValue = event.end_date || event.end || event.start_date || event.start;
 
-      const end = event.end instanceof Date
-        ? event.end
-        : new Date(event.end_date || event.end || event.start_date || event.start);
+      let start = event.start instanceof Date ? event.start : new Date(startValue);
+      let end = event.end instanceof Date ? event.end : new Date(endValue);
+
+      // Validate dates - if invalid, use current date
+      if (isNaN(start.getTime())) {
+        console.warn(`Invalid start date for event ${event.id}:`, startValue);
+        start = new Date();
+      }
+      if (isNaN(end.getTime())) {
+        console.warn(`Invalid end date for event ${event.id}:`, endValue);
+        end = new Date(start.getTime() + 3600000); // Add 1 hour
+      }
 
       return {
         ...event,

@@ -135,13 +135,12 @@ async function checkEventReminders() {
   try {
     logger.info('Running event reminder check...');
 
-    // Get events with upcoming start times within their reminder window
+    // Get events with upcoming start times within 15 minutes
     const result = await pool.query(`
       SELECT ce.*
       FROM calendar_events ce
       WHERE ce.start_time > CURRENT_TIMESTAMP
-        AND ce.start_time <= CURRENT_TIMESTAMP + (COALESCE(ce.reminder, 15) * INTERVAL '1 minute')
-        AND ce.status != 'cancelled'
+        AND ce.start_time <= CURRENT_TIMESTAMP + INTERVAL '15 minutes'
         AND NOT EXISTS (
           SELECT 1 FROM notifications n
           WHERE n.event_id = ce.id

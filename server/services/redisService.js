@@ -62,15 +62,24 @@ redis.on('ready', () => {
 });
 
 redis.on('error', (error) => {
-  logger.error('Redis client error:', error);
+  // Only log Redis errors if Redis is actually expected to be available
+  if (REDIS_URL) {
+    logger.error('Redis client error:', error);
+  }
 });
 
 redis.on('close', () => {
-  logger.warn('Redis client connection closed');
+  // Only log if Redis was expected
+  if (REDIS_URL) {
+    logger.warn('Redis client connection closed');
+  }
 });
 
 redis.on('reconnecting', () => {
-  logger.info('Redis client reconnecting...');
+  // Suppress reconnection logs in development without Redis
+  if (REDIS_URL) {
+    logger.info('Redis client reconnecting...');
+  }
 });
 
 /**

@@ -782,9 +782,9 @@ router.post('/templates/:id/use', auth, async (req, res) => {
     // Create task from template
     const taskResult = await pool.query(
       `INSERT INTO tasks (
-        title, description, category, priority, tags, checklist,
+        title, description, category, priority, tags,
         assigned_to, due_date, status, created_by
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'todo', $9)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'todo', $8)
       RETURNING *`,
       [
         template.name,
@@ -792,7 +792,6 @@ router.post('/templates/:id/use', auth, async (req, res) => {
         template.category,
         template.priority,
         template.tags,
-        template.checklist,
         assigned_to || req.user.id,
         due_date,
         req.user.id

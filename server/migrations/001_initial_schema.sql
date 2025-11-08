@@ -182,22 +182,33 @@ BEGIN
       AND column_name = 'attendees'
       AND data_type <> 'jsonb'
   ) THEN
+    -- Create temporary function for conversion
+    CREATE OR REPLACE FUNCTION convert_attendees_to_jsonb(attendees_text TEXT)
+    RETURNS JSONB AS $func$
+    BEGIN
+      IF attendees_text IS NULL THEN
+        RETURN '[]'::jsonb;
+      ELSIF attendees_text ~ '^\s*\[.*\]\s*$' THEN
+        RETURN attendees_text::jsonb;
+      ELSE
+        RETURN jsonb_strip_nulls(
+          COALESCE(
+            (
+              SELECT jsonb_agg(NULLIF(trim(both '"' FROM trim(value)), ''))
+              FROM regexp_split_to_table(replace(attendees_text, ';', ','), ',') AS value
+            ),
+            '[]'::jsonb
+          )
+        );
+      END IF;
+    END;
+    $func$ LANGUAGE plpgsql IMMUTABLE;
+
     ALTER TABLE calendar_events
       ALTER COLUMN attendees TYPE JSONB
-      USING
-        CASE
-          WHEN attendees IS NULL THEN '[]'::jsonb
-          WHEN attendees ~ '^\s*\[.*\]\s*$' THEN attendees::jsonb
-          ELSE jsonb_strip_nulls(
-            COALESCE(
-              (
-                SELECT jsonb_agg(NULLIF(trim(both '"' FROM trim(value)), ''))
-                FROM regexp_split_to_table(replace(attendees, ';', ','), ',') AS value
-              ),
-              '[]'::jsonb
-            )
-          )
-        END;
+      USING convert_attendees_to_jsonb(attendees);
+
+    DROP FUNCTION IF EXISTS convert_attendees_to_jsonb(TEXT);
   END IF;
 END;
 $$;

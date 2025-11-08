@@ -370,7 +370,7 @@ const Dashboard = () => {
           Dashboard
         </h1>
         <p className="text-gray-600">
-          Willkommen zurück, {user.name}! Hier ist dein Überblick für heute.
+          Willkommen zurück, {user?.name || 'User'}! Hier ist dein Überblick für heute.
         </p>
       </div>
 

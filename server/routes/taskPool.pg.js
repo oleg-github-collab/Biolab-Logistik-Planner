@@ -328,11 +328,11 @@ router.post('/help-requests/:requestId/respond', auth, async (req, res) => {
     try {
       await client.query('BEGIN');
 
-      // Update help request - note: response_message column doesn't exist in schema
+      // Update help request
       await client.query(
         `UPDATE task_help_requests SET
           status = $1,
-          responded_at = CURRENT_TIMESTAMP
+          updated_at = CURRENT_TIMESTAMP
         WHERE id = $2`,
         [action === 'accept' ? 'accepted' : 'declined', requestId]
       );

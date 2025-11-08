@@ -74,8 +74,14 @@ const WasteManagementV4 = () => {
     try {
       setLoading(true);
       const [categoriesRes, itemsRes, usersRes] = await Promise.all([
-        api.get('/waste/templates'),
-        api.get('/waste/items'),
+        api.get('/waste/templates').catch(err => {
+          console.error('Error loading templates:', err);
+          return { data: [] };
+        }),
+        api.get('/waste/items').catch(err => {
+          console.error('Error loading items:', err);
+          return { data: [] };
+        }),
         api.get('/admin/users').catch(() => ({ data: [] }))
       ]);
 

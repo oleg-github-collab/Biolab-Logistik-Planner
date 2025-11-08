@@ -262,14 +262,14 @@ const DirectMessenger = () => {
     joinConversationRoom(selectedThreadId);
 
     const handleNewMessage = (data) => {
-      if (data.conversationId === selectedThreadId) {
+      if (data?.conversationId === selectedThreadId && data?.message) {
         setMessages((prev) => [...prev, normalizeMessage(data.message)]);
         setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 30);
       }
     };
 
     const handleMessageReaction = (data) => {
-      if (data.conversationId === selectedThreadId && data.messageId) {
+      if (data?.conversationId === selectedThreadId && data?.messageId) {
         setMessages((prev) =>
           prev.map((msg) => {
             if (msg.id === data.messageId) {
@@ -285,7 +285,7 @@ const DirectMessenger = () => {
     };
 
     const handleMessagePin = (data) => {
-      if (data.conversationId === selectedThreadId && data.message) {
+      if (data?.conversationId === selectedThreadId && data?.message) {
         const isPinned = data.isPinned ?? true;
         if (isPinned) {
           setPinnedMessages((prev) => {
@@ -300,10 +300,10 @@ const DirectMessenger = () => {
     };
 
     const handleUserTyping = (data) => {
-      if (data.conversationId === selectedThreadId && data.userId !== user.id) {
+      if (data?.conversationId === selectedThreadId && data?.userId && data.userId !== user?.id) {
         setTypingUsers(prev => ({
           ...prev,
-          [data.userId]: { name: data.userName, timestamp: Date.now() }
+          [data.userId]: { name: data.userName || 'User', timestamp: Date.now() }
         }));
 
         // Auto-clear after 3 seconds
@@ -318,7 +318,7 @@ const DirectMessenger = () => {
     };
 
     const handleUserStopTyping = (data) => {
-      if (data.conversationId === selectedThreadId) {
+      if (data?.conversationId === selectedThreadId && data?.userId) {
         setTypingUsers(prev => {
           const updated = { ...prev };
           delete updated[data.userId];

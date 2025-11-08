@@ -229,7 +229,7 @@ router.put('/articles/:id', auth, async (req, res) => {
 
     const oldArticle = await client.query('SELECT title, content FROM kb_articles WHERE id = $1', [id]);
     await client.query(`
-      INSERT INTO kb_article_revisions (article_id, title, content, edited_by)
+      INSERT INTO kb_article_versions (article_id, title, content, author_id)
       VALUES ($1, $2, $3, $4)
     `, [id, oldArticle.rows[0].title, oldArticle.rows[0].content, req.user.id]);
 
@@ -458,10 +458,9 @@ router.get('/articles/:id/versions', auth, async (req, res) => {
 
   try {
     const versions = await pool.query(
-      `SELECT v.*, u.name as author_name, a.current_version
+      `SELECT v.*, u.name as author_name
        FROM kb_article_versions v
        LEFT JOIN users u ON v.author_id = u.id
-       LEFT JOIN kb_articles a ON v.article_id = a.id
        WHERE v.article_id = $1
        ORDER BY v.version_number DESC`,
       [id]
@@ -746,14 +745,12 @@ router.post('/articles/:id/versions/:versionNumber/restore', auth, async (req, r
       id
     ]);
 
-    // Update the change summary of the newly created version
+    // Update the change summary of the restored version
     await pool.query(`
       UPDATE kb_article_versions
       SET change_summary = $1
-      WHERE article_id = $2 AND version_number = (
-        SELECT current_version FROM kb_articles WHERE id = $2
-      )
-    `, [`Wiederhergestellt von Version ${versionNumber}`, id]);
+      WHERE article_id = $2 AND version_number = $3
+    `, [`Wiederhergestellt von Version ${versionNumber}`, id, versionNumber]);
 
     logger.info('Article restored to version', { articleId: id, versionNumber, userId: req.user.id });
 

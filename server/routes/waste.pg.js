@@ -1414,8 +1414,8 @@ router.get('/statistics', auth, async (req, res) => {
     // Total waste items count
     const totalResult = await pool.query(`
       SELECT COUNT(*) as total,
-             SUM(CASE WHEN disposal_status = 'disposed' THEN 1 ELSE 0 END) as disposed,
-             SUM(CASE WHEN disposal_status = 'pending' THEN 1 ELSE 0 END) as pending
+             SUM(CASE WHEN status = 'disposed' THEN 1 ELSE 0 END) as disposed,
+             SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending
       FROM waste_items
       WHERE ($1::date IS NULL OR created_at >= $1)
         AND ($2::date IS NULL OR created_at <= $2)
@@ -1427,9 +1427,10 @@ router.get('/statistics', auth, async (req, res) => {
         wc.name as category,
         wc.color,
         COUNT(wi.id) as count,
-        SUM(CASE WHEN wi.disposal_status = 'disposed' THEN 1 ELSE 0 END) as disposed
+        SUM(CASE WHEN wi.status = 'disposed' THEN 1 ELSE 0 END) as disposed
       FROM waste_categories wc
-      LEFT JOIN waste_items wi ON wi.category_id = wc.id
+      LEFT JOIN waste_templates wt ON wt.category_id = wc.id
+      LEFT JOIN waste_items wi ON wi.template_id = wt.id
         AND ($1::date IS NULL OR wi.created_at >= $1)
         AND ($2::date IS NULL OR wi.created_at <= $2)
       GROUP BY wc.id, wc.name, wc.color
@@ -1475,8 +1476,8 @@ router.get('/statistics', auth, async (req, res) => {
       SELECT
         ${timeGrouping} as period,
         COUNT(*) as count,
-        SUM(CASE WHEN disposal_status = 'disposed' THEN 1 ELSE 0 END) as disposed,
-        SUM(CASE WHEN disposal_status = 'pending' THEN 1 ELSE 0 END) as pending
+        SUM(CASE WHEN status = 'disposed' THEN 1 ELSE 0 END) as disposed,
+        SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending
       FROM waste_items
       WHERE ($1::date IS NULL OR created_at >= $1)
         AND ($2::date IS NULL OR created_at <= $2)
@@ -1501,10 +1502,10 @@ router.get('/statistics', auth, async (req, res) => {
     // Average disposal time (for disposed items)
     const avgDisposalTime = await pool.query(`
       SELECT
-        AVG(EXTRACT(EPOCH FROM (disposal_date - created_at))/86400)::numeric(10,2) as avg_days
+        AVG(EXTRACT(EPOCH FROM (last_disposal_date - created_at))/86400)::numeric(10,2) as avg_days
       FROM waste_items
-      WHERE disposal_status = 'disposed'
-        AND disposal_date IS NOT NULL
+      WHERE status = 'disposed'
+        AND last_disposal_date IS NOT NULL
         AND ($1::date IS NULL OR created_at >= $1)
         AND ($2::date IS NULL OR created_at <= $2)
     `, [start_date || null, end_date || null]);

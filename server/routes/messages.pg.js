@@ -2401,11 +2401,11 @@ router.post('/bulk/mark-read', auth, async (req, res) => {
       return res.status(400).json({ error: 'Message IDs array is required' });
     }
 
-    // Mark as read (only for recipient)
+    // Mark as read (only for receiver)
     const result = await pool.query(
       `UPDATE messages
        SET read_at = CURRENT_TIMESTAMP
-       WHERE id = ANY($1) AND recipient_id = $2 AND read_at IS NULL
+       WHERE id = ANY($1) AND receiver_id = $2 AND read_at IS NULL
        RETURNING id`,
       [messageIds, req.user.id]
     );

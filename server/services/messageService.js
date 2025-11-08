@@ -344,12 +344,9 @@ const ensureMessageSchema = async () => {
   try {
     await client.query('BEGIN');
 
-    await client.query(`
-      ALTER TABLE messages
-        ADD COLUMN IF NOT EXISTS conversation_id INTEGER REFERENCES message_conversations(id) ON DELETE CASCADE,
-        ADD COLUMN IF NOT EXISTS attachments JSONB DEFAULT '[]'::jsonb,
-        ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb
-    `);
+    await client.query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS conversation_id INTEGER REFERENCES message_conversations(id) ON DELETE CASCADE`);
+    await client.query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachments JSONB DEFAULT '[]'::jsonb`);
+    await client.query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb`);
 
     await client.query(`
       UPDATE messages
@@ -431,9 +428,16 @@ const ensureMessageSchema = async () => {
         ON message_task_refs(task_id)
     `);
 
+    // Add unique constraint only if it doesn't exist (PostgreSQL compatible way)
     await client.query(`
-      ALTER TABLE message_reactions
-        ADD CONSTRAINT IF NOT EXISTS uq_message_reaction UNIQUE (message_id, user_id, emoji)
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'uq_message_reaction'
+        ) THEN
+          ALTER TABLE message_reactions ADD CONSTRAINT uq_message_reaction UNIQUE (message_id, user_id, emoji);
+        END IF;
+      END$$;
     `);
 
     await client.query(`

@@ -198,21 +198,24 @@ const TaskModal = ({ isOpen, onClose, task, users = [], onTaskUpdated, onTaskDel
   };
 
   const addLabel = () => {
-    if (labelInput.trim() && !formData.labels.includes(labelInput.trim())) {
-      setFormData({ ...formData, labels: [...formData.labels, labelInput.trim()] });
+    const labels = Array.isArray(formData.labels) ? formData.labels : [];
+    if (labelInput.trim() && !labels.includes(labelInput.trim())) {
+      setFormData({ ...formData, labels: [...labels, labelInput.trim()] });
       setLabelInput('');
     }
   };
 
   const removeLabel = (labelToRemove) => {
+    const labels = Array.isArray(formData.labels) ? formData.labels : [];
     setFormData({
       ...formData,
-      labels: formData.labels.filter((label) => label !== labelToRemove),
+      labels: labels.filter((label) => label !== labelToRemove),
     });
   };
 
   const addChecklistItem = () => {
     if (checklistInput.trim()) {
+      const checklist = Array.isArray(formData.checklist) ? formData.checklist : [];
       const newItem = {
         id: Date.now(),
         text: checklistInput.trim(),
@@ -220,25 +223,27 @@ const TaskModal = ({ isOpen, onClose, task, users = [], onTaskUpdated, onTaskDel
       };
       setFormData({
         ...formData,
-        checklist: [...formData.checklist, newItem],
+        checklist: [...checklist, newItem],
       });
       setChecklistInput('');
     }
   };
 
   const toggleChecklistItem = (itemId) => {
+    const checklist = Array.isArray(formData.checklist) ? formData.checklist : [];
     setFormData({
       ...formData,
-      checklist: formData.checklist.map((item) =>
+      checklist: checklist.map((item) =>
         item.id === itemId ? { ...item, completed: !item.completed } : item
       ),
     });
   };
 
   const removeChecklistItem = (itemId) => {
+    const checklist = Array.isArray(formData.checklist) ? formData.checklist : [];
     setFormData({
       ...formData,
-      checklist: formData.checklist.filter((item) => item.id !== itemId),
+      checklist: checklist.filter((item) => item.id !== itemId),
     });
   };
 
@@ -416,7 +421,7 @@ const TaskModal = ({ isOpen, onClose, task, users = [], onTaskUpdated, onTaskDel
                         Checkliste
                       </label>
                       <div className="space-y-2 mb-3">
-                        {formData.checklist.map((item) => (
+                        {(Array.isArray(formData.checklist) ? formData.checklist : []).map((item) => (
                           <div
                             key={item.id}
                             className="flex items-center gap-2 p-2 rounded-lg bg-slate-50 hover:bg-slate-100 transition"
@@ -567,7 +572,7 @@ const TaskModal = ({ isOpen, onClose, task, users = [], onTaskUpdated, onTaskDel
                         Labels
                       </label>
                       <div className="flex flex-wrap gap-2 mb-3">
-                        {formData.labels.map((label) => (
+                        {(Array.isArray(formData.labels) ? formData.labels : []).map((label) => (
                           <span
                             key={label}
                             className="px-3 py-1.5 bg-blue-50 text-blue-600 border border-blue-200 rounded-full text-sm font-medium flex items-center gap-2 shadow-sm"
