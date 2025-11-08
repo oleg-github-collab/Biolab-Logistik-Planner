@@ -632,6 +632,11 @@ const DirectMessenger = () => {
   };
 
   const handleDeleteMessage = async (messageId) => {
+    if (!messageId) {
+      showError('Nachricht-ID fehlt');
+      return;
+    }
+
     if (!window.confirm('Nachricht wirklich löschen?')) return;
 
     try {
@@ -645,6 +650,11 @@ const DirectMessenger = () => {
   };
 
   const handleReaction = useCallback(async (messageId, emoji) => {
+    if (!user?.id) {
+      showError('Benutzer nicht gefunden');
+      return;
+    }
+
     // Optimistic UI update
     setMessages((prev) =>
       prev.map((msg) => {
@@ -690,6 +700,11 @@ const DirectMessenger = () => {
   }, []);
 
   const handlePinMessage = useCallback(async (message) => {
+    if (!message?.id) {
+      showError('Nachricht nicht gefunden');
+      return;
+    }
+
     const isAlreadyPinned = pinnedMessages.some((m) => m.id === message.id);
 
     // Optimistic UI update

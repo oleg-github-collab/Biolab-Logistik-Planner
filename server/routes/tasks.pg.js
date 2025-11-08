@@ -251,8 +251,8 @@ router.post('/', auth, async (req, res) => {
     // Insert task
     const insertResult = await pool.query(
       `INSERT INTO tasks (
-        title, description, status, priority, assigned_to, due_date, category, created_by, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        title, description, status, priority, assigned_to, due_date, category, tags, created_by, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       RETURNING id`,
       [
         title.trim(),
@@ -262,6 +262,7 @@ router.post('/', auth, async (req, res) => {
         assigneeId || null,
         dueDate || null,
         category || null,
+        JSON.stringify(tags || []),
         req.user.id
       ]
     );
