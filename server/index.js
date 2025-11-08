@@ -78,7 +78,12 @@ app.use((req, res, next) => {
 // API ROUTES - MUST BE FIRST, BEFORE ANY STATIC FILE SERVING
 // =============================================================================
 
-// CRITICAL TEST ENDPOINT - No auth, must work
+// CRITICAL TEST ENDPOINTS - No auth, must work
+app.get('/api/test-simple', (req, res) => {
+  console.log('[TEST-SIMPLE] Request received');
+  res.json({ success: true, message: 'API is working!', timestamp: new Date().toISOString() });
+});
+
 app.get('/api/test-categories', async (req, res) => {
   try {
     console.log('[TEST-CATEGORIES] Request received');
