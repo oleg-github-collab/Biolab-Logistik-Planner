@@ -24,10 +24,24 @@ const WasteManagementNew = () => {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
+      console.log('[WASTE] Loading data...');
       const [categoriesRes, itemsRes, templatesRes] = await Promise.all([
-        api.get('/waste-categories'),
-        api.get('/waste/items'),
-        api.get('/waste/templates').catch(() => ({ data: [] }))
+        api.get('/waste-categories').then(res => {
+          console.log('[WASTE] Categories response:', res);
+          return res;
+        }).catch(err => {
+          console.error('[WASTE] Categories error:', err);
+          console.error('[WASTE] Categories error response:', err.response);
+          throw err;
+        }),
+        api.get('/waste/items').catch(err => {
+          console.error('[WASTE] Items error:', err);
+          return { data: [] };
+        }),
+        api.get('/waste/templates').catch(err => {
+          console.error('[WASTE] Templates error:', err);
+          return { data: [] };
+        })
       ]);
 
       const normalizeItems = (payload) => {
