@@ -196,12 +196,28 @@ router.put('/tasks/:id', auth, async (req, res) => {
       tags
     } = req.body;
 
+    logger.info('Updating task', {
+      taskId: id,
+      title,
+      status,
+      priority,
+      assigned_to,
+      due_date,
+      category,
+      tags,
+      tagsType: typeof tags,
+      userId: req.user?.id
+    });
+
     // Get old task for comparison
     const oldTask = await client.query('SELECT * FROM tasks WHERE id = $1', [id]);
     if (oldTask.rows.length === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Aufgabe nicht gefunden' });
     }
+
+    const tagsJson = tags ? JSON.stringify(tags) : null;
+    logger.info('Update tags JSON', { tagsJson });
 
     const result = await client.query(`
       UPDATE tasks SET
@@ -224,7 +240,7 @@ router.put('/tasks/:id', auth, async (req, res) => {
       assigned_to,
       due_date,
       category,
-      tags ? JSON.stringify(tags) : null,
+      tagsJson,
       id
     ]);
 
@@ -264,8 +280,17 @@ router.put('/tasks/:id', auth, async (req, res) => {
     res.json(task);
   } catch (error) {
     await client.query('ROLLBACK');
-    logger.error('Error updating task:', error);
-    res.status(500).json({ error: 'Serverfehler beim Aktualisieren der Aufgabe' });
+    logger.error('Error updating task:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code,
+      detail: error.detail,
+      hint: error.hint
+    });
+    res.status(500).json({
+      error: 'Serverfehler beim Aktualisieren der Aufgabe',
+      details: error.message
+    });
   } finally {
     client.release();
   }
