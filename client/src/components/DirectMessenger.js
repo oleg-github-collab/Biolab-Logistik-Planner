@@ -1141,20 +1141,23 @@ const DirectMessenger = () => {
           {/* Reactions display */}
           {msg.reactions && Object.keys(msg.reactions).length > 0 && (
             <div className="flex flex-wrap gap-1 mt-2">
-              {Object.entries(msg.reactions).map(([emoji, userIds]) => (
-                <button
-                  key={emoji}
-                  onClick={() => handleReaction(msg.id, emoji)}
-                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${
-                    userIds.includes(user.id)
-                      ? 'bg-blue-100 border border-blue-300'
-                      : 'bg-slate-100 border border-slate-200'
-                  } hover:scale-110 transition-transform`}
-                >
-                  <span>{emoji}</span>
-                  <span className="font-semibold">{userIds.length}</span>
-                </button>
-              ))}
+              {Object.entries(msg.reactions).map(([emoji, userIds]) => {
+                const userIdsArray = Array.isArray(userIds) ? userIds : [];
+                return (
+                  <button
+                    key={emoji}
+                    onClick={() => handleReaction(msg.id, emoji)}
+                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${
+                      userIdsArray.includes(user?.id)
+                        ? 'bg-blue-100 border border-blue-300'
+                        : 'bg-slate-100 border border-slate-200'
+                    } hover:scale-110 transition-transform`}
+                  >
+                    <span>{emoji}</span>
+                    <span className="font-semibold">{userIdsArray.length}</span>
+                  </button>
+                );
+              })}
             </div>
           )}
 
