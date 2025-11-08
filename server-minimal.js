@@ -67,6 +67,7 @@ const routes = [
   { path: '/api/uploads', file: './server/routes/uploads', name: 'uploads' },
   { path: '/api/kisten', file: './server/routes/kisten.pg', name: 'kisten' },
   { path: '/api/waste', file: './server/routes/waste.pg', name: 'waste' },
+  { path: '/api/waste-categories', file: './server/routes/wasteCategories.pg', name: 'waste-categories' },
   { path: '/api/admin', file: './server/routes/admin.pg', name: 'admin' },
   { path: '/api/events', file: './server/routes/event-breaks.pg', name: 'events' }
 ];
@@ -94,11 +95,26 @@ try {
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 console.log('✅ Uploads directory served at /uploads');
 
-// Serve static files in production
+// Serve static files in production - BUT SKIP API ROUTES!
 if (process.env.NODE_ENV === 'production') {
   const buildPath = path.join(__dirname, 'client', 'build');
-  app.use(express.static(buildPath));
+  console.log('🌐 Production mode - serving static files from:', buildPath);
+
+  // Serve static files ONLY for non-API routes
+  app.use((req, res, next) => {
+    if (req.path.startsWith('/api/')) {
+      console.log('[STATIC-SKIP] API route:', req.path);
+      return next();
+    }
+    express.static(buildPath)(req, res, next);
+  });
+
+  // SPA fallback - ONLY for non-API routes
   app.get('*', (req, res) => {
+    if (req.path.startsWith('/api/')) {
+      console.log('[FALLBACK-ERROR] API route reached fallback:', req.path);
+      return res.status(404).json({ error: 'API endpoint not found' });
+    }
     res.sendFile(path.resolve(buildPath, 'index.html'));
   });
 }
