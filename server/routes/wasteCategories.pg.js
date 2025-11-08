@@ -15,10 +15,12 @@ const router = express.Router();
 // @desc    Get all waste categories
 router.get('/', auth, async (req, res) => {
   try {
+    logger.info('GET /api/waste-categories - fetching categories');
     const result = await pool.query(`
       SELECT * FROM waste_categories ORDER BY name ASC
     `);
 
+    logger.info('Waste categories fetched', { count: result.rows.length });
     res.json(result.rows);
   } catch (error) {
     logger.error('Error fetching waste categories:', error);

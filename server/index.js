@@ -112,15 +112,20 @@ app.use('/api/health', require('./routes/health'));
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
-// Serve static assets if in production
+// Serve static assets if in production - BUT only for non-API paths
 if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '..', 'client', 'build')));
-
-  // Only serve index.html for non-API routes
-  app.get('*', (req, res, next) => {
-    // Skip API routes - let them 404 naturally if not found
+  // Static files middleware - skip API routes completely
+  app.use((req, res, next) => {
     if (req.path.startsWith('/api/')) {
-      return next();
+      return next(); // Skip static file serving for API routes
+    }
+    express.static(path.join(__dirname, '..', 'client', 'build'))(req, res, next);
+  });
+
+  // Fallback to index.html for client-side routing
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api/')) {
+      return next(); // API routes should 404 if not found
     }
     res.sendFile(path.resolve(__dirname, '..', 'client', 'build', 'index.html'));
   });
