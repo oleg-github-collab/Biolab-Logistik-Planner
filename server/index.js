@@ -74,6 +74,19 @@ app.use((req, res, next) => {
   next();
 });
 
+// CRITICAL TEST ENDPOINT - No auth, must work
+app.get('/api/test-categories', async (req, res) => {
+  try {
+    const { pool } = require('./config/database');
+    const result = await pool.query('SELECT * FROM waste_categories ORDER BY name ASC');
+    console.log('[TEST-CATEGORIES] Success! Returning:', result.rows.length, 'categories');
+    res.json({ success: true, count: result.rows.length, data: result.rows });
+  } catch (error) {
+    console.error('[TEST-CATEGORIES] ERROR:', error.message);
+    res.status(500).json({ error: error.message, stack: error.stack });
+  }
+});
+
 // API routes - PostgreSQL only (SQLite removed)
 console.log('📊 Loading routes...');
 console.log('  ✓ auth');
