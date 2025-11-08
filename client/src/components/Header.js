@@ -29,12 +29,8 @@ const Header = () => {
   const searchInputRef = useRef(null);
   const { t } = useLocale();
 
-  // Безпечна перевірка контексту
-  if (!authContext || !authContext.state) {
-    return null;
-  }
-
-  const { state, logout } = authContext;
+  const state = authContext?.state;
+  const logout = authContext?.logout || (() => {});
   const { user } = state || {};
   const profilePhotoUrl = user?.profile_photo ? getAssetUrl(user.profile_photo) : null;
   useEffect(() => {
@@ -64,7 +60,7 @@ const Header = () => {
     setGlobalSearch('');
   };
 
-  if (!user) return null;
+  if (!state || !user) return null;
 
   const visibleNavItems = NAV_ITEMS.filter(item => hasPermission(item.permission));
 
