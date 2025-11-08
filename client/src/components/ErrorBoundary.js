@@ -108,22 +108,32 @@ class ErrorBoundary extends React.Component {
                 Die Anwendung ist auf einen unerwarteten Fehler gestoßen.
               </p>
 
-              {/* Error Details (Development Only) */}
-              {process.env.NODE_ENV === 'development' && this.state.error && (
+              {/* Error Details - ALWAYS SHOW */}
+              {this.state.error && (
                 <div className="mb-6 text-left">
-                  <details className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                    <summary className="cursor-pointer font-semibold text-gray-700 mb-2">
-                      Fehlerdetails (nur in Entwicklung sichtbar)
+                  <details className="bg-red-50 border-2 border-red-300 rounded-lg p-4" open>
+                    <summary className="cursor-pointer font-bold text-red-800 mb-3 text-lg">
+                      ⚠️ CRITICAL ERROR DETAILS
                     </summary>
-                    <div className="mt-3 space-y-3">
-                      <div>
-                        <p className="font-mono text-sm text-red-600 break-all">
+                    <div className="mt-3 space-y-4">
+                      <div className="bg-white p-4 rounded border-2 border-red-200">
+                        <p className="font-semibold text-gray-700 mb-2">Error Message:</p>
+                        <p className="font-mono text-sm text-red-700 break-all whitespace-pre-wrap">
                           {this.state.error.toString()}
                         </p>
                       </div>
+                      {this.state.error.stack && (
+                        <div className="bg-white p-4 rounded border-2 border-red-200">
+                          <p className="font-semibold text-gray-700 mb-2">Stack Trace:</p>
+                          <pre className="text-xs text-gray-700 overflow-auto max-h-48 whitespace-pre-wrap break-all">
+                            {this.state.error.stack}
+                          </pre>
+                        </div>
+                      )}
                       {this.state.errorInfo && (
-                        <div className="max-h-60 overflow-auto">
-                          <pre className="text-xs text-gray-600 bg-white p-3 rounded border border-gray-200">
+                        <div className="bg-white p-4 rounded border-2 border-red-200">
+                          <p className="font-semibold text-gray-700 mb-2">Component Stack:</p>
+                          <pre className="text-xs text-gray-700 overflow-auto max-h-48 whitespace-pre-wrap">
                             {this.state.errorInfo.componentStack}
                           </pre>
                         </div>

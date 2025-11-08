@@ -374,14 +374,21 @@ const DirectMessenger = () => {
   }, [normalizeMessage]);
 
   const handleContactClick = async (contact) => {
+    console.log('[DirectMessenger] ===== handleContactClick START =====');
+    console.log('[DirectMessenger] Contact:', contact);
+    console.log('[DirectMessenger] Threads length:', threads?.length);
+
     if (!contact?.id) {
+      console.error('[DirectMessenger] ERROR: No contact ID');
       showError('Kontakt nicht gefunden');
       return;
     }
 
     try {
+      console.log('[DirectMessenger] Setting selected contact...');
       setSelectedContact(contact);
 
+      console.log('[DirectMessenger] Searching for existing thread...');
       const existingThread = Array.isArray(threads)
         ? threads.find(
             (t) =>
@@ -391,17 +398,24 @@ const DirectMessenger = () => {
           )
         : null;
 
+      console.log('[DirectMessenger] Existing thread:', existingThread);
+
       if (existingThread?.id) {
+        console.log('[DirectMessenger] Using existing thread:', existingThread.id);
         setSelectedThreadId(existingThread.id);
         await loadMessages(existingThread.id);
       } else {
+        console.log('[DirectMessenger] Creating new thread...');
         const response = await createConversationThread({
           name: contact.name || 'Unbekannt',
           type: 'direct',
           memberIds: [contact.id]
         });
 
+        console.log('[DirectMessenger] Create thread response:', response);
+
         if (response?.data?.id) {
+          console.log('[DirectMessenger] Thread created successfully:', response.data.id);
           setSelectedThreadId(response.data.id);
           setMessages([]);
           setThreads((prev) => Array.isArray(prev) ? [...prev, response.data] : [response.data]);
@@ -410,12 +424,18 @@ const DirectMessenger = () => {
         }
       }
 
+      console.log('[DirectMessenger] Mobile check:', isMobile);
       if (isMobile) {
         setShowSidebar(false);
       }
+
+      console.log('[DirectMessenger] ===== handleContactClick SUCCESS =====');
     } catch (error) {
-      console.error('Error selecting contact:', error);
-      showError('Fehler beim Öffnen des Chats: ' + (error.message || 'Unbekannter Fehler'));
+      console.error('[DirectMessenger] ===== handleContactClick ERROR =====');
+      console.error('[DirectMessenger] Error object:', error);
+      console.error('[DirectMessenger] Error message:', error?.message);
+      console.error('[DirectMessenger] Error stack:', error?.stack);
+      showError('Fehler beim Öffnen des Chats: ' + (error?.message || 'Unbekannter Fehler'));
     }
   };
 
