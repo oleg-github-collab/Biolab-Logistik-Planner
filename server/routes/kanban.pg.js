@@ -108,9 +108,24 @@ router.post('/tasks', auth, async (req, res) => {
       tags
     } = req.body;
 
+    logger.info('Creating task', {
+      title,
+      status,
+      priority,
+      assigned_to,
+      due_date,
+      category,
+      tags,
+      tagsType: typeof tags,
+      userId: req.user?.id
+    });
+
     if (!title || !title.trim()) {
       return res.status(400).json({ error: 'Titel ist erforderlich' });
     }
+
+    const tagsJson = tags ? JSON.stringify(tags) : '[]';
+    logger.info('Tags JSON', { tagsJson });
 
     const result = await client.query(`
       INSERT INTO tasks (
@@ -126,7 +141,7 @@ router.post('/tasks', auth, async (req, res) => {
       assigned_to || null,
       due_date || null,
       category || null,
-      tags ? JSON.stringify(tags) : '[]',
+      tagsJson,
       req.user.id
     ]);
 
@@ -145,8 +160,17 @@ router.post('/tasks', auth, async (req, res) => {
     res.status(201).json(task);
   } catch (error) {
     await client.query('ROLLBACK');
-    logger.error('Error creating task:', error);
-    res.status(500).json({ error: 'Serverfehler beim Erstellen der Aufgabe' });
+    logger.error('Error creating task:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code,
+      detail: error.detail,
+      hint: error.hint
+    });
+    res.status(500).json({
+      error: 'Serverfehler beim Erstellen der Aufgabe',
+      details: error.message
+    });
   } finally {
     client.release();
   }
