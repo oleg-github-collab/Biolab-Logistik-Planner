@@ -63,6 +63,9 @@ const Header = () => {
   if (!state || !user) return null;
 
   const visibleNavItems = NAV_ITEMS.filter(item => hasPermission(item.permission));
+  const PRIMARY_NAV_LIMIT = 4;
+  const primaryNavItems = visibleNavItems.slice(0, PRIMARY_NAV_LIMIT);
+  const overflowNavItems = visibleNavItems.slice(PRIMARY_NAV_LIMIT);
 
   return (
     <header className="top-nav-mobile bg-white/95 backdrop-blur-xl border-b border-slate-200 sticky top-0 z-50 shadow-[0_8px_24px_rgba(15,23,42,0.08)]">
@@ -83,7 +86,7 @@ const Header = () => {
           {/* Desktop Navigation - Dropdown Style */}
           <nav className="hidden lg:flex items-center flex-1 justify-center max-w-4xl mx-4">
             <div className="flex items-center gap-1 bg-slate-100/80 border border-slate-200 rounded-2xl p-1.5 shadow-inner backdrop-blur">
-              {visibleNavItems.map((item) => {
+              {primaryNavItems.map((item) => {
                 const isActive = location.pathname === item.to;
                 return (
                   <Link
@@ -101,6 +104,17 @@ const Header = () => {
                   </Link>
                 );
               })}
+              {overflowNavItems.length > 0 && (
+                <button
+                  onClick={() => setMobileMenuOpen(true)}
+                  className="px-3 py-2 rounded-xl text-xs xl:text-sm font-semibold transition-all text-slate-600 hover:bg-white hover:text-slate-900 flex items-center gap-1"
+                >
+                  <span>Mehr</span>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                </button>
+              )}
             </div>
           </nav>
 
@@ -161,10 +175,10 @@ const Header = () => {
             {/* Mobile Menu Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="lg:hidden btn-icon-mobile bg-slate-100 hover:bg-slate-200 shadow-inner mobile-touch-feedback"
-            aria-label={t('mobile.nav.toggle')}
-          >
-            <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              className="btn-icon-mobile bg-slate-100 hover:bg-slate-200 shadow-inner mobile-touch-feedback"
+              aria-label={t('mobile.nav.toggle')}
+            >
+              <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 {mobileMenuOpen ? (
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
                 ) : (

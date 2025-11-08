@@ -63,38 +63,41 @@ const WasteManagementV4 = () => {
   // Sort state
   const [sortBy, setSortBy] = useState('date'); // date, category, status
 
+  const safeTemplates = Array.isArray(categories) ? categories : [];
+  const safeWasteCategories = Array.isArray(wasteCategories) ? wasteCategories : [];
+
   const categoryIdToName = useMemo(() => {
     const map = {};
-    wasteCategories.forEach((category) => {
+    safeWasteCategories.forEach((category) => {
       if (category?.name) {
         map[String(category.id)] = category.name.toLowerCase();
       }
     });
     return map;
-  }, [wasteCategories]);
+  }, [safeWasteCategories]);
 
   const categoryNameToId = useMemo(() => {
     const map = {};
-    wasteCategories.forEach((category) => {
+    safeWasteCategories.forEach((category) => {
       if (category?.name) {
         map[category.name.toLowerCase()] = String(category.id);
       }
     });
     return map;
-  }, [wasteCategories]);
+  }, [safeWasteCategories]);
 
   const filteredTemplates = useMemo(() => {
     if (!formData.category_id) {
-      return categories;
+      return safeTemplates;
     }
     const matchName = categoryIdToName[formData.category_id];
     if (!matchName) {
-      return categories;
+      return safeTemplates;
     }
-    return categories.filter((template) =>
+    return safeTemplates.filter((template) =>
       (template.category || '').toLowerCase() === matchName
     );
-  }, [categories, formData.category_id, categoryIdToName]);
+  }, [safeTemplates, formData.category_id, categoryIdToName]);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -140,8 +143,8 @@ const WasteManagementV4 = () => {
       console.log('[WasteManagement] Waste categories loaded:', categoryListRes.data?.length, categoryListRes.data);
       console.log('[WasteManagement] Items loaded:', itemsRes.data?.length || itemsRes.data);
 
-      setCategories(templatesRes.data || []);
-      setWasteCategories(categoryListRes.data || []);
+      setCategories(Array.isArray(templatesRes.data) ? templatesRes.data : []);
+      setWasteCategories(Array.isArray(categoryListRes.data) ? categoryListRes.data : []);
 
       const items = itemsRes.data;
       if (Array.isArray(items)) {
@@ -416,7 +419,7 @@ const WasteManagementV4 = () => {
 
   // Apply filters and sorting
   const filteredAndSortedItems = useMemo(() => {
-    let filtered = [...wasteItems];
+    let filtered = Array.isArray(wasteItems) ? [...wasteItems] : [];
 
     // Filter by category
     if (filters.category) {
@@ -500,7 +503,7 @@ const WasteManagementV4 = () => {
   const categoryCards = useMemo(() => {
     if (!wasteCategories.length) return [];
 
-    const statsByCategory = wasteItems.reduce((acc, item) => {
+    const statsByCategory = (Array.isArray(wasteItems) ? wasteItems : []).reduce((acc, item) => {
       const key = (item.category || '').toLowerCase();
       if (!acc[key]) {
         acc[key] = { active: 0, disposed: 0, nextDate: null };
@@ -521,7 +524,7 @@ const WasteManagementV4 = () => {
       return acc;
     }, {});
 
-    return wasteCategories.map((category) => {
+    return safeWasteCategories.map((category) => {
       const key = (category.name || '').toLowerCase();
       const stats = statsByCategory[key] || { active: 0, disposed: 0, nextDate: null };
       return {
