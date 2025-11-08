@@ -104,6 +104,17 @@ const WasteManagementV4 = () => {
   const [assignModal, setAssignModal] = useState(null);
   const [selectedAssignee, setSelectedAssignee] = useState('');
   const [deleteModal, setDeleteModal] = useState(null);
+  const [editingCategory, setEditingCategory] = useState(null);
+  const [categoryFormData, setCategoryFormData] = useState({
+    name: '',
+    description: '',
+    instructions: '',
+    safety_notes: '',
+    color: '#3B82F6',
+    icon: '♻️',
+    disposal_frequency: ''
+  });
+  const [savingCategory, setSavingCategory] = useState(false);
 
   // Load initial data
   const loadData = useCallback(async () => {
@@ -229,6 +240,69 @@ const WasteManagementV4 = () => {
     }
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleUseTemplate = (template) => {
+    const normalizedCategory = (template.category || '').toLowerCase();
+    const derivedCategoryId = categoryNameToId[normalizedCategory] || '';
+    setFormData(prev => ({
+      ...prev,
+      category_id: derivedCategoryId,
+      template_id: template.id,
+      unit: template.default_unit || 'Stück',
+      name: prev.name || template.name,
+      notes: prev.notes || template.description || ''
+    }));
+    if (derivedCategoryId) {
+      setFilters(prev => ({ ...prev, category: derivedCategoryId }));
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const openCategoryModal = (category) => {
+    setEditingCategory(category);
+    setCategoryFormData({
+      name: category.name || '',
+      description: category.description || '',
+      instructions: category.instructions || '',
+      safety_notes: category.safety_notes || '',
+      color: category.color || '#3B82F6',
+      icon: category.icon || '♻️',
+      disposal_frequency: category.disposal_frequency || ''
+    });
+  };
+
+  const handleCategoryFormChange = (field, value) => {
+    setCategoryFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const closeCategoryModal = () => {
+    setEditingCategory(null);
+    setCategoryFormData({
+      name: '',
+      description: '',
+      instructions: '',
+      safety_notes: '',
+      color: '#3B82F6',
+      icon: '♻️',
+      disposal_frequency: ''
+    });
+  };
+
+  const handleSaveCategory = async () => {
+    if (!editingCategory) return;
+    try {
+      setSavingCategory(true);
+      await api.put(`/waste-categories/${editingCategory.id}`, categoryFormData);
+      showSuccess('Kategorie aktualisiert');
+      closeCategoryModal();
+      await loadData();
+    } catch (error) {
+      console.error('Error updating category:', error);
+      showError(error?.response?.data?.error || 'Fehler beim Aktualisieren der Kategorie');
+    } finally {
+      setSavingCategory(false);
+    }
   };
 
   // Create new waste item
@@ -526,12 +600,12 @@ const WasteManagementV4 = () => {
         {/* Category Overview */}
         {categoryCards.length > 0 && (
           <div className="mb-8">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-semibold text-gray-900">Kategorien im Überblick</h2>
-              {filters.category && (
-                <button
-                  onClick={() => setFilters(prev => ({ ...prev, category: '' }))}
-                  className="text-sm text-blue-600 hover:text-blue-700"
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-lg font-semibold text-gray-900">Kategorien im Überblick</h2>
+                {filters.category && (
+                  <button
+                    onClick={() => setFilters(prev => ({ ...prev, category: '' }))}
+                    className="text-sm text-blue-600 hover:text-blue-700"
                 >
                   Filter zurücksetzen
                 </button>
@@ -573,7 +647,7 @@ const WasteManagementV4 = () => {
                     <span>In Kategorie filtern</span>
                     <ChevronRight className="w-4 h-4" />
                   </div>
-                  <div className="mt-3">
+                  <div className="mt-3 flex items-center justify-between">
                     <button
                       type="button"
                       onClick={(e) => {
@@ -583,6 +657,16 @@ const WasteManagementV4 = () => {
                       className="text-xs font-semibold text-blue-700 hover:text-blue-900"
                     >
                       Neue Entsorgung planen →
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openCategoryModal(category);
+                      }}
+                      className="text-xs font-semibold text-gray-500 hover:text-gray-700"
+                    >
+                      Vorlage bearbeiten
                     </button>
                   </div>
                 </button>
@@ -597,6 +681,23 @@ const WasteManagementV4 = () => {
             <Plus className="w-5 h-5 text-blue-600" />
             Schnellerfassung
           </h2>
+          {filteredTemplates.length > 0 && (
+            <div className="mb-4">
+              <p className="text-sm font-medium text-gray-600 mb-2">Schnellvorlagen</p>
+              <div className="flex flex-wrap gap-2">
+                {filteredTemplates.slice(0, 8).map((template) => (
+                  <button
+                    key={template.id}
+                    type="button"
+                    onClick={() => handleUseTemplate(template)}
+                    className="px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold hover:bg-blue-100 border border-blue-100 transition"
+                  >
+                    {template.icon || '•'} {template.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <form onSubmit={handleCreateItem} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* Category */}
@@ -1128,6 +1229,110 @@ const WasteManagementV4 = () => {
         </div>
       )}
 
+      {editingCategory && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xl font-semibold text-gray-900">
+                Kategorie bearbeiten – {editingCategory.name}
+              </h3>
+              <button
+                onClick={closeCategoryModal}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                <input
+                  type="text"
+                  value={categoryFormData.name}
+                  onChange={(e) => handleCategoryFormChange('name', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Icon</label>
+                <input
+                  type="text"
+                  value={categoryFormData.icon}
+                  onChange={(e) => handleCategoryFormChange('icon', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="Emoji oder Symbol"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Farbe</label>
+                <input
+                  type="color"
+                  value={categoryFormData.color}
+                  onChange={(e) => handleCategoryFormChange('color', e.target.value)}
+                  className="w-full h-10 border border-gray-300 rounded-lg cursor-pointer"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Entsorgungsfrequenz</label>
+                <input
+                  type="text"
+                  value={categoryFormData.disposal_frequency}
+                  onChange={(e) => handleCategoryFormChange('disposal_frequency', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="z.B. wöchentlich"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Beschreibung</label>
+                <textarea
+                  value={categoryFormData.description}
+                  onChange={(e) => handleCategoryFormChange('description', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  rows={2}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Anweisungen</label>
+                <textarea
+                  value={categoryFormData.instructions}
+                  onChange={(e) => handleCategoryFormChange('instructions', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  rows={2}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Sicherheitshinweise</label>
+                <textarea
+                  value={categoryFormData.safety_notes}
+                  onChange={(e) => handleCategoryFormChange('safety_notes', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  rows={2}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                onClick={closeCategoryModal}
+                className="px-4 py-2 text-sm font-semibold text-gray-600 hover:text-gray-800"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={handleSaveCategory}
+                disabled={savingCategory}
+                className="px-4 py-2 text-sm font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                {savingCategory ? 'Speichern...' : 'Kategorie speichern'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Delete Confirmation Modal */}
       {deleteModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">

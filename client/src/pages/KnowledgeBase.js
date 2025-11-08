@@ -26,6 +26,8 @@ import {
   AlertCircle
 } from 'lucide-react';
 import api from '../utils/api';
+import { uploadKBMedia, deleteKBMedia, getArticleVersions, restoreArticleVersion } from '../utils/apiEnhanced';
+import { getAssetUrl } from '../utils/media';
 import toast from 'react-hot-toast';
 
 // Constants
@@ -171,12 +173,26 @@ const ArticleCard = ({ article, onClick }) => {
 };
 
 // Article View Modal Component
-const ArticleViewModal = ({ article, onClose, onEdit, onDelete, onVote, currentUserId }) => {
+const ArticleViewModal = ({
+  article,
+  onClose,
+  onEdit,
+  onDelete,
+  onVote,
+  onArticleUpdated,
+  currentUserId,
+  currentUserRole
+}) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [voting, setVoting] = useState(false);
+  const [versions, setVersions] = useState([]);
+  const [showVersions, setShowVersions] = useState(false);
+  const [versionsLoading, setVersionsLoading] = useState(false);
 
   const canEdit = article.author_id === currentUserId;
-  const canDelete = article.author_id === currentUserId;
+  const canDelete =
+    canEdit || ['admin', 'superadmin'].includes(currentUserRole);
+  const canRestore = ['admin', 'superadmin'].includes(currentUserRole);
 
   const handleVote = async (isHelpful) => {
     if (voting) return;
@@ -196,6 +212,74 @@ const ArticleViewModal = ({ article, onClose, onEdit, onDelete, onVote, currentU
       onClose();
     } catch (error) {
       setIsDeleting(false);
+    }
+  };
+
+  const renderMediaPreview = (media) => {
+    const url = getAssetUrl(media.file_url);
+    if (media.media_type === 'image') {
+      return (
+        <img
+          src={url}
+          alt={media.caption || media.file_name}
+          className="w-full h-40 object-cover rounded-lg"
+        />
+      );
+    }
+    if (media.media_type === 'audio') {
+      return <audio controls className="w-full"><source src={url} /></audio>;
+    }
+    if (media.media_type === 'video') {
+      return (
+        <video controls className="w-full rounded-lg h-40 object-cover">
+          <source src={url} />
+        </video>
+      );
+    }
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-sm text-blue-600 underline"
+      >
+        Dokument öffnen
+      </a>
+    );
+  };
+
+  const toggleVersions = async () => {
+    if (!showVersions && versions.length === 0) {
+      setVersionsLoading(true);
+      try {
+        const response = await getArticleVersions(article.id);
+        setVersions(response.data);
+      } catch (error) {
+        console.error('Error loading versions:', error);
+        toast.error('Versionen konnten nicht geladen werden');
+      } finally {
+        setVersionsLoading(false);
+      }
+    }
+    setShowVersions((prev) => !prev);
+  };
+
+  const handleRestoreVersion = async (versionNumber) => {
+    if (!canRestore) return;
+    if (!window.confirm(`Artikel auf Version ${versionNumber} zurücksetzen?`)) {
+      return;
+    }
+
+    try {
+      await restoreArticleVersion(article.id, versionNumber);
+      toast.success(`Version ${versionNumber} wiederhergestellt`);
+      setShowVersions(false);
+      if (onArticleUpdated) {
+        onArticleUpdated(article.id);
+      }
+    } catch (error) {
+      console.error('Error restoring version:', error);
+      toast.error('Version konnte nicht wiederhergestellt werden');
     }
   };
 
@@ -240,7 +324,13 @@ const ArticleViewModal = ({ article, onClose, onEdit, onDelete, onVote, currentU
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {article.summary && (
+            <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 text-sm text-blue-900">
+              {article.summary}
+            </div>
+          )}
+
           <div className="prose prose-sm max-w-none">
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
@@ -250,8 +340,24 @@ const ArticleViewModal = ({ article, onClose, onEdit, onDelete, onVote, currentU
             </ReactMarkdown>
           </div>
 
+          {article.media && article.media.length > 0 && (
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">Medien</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {article.media.map((media) => (
+                  <div key={media.id} className="border border-gray-200 rounded-xl p-3 bg-gray-50 space-y-2">
+                    {renderMediaPreview(media)}
+                    {media.caption && (
+                      <p className="text-xs text-gray-600">{media.caption}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {article.tags && article.tags.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-6 pt-6 border-t border-gray-200">
+            <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-200">
               <Tag size={16} className="text-gray-500 mr-2" />
               {article.tags.map((tag, index) => (
                 <span
@@ -263,6 +369,52 @@ const ArticleViewModal = ({ article, onClose, onEdit, onDelete, onVote, currentU
               ))}
             </div>
           )}
+
+          <div className="pt-4 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={toggleVersions}
+              className="text-sm font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-2"
+            >
+              <Layers size={16} />
+              {showVersions ? 'Versionen ausblenden' : 'Versionen anzeigen'}
+            </button>
+
+            {showVersions && (
+              <div className="mt-4 space-y-3">
+                {versionsLoading ? (
+                  <LoadingSpinner />
+                ) : versions.length === 0 ? (
+                  <p className="text-sm text-gray-500">Keine Versionen verfügbar.</p>
+                ) : (
+                  versions.map((version) => (
+                    <div
+                      key={version.id || version.version_number}
+                      className="flex items-center justify-between border border-gray-200 rounded-lg p-3 bg-white"
+                    >
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">
+                          Version {version.version_number}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {formatDateTime(version.created_at)} · {version.author_name || 'Unbekannt'}
+                        </p>
+                      </div>
+                      {canRestore && (
+                        <button
+                          type="button"
+                          onClick={() => handleRestoreVersion(version.version_number)}
+                          className="text-xs px-3 py-1.5 rounded-md border border-blue-200 text-blue-700 hover:bg-blue-50"
+                        >
+                          Wiederherstellen
+                        </button>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Footer */}
@@ -334,6 +486,9 @@ const ArticleEditorModal = ({ article, categories, allTags, onSave, onClose }) =
   const [status, setStatus] = useState(article?.status || 'draft');
   const [isSaving, setIsSaving] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [mediaFiles, setMediaFiles] = useState([]);
+  const [existingMedia, setExistingMedia] = useState(article?.media || []);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
 
   const isEditing = !!article?.id;
 
@@ -360,6 +515,83 @@ const ArticleEditorModal = ({ article, categories, allTags, onSave, onClose }) =
     setTags(tags.filter(tag => tag !== tagToRemove));
   };
 
+  const handleMediaSelect = (event) => {
+    const files = Array.from(event.target.files || []);
+    if (!files.length) return;
+
+    if (mediaFiles.length + files.length > 10) {
+      toast.error('Maximal 10 Anhänge pro Speichervorgang erlaubt');
+      event.target.value = '';
+      return;
+    }
+
+    const mapped = files.map((file) => ({
+      id: `${file.name}-${Date.now()}-${Math.random()}`,
+      file,
+      previewUrl: URL.createObjectURL(file),
+      caption: ''
+    }));
+
+    setMediaFiles((prev) => [...prev, ...mapped]);
+    event.target.value = '';
+  };
+
+  const handlePendingMediaCaption = (id, caption) => {
+    setMediaFiles((prev) =>
+      prev.map((entry) =>
+        entry.id === id ? { ...entry, caption } : entry
+      )
+    );
+  };
+
+  const removePendingMedia = (id) => {
+    setMediaFiles((prev) => {
+      const target = prev.find((entry) => entry.id === id);
+      if (target?.previewUrl) {
+        URL.revokeObjectURL(target.previewUrl);
+      }
+      return prev.filter((entry) => entry.id !== id);
+    });
+  };
+
+  const handleDeleteExistingMedia = async (mediaId) => {
+    try {
+      await deleteKBMedia(mediaId);
+      setExistingMedia((prev) => prev.filter((item) => item.id !== mediaId));
+      toast.success('Anhang entfernt');
+    } catch (error) {
+      console.error('Error deleting media:', error);
+      toast.error('Fehler beim Entfernen des Anhangs');
+    }
+  };
+
+  const uploadPendingMedia = async (articleId) => {
+    if (!mediaFiles.length) {
+      return;
+    }
+
+    setUploadingMedia(true);
+    try {
+      for (const [index, media] of mediaFiles.entries()) {
+        const formData = new FormData();
+        formData.append('file', media.file);
+        if (media.caption) {
+          formData.append('caption', media.caption);
+        }
+        formData.append('display_order', index);
+        await uploadKBMedia(articleId, formData);
+      }
+      mediaFiles.forEach((entry) => {
+        if (entry.previewUrl) {
+          URL.revokeObjectURL(entry.previewUrl);
+        }
+      });
+      setMediaFiles([]);
+    } finally {
+      setUploadingMedia(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -380,14 +612,21 @@ const ArticleEditorModal = ({ article, categories, allTags, onSave, onClose }) =
 
     setIsSaving(true);
     try {
-      await onSave({
+      const payload = {
         title: title.trim(),
         content: content.trim(),
         summary: summary.trim() || null,
-        category_id: parseInt(categoryId),
-        tags,
+        category_id: parseInt(categoryId, 10),
+        tags: tags.map((tag) => tag.trim()).filter(Boolean),
         status
-      });
+      };
+
+      const savedArticle = await onSave(payload);
+
+      if (savedArticle?.id) {
+        await uploadPendingMedia(savedArticle.id);
+      }
+
       onClose();
     } catch (error) {
       setIsSaving(false);
@@ -546,6 +785,118 @@ const ArticleEditorModal = ({ article, categories, allTags, onSave, onClose }) =
               </div>
             </div>
 
+            {/* Existing media */}
+            {isEditing && existingMedia?.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Bereits hochgeladene Medien
+                </label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {existingMedia.map((media) => (
+                    <div
+                      key={media.id}
+                      className="flex items-center justify-between border border-gray-200 rounded-lg p-3 bg-gray-50"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-lg">
+                          {media.media_type === 'image'
+                            ? '🖼️'
+                            : media.media_type === 'audio'
+                            ? '🎧'
+                            : media.media_type === 'video'
+                            ? '🎬'
+                            : '📄'}
+                        </span>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-800">
+                            {media.file_name || media.media_type}
+                          </p>
+                          {media.caption && (
+                            <p className="text-xs text-gray-500">{media.caption}</p>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteExistingMedia(media.id)}
+                        className="text-xs text-red-600 hover:text-red-800 font-semibold"
+                      >
+                        Entfernen
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Media uploader */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Medien hinzufügen (Foto, Video, Audio, Dokument)
+              </label>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*,audio/*,video/*,application/pdf"
+                  id="kb-media-input"
+                  className="hidden"
+                  onChange={handleMediaSelect}
+                />
+                <label
+                  htmlFor="kb-media-input"
+                  className="cursor-pointer inline-flex items-center justify-center px-4 py-2 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 transition-colors"
+                >
+                  Dateien auswählen
+                </label>
+                <p className="text-xs text-gray-500 mt-2">
+                  Unterstützt Bilder, Videos, Audio und PDFs. Max. 10 Dateien pro Speichervorgang.
+                </p>
+              </div>
+
+              {mediaFiles.length > 0 && (
+                <div className="mt-4 space-y-3">
+                  {mediaFiles.map((media) => (
+                    <div key={media.id} className="border border-gray-200 rounded-lg p-3 flex flex-col gap-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className="text-lg">
+                            {media.file.type.startsWith('image/')
+                              ? '🖼️'
+                              : media.file.type.startsWith('audio/')
+                              ? '🎧'
+                              : media.file.type.startsWith('video/')
+                              ? '🎬'
+                              : '📄'}
+                          </span>
+                          <div>
+                            <p className="text-sm font-semibold text-gray-800">{media.file.name}</p>
+                            <p className="text-xs text-gray-500">
+                              {(media.file.size / (1024 * 1024)).toFixed(2)} MB
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removePendingMedia(media.id)}
+                          className="text-xs text-red-600 hover:text-red-800 font-semibold"
+                        >
+                          Entfernen
+                        </button>
+                      </div>
+                      <input
+                        type="text"
+                        value={media.caption}
+                        onChange={(e) => handlePendingMediaCaption(media.id, e.target.value)}
+                        placeholder="Kurzbeschreibung (optional)"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Content Editor */}
             <div>
               <div className="flex items-center justify-between mb-2">
@@ -593,11 +944,11 @@ const ArticleEditorModal = ({ article, categories, allTags, onSave, onClose }) =
             </button>
             <button
               type="submit"
-              disabled={isSaving}
+              disabled={isSaving || uploadingMedia}
               className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
             >
               <Save size={16} />
-              <span>{isSaving ? 'Wird gespeichert...' : 'Speichern'}</span>
+              <span>{isSaving || uploadingMedia ? 'Wird gespeichert...' : 'Speichern'}</span>
             </button>
           </div>
         </form>
@@ -740,6 +1091,16 @@ const KnowledgeBaseV3 = () => {
     }
   };
 
+  const refreshSelectedArticle = useCallback(async (articleId) => {
+    if (!articleId) return;
+    try {
+      const response = await api.get(`/kb/articles/${articleId}`);
+      setSelectedArticle(response.data);
+    } catch (error) {
+      console.error('Error refreshing article:', error);
+    }
+  }, []);
+
   const handleCreateArticle = () => {
     setEditingArticle(null);
     setIsEditorModalOpen(true);
@@ -753,17 +1114,30 @@ const KnowledgeBaseV3 = () => {
 
   const handleSaveArticle = async (articleData) => {
     try {
-      if (editingArticle?.id) {
-        await api.put(`/kb/articles/${editingArticle.id}`, articleData);
+      let response;
+      const isEditingExisting = Boolean(editingArticle?.id);
+
+      if (isEditingExisting) {
+        response = await api.put(`/kb/articles/${editingArticle.id}`, articleData);
         toast.success('Artikel erfolgreich aktualisiert');
       } else {
-        await api.post('/kb/articles', articleData);
+        response = await api.post('/kb/articles', articleData);
         toast.success('Artikel erfolgreich erstellt');
       }
+
+      const savedArticle = response?.data;
       fetchArticles();
+
       // Refresh tags after saving
       const tagsResponse = await api.get('/kb/tags');
       setAllTags(tagsResponse.data.all || []);
+
+      if (savedArticle?.id && selectedArticle?.id === savedArticle.id) {
+        const refreshed = await api.get(`/kb/articles/${savedArticle.id}`);
+        setSelectedArticle(refreshed.data);
+      }
+
+      return savedArticle;
     } catch (error) {
       console.error('Error saving article:', error);
       toast.error(error.response?.data?.error || 'Fehler beim Speichern des Artikels');
@@ -1056,7 +1430,9 @@ const KnowledgeBaseV3 = () => {
           onEdit={handleEditArticle}
           onDelete={handleDeleteArticle}
           onVote={handleVote}
+          onArticleUpdated={refreshSelectedArticle}
           currentUserId={currentUser?.id}
+          currentUserRole={currentUser?.role}
         />
       )}
 

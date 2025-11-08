@@ -210,7 +210,8 @@ const NotificationDropdown = () => {
       reaction: 'Reaktion',
       task_assigned: 'Aufgabe',
       calendar_event: 'Kalender',
-      system: 'System'
+      system: 'System',
+      broadcast: 'Broadcast'
     };
     return labels[type] || 'Info';
   }, []);
@@ -322,7 +323,7 @@ const NotificationDropdown = () => {
       if (notification.type === 'task_assigned') {
         base.tasks += 1;
       }
-      if (['calendar_event', 'system', 'warning'].includes(notification.type)) {
+      if (['calendar_event', 'system', 'warning', 'broadcast'].includes(notification.type)) {
         base.alerts += 1;
       }
     });

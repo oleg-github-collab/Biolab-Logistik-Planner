@@ -5,7 +5,7 @@ const { pool } = require('../config/database');
 const { auth, adminAuth } = require('../middleware/auth');
 const logger = require('../utils/logger');
 const auditLogger = require('../utils/auditLog');
-const { getIO, getOnlineUsers } = require('../websocket');
+const { getIO, getOnlineUsers, sendNotificationToUser } = require('../websocket');
 const router = express.Router();
 
 const formatUptime = (seconds = 0) => {
@@ -912,6 +912,22 @@ router.post('/broadcast', [auth, adminAuth], async (req, res) => {
       return res.status(400).json({ error: 'Ungültiger Nachrichtentyp. Erlaubt: info, warning, success, error' });
     }
 
+    const notificationTitle = `Nachricht von ${req.user.name}`;
+
+    const notificationResult = await pool.query(
+      `
+      INSERT INTO notifications (user_id, type, title, content, metadata, created_at)
+      SELECT id, 'broadcast', $1, $2,
+             jsonb_build_object('category', 'admin', 'severity', $3),
+             NOW()
+      FROM users
+      WHERE is_active = TRUE
+        AND id <> $4
+      RETURNING id, user_id
+      `,
+      [notificationTitle, sanitizedMessage, type, req.user.id]
+    );
+
     try {
       const io = getIO();
       if (io) {
@@ -922,12 +938,27 @@ router.post('/broadcast', [auth, adminAuth], async (req, res) => {
           from: req.user.name
         });
       }
+
+      notificationResult.rows.forEach(({ user_id, id }) => {
+        sendNotificationToUser(user_id, {
+          id,
+          user_id,
+          type: 'broadcast',
+          title: notificationTitle,
+          content: sanitizedMessage,
+          metadata: { category: 'admin', severity: type }
+        });
+      });
     } catch (wsError) {
       logger.warn('WebSocket not available for broadcast:', wsError.message);
     }
 
-    logger.info('Admin broadcast sent', { adminId: req.user.id, type });
-    res.json({ message: 'Broadcast erfolgreich gesendet' });
+    logger.info('Admin broadcast sent', {
+      adminId: req.user.id,
+      type,
+      recipients: notificationResult.rowCount
+    });
+    res.json({ message: 'Broadcast erfolgreich gesendet', recipients: notificationResult.rowCount });
   } catch (err) {
     logger.error('Error sending broadcast:', err);
     res.status(500).json({ error: 'Serverfehler beim Senden der Broadcast-Nachricht' });

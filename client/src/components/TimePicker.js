@@ -23,25 +23,31 @@ const TimePicker = ({ value, onChange, label, disabled = false }) => {
   }, [value]);
 
   useEffect(() => {
-    if (showPicker) {
-      lockScroll();
+    if (!showPicker || !isMobile) {
       if (isMobile) {
-        setTimeout(() => {
-          if (hourScrollRef.current) {
-            const hourIndex = parseInt(hour);
-            hourScrollRef.current.scrollTop = hourIndex * 56;
-          }
-          if (minuteScrollRef.current) {
-            const parsedMinute = parseInt(minute, 10);
-            const minuteIndex = Number.isNaN(parsedMinute) ? 0 : parsedMinute;
-            minuteScrollRef.current.scrollTop = minuteIndex * 56;
-          }
-        }, 100);
+        unlockScroll();
       }
-    } else {
-      unlockScroll();
+      return undefined;
     }
-    return () => unlockScroll();
+
+    lockScroll();
+
+    const timer = setTimeout(() => {
+      if (hourScrollRef.current) {
+        const hourIndex = parseInt(hour, 10);
+        hourScrollRef.current.scrollTop = Number.isNaN(hourIndex) ? 0 : hourIndex * 56;
+      }
+      if (minuteScrollRef.current) {
+        const parsedMinute = parseInt(minute, 10);
+        const minuteIndex = Number.isNaN(parsedMinute) ? 0 : parsedMinute;
+        minuteScrollRef.current.scrollTop = minuteIndex * 56;
+      }
+    }, 100);
+
+    return () => {
+      clearTimeout(timer);
+      unlockScroll();
+    };
   }, [showPicker, isMobile, hour, minute, lockScroll, unlockScroll]);
 
   useEffect(() => {

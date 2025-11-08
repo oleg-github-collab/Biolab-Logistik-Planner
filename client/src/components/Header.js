@@ -81,8 +81,8 @@ const Header = () => {
           </Link>
 
           {/* Desktop Navigation - Dropdown Style */}
-          <nav className="hidden lg:flex items-center flex-1 justify-center max-w-5xl mx-6">
-            <div className="flex items-center gap-1.5 bg-slate-100/80 border border-slate-200 rounded-2xl p-1.5 shadow-inner backdrop-blur">
+          <nav className="hidden lg:flex items-center flex-1 justify-center max-w-4xl mx-4">
+            <div className="flex items-center gap-1 bg-slate-100/80 border border-slate-200 rounded-2xl p-1.5 shadow-inner backdrop-blur">
               {visibleNavItems.map((item) => {
                 const isActive = location.pathname === item.to;
                 return (
@@ -90,7 +90,7 @@ const Header = () => {
                     key={item.to}
                     to={item.to}
                     className={`
-                      px-3.5 py-2 rounded-xl text-xs xl:text-sm font-semibold transition-all whitespace-nowrap tracking-wide
+                      px-3 py-2 rounded-xl text-xs xl:text-sm font-semibold transition-all whitespace-nowrap tracking-wide
                       ${isActive
                         ? 'bg-white text-blue-700 shadow-lg ring-1 ring-blue-100'
                         : 'text-slate-600 hover:bg-white hover:text-slate-900'}
