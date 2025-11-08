@@ -11,6 +11,7 @@ const WasteManagementNew = () => {
   const [wasteItems, setWasteItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [templateGroups, setTemplateGroups] = useState({});
   const [formData, setFormData] = useState({
     name: '',
     location: '',
@@ -23,19 +24,65 @@ const WasteManagementNew = () => {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [categoriesRes, itemsRes] = await Promise.all([
+      const [categoriesRes, itemsRes, templatesRes] = await Promise.all([
         api.get('/waste-categories'),
-        api.get('/waste/items')
+        api.get('/waste/items'),
+        api.get('/waste/templates').catch(() => ({ data: [] }))
       ]);
 
-      const cats = Array.isArray(categoriesRes.data) ? categoriesRes.data : [];
-      const items = Array.isArray(itemsRes.data) ? itemsRes.data : [];
+      const normalizeItems = (payload) => {
+        if (Array.isArray(payload)) return payload;
+        if (payload && (Array.isArray(payload.active) || Array.isArray(payload.history))) {
+          return [
+            ...(Array.isArray(payload.active) ? payload.active : []),
+            ...(Array.isArray(payload.history) ? payload.history : [])
+          ];
+        }
+        return [];
+      };
+
+      const templateCategories = templates.reduce((acc, tpl) => {
+            const key = (tpl.category || tpl.name || '').toLowerCase();
+            if (!key || acc.find((entry) => entry._key === key)) {
+              return acc;
+            }
+            acc.push({
+              id: tpl.id || `template-${key}`,
+              name: tpl.category || tpl.name || 'Abfall',
+              description: tpl.description || tpl.safety_instructions || 'Vorlage aus Abfalltypen',
+              color: tpl.color || '#3B82F6',
+              icon: tpl.icon || '♻️',
+              instructions: tpl.instructions || tpl.safety_instructions || '',
+              templateId: tpl.id || null,
+              _key: key
+            });
+            return acc;
+          }, []);
+
+      const cats = Array.isArray(categoriesRes.data) && categoriesRes.data.length > 0
+        ? categoriesRes.data
+        : templateCategories;
+      const items = normalizeItems(itemsRes.data);
 
       console.log('Loaded categories:', cats.length);
       console.log('Loaded items:', items.length);
 
-      setCategories(cats);
+      const categoriesWithTemplates = cats.map((cat) => {
+        const key = (cat.name || '').toLowerCase();
+        const templateMatch = key ? groupedTemplates[key]?.[0] : null;
+        return templateMatch
+          ? {
+              ...cat,
+              templateId: cat.templateId || templateMatch.id || null,
+              icon: cat.icon || templateMatch.icon || '♻️',
+              color: cat.color || templateMatch.color || '#3B82F6'
+            }
+          : cat;
+      });
+
+      setCategories(categoriesWithTemplates);
       setWasteItems(items);
+      setTemplateGroups(groupedTemplates);
     } catch (error) {
       console.error('Error loading data:', error);
       toast.error('Fehler beim Laden der Daten');
@@ -64,15 +111,23 @@ const WasteManagementNew = () => {
     e.preventDefault();
     if (!selectedCategory) return;
 
+    const normalizedCategory = selectedCategory.name?.toLowerCase();
+    const matchingTemplates = normalizedCategory ? templateGroups[normalizedCategory] : undefined;
+    const templateId = selectedCategory.templateId || matchingTemplates?.[0]?.id;
+
+    if (!templateId) {
+      toast.error('Keine passende Vorlage für diese Kategorie gefunden');
+      return;
+    }
+
     try {
       await api.post('/waste/items', {
-        category_id: selectedCategory.id,
-        category: selectedCategory.name,
-        name: formData.name,
-        location: formData.location,
-        quantity: parseFloat(formData.quantity) || 0,
+        template_id: templateId,
+        name: formData.name?.trim() || selectedCategory.name,
+        location: formData.location?.trim() || null,
+        quantity: formData.quantity ? parseFloat(formData.quantity) : null,
         unit: formData.unit,
-        notes: formData.notes,
+        notes: formData.notes?.trim() || null,
         status: 'active'
       });
 
@@ -152,19 +207,22 @@ const WasteManagementNew = () => {
                 item.category?.toLowerCase() === category.name?.toLowerCase()
               ).length;
 
+              const categoryColor = category.color || '#3B82F6';
+              const categoryIcon = category.icon || '♻️';
+
               return (
                 <button
                   key={category.id}
                   onClick={() => handleCategoryClick(category)}
                   className="group relative overflow-hidden rounded-2xl p-6 text-left transition-all duration-300 hover:scale-105 hover:shadow-2xl"
                   style={{
-                    background: `linear-gradient(135deg, ${category.color}15 0%, ${category.color}30 100%)`,
-                    borderLeft: `4px solid ${category.color}`
+                    background: `linear-gradient(135deg, ${categoryColor}15 0%, ${categoryColor}30 100%)`,
+                    borderLeft: `4px solid ${categoryColor}`
                   }}
                 >
                   {/* Icon */}
                   <div className="text-6xl mb-3 group-hover:scale-110 transition-transform">
-                    {category.icon}
+                    {categoryIcon}
                   </div>
 
                   {/* Name */}
@@ -182,7 +240,7 @@ const WasteManagementNew = () => {
                     <div className="absolute top-3 right-3">
                       <span
                         className="inline-flex items-center justify-center w-8 h-8 rounded-full text-white text-sm font-bold shadow-lg"
-                        style={{ backgroundColor: category.color }}
+                        style={{ backgroundColor: categoryColor }}
                       >
                         {itemCount}
                       </span>
@@ -193,7 +251,7 @@ const WasteManagementNew = () => {
                   <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Plus
                       className="w-6 h-6 text-white p-1 rounded-full shadow-lg"
-                      style={{ backgroundColor: category.color }}
+                      style={{ backgroundColor: categoryColor }}
                     />
                   </div>
                 </button>
@@ -420,3 +478,11 @@ const WasteManagementNew = () => {
 };
 
 export default WasteManagementNew;
+      const templates = Array.isArray(templatesRes.data) ? templatesRes.data : [];
+      const groupedTemplates = templates.reduce((map, tpl) => {
+        const key = (tpl.category || tpl.name || '').toLowerCase();
+        if (!key) return map;
+        if (!map[key]) map[key] = [];
+        map[key].push(tpl);
+        return map;
+      }, {});
