@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install)",
+      "Bash(node:*)",
+      "Read(//Users/olehkaminskyi/Desktop/**)",
+      "Bash(pkill:*)",
+      "Bash(npm start)",
+      "Bash(npx react-scripts:*)",
+      "Bash(curl:*)",
+      "Bash(xargs ls:*)",
+      "Bash(npm install:*)",
+      "Bash(npm cache clean:*)",
+      "Bash(awk:*)",
+      "Bash(xargs kill:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npm run:*)",
+      "Bash(rm:*)",
+      "Bash(sqlite3:*)",
+      "Bash(npx eslint:*)",
+      "Bash(tree:*)",
+      "Bash(cat:*)",
+      "Bash(python3:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\n🚀 Production-ready optimization and real-time sync\n\n## Major Changes\n\n### ✅ WebSocket & Real-time System\n- Optimized WebSocket connections with auto-reconnect\n- Added heartbeat mechanism (30s intervals)\n- Implemented typing indicators for messages\n- Real-time user online/offline status\n\n### ✅ Kanban Board Integration\n- Migrated from localStorage to API endpoints\n- Implemented optimistic UI updates\n- Added real-time task synchronization\n- Created conflict resolution dialogs\n- Task editing indicators (who''s editing what)\n\n### ✅ Messaging System\n- Instant message delivery via WebSocket\n- Read receipts (double check marks)\n- Desktop & sound notifications\n- GIF support with optimized loading\n\n### ✅ Code Quality\n- Removed duplicate files (6 files)\n- Fixed React hooks rules violation in Header.js\n- Organized documentation into docs/ folder\n- Created utility scripts for maintenance\n\n### ✅ Documentation & Scripts\n- Added DEPLOYMENT.md with full deployment guide\n- Created FINAL_REPORT.md with detailed changelog\n- Added cleanup-test-data.js script\n- Added test-system.js for health checks\n\n### 🔧 Technical Improvements\n- All CRUD operations via API\n- Optimistic UI with rollback on errors\n- Full error handling and recovery\n- Production build ready\n- Clean repository structure\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git commit:*)",
+      "Bash(npm --prefix client run build)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

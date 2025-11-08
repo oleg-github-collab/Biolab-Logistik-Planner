@@ -205,8 +205,17 @@ router.post('/articles', auth, async (req, res) => {
     res.status(201).json(result.rows[0]);
   } catch (error) {
     await client.query('ROLLBACK');
-    logger.error('Error creating article:', error);
-    res.status(500).json({ error: 'Serverfehler' });
+    logger.error('Error creating article:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code,
+      detail: error.detail,
+      hint: error.hint
+    });
+    res.status(500).json({
+      error: 'Serverfehler',
+      details: error.message
+    });
   } finally {
     client.release();
   }
