@@ -114,8 +114,13 @@ app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 // Serve static assets if in production
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '..', 'client', 'build')));
-  
-  app.get('*', (req, res) => {
+
+  // Only serve index.html for non-API routes
+  app.get('*', (req, res, next) => {
+    // Skip API routes - let them 404 naturally if not found
+    if (req.path.startsWith('/api/')) {
+      return next();
+    }
     res.sendFile(path.resolve(__dirname, '..', 'client', 'build', 'index.html'));
   });
 }
