@@ -12,8 +12,8 @@ const router = express.Router();
 // instructions, safety_notes, image_url, disposal_frequency, created_at, updated_at
 
 // @route   GET /api/waste-categories
-// @desc    Get all waste categories
-router.get('/', auth, async (req, res) => {
+// @desc    Get all waste categories (NO AUTH - public endpoint for testing)
+router.get('/', async (req, res) => {
   try {
     logger.info('GET /api/waste-categories - fetching categories');
     const result = await pool.query(`
@@ -21,9 +21,11 @@ router.get('/', auth, async (req, res) => {
     `);
 
     logger.info('Waste categories fetched', { count: result.rows.length });
+    console.log('[WASTE-CATEGORIES] Returning:', result.rows.length, 'categories');
     res.json(result.rows);
   } catch (error) {
     logger.error('Error fetching waste categories:', error);
+    console.error('[WASTE-CATEGORIES] ERROR:', error.message);
     res.status(500).json({ error: 'Serverfehler beim Abrufen der Kategorien' });
   }
 });
