@@ -70,20 +70,25 @@ app.use(express.json({ limit: '10mb' }));
 
 // Debug middleware - log all requests
 app.use((req, res, next) => {
-  console.log(`[REQUEST] ${req.method} ${req.path}`);
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
   next();
 });
+
+// =============================================================================
+// API ROUTES - MUST BE FIRST, BEFORE ANY STATIC FILE SERVING
+// =============================================================================
 
 // CRITICAL TEST ENDPOINT - No auth, must work
 app.get('/api/test-categories', async (req, res) => {
   try {
+    console.log('[TEST-CATEGORIES] Request received');
     const { pool } = require('./config/database');
     const result = await pool.query('SELECT * FROM waste_categories ORDER BY name ASC');
     console.log('[TEST-CATEGORIES] Success! Returning:', result.rows.length, 'categories');
-    res.json({ success: true, count: result.rows.length, data: result.rows });
+    return res.json({ success: true, count: result.rows.length, data: result.rows });
   } catch (error) {
     console.error('[TEST-CATEGORIES] ERROR:', error.message);
-    res.status(500).json({ error: error.message, stack: error.stack });
+    return res.status(500).json({ error: error.message, stack: error.stack });
   }
 });
 
@@ -131,28 +136,21 @@ app.use('/api/health', require('./routes/health'));
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
-// Serve static assets if in production - BUT only for non-API paths
+// =============================================================================
+// STATIC FILE SERVING - ONLY AFTER ALL API ROUTES ARE REGISTERED
+// =============================================================================
 if (process.env.NODE_ENV === 'production') {
   console.log('🌐 Production mode - setting up static file serving');
 
-  // Static files middleware - skip API routes completely
-  app.use((req, res, next) => {
-    if (req.path.startsWith('/api/')) {
-      console.log(`[STATIC] Skipping static for API route: ${req.path}`);
-      return next(); // Skip static file serving for API routes
-    }
-    console.log(`[STATIC] Serving static for: ${req.path}`);
-    express.static(path.join(__dirname, '..', 'client', 'build'))(req, res, next);
-  });
+  // Serve static files from React build
+  const buildPath = path.join(__dirname, '..', 'client', 'build');
+  console.log('📁 Serving static files from:', buildPath);
+  app.use(express.static(buildPath));
 
-  // Fallback to index.html for client-side routing
-  app.get('*', (req, res, next) => {
-    if (req.path.startsWith('/api/')) {
-      console.log(`[FALLBACK] Skipping fallback for API route: ${req.path}`);
-      return next(); // API routes should 404 if not found
-    }
-    console.log(`[FALLBACK] Serving index.html for: ${req.path}`);
-    res.sendFile(path.resolve(__dirname, '..', 'client', 'build', 'index.html'));
+  // SPA fallback - send index.html for any route that doesn't match API
+  app.get('*', (req, res) => {
+    console.log(`[SPA-FALLBACK] ${req.path} -> index.html`);
+    res.sendFile(path.join(buildPath, 'index.html'));
   });
 }
 
