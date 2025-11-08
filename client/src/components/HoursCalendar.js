@@ -424,7 +424,11 @@ const HoursCalendar = () => {
 
                       <button
                         type="button"
-                        onClick={() => addTimeBlock(index)}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          addTimeBlock(index);
+                        }}
                         className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 text-blue-600 font-medium hover:bg-blue-100 transition"
                         disabled={saving}
                       >
