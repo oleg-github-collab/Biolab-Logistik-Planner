@@ -170,8 +170,22 @@ router.post('/articles', auth, async (req, res) => {
     await client.query('BEGIN');
     const { title, content, excerpt, summary, category_id, tags, status = 'draft', visibility = 'everyone' } = req.body;
 
+    logger.info('Creating KB article', {
+      title,
+      category_id,
+      tags,
+      tagsType: typeof tags,
+      status,
+      visibility,
+      userId: req.user?.id
+    });
+
     if (!title || !content) {
       return res.status(400).json({ error: 'Titel und Inhalt sind erforderlich' });
+    }
+
+    if (!category_id) {
+      return res.status(400).json({ error: 'Kategorie ist erforderlich' });
     }
 
     const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Date.now();
@@ -181,6 +195,12 @@ router.post('/articles', auth, async (req, res) => {
           .map((tag) => (typeof tag === 'string' ? tag.trim() : ''))
           .filter(Boolean)
       : [];
+
+    logger.info('KB article prepared', {
+      slug,
+      tagsArray,
+      tagsArrayLength: tagsArray.length
+    });
 
     const result = await client.query(`
       INSERT INTO kb_articles (title, slug, content, summary, category_id, author_id, status, visibility, tags, published_at)

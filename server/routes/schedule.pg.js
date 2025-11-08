@@ -1169,7 +1169,25 @@ router.post('/events', auth, async (req, res) => {
       recurrenceEndDate
     } = req.body;
 
+    logger.info('Creating calendar event', {
+      title,
+      startDate,
+      endDate,
+      start,
+      end,
+      startTime,
+      endTime,
+      all_day,
+      isAllDay,
+      event_type,
+      type,
+      category,
+      userId: req.user?.id,
+      bodyKeys: Object.keys(req.body)
+    });
+
     if (!title || !(startDate || start)) {
+      logger.warn('Calendar event validation failed', { title, startDate, start });
       return res.status(400).json({ error: 'Titel und Startdatum sind erforderlich' });
     }
 
@@ -1295,8 +1313,18 @@ router.post('/events', auth, async (req, res) => {
     res.status(201).json(newEvent);
 
   } catch (error) {
-    logger.error('Error creating calendar event', error);
-    res.status(500).json({ error: 'Serverfehler' });
+    logger.error('Error creating calendar event', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code,
+      detail: error.detail,
+      hint: error.hint,
+      constraint: error.constraint
+    });
+    res.status(500).json({
+      error: 'Serverfehler beim Erstellen des Events',
+      details: error.message
+    });
   }
 });
 
