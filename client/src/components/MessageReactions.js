@@ -18,9 +18,10 @@ const MessageReactions = ({ messageId, currentUserId, compact = false, refreshKe
     if (!messageId || String(messageId).startsWith('temp_')) return;
     try {
       const response = await getMessageReactions(messageId);
-      setReactions(response.data);
+      setReactions(response.data || response || []);
     } catch (error) {
       console.error('Error loading reactions:', error);
+      setReactions([]);
     }
   };
 
@@ -54,7 +55,7 @@ const MessageReactions = ({ messageId, currentUserId, compact = false, refreshKe
     <div className="relative">
       {/* Reaction Display */}
       <div className="flex flex-wrap items-center gap-1 mt-1">
-        {reactions.map((reaction, idx) => (
+        {Array.isArray(reactions) && reactions.map((reaction, idx) => (
           <button
             key={idx}
             onClick={() => handleReaction(reaction.emoji)}

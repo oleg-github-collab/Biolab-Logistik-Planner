@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../config/database');
-const auth = require('../middleware/auth');
+const { auth } = require('../middleware/auth');
 
 // @route   GET /api/events/:eventId/breaks
 // @desc    Get all breaks for an event
