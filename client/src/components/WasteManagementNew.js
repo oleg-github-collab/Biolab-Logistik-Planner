@@ -41,6 +41,16 @@ const WasteManagementNew = () => {
         return [];
       };
 
+      // Process templates
+      const templates = Array.isArray(templatesRes.data) ? templatesRes.data : [];
+      const groupedTemplates = templates.reduce((map, tpl) => {
+        const key = (tpl.category || tpl.name || '').toLowerCase();
+        if (!key) return map;
+        if (!map[key]) map[key] = [];
+        map[key].push(tpl);
+        return map;
+      }, {});
+
       const templateCategories = templates.reduce((acc, tpl) => {
             const key = (tpl.category || tpl.name || '').toLowerCase();
             if (!key || acc.find((entry) => entry._key === key)) {
@@ -478,11 +488,3 @@ const WasteManagementNew = () => {
 };
 
 export default WasteManagementNew;
-      const templates = Array.isArray(templatesRes.data) ? templatesRes.data : [];
-      const groupedTemplates = templates.reduce((map, tpl) => {
-        const key = (tpl.category || tpl.name || '').toLowerCase();
-        if (!key) return map;
-        if (!map[key]) map[key] = [];
-        map[key].push(tpl);
-        return map;
-      }, {});
