@@ -422,6 +422,8 @@ router.post('/items', auth, async (req, res) => {
 
   const {
     template_id,
+    category,
+    category_id,
     name,
     location,
     quantity,
@@ -430,11 +432,6 @@ router.post('/items', auth, async (req, res) => {
     notes,
     attachments = []
   } = req.body;
-
-  if (!template_id) {
-    console.log('[POST /api/waste/items] ERROR: Missing template_id');
-    return res.status(400).json({ error: 'Template-ID ist erforderlich' });
-  }
 
   if (!name || !name.trim()) {
     console.log('[POST /api/waste/items] ERROR: Missing name');
@@ -456,17 +453,44 @@ router.post('/items', auth, async (req, res) => {
     await ensureWasteKanbanLinkColumn();
     await client.query('BEGIN');
 
-    const templateResult = await client.query(
-      'SELECT * FROM waste_templates WHERE id = $1',
-      [template_id]
-    );
+    // Find template by: template_id OR category name OR category_id
+    let templateResult;
+
+    if (template_id) {
+      console.log('[POST /api/waste/items] Looking up by template_id:', template_id);
+      templateResult = await client.query(
+        'SELECT * FROM waste_templates WHERE id = $1',
+        [template_id]
+      );
+    } else if (category) {
+      console.log('[POST /api/waste/items] Looking up by category name:', category);
+      templateResult = await client.query(
+        'SELECT * FROM waste_templates WHERE LOWER(category) = LOWER($1) OR LOWER(name) = LOWER($1) LIMIT 1',
+        [category]
+      );
+    } else if (category_id) {
+      console.log('[POST /api/waste/items] Looking up by category_id:', category_id);
+      // Find template that matches category with this ID
+      templateResult = await client.query(`
+        SELECT wt.* FROM waste_templates wt
+        JOIN waste_categories wc ON LOWER(wt.category) = LOWER(wc.name)
+        WHERE wc.id = $1
+        LIMIT 1
+      `, [category_id]);
+    } else {
+      console.log('[POST /api/waste/items] ERROR: No template identifier provided');
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Template-ID, Kategorie oder Kategorie-ID ist erforderlich' });
+    }
 
     if (templateResult.rows.length === 0) {
+      console.log('[POST /api/waste/items] ERROR: Template not found');
       await client.query('ROLLBACK');
-      return res.status(400).json({ error: 'Ungültige Template-ID' });
+      return res.status(400).json({ error: 'Vorlage nicht gefunden' });
     }
 
     const template = templateResult.rows[0];
+    console.log('[POST /api/waste/items] Found template:', template.id, template.name);
 
     const itemResult = await client.query(
       `INSERT INTO waste_items (
