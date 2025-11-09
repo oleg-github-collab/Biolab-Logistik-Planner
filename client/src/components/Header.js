@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import usePermissions from '../hooks/usePermissions';
@@ -18,6 +18,47 @@ const NAV_ITEMS = [
   { to: '/admin', labelKey: 'navigation.admin', icon: '⚙️', permission: 'system:settings' }
 ];
 
+const PRIMARY_NAV_LIMIT = 4;
+
+const QUICK_LINKS = [
+  {
+    to: '/schedule',
+    labelKey: 'quicklinks.schedule',
+    fallbackLabel: 'Planung',
+    description: 'Zeitfenster & Abwesenheiten',
+    icon: '⏱️',
+    gradient: 'from-sky-500 via-blue-500 to-indigo-500',
+    permission: 'schedule:read'
+  },
+  {
+    to: '/messages',
+    labelKey: 'quicklinks.messages',
+    fallbackLabel: 'Messenger',
+    description: 'Direkte Kommunikation & Stories',
+    icon: '💬',
+    gradient: 'from-rose-500 via-pink-500 to-fuchsia-500',
+    permission: 'message:read'
+  },
+  {
+    to: '/knowledge-base',
+    labelKey: 'quicklinks.knowledge',
+    fallbackLabel: 'Wissensbasis',
+    description: 'Artikel, Medien & Playbooks',
+    icon: '📚',
+    gradient: 'from-amber-500 via-orange-500 to-rose-500',
+    permission: 'schedule:read'
+  },
+  {
+    to: '/waste',
+    labelKey: 'quicklinks.waste',
+    fallbackLabel: 'Entsorgung',
+    description: 'Entsorgung & Kategorien',
+    icon: '♻️',
+    gradient: 'from-emerald-500 via-teal-500 to-cyan-500',
+    permission: 'task:read'
+  }
+];
+
 const Header = () => {
   const authContext = useAuth();
   const location = useLocation();
@@ -27,6 +68,8 @@ const Header = () => {
   const [globalSearch, setGlobalSearch] = useState('');
   const [desktopOverflowOpen, setDesktopOverflowOpen] = useState(false);
   const searchInputRef = useRef(null);
+  const overflowMenuRef = useRef(null);
+  const overflowTriggerRef = useRef(null);
   const { t } = useLocale();
 
   const state = authContext?.state;
@@ -61,12 +104,74 @@ const Header = () => {
     setGlobalSearch('');
   };
 
-  if (!state || !user) return null;
+  const visibleNavItems = useMemo(
+    () => NAV_ITEMS.filter((item) => hasPermission(item.permission)),
+    [hasPermission]
+  );
 
-  const visibleNavItems = NAV_ITEMS.filter(item => hasPermission(item.permission));
-  const PRIMARY_NAV_LIMIT = 4;
-  const primaryNavItems = visibleNavItems.slice(0, PRIMARY_NAV_LIMIT);
-  const overflowNavItems = visibleNavItems.slice(PRIMARY_NAV_LIMIT);
+  const { primaryNavItems, overflowNavItems } = useMemo(() => {
+    return {
+      primaryNavItems: visibleNavItems.slice(0, PRIMARY_NAV_LIMIT),
+      overflowNavItems: visibleNavItems.slice(PRIMARY_NAV_LIMIT)
+    };
+  }, [visibleNavItems]);
+
+  const quickAccessLinks = useMemo(
+    () => QUICK_LINKS.filter((item) => hasPermission(item.permission)),
+    [hasPermission]
+  );
+
+  const resolveQuickLinkLabel = (link) => {
+    const translated = t(link.labelKey);
+    return translated && translated !== link.labelKey ? translated : link.fallbackLabel;
+  };
+
+  useEffect(() => {
+    setDesktopOverflowOpen(false);
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!desktopOverflowOpen) return undefined;
+
+    const handleClickAway = (event) => {
+      const menuEl = overflowMenuRef.current;
+      const triggerEl = overflowTriggerRef.current;
+      if (
+        menuEl &&
+        triggerEl &&
+        !menuEl.contains(event.target) &&
+        !triggerEl.contains(event.target)
+      ) {
+        setDesktopOverflowOpen(false);
+      }
+    };
+
+    const handleKey = (event) => {
+      if (event.key === 'Escape') {
+        setDesktopOverflowOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickAway);
+    document.addEventListener('keydown', handleKey);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickAway);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [desktopOverflowOpen]);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return undefined;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [mobileMenuOpen]);
+
+  if (!state || !user) return null;
 
   return (
     <header className="top-nav-mobile bg-white/95 backdrop-blur-xl border-b border-slate-200 sticky top-0 z-50 shadow-[0_8px_24px_rgba(15,23,42,0.08)]">
@@ -109,7 +214,10 @@ const Header = () => {
                 <div className="relative">
                   <button
                     onClick={() => setDesktopOverflowOpen((prev) => !prev)}
+                    ref={overflowTriggerRef}
                     className="px-3 py-2 rounded-xl text-xs xl:text-sm font-semibold transition-all text-slate-600 hover:bg-white hover:text-slate-900 flex items-center gap-1"
+                    aria-haspopup="true"
+                    aria-expanded={desktopOverflowOpen}
                   >
                     <span>Mehr</span>
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -117,7 +225,11 @@ const Header = () => {
                     </svg>
                   </button>
                   {desktopOverflowOpen && (
-                    <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-xl z-50">
+                    <div
+                      ref={overflowMenuRef}
+                      className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-xl z-50"
+                      role="menu"
+                    >
                       <div className="py-2">
                         {overflowNavItems.map((item) => (
                           <Link
@@ -153,6 +265,8 @@ const Header = () => {
                   onChange={(e) => setGlobalSearch(e.target.value)}
                   placeholder="Globale Suche (⌘K)"
                   className="pl-9 pr-3 py-2 bg-slate-100/70 border border-transparent rounded-xl text-sm text-slate-700 focus:bg-white focus:border-blue-400 focus:outline-none transition"
+                  autoComplete="off"
+                  aria-label="Globale Suche"
                 />
               </div>
             </form>
@@ -211,6 +325,46 @@ const Header = () => {
           </div>
         </div>
       </div>
+
+      {/* Quick access chips */}
+      {quickAccessLinks.length > 0 && (
+        <>
+          <div className="hidden lg:grid grid-cols-2 xl:grid-cols-4 gap-3 px-6 pb-4">
+            {quickAccessLinks.map((link) => (
+              <Link
+                key={link.to}
+                to={link.to}
+                className={`group rounded-2xl border border-white/20 bg-gradient-to-r ${link.gradient} text-white px-4 py-3 shadow-lg shadow-slate-900/10 transition hover:-translate-y-0.5`}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold flex items-center gap-1">
+                      <span>{link.icon}</span> {resolveQuickLinkLabel(link)}
+                    </p>
+                    <p className="text-xs text-white/80">{link.description}</p>
+                  </div>
+                  <span className="text-lg">→</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+
+          <div className="lg:hidden flex gap-3 overflow-x-auto px-3 pb-3 mobile-scroll-container">
+            {quickAccessLinks.map((link) => (
+              <Link
+                key={`mobile-${link.to}`}
+                to={link.to}
+                className={`flex flex-col min-w-[160px] rounded-2xl px-4 py-3 text-white bg-gradient-to-r ${link.gradient} shadow-lg shadow-slate-900/20`}
+              >
+                <span className="text-sm font-bold flex items-center gap-1">
+                  <span>{link.icon}</span> {resolveQuickLinkLabel(link)}
+                </span>
+                <span className="text-[11px] text-white/85 mt-1">{link.description}</span>
+              </Link>
+            ))}
+          </div>
+        </>
+      )}
 
       {/* Enhanced Mobile Menu - Native-like Drawer */}
       {mobileMenuOpen && (
@@ -278,6 +432,18 @@ const Header = () => {
 
               {/* Navigation Items - List Style */}
               <div className="flex-1 overflow-y-auto mobile-scroll-container px-3 pb-6">
+                <form onSubmit={handleGlobalSearch} className="md:hidden mb-4">
+                  <div className="relative">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="search"
+                      value={globalSearch}
+                      onChange={(e) => setGlobalSearch(e.target.value)}
+                      placeholder="Globale Suche"
+                      className="w-full pl-9 pr-3 py-2.5 rounded-2xl bg-white/80 border border-slate-200 text-sm text-slate-700 focus:bg-white focus:border-blue-400 focus:outline-none transition"
+                    />
+                  </div>
+                </form>
                 <div className="space-y-2">
                   {visibleNavItems.map((item) => {
                     const isActive = location.pathname === item.to;

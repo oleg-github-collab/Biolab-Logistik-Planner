@@ -10,6 +10,13 @@ const TimePicker = ({ value, onChange, label, disabled = false }) => {
   const pickerRef = useRef(null);
   const hourScrollRef = useRef(null);
   const minuteScrollRef = useRef(null);
+  const scrollPositionRef = useRef(0);
+  const bodyStyleRef = useRef({
+    overflow: '',
+    position: '',
+    top: '',
+    width: ''
+  });
 
   useEffect(() => {
     if (value) {
@@ -26,8 +33,17 @@ const TimePicker = ({ value, onChange, label, disabled = false }) => {
       return undefined;
     }
 
-    const originalOverflow = document.body.style.overflow;
+    scrollPositionRef.current = window.scrollY || window.pageYOffset || 0;
+    bodyStyleRef.current = {
+      overflow: document.body.style.overflow,
+      position: document.body.style.position,
+      top: document.body.style.top,
+      width: document.body.style.width
+    };
     document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollPositionRef.current}px`;
+    document.body.style.width = '100%';
 
     const timer = setTimeout(() => {
       if (hourScrollRef.current) {
@@ -43,7 +59,11 @@ const TimePicker = ({ value, onChange, label, disabled = false }) => {
 
     return () => {
       clearTimeout(timer);
-      document.body.style.overflow = originalOverflow;
+      document.body.style.overflow = bodyStyleRef.current.overflow;
+      document.body.style.position = bodyStyleRef.current.position;
+      document.body.style.top = bodyStyleRef.current.top;
+      document.body.style.width = bodyStyleRef.current.width;
+      window.scrollTo(0, scrollPositionRef.current);
     };
   }, [showPicker, isMobile, hour, minute]);
 
@@ -118,74 +138,74 @@ const TimePicker = ({ value, onChange, label, disabled = false }) => {
               className="fixed inset-0 bg-black bg-opacity-50 z-[60]"
               onClick={() => setShowPicker(false)}
             />
-            <div className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl z-[70] pb-safe">
-              <div className="flex items-center justify-between p-4 border-b border-gray-200">
-                <button
-                  type="button"
-                  onClick={handleClear}
-                  className="text-red-600 font-semibold text-base px-3 py-2 rounded-lg active:bg-red-50 transition-colors"
-                >
-                  Loschen
-                </button>
-                <h3 className="text-lg font-bold text-gray-900">Zeit auswahlen</h3>
-                <button
-                  type="button"
-                  onClick={handleConfirm}
-                  className="text-blue-600 font-semibold text-base px-3 py-2 rounded-lg active:bg-blue-50 transition-colors"
-                >
-                  OK
-                </button>
-              </div>
-
-              <div className="flex items-center justify-center p-6 gap-4">
-                <div className="relative">
-                  <div
-                    ref={hourScrollRef}
-                    className="h-56 w-20 overflow-y-scroll snap-y snap-mandatory overscroll-contain scrollbar-hide"
+            <div className="fixed inset-0 z-[70] flex items-center justify-center px-4">
+              <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl pb-safe">
+                <div className="flex items-center justify-between p-4 border-b border-gray-200">
+                  <button
+                    type="button"
+                    onClick={handleClear}
+                    className="text-red-600 font-semibold text-base px-3 py-2 rounded-lg active:bg-red-50 transition-colors"
                   >
-                    {hours.map((h) => (
-                      <div
-                        key={h}
-                        onClick={() => handleHourChange(h)}
-                        className={`h-14 flex items-center justify-center text-2xl font-bold cursor-pointer snap-center transition-all ${
-                          String(h).padStart(2, '0') === hour
-                            ? 'text-blue-600 scale-125'
-                            : 'text-gray-400'
-                        }`}
-                      >
-                        {String(h).padStart(2, '0')}
-                      </div>
-                    ))}
-                  </div>
-                  <div className="absolute top-1/2 left-0 right-0 h-14 -translate-y-1/2 border-y-2 border-blue-300 pointer-events-none rounded-lg" />
+                    Loschen
+                  </button>
+                  <h3 className="text-lg font-bold text-gray-900">Zeit auswahlen</h3>
+                  <button
+                    type="button"
+                    onClick={handleConfirm}
+                    className="text-blue-600 font-semibold text-base px-3 py-2 rounded-lg active:bg-blue-50 transition-colors"
+                  >
+                    OK
+                  </button>
                 </div>
 
-                <div className="text-3xl font-bold text-gray-600">:</div>
-
-                <div className="relative">
-                  <div
-                    ref={minuteScrollRef}
-                    className="h-56 w-20 overflow-y-scroll snap-y snap-mandatory overscroll-contain scrollbar-hide"
-                  >
-                    {minutes.map((m) => (
-                      <div
-                        key={m}
-                        onClick={() => handleMinuteChange(m)}
-                        className={`h-14 flex items-center justify-center text-2xl font-bold cursor-pointer snap-center transition-all ${
-                          String(m).padStart(2, '0') === minute
-                            ? 'text-blue-600 scale-125'
-                            : 'text-gray-400'
-                        }`}
-                      >
-                        {String(m).padStart(2, '0')}
-                      </div>
-                    ))}
+                <div className="flex items-center justify-center p-6 gap-4">
+                  <div className="relative">
+                    <div
+                      ref={hourScrollRef}
+                      className="h-56 w-20 overflow-y-scroll snap-y snap-mandatory overscroll-contain scrollbar-hide"
+                    >
+                      {hours.map((h) => (
+                        <div
+                          key={h}
+                          onClick={() => handleHourChange(h)}
+                          className={`h-14 flex items-center justify-center text-2xl font-bold cursor-pointer snap-center transition-all ${
+                            String(h).padStart(2, '0') === hour
+                              ? 'text-blue-600 scale-125'
+                              : 'text-gray-400'
+                          }`}
+                        >
+                          {String(h).padStart(2, '0')}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="absolute top-1/2 left-0 right-0 h-14 -translate-y-1/2 border-y-2 border-blue-300 pointer-events-none rounded-lg" />
                   </div>
-                  <div className="absolute top-1/2 left-0 right-0 h-14 -translate-y-1/2 border-y-2 border-blue-300 pointer-events-none rounded-lg" />
+
+                  <div className="text-3xl font-bold text-gray-600">:</div>
+
+                  <div className="relative">
+                    <div
+                      ref={minuteScrollRef}
+                      className="h-56 w-20 overflow-y-scroll snap-y snap-mandatory overscroll-contain scrollbar-hide"
+                    >
+                      {minutes.map((m) => (
+                        <div
+                          key={m}
+                          onClick={() => handleMinuteChange(m)}
+                          className={`h-14 flex items-center justify-center text-2xl font-bold cursor-pointer snap-center transition-all ${
+                            String(m).padStart(2, '0') === minute
+                              ? 'text-blue-600 scale-125'
+                              : 'text-gray-400'
+                          }`}
+                        >
+                          {String(m).padStart(2, '0')}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="absolute top-1/2 left-0 right-0 h-14 -translate-y-1/2 border-y-2 border-blue-300 pointer-events-none rounded-lg" />
+                  </div>
                 </div>
               </div>
-
-              <div className="h-8" />
             </div>
           </>
         )}

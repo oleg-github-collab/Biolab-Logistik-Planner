@@ -34,6 +34,8 @@ const SLOT_INTERVAL = 30; // minutes
 const BASE_SLOT_HEIGHT = 44; // px per slot
 const START_HOUR = 6;
 const END_HOUR = 22;
+const MOBILE_DAY_CARD_MAX_WIDTH = 360;
+const MOBILE_TIME_GUTTER = 48;
 
 const AdvancedCalendar = ({
   events = [],
@@ -96,6 +98,9 @@ const AdvancedCalendar = ({
     }
     return slots;
   }, []);
+
+  const totalGridHeight = timeSlots.length * slotHeight;
+  const hourMarks = useMemo(() => timeSlots.filter((slot) => slot.minute === 0), [timeSlots]);
 
   // Normalise incoming events once per render
   const normalisedEvents = useMemo(() => {
@@ -229,11 +234,15 @@ const AdvancedCalendar = ({
     })();
 
     return (
-        <div className="flex flex-wrap gap-3 items-center justify-between rounded-2xl bg-gradient-to-r from-blue-50 via-white to-purple-50 border border-blue-100 px-4 py-3 shadow-sm">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => navigate('prev')}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-white shadow hover:-translate-x-[1px] hover:shadow-md transition"
+      <div
+        className={`rounded-2xl bg-gradient-to-r from-blue-50 via-white to-purple-50 border border-blue-100 px-4 py-3 shadow-sm ${
+          isMobile ? 'flex flex-col gap-3' : 'grid grid-cols-[auto,1fr,auto] items-center gap-4'
+        }`}
+      >
+        <div className={`flex items-center gap-2 ${isMobile ? 'justify-between w-full' : ''}`}>
+          <button
+            onClick={() => navigate('prev')}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-white shadow hover:-translate-x-[1px] hover:shadow-md transition"
             aria-label="Vorheriger Zeitraum"
           >
             <span className="text-lg">‹</span>
@@ -253,11 +262,15 @@ const AdvancedCalendar = ({
           </button>
         </div>
 
-        <div className="text-lg font-semibold text-slate-900">
+        <div className={`text-lg font-semibold text-slate-900 ${isMobile ? 'text-center w-full' : ''}`}>
           {rangeLabel}
         </div>
 
-        <div className="flex items-center gap-2 rounded-full bg-white p-1 shadow-inner overflow-x-auto">
+        <div
+          className={`flex items-center gap-2 rounded-full bg-white p-1 shadow-inner overflow-x-auto ${
+            isMobile ? 'w-full' : ''
+          }`}
+        >
           {availableViews.map((option) => (
             <button
               key={option.id}
@@ -280,20 +293,33 @@ const AdvancedCalendar = ({
     if (!['day', 'week'].includes(activeView)) return null;
 
     return (
-      <div className="flex border-b border-slate-200 bg-slate-50">
-        <div className="hidden w-20 border-r border-slate-200 px-2 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 md:block">
-          Ganztägig
-        </div>
-        <div className="flex flex-1">
+      <div
+        className={`border-b border-slate-200 ${
+          isMobile ? '-mx-2 bg-transparent px-2 pb-2' : 'flex bg-slate-50'
+        }`}
+      >
+        {!isMobile && (
+          <div className="hidden w-20 border-r border-slate-200 px-2 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 md:block">
+            Ganztägig
+          </div>
+        )}
+        <div className={`flex flex-1 ${isMobile ? 'gap-3 overflow-x-auto snap-x snap-mandatory' : ''}`}>
           {calendarDates.map((date) => {
             const dayEvents = allDayEvents.filter((event) => isSameDay(event.start, date) || isWithinMultiDay(event, date));
+            const baseClasses = isMobile
+              ? 'flex-shrink-0 rounded-2xl border border-slate-200 bg-white/90 backdrop-blur p-3 shadow-sm snap-center'
+              : 'min-h-[64px] flex-1 border-r border-slate-200 p-2';
+            const highlightClasses = isToday(date)
+              ? isMobile
+                ? 'ring-2 ring-blue-200 bg-blue-50/80'
+                : 'bg-blue-50/60'
+              : 'bg-transparent';
 
             return (
               <div
                 key={date.toISOString()}
-                className={`min-h-[64px] flex-1 border-r border-slate-200 p-2 ${
-                  isToday(date) ? 'bg-blue-50/60' : 'bg-transparent'
-                }`}
+                className={`${baseClasses} ${highlightClasses}`}
+                style={{ width: isMobile ? `min(88vw, ${MOBILE_DAY_CARD_MAX_WIDTH}px)` : undefined }}
               >
                 <div className="flex flex-wrap gap-2">
                   {dayEvents.map((event) => (
@@ -323,98 +349,139 @@ const AdvancedCalendar = ({
     );
   };
 
-  const renderTimedGrid = () => (
-    <div className="flex flex-1 overflow-hidden">
-      {/* Time column */}
-      <div className="hidden w-20 flex-shrink-0 border-r border-slate-200 bg-white md:block">
-        <div className="h-16" />
-        {timeSlots.map((slot) => (
-          <div
-            key={`${slot.hour}-${slot.minute}`}
-            className={`flex items-start justify-end border-b border-slate-100 pr-2 text-[11px] text-slate-400 ${
-              slot.minute === 0 ? 'font-semibold text-slate-500' : ''
-            }`}
-            style={{ height: slotHeight }}
-          >
-            {slot.minute === 0 ? slot.label : ''}
-          </div>
-        ))}
-      </div>
+  const renderTimedGrid = () => {
+    const hourBlockHeight = (60 / SLOT_INTERVAL) * slotHeight;
 
-      {/* Day columns */}
-      <div className="flex flex-1 overflow-auto">
-        {calendarDates.map((date) => {
-          const dayTimedEvents = layoutEventsForDay(
-            timedEvents.filter((event) => isSameDay(event.start, date))
-          );
-
-          return (
-            <div key={date.toISOString()} className="relative flex-1 border-r border-slate-100">
-              <DayColumnHeader date={date} isMobile={isMobile} />
-
-              <div className="relative h-full min-h-[1200px]">
-                {timeSlots.map((slot) => {
-                  const slotKey = `${date.toDateString()}-${slot.label}`;
-                  const slotDate = setMinutesAndHours(slot.hour, slot.minute, date);
-
-                  return (
-                    <div
-                      key={slotKey}
-                      className={`border-b border-slate-100 transition hover:bg-blue-50/60 ${
-                        hoveredSlot === slotKey ? 'bg-blue-100/40' : ''
-                      }`}
-                      style={{ height: slotHeight }}
-                      onMouseEnter={() => setHoveredSlot(slotKey)}
-                      onMouseLeave={() => setHoveredSlot(null)}
-                      onDoubleClick={(e) => openQuickCreate(date, slot, e.clientX, e.clientY)}
-                      onClick={() => onDateSelect?.(slotDate)}
-                      role="button"
-                      tabIndex={0}
-                    />
-                  );
-                })}
-
-                {dayTimedEvents.map((event) => {
-                  const { top, height, width, offsetLeft } = computeEventPosition(event, slotHeight);
-
-                  return (
-                    <div
-                      key={`${event.id}-${event.start.toISOString()}`}
-                      className="absolute overflow-hidden rounded-lg border border-white/20 shadow-md transition hover:z-30 hover:shadow-lg"
-                      style={{
-                        top,
-                        height,
-                        left: `${offsetLeft * 100}%`,
-                        width: `${width * 100}%`,
-                        backgroundColor: event.color,
-                        color: event.textColor
-                      }}
-                      onClick={() => onEventClick?.(event)}
-                      title={`${event.title} (${format(event.start, 'HH:mm')} – ${format(event.end, 'HH:mm')})`}
-                    >
-                      <div className="flex items-center justify-between px-3 py-2 text-xs font-semibold">
-                        <span className="truncate text-sm leading-tight">{event.title}</span>
-                        {event.location && (
-                          <span className="ml-2 rounded-full bg-black/20 px-2 py-0.5 text-[10px] uppercase tracking-wide">
-                            {event.location}
-                          </span>
-                        )}
-                      </div>
-                      <div className="px-3 pb-3 text-[11px] opacity-90">
-                        {format(event.start, 'HH:mm')} – {format(event.end, 'HH:mm')}
-                      </div>
-                    </div>
-                  );
-                })}
-
-                <CurrentTimeIndicator referenceDate={date} slotHeight={slotHeight} />
+    return (
+      <div
+        className={`flex flex-1 ${
+          isMobile ? 'overflow-x-auto snap-x snap-mandatory gap-4 px-2 pb-6 -mx-2' : 'overflow-hidden'
+        }`}
+      >
+        {/* Time column (desktop) */}
+        {!isMobile && (
+          <div className="hidden w-20 flex-shrink-0 border-r border-slate-200 bg-white md:block">
+            <div className="h-16" />
+            {timeSlots.map((slot) => (
+              <div
+                key={`${slot.hour}-${slot.minute}`}
+                className={`flex items-start justify-end border-b border-slate-100 pr-2 text-[11px] text-slate-400 ${
+                  slot.minute === 0 ? 'font-semibold text-slate-500' : ''
+                }`}
+                style={{ height: slotHeight }}
+              >
+                {slot.minute === 0 ? slot.label : ''}
               </div>
-            </div>
-          );
-        })}
+            ))}
+          </div>
+        )}
+
+        {/* Day columns */}
+        <div className={`flex flex-1 ${isMobile ? 'gap-4' : 'overflow-auto'}`}>
+          {calendarDates.map((date) => {
+            const dayTimedEvents = layoutEventsForDay(
+              timedEvents.filter((event) => isSameDay(event.start, date))
+            );
+
+            const columnClasses = isMobile
+              ? 'relative flex-shrink-0 snap-center rounded-3xl border border-slate-200 bg-white shadow-lg overflow-hidden'
+              : 'relative flex-1 border-r border-slate-100';
+
+            const columnStyle = isMobile
+              ? { width: `min(90vw, ${MOBILE_DAY_CARD_MAX_WIDTH}px)` }
+              : undefined;
+
+            return (
+              <div key={date.toISOString()} className={columnClasses} style={columnStyle}>
+                <DayColumnHeader date={date} isMobile={isMobile} />
+
+                <div
+                  className="relative"
+                  style={{
+                    minHeight: totalGridHeight,
+                    paddingLeft: isMobile ? MOBILE_TIME_GUTTER : 0
+                  }}
+                >
+                  {isMobile && (
+                    <div
+                      className="pointer-events-none absolute inset-y-0 left-0 border-r border-slate-100 bg-gradient-to-b from-white/85 to-transparent"
+                      style={{ width: MOBILE_TIME_GUTTER }}
+                    >
+                      {hourMarks.map((slot) => (
+                        <div
+                          key={`${date.toDateString()}-${slot.label}`}
+                          className="flex items-start justify-end pr-2 text-[10px] font-semibold text-slate-400"
+                          style={{ height: hourBlockHeight }}
+                        >
+                          {slot.label}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {timeSlots.map((slot) => {
+                    const slotKey = `${date.toDateString()}-${slot.label}`;
+                    const slotDate = setMinutesAndHours(slot.hour, slot.minute, date);
+
+                    return (
+                      <div
+                        key={slotKey}
+                        className={`border-b border-slate-100 transition ${
+                          hoveredSlot === slotKey ? 'bg-blue-100/40' : 'hover:bg-blue-50/60'
+                        }`}
+                        style={{ height: slotHeight }}
+                        onMouseEnter={() => setHoveredSlot(slotKey)}
+                        onMouseLeave={() => setHoveredSlot(null)}
+                        onDoubleClick={(e) => openQuickCreate(date, slot, e.clientX, e.clientY)}
+                        onClick={() => onDateSelect?.(slotDate)}
+                        role="button"
+                        tabIndex={0}
+                      />
+                    );
+                  })}
+
+                  {dayTimedEvents.map((event) => {
+                    const { top, height, width, offsetLeft } = computeEventPosition(event, slotHeight);
+
+                    return (
+                      <div
+                        key={`${event.id}-${event.start.toISOString()}`}
+                        className="absolute overflow-hidden rounded-lg border border-white/20 shadow-md transition hover:z-30 hover:shadow-lg"
+                        style={{
+                          top,
+                          height,
+                          left: `${offsetLeft * 100}%`,
+                          width: `${width * 100}%`,
+                          backgroundColor: event.color,
+                          color: event.textColor
+                        }}
+                        onClick={() => onEventClick?.(event)}
+                        title={`${event.title} (${format(event.start, 'HH:mm')} – ${format(event.end, 'HH:mm')})`}
+                      >
+                        <div className="flex items-center justify-between px-3 py-2 text-xs font-semibold">
+                          <span className="truncate text-sm leading-tight">{event.title}</span>
+                          {event.location && (
+                            <span className="ml-2 rounded-full bg-black/20 px-2 py-0.5 text-[10px] uppercase tracking-wide">
+                              {event.location}
+                            </span>
+                          )}
+                        </div>
+                        <div className="px-3 pb-3 text-[11px] opacity-90">
+                          {format(event.start, 'HH:mm')} – {format(event.end, 'HH:mm')}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  <CurrentTimeIndicator referenceDate={date} slotHeight={slotHeight} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderWeekView = () => (
     <div className="flex h-full flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -598,6 +665,7 @@ const AdvancedCalendar = ({
           slot={quickCreateState.time}
           onClose={closeQuickCreate}
           onConfirm={handleQuickCreate}
+          isMobile={isMobile}
         />
       )}
     </div>
@@ -657,7 +725,7 @@ const CurrentTimeIndicator = ({ referenceDate, slotHeight }) => {
   );
 };
 
-const QuickCreatePopover = ({ anchor, date, slot, onClose, onConfirm }) => {
+const QuickCreatePopover = ({ anchor, date, slot, onClose, onConfirm, isMobile }) => {
   const [title, setTitle] = useState('');
   const [duration, setDuration] = useState(60);
   const [type, setType] = useState('Meeting');
@@ -684,12 +752,47 @@ const QuickCreatePopover = ({ anchor, date, slot, onClose, onConfirm }) => {
     });
   };
 
+  const getDesktopPosition = () => {
+    if (typeof window === 'undefined') {
+      return {
+        left: anchor?.x ?? 0,
+        top: anchor?.y ?? 0,
+        width: 320
+      };
+    }
+
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const width = 320;
+    const height = 320;
+    const anchorX = anchor?.x ?? viewportWidth / 2;
+    const anchorY = anchor?.y ?? viewportHeight / 2;
+
+    const left = Math.max(16, Math.min(anchorX - width / 2, viewportWidth - width - 16));
+    const top = Math.max(16, Math.min(anchorY - height / 2, viewportHeight - height - 16));
+
+    return { left, top, width };
+  };
+
+  const style = isMobile
+    ? {
+        left: '50%',
+        top: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: 'min(92vw, 360px)'
+      }
+    : getDesktopPosition();
+
   return (
-    <div
-      className="fixed z-50 w-[280px] rounded-2xl border border-slate-200 bg-white p-4 shadow-xl"
-      style={{ left: anchor.x, top: anchor.y }}
-    >
-      <form onSubmit={handleSubmit} className="space-y-3">
+    <>
+      <div className="fixed inset-0 z-40 bg-slate-900/30 backdrop-blur-[1px]" onClick={onClose} />
+      <div
+        className={`fixed z-50 rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl ${
+          isMobile ? 'max-h-[80vh] overflow-y-auto' : ''
+        }`}
+        style={style}
+      >
+        <form onSubmit={handleSubmit} className="space-y-3">
         <div>
           <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
             Titel
@@ -751,8 +854,9 @@ const QuickCreatePopover = ({ anchor, date, slot, onClose, onConfirm }) => {
             Speichern
           </button>
         </div>
-      </form>
-    </div>
+        </form>
+      </div>
+    </>
   );
 };
 

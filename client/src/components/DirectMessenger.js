@@ -95,6 +95,7 @@ const DirectMessenger = () => {
   const [showForwardModal, setShowForwardModal] = useState(false);
   const [messageToForward, setMessageToForward] = useState(null);
   const [typingUsers, setTypingUsers] = useState({});
+  const [showPinnedDrawer, setShowPinnedDrawer] = useState(false);
 
   const fileInputRef = useRef(null);
   const mediaRecorderRef = useRef(null);
@@ -883,16 +884,20 @@ const DirectMessenger = () => {
     }
   }, [sendTypingIndicator]);
 
-  const handleMessageSearchSelect = useCallback((message) => {
-    setShowSearch(false);
-    // Scroll to message if it's in current conversation
-    const messageElement = document.getElementById(`message-${message.id}`);
+  const highlightMessage = useCallback((messageId) => {
+    if (!messageId) return;
+    const messageElement = document.getElementById(`message-${messageId}`);
     if (messageElement) {
       messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
       messageElement.classList.add('highlight-flash');
       setTimeout(() => messageElement.classList.remove('highlight-flash'), 2000);
     }
   }, []);
+
+  const handleMessageSearchSelect = useCallback((message) => {
+    setShowSearch(false);
+    highlightMessage(message.id);
+  }, [highlightMessage]);
 
   const handleQuickReplySelect = useCallback((content) => {
     setMessageInput(content);
@@ -1021,6 +1026,11 @@ const DirectMessenger = () => {
           {/* Pinned indicator badge */}
           {isPinned && !isMobile && (
             <div className="absolute -top-2 -right-2 bg-yellow-400 text-yellow-900 rounded-full p-1 shadow-md">
+              <Pin className="w-3 h-3" />
+            </div>
+          )}
+          {isPinned && isMobile && (
+            <div className="absolute -top-2 -right-2 bg-yellow-400/90 text-yellow-900 rounded-full p-1 shadow-md">
               <Pin className="w-3 h-3" />
             </div>
           )}
@@ -1310,9 +1320,16 @@ const DirectMessenger = () => {
           id={`message-${msg.id}`}
           className={`flex mb-3 ${isMine ? 'justify-end' : 'justify-start'}`}
         >
-          {/* Message bubble with max-width, NOT full width */}
-          <div className={`relative ${isMobile ? 'w-full flex items-center gap-2' : 'max-w-[75%] lg:max-w-[60%]'}`}>
-            {renderMessageContent(msg, isMine)}
+          <div
+            className={
+              isMobile
+                ? `flex w-full items-end gap-2 ${isMine ? 'justify-end' : 'justify-start'}`
+                : 'relative max-w-[75%] lg:max-w-[60%]'
+            }
+          >
+            <div className={`relative ${isMobile ? 'max-w-[85%]' : 'w-full'}`}>
+              {renderMessageContent(msg, isMine)}
+            </div>
 
             {/* Mobile action buttons - always visible on mobile */}
             {isMobile && (
@@ -1769,6 +1786,29 @@ const DirectMessenger = () => {
         </div>
       </div>
 
+      <div className="messenger-mobile-actions">
+        <button type="button" onClick={() => setShowSearch(true)}>
+          <Search className="w-4 h-4" />
+          <span>Suche</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowPinnedDrawer(true)}
+          disabled={pinnedMessages.length === 0}
+        >
+          <Pin className="w-4 h-4" />
+          <span>Pins</span>
+        </button>
+        <button type="button" onClick={() => fileInputRef.current?.click()}>
+          <Paperclip className="w-4 h-4" />
+          <span>Datei</span>
+        </button>
+        <button type="button" onClick={openEventPicker}>
+          <CalendarDays className="w-4 h-4" />
+          <span>Kalender</span>
+        </button>
+      </div>
+
       <div className="messenger-mobile-messages">
         {selectedContact ? renderMessages() : (
           <div className="flex-1 flex flex-col items-center justify-center text-blue-100">
@@ -2044,6 +2084,61 @@ const DirectMessenger = () => {
       )}
 
       {isMobile ? renderMobileLayout() : renderDesktopLayout()}
+
+      {isMobile && showPinnedDrawer && (
+        <div className="fixed inset-0 z-[65] bg-slate-900/70 backdrop-blur-sm flex flex-col justify-end">
+          <div className="bg-white rounded-t-3xl p-5 shadow-2xl max-h-[75vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                  Angepinnt
+                </p>
+                <h3 className="text-xl font-bold text-slate-900">{pinnedMessages.length} Nachrichten</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPinnedDrawer(false)}
+                className="p-2 rounded-full hover:bg-slate-100 transition"
+                aria-label="Pinned Drawer schließen"
+              >
+                <X className="w-5 h-5 text-slate-500" />
+              </button>
+            </div>
+
+            {pinnedMessages.length === 0 ? (
+              <p className="text-sm text-slate-500">Noch keine angepinnten Nachrichten.</p>
+            ) : (
+              <div className="space-y-3">
+                {pinnedMessages.map((msg) => (
+                  <button
+                    key={`pinned-${msg.id}`}
+                    type="button"
+                    onClick={() => {
+                      setShowPinnedDrawer(false);
+                      highlightMessage(msg.id);
+                    }}
+                    className="w-full text-left rounded-2xl border border-slate-200 px-4 py-3 hover:border-blue-300 hover:bg-blue-50 transition"
+                  >
+                    <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
+                      <span className="font-semibold text-slate-500">
+                        {msg.sender_name || (msg.sender_id === user?.id ? 'Du' : 'Kontakt')}
+                      </span>
+                      {msg.created_at && (
+                        <span>
+                          {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true, locale: de })}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-slate-700 line-clamp-2 whitespace-pre-wrap">
+                      {msg.message || 'Anhänge / Ereignis'}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       {selectedStory && (
         <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex flex-col">
           <div className="flex items-center justify-between px-4 py-3 text-white">
