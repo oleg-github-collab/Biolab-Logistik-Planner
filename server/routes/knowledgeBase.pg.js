@@ -91,10 +91,10 @@ router.get('/articles', auth, async (req, res) => {
     }
 
     query += ' GROUP BY a.id, u.name, u.profile_photo, c.name, c.color, c.id';
-    
-    if (sort === 'popular') query += ' ORDER BY a.views_count DESC';
+
+    if (sort === 'popular') query += ' ORDER BY a.view_count DESC';
     else if (sort === 'helpful') query += ' ORDER BY a.helpful_count DESC';
-    else query += ' ORDER BY a.featured DESC, a.pinned DESC, a.created_at DESC';
+    else query += ' ORDER BY a.is_featured DESC, a.created_at DESC';
 
     query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     params.push(parseInt(limit), parseInt(offset));
