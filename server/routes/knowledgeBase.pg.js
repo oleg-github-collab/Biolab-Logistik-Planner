@@ -61,12 +61,11 @@ router.get('/articles', auth, async (req, res) => {
     let query = `
       SELECT a.*, u.name as author_name, u.profile_photo as author_photo,
         c.name as category_name, c.color as category_color,
-        COUNT(DISTINCT acm.id) as comments_count, COUNT(DISTINCT am.id) as media_count
+        COUNT(DISTINCT acm.id) as comments_count
       FROM kb_articles a
       LEFT JOIN users u ON a.author_id = u.id
       LEFT JOIN kb_categories c ON a.category_id = c.id
       LEFT JOIN kb_article_comments acm ON a.id = acm.article_id
-      LEFT JOIN kb_article_media am ON a.id = am.article_id
       WHERE a.status = $1
     `;
     const params = [status];
