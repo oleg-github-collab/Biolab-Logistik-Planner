@@ -170,6 +170,7 @@ router.post('/articles', auth, async (req, res) => {
     await client.query('BEGIN');
     const { title, content, excerpt, summary, category_id, tags, status = 'draft', visibility = 'everyone' } = req.body;
 
+    console.log('[POST /api/kb/articles] Request body:', JSON.stringify(req.body, null, 2));
     logger.info('Creating KB article', {
       title,
       category_id,
@@ -232,16 +233,18 @@ router.post('/articles', auth, async (req, res) => {
     res.status(201).json(result.rows[0]);
   } catch (error) {
     await client.query('ROLLBACK');
+    console.error('[POST /api/kb/articles] ERROR:', error);
     logger.error('Error creating article:', {
       message: error.message,
       stack: error.stack,
       code: error.code,
       detail: error.detail,
-      hint: error.hint
+      hint: error.hint,
+      constraint: error.constraint
     });
     res.status(500).json({
-      error: 'Serverfehler',
-      details: error.message
+      error: 'Serverfehler beim Erstellen des Artikels',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   } finally {
     client.release();

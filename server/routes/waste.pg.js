@@ -499,7 +499,7 @@ router.post('/items', auth, async (req, res) => {
       ) VALUES ($1, $2, $3, $4, $5, 'active', $6, $7, NOW(), NOW())
       RETURNING *`,
       [
-        template_id,
+        template.id,  // Use template.id from found template, not req.body template_id
         sanitizedName,
         sanitizedLocation,
         quantity,
