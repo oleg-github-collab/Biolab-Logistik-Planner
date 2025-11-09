@@ -11,7 +11,6 @@ const NAV_ITEMS = [
   { to: '/dashboard', labelKey: 'navigation.dashboard', icon: '📊', permission: 'schedule:read' },
   { to: '/messages', labelKey: 'navigation.messages', icon: '💬', permission: 'message:read' },
   { to: '/task-pool', labelKey: 'navigation.tasks', icon: '✓', permission: 'task:read' },
-  { to: '/waste', labelKey: 'navigation.waste', icon: '♻️', permission: 'waste:read' },
   { to: '/kisten', labelKey: 'navigation.kisten', icon: '📦', permission: 'task:read' },
   { to: '/schedule', labelKey: 'navigation.schedule', icon: '⏰', permission: 'schedule:read' },
   { to: '/knowledge-base', labelKey: 'navigation.knowledge', icon: '📚', permission: 'schedule:read' },

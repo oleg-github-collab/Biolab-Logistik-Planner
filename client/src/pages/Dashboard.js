@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { CalendarDays, LayoutDashboard, Recycle, Plus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useWebSocketContext } from '../context/WebSocketContext';
 import CalendarView from '../components/CalendarView';
 import EventDetailsModal from '../components/EventDetailsModal';
@@ -387,16 +387,12 @@ const Dashboard = () => {
           >
             Kalender
           </button>
-          <button
-            onClick={() => setActiveTab('kanban')}
-            className={`py-4 px-1 font-medium text-sm border-b-2 transition-colors ${
-              activeTab === 'kanban'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            } ${isMobile ? 'flex-shrink-0 px-3' : ''}`}
+          <Link
+            to="/task-pool"
+            className="py-4 px-1 font-medium text-sm border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors"
           >
             Kanban Board
-          </button>
+          </Link>
         </nav>
       </div>
 
