@@ -9,8 +9,8 @@ cmds = [
 
 [phases.build]
 cmds = [
-  "rm -rf client/node_modules/.cache",
-  "cd client && CI=false npm run build"
+  "rm -rf client/node_modules/.cache client/build",
+  "cd client && CI=false GENERATE_SOURCEMAP=false npm run build"
 ]
 
 [start]
