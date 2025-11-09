@@ -129,30 +129,21 @@ router.get('/articles/:id', auth, async (req, res) => {
       return res.status(404).json({ error: 'Artikel nicht gefunden' });
     }
 
-    await client.query('UPDATE kb_articles SET views_count = views_count + 1 WHERE id = $1', [id]);
+    // Update view count (use view_count not views_count)
+    await client.query('UPDATE kb_articles SET view_count = view_count + 1 WHERE id = $1', [id]);
 
-    const mediaResult = await client.query(`
-      SELECT m.*, u.name as uploaded_by_name
-      FROM kb_article_media m LEFT JOIN users u ON m.uploaded_by = u.id
-      WHERE m.article_id = $1 ORDER BY m.display_order ASC, m.created_at DESC
-    `, [id]);
-
+    // Get comments
     const commentsResult = await client.query(`
       SELECT c.*, u.name as user_name, u.profile_photo as user_photo
       FROM kb_article_comments c LEFT JOIN users u ON c.user_id = u.id
       WHERE c.article_id = $1 ORDER BY c.created_at ASC
     `, [id]);
 
-    const voteResult = await client.query(
-      'SELECT is_helpful FROM kb_article_votes WHERE article_id = $1 AND user_id = $2',
-      [id, req.user.id]
-    );
-
     res.json({
       ...articleResult.rows[0],
-      media: mediaResult.rows,
+      media: [], // No media table yet
       comments: commentsResult.rows,
-      user_vote: voteResult.rows[0]?.is_helpful ?? null
+      user_vote: null // No votes table yet
     });
   } catch (error) {
     logger.error('Error fetching article:', error);
