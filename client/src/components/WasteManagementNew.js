@@ -95,9 +95,16 @@ const WasteManagementNew = () => {
       const categoriesWithTemplates = cats.map((cat) => {
         const key = (cat.name || '').toLowerCase();
         const templateMatch = key ? groupedTemplates[key]?.[0] : null;
+        const resolvedTemplateId =
+          cat.template_id ||
+          cat.templateId ||
+          templateMatch?.id ||
+          null;
+
         return {
           ...cat,
-          templateId: cat.template_id || cat.templateId || templateMatch?.id || null,
+          template_id: resolvedTemplateId,
+          templateId: resolvedTemplateId,
           icon: cat.icon || templateMatch?.icon || '♻️',
           color: cat.color || templateMatch?.color || '#3B82F6',
           description: cat.description || templateMatch?.description || cat.instructions || '',
@@ -139,7 +146,7 @@ const WasteManagementNew = () => {
     const templateId = selectedCategory.templateId || selectedCategory.template_id;
 
     if (!templateId) {
-      console.error('No template_id for category:', selectedCategory);
+      console.error('[CREATE-ITEM] Missing template_id for category', selectedCategory);
       toast.error('Keine passende Vorlage für diese Kategorie gefunden');
       return;
     }
