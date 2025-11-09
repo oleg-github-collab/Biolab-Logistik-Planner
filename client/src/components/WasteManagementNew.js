@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 
+// BUILD: 2025-01-09T00:35:00Z - FORCE REBUILD WITH TEMPLATE_ID FIX
 const WasteManagementNew = () => {
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);

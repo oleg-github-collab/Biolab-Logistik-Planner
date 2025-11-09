@@ -8,7 +8,10 @@ cmds = [
 ]
 
 [phases.build]
-cmds = ["cd client && CI=false npm run build"]
+cmds = [
+  "rm -rf client/node_modules/.cache",
+  "cd client && CI=false npm run build"
+]
 
 [start]
 cmd = "node server-minimal.js"
