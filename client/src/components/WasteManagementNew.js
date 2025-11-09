@@ -94,14 +94,14 @@ const WasteManagementNew = () => {
       const categoriesWithTemplates = cats.map((cat) => {
         const key = (cat.name || '').toLowerCase();
         const templateMatch = key ? groupedTemplates[key]?.[0] : null;
-        return templateMatch
-          ? {
-              ...cat,
-              templateId: cat.templateId || templateMatch.id || null,
-              icon: cat.icon || templateMatch.icon || '♻️',
-              color: cat.color || templateMatch.color || '#3B82F6'
-            }
-          : cat;
+        return {
+          ...cat,
+          templateId: cat.template_id || cat.templateId || templateMatch?.id || null,
+          icon: cat.icon || templateMatch?.icon || '♻️',
+          color: cat.color || templateMatch?.color || '#3B82F6',
+          description: cat.description || templateMatch?.description || cat.instructions || '',
+          instructions: cat.instructions || templateMatch?.instructions || ''
+        };
       });
 
       setCategories(categoriesWithTemplates);
@@ -135,7 +135,7 @@ const WasteManagementNew = () => {
     e.preventDefault();
     if (!selectedCategory) return;
 
-    const templateId = selectedCategory.template_id;
+    const templateId = selectedCategory.templateId || selectedCategory.template_id;
 
     if (!templateId) {
       console.error('No template_id for category:', selectedCategory);
