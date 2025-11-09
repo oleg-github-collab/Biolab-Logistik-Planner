@@ -143,10 +143,27 @@ const WasteManagementNew = () => {
     e.preventDefault();
     if (!selectedCategory) return;
 
-    const templateId = selectedCategory.templateId || selectedCategory.template_id;
+    let templateId = selectedCategory.templateId || selectedCategory.template_id;
 
     if (!templateId) {
-      console.error('[CREATE-ITEM] Missing template_id for category', selectedCategory);
+      const normalizedName = selectedCategory.name?.toLowerCase().trim();
+      const localTemplates = normalizedName ? templateGroups[normalizedName] : null;
+      if (localTemplates?.length) {
+        templateId = localTemplates[0].id;
+      } else if (normalizedName) {
+        try {
+          const fallbackRes = await api.get(`/waste/templates/category/${encodeURIComponent(selectedCategory.name)}`);
+          if (Array.isArray(fallbackRes.data) && fallbackRes.data.length > 0) {
+            templateId = fallbackRes.data[0].id;
+          }
+        } catch (fetchErr) {
+          console.error('[CREATE-ITEM] Failed to fetch template by category', fetchErr);
+        }
+      }
+    }
+
+    if (!templateId) {
+      console.error('[CREATE-ITEM] Missing template_id for category even after fallback', selectedCategory);
       toast.error('Keine passende Vorlage für diese Kategorie gefunden');
       return;
     }
