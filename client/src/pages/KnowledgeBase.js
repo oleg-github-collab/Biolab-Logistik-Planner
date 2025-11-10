@@ -30,6 +30,7 @@ import api from '../utils/api';
 import { uploadKBMedia, deleteKBMedia, getArticleVersions, restoreArticleVersion } from '../utils/apiEnhanced';
 import { getAssetUrl } from '../utils/media';
 import toast from 'react-hot-toast';
+import { useMobile } from '../hooks/useMobile';
 
 // Constants
 const ITEMS_PER_PAGE = 12;
@@ -106,85 +107,77 @@ const EmptyState = ({ icon: Icon, title, description }) => (
 
 // Article Card Component
 const ArticleCard = ({ article, onClick, canManage, onEdit, onStatusChange }) => {
+  const preview = article.summary || truncateText(article.content, 160);
+
   return (
-    <div
-      onClick={onClick}
-      className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 cursor-pointer hover:shadow-md transition-shadow duration-200"
-    >
-      <div className="flex items-start justify-between mb-3">
-        <h3 className="text-lg font-semibold text-gray-900 line-clamp-2 flex-1">
-          {article.title}
-        </h3>
+    <div onClick={onClick} className="kb-article-card group cursor-pointer">
+      <div className="kb-article-card__tag-row">
+        <span className="kb-article-card__status">
+          {article.status === 'published' ? 'Veröffentlicht' : 'Entwurf'}
+        </span>
         {article.category_name && (
           <span
-            className="ml-3 px-2 py-1 text-xs font-medium rounded-full text-white whitespace-nowrap"
-            style={{ backgroundColor: article.category_color || '#6B7280' }}
+            className="kb-article-card__category"
+            style={{ color: article.category_color || '#2563eb' }}
           >
             {article.category_name}
           </span>
         )}
       </div>
 
-      {article.summary && (
-        <p className="text-gray-600 text-sm mb-4 line-clamp-3">
-          {article.summary}
-        </p>
-      )}
+      <h3 className="kb-article-card__title">{article.title}</h3>
 
-      <div className="flex items-center justify-between text-xs text-gray-500">
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center">
-            <User size={14} className="mr-1" />
-            <span>{article.author_name || 'Unbekannt'}</span>
-          </div>
-          <div className="flex items-center">
-            <Calendar size={14} className="mr-1" />
-            <span>{formatDate(article.created_at)}</span>
-          </div>
+      {preview && <p className="kb-article-card__excerpt">{preview}</p>}
+
+      <div className="kb-article-card__meta">
+        <div className="kb-article-card__meta-group">
+          <User size={14} />
+          <span>{article.author_name || 'Unbekannt'}</span>
         </div>
-        <div className="flex items-center space-x-3">
-          <div className="flex items-center">
-            <Eye size={14} className="mr-1" />
-            <span>{article.views_count || 0}</span>
-          </div>
-          <div className="flex items-center">
-            <ThumbsUp size={14} className="mr-1" />
-            <span>{article.helpful_count || 0}</span>
-          </div>
-          <div className="flex items-center">
-            <ThumbsDown size={14} className="mr-1" />
-            <span>{article.not_helpful_count || 0}</span>
-          </div>
+        <div className="kb-article-card__meta-group">
+          <Calendar size={14} />
+          <span>{formatDate(article.created_at)}</span>
+        </div>
+        <div className="kb-article-card__meta-group">
+          <Eye size={14} />
+          <span>{article.views_count || 0}</span>
         </div>
       </div>
 
       {article.tags && article.tags.length > 0 && (
-        <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-100">
+        <div className="kb-article-card__tags">
           {article.tags.slice(0, 3).map((tag, index) => (
-            <span
-              key={index}
-              className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded"
-            >
-              {tag}
+            <span key={index} className="kb-article-card__tag">
+              #{tag}
             </span>
           ))}
           {article.tags.length > 3 && (
-            <span className="px-2 py-1 text-xs text-gray-500">
-              +{article.tags.length - 3} mehr
+            <span className="kb-article-card__tag muted">
+              +{article.tags.length - 3}
             </span>
           )}
         </div>
       )}
 
+      <div className="kb-article-card__stats">
+        <div>
+          <ThumbsUp size={14} />
+          <span>{article.helpful_count || 0}</span>
+        </div>
+        <div>
+          <ThumbsDown size={14} />
+          <span>{article.not_helpful_count || 0}</span>
+        </div>
+      </div>
+
       {canManage && (
-        <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100 text-xs text-gray-500">
+        <div className="kb-article-card__actions">
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
               onEdit?.(article);
             }}
-            className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-gray-200 hover:border-gray-300 hover:text-gray-700 transition"
           >
             <Edit2 size={12} />
             Bearbeiten
@@ -193,10 +186,10 @@ const ArticleCard = ({ article, onClick, canManage, onEdit, onStatusChange }) =>
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              const nextStatus = article.status === 'published' ? 'archived' : 'published';
+              const nextStatus =
+                article.status === 'published' ? 'archived' : 'published';
               onStatusChange?.(article, nextStatus);
             }}
-            className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-gray-200 hover:border-gray-300 text-blue-600 hover:text-blue-700 transition"
           >
             <ToggleLeft size={12} />
             {article.status === 'published' ? 'Archivieren' : 'Veröffentlichen'}
@@ -995,6 +988,7 @@ const ArticleEditorModal = ({ article, categories, allTags, onSave, onClose }) =
 // Main Knowledge Base Component
 const KnowledgeBaseV3 = () => {
   const location = useLocation();
+  const { isMobile } = useMobile();
   // State Management
   const [categories, setCategories] = useState([]);
   const [articles, setArticles] = useState([]);
@@ -1118,6 +1112,21 @@ const KnowledgeBaseV3 = () => {
   }, [articles, currentPage]);
 
   const totalPages = Math.ceil(articles.length / ITEMS_PER_PAGE);
+
+  const articleStats = useMemo(() => {
+    const total = articles.length;
+    const media = articles.filter((article) => (article.media?.length || 0) > 0).length;
+    const lastUpdatedRaw = articles
+      .map((article) => article.updated_at || article.created_at)
+      .filter(Boolean)
+      .sort((a, b) => new Date(b) - new Date(a))[0];
+
+    return {
+      total,
+      media,
+      lastUpdated: lastUpdatedRaw ? formatDate(lastUpdatedRaw) : '—'
+    };
+  }, [articles]);
 
   // Handlers
   const handleArticleClick = async (article) => {
@@ -1256,60 +1265,49 @@ const KnowledgeBaseV3 = () => {
   };
 
   return (
-    <div className="flex flex-col lg:flex-row min-h-screen bg-gray-50">
+    <div className="kb-page">
+      <div className="kb-layout">
       {/* Sidebar */}
-      <div className="hidden lg:block w-64 bg-white border-r border-gray-200 overflow-y-auto flex-shrink-0">
-        <div className="p-4 border-b border-gray-200">
-          <h2 className="text-lg font-bold text-gray-900 flex items-center">
+      <div className="kb-sidebar hidden lg:flex lg:flex-col">
+        <div className="kb-sidebar__header">
+          <h2 className="kb-sidebar__title">
             <BookOpen className="mr-2" size={20} />
             Knowledge Base
           </h2>
         </div>
 
-        <div className="p-4">
+        <div className="kb-sidebar__content">
           <button
             onClick={() => handleCategorySelect(null)}
-            className={`w-full text-left px-4 py-3 rounded-md transition-colors mb-2 ${
-              selectedCategory === null
-                ? 'bg-blue-50 text-blue-700 font-medium'
-                : 'hover:bg-gray-100 text-gray-700'
-            }`}
+            className={`kb-sidebar__item ${selectedCategory === null ? 'active' : ''}`}
           >
-            <div className="flex items-center justify-between">
+            <div className="kb-sidebar__item-label">
               <div className="flex items-center">
                 <Layers size={18} className="mr-2" />
                 <span>Alle Artikel</span>
               </div>
-              <span className="text-sm font-medium bg-gray-100 px-2 py-1 rounded">
-                {articles.length}
-              </span>
             </div>
+            <span className="kb-sidebar__badge">{articles.length}</span>
           </button>
 
           {categories.length > 0 && (
             <>
-              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 mt-4">
+              <div className="kb-sidebar__section">
                 Kategorien
               </div>
               {categories.map(category => (
                 <button
                   key={category.id}
                   onClick={() => handleCategorySelect(category.id)}
-                  className={`w-full text-left px-4 py-3 rounded-md transition-colors mb-1 ${
-                    selectedCategory === category.id
-                      ? 'bg-blue-50 text-blue-700 font-medium'
-                      : 'hover:bg-gray-100 text-gray-700'
-                  }`}
+                  className={`kb-sidebar__item ${selectedCategory === category.id ? 'active' : ''}`}
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <CategoryIcon icon={category.icon} color={category.color} />
-                      <span className="ml-2">{category.name}</span>
-                    </div>
-                    <span className="text-sm font-medium bg-gray-100 px-2 py-1 rounded">
-                      {category.articles_count || 0}
-                    </span>
+                  <div className="kb-sidebar__item-label">
+                    <CategoryIcon icon={category.icon} color={category.color} />
+                    <span className="ml-2">{category.name}</span>
                   </div>
+                  <span className="kb-sidebar__badge">
+                    {category.articles_count || 0}
+                  </span>
                 </button>
               ))}
             </>
@@ -1318,35 +1316,57 @@ const KnowledgeBaseV3 = () => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="kb-main flex-1 flex flex-col overflow-hidden">
+        <div className="kb-hero">
+          <div>
+            <p className="kb-hero__eyebrow">Knowledge Hub</p>
+            <h1>Alles, was dein Team wissen muss</h1>
+            <p className="kb-hero__subtitle">
+              Artikel, Medien und SOPs an einem Ort – optimiert für Desktop und Mobile.
+            </p>
+          </div>
+          <div className="kb-hero__stats">
+            <div>
+              <span>Artikel</span>
+              <strong>{articleStats.total}</strong>
+            </div>
+            <div>
+              <span>Medien</span>
+              <strong>{articleStats.media}</strong>
+            </div>
+            <div>
+              <span>Letztes Update</span>
+              <strong>{articleStats.lastUpdated}</strong>
+            </div>
+          </div>
+        </div>
         {/* Header with Search and Filters */}
-        <div className="bg-white border-b border-gray-200 p-4">
+        <div className="kb-filters-card">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
             {/* Search Bar */}
             <div className="flex-1 max-w-2xl">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+              <div className="kb-search relative">
+                <Search className="kb-search__icon" size={18} />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Artikel durchsuchen..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Artikel, Medien oder Tags suchen..."
+                  className="kb-search__input"
                 />
               </div>
             </div>
 
             {/* Sort and Create */}
-            <div className="flex items-center space-x-3">
-              <div className="flex items-center space-x-2">
-                <Filter size={18} className="text-gray-500" />
+            <div className="kb-controls">
+              <div className="kb-sort">
+                <Filter size={16} className="text-gray-500" />
                 <select
                   value={sortBy}
                   onChange={(e) => {
                     setSortBy(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                 >
                   {SORT_OPTIONS.map(option => (
                     <option key={option.value} value={option.value}>
@@ -1357,55 +1377,62 @@ const KnowledgeBaseV3 = () => {
               </div>
 
               <button
+                type="button"
                 onClick={handleCreateArticle}
-                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                className="kb-create-btn"
               >
                 <Plus size={18} />
-                <span className="hidden md:inline">Artikel erstellen</span>
+                <span>Artikel erstellen</span>
               </button>
             </div>
           </div>
 
-          <div className="flex gap-2 mt-4 overflow-x-auto pb-1">
+          <div className="kb-status-tabs">
             {STATUS_TABS.map((tab) => (
               <button
+                type="button"
                 key={tab.id}
                 onClick={() => {
                   setStatusFilter(tab.id);
                   setCurrentPage(1);
                 }}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
-                  statusFilter === tab.id
-                    ? 'bg-blue-600 text-white border-blue-600 shadow'
-                    : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                }`}
+                className={statusFilter === tab.id ? 'active' : ''}
               >
                 {tab.label}
               </button>
             ))}
           </div>
 
+          {isMobile && categories.length > 0 && (
+            <div className="kb-mobile-categories">
+              {categories.map((category) => (
+                <button
+                  type="button"
+                  key={category.id}
+                  onClick={() => handleCategorySelect(category.id)}
+                  className={`kb-mobile-category ${selectedCategory === category.id ? 'active' : ''}`}
+                >
+                  {category.name}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Active Filters */}
           {(selectedCategory || debouncedSearch) && (
-            <div className="flex flex-wrap gap-2 mt-4">
+            <div className="kb-active-filters">
               {selectedCategory && (
-                <span className="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm">
+                <span className="kb-chip kb-chip--blue">
                   {categories.find(c => c.id === selectedCategory)?.name}
-                  <button
-                    onClick={() => setSelectedCategory(null)}
-                    className="ml-2 text-blue-700 hover:text-blue-900"
-                  >
+                  <button type="button" onClick={() => setSelectedCategory(null)}>
                     <X size={14} />
                   </button>
                 </span>
               )}
               {debouncedSearch && (
-                <span className="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm">
-                  Suche: "{debouncedSearch}"
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="ml-2 text-blue-700 hover:text-blue-900"
-                  >
+                <span className="kb-chip">
+                  Suche: “{debouncedSearch}”
+                  <button type="button" onClick={() => setSearchQuery('')}>
                     <X size={14} />
                   </button>
                 </span>
@@ -1414,39 +1441,8 @@ const KnowledgeBaseV3 = () => {
           )}
         </div>
 
-        {/* Mobile category chips */}
-        {categories.length > 0 && (
-          <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3">
-            <div className="flex gap-2 overflow-x-auto">
-              <button
-                onClick={() => handleCategorySelect(null)}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${
-                  selectedCategory === null
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'border-gray-200 text-gray-600'
-                }`}
-              >
-                Alle
-              </button>
-              {categories.map((category) => (
-                <button
-                  key={category.id}
-                  onClick={() => handleCategorySelect(category.id)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${
-                    selectedCategory === category.id
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'border-gray-200 text-gray-600'
-                  }`}
-                >
-                  {category.name}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Article Grid */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="kb-grid-wrapper flex-1 overflow-y-auto p-6">
           {isInitialLoad ? (
             <LoadingSpinner />
           ) : articles.length === 0 ? (
@@ -1457,7 +1453,7 @@ const KnowledgeBaseV3 = () => {
             />
           ) : (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="kb-grid">
                 {isLoading ? (
                   <div className="col-span-full">
                     <LoadingSpinner />
@@ -1481,18 +1477,18 @@ const KnowledgeBaseV3 = () => {
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="flex items-center justify-center space-x-2 mt-8">
+                <div className="kb-pagination">
                   <button
+                    type="button"
                     onClick={() => handlePageChange(currentPage - 1)}
                     disabled={currentPage === 1}
-                    className="p-2 rounded-md border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <ChevronLeft size={20} />
+                    <ChevronLeft size={18} />
                   </button>
 
-                  <div className="flex items-center space-x-1">
+                  <div className="kb-pagination__pages">
                     {Array.from({ length: totalPages }, (_, i) => i + 1)
-                      .filter(page => {
+                      .filter((page) => {
                         if (totalPages <= 7) return true;
                         if (page === 1 || page === totalPages) return true;
                         if (page >= currentPage - 1 && page <= currentPage + 1) return true;
@@ -1501,15 +1497,12 @@ const KnowledgeBaseV3 = () => {
                       .map((page, index, array) => (
                         <React.Fragment key={page}>
                           {index > 0 && array[index - 1] !== page - 1 && (
-                            <span className="px-2 text-gray-500">...</span>
+                            <span className="kb-pagination__ellipsis">…</span>
                           )}
                           <button
+                            type="button"
                             onClick={() => handlePageChange(page)}
-                            className={`px-4 py-2 rounded-md ${
-                              currentPage === page
-                                ? 'bg-blue-600 text-white'
-                                : 'border border-gray-300 hover:bg-gray-50'
-                            }`}
+                            className={currentPage === page ? 'active' : ''}
                           >
                             {page}
                           </button>
@@ -1518,11 +1511,11 @@ const KnowledgeBaseV3 = () => {
                   </div>
 
                   <button
+                    type="button"
                     onClick={() => handlePageChange(currentPage + 1)}
                     disabled={currentPage === totalPages}
-                    className="p-2 rounded-md border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <ChevronRight size={20} />
+                    <ChevronRight size={18} />
                   </button>
                 </div>
               )}

@@ -25,7 +25,10 @@ import {
   Pin,
   Zap,
   FileText,
-  Forward
+  Forward,
+  Phone,
+  Video,
+  Info
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useWebSocketContext } from '../context/WebSocketContext';
@@ -660,6 +663,21 @@ const DirectMessenger = () => {
   const clearSelectedEvent = useCallback(() => {
     setSelectedEvent(null);
   }, []);
+
+  const handleContactAction = useCallback((action) => {
+    if (!selectedContact) {
+      showError('Bitte zuerst einen Kontakt auswählen.');
+      return;
+    }
+
+    const labels = {
+      call: 'Sprachanruf vorbereitet',
+      video: 'Videoanruf vorbereitet',
+      info: 'Kontaktinfo geöffnet'
+    };
+
+    showSuccess(`${labels[action] || 'Aktion'} – ${selectedContact.name}`);
+  }, [selectedContact]);
 
   const storiesByUser = useMemo(() => {
     const map = {};
@@ -1323,75 +1341,91 @@ const DirectMessenger = () => {
       );
     }
 
+    let lastDayKey = null;
+
     return messages.map((msg) => {
       const isMine = msg.sender_id === user?.id;
       const isPinned = pinnedMessages.some((m) => m.id === msg.id);
+      const messageDate = msg.created_at ? parseISO(msg.created_at) : new Date();
+      const dayKey = format(messageDate, 'yyyy-MM-dd', { locale: de });
+      const dayLabel = format(messageDate, "EEEE, d. MMMM", { locale: de });
+      const showDayDivider = dayKey !== lastDayKey;
+
+      if (showDayDivider) {
+        lastDayKey = dayKey;
+      }
 
       return (
-        <div
-          key={msg.id}
-          id={`message-${msg.id}`}
-          className={`flex mb-3 ${isMine ? 'justify-end' : 'justify-start'}`}
-        >
-          <div
-            className={
-              isMobile
-                ? `flex w-full items-end gap-2 ${isMine ? 'justify-end' : 'justify-start'}`
-                : 'relative max-w-[75%] lg:max-w-[60%]'
-            }
-          >
-            <div className={`relative ${isMobile ? 'max-w-[85%]' : 'w-full'}`}>
-              {renderMessageContent(msg, isMine)}
+        <React.Fragment key={msg.id}>
+          {showDayDivider && (
+            <div className="message-day-divider" aria-label={dayLabel}>
+              <span>{dayLabel}</span>
             </div>
-
-            {/* Mobile action buttons - always visible on mobile */}
-            {isMobile && (
-              <div className="flex flex-col gap-1 flex-shrink-0">
-                <button
-                  onClick={() => setShowReactionPicker(showReactionPicker === msg.id ? null : msg.id)}
-                  className="p-1.5 bg-white/90 backdrop-blur border border-slate-200 rounded-full hover:bg-slate-50 shadow-sm transition"
-                  title="Reagieren"
-                >
-                  <Smile className="w-3.5 h-3.5 text-slate-600" />
-                </button>
-                <button
-                  onClick={() => handleReplyTo(msg)}
-                  className="p-1.5 bg-white/90 backdrop-blur border border-slate-200 rounded-full hover:bg-slate-50 shadow-sm transition"
-                  title="Antworten"
-                >
-                  <Reply className="w-3.5 h-3.5 text-slate-600" />
-                </button>
-                <button
-                  onClick={() => handleForwardMessage(msg)}
-                  className="p-1.5 bg-white/90 backdrop-blur border border-slate-200 rounded-full hover:bg-slate-50 shadow-sm transition"
-                  title="Weiterleiten"
-                >
-                  <Forward className="w-3.5 h-3.5 text-slate-600" />
-                </button>
-                <button
-                  onClick={() => handlePinMessage(msg)}
-                  className={`p-1.5 border rounded-full shadow-sm transition backdrop-blur ${
-                    isPinned
-                      ? 'bg-yellow-100/90 border-yellow-300 text-yellow-600'
-                      : 'bg-white/90 border-slate-200 hover:bg-slate-50 text-slate-600'
-                  }`}
-                  title={isPinned ? 'Entfestigen' : 'Anpinnen'}
-                >
-                  <Pin className="w-3.5 h-3.5" />
-                </button>
-                {isMine && (
-                  <button
-                    onClick={() => handleDeleteMessage(msg.id)}
-                    className="p-1.5 bg-white/90 backdrop-blur border border-slate-200 rounded-full hover:bg-red-50 shadow-sm transition"
-                    title="Löschen"
-                  >
-                    <Trash2 className="w-3.5 h-3.5 text-red-600" />
-                  </button>
-                )}
+          )}
+          <div
+            id={`message-${msg.id}`}
+            className={`flex mb-3 ${isMine ? 'justify-end' : 'justify-start'}`}
+          >
+            <div
+              className={
+                isMobile
+                  ? `flex w-full items-end gap-2 ${isMine ? 'justify-end' : 'justify-start'}`
+                  : 'relative max-w-[75%] lg:max-w-[60%]'
+              }
+            >
+              <div className={`relative ${isMobile ? 'max-w-[85%]' : 'w-full'}`}>
+                {renderMessageContent(msg, isMine)}
               </div>
-            )}
+
+              {/* Mobile action buttons - always visible on mobile */}
+              {isMobile && (
+                <div className="flex flex-col gap-1 flex-shrink-0">
+                  <button
+                    onClick={() => setShowReactionPicker(showReactionPicker === msg.id ? null : msg.id)}
+                    className="p-1.5 bg-white/90 backdrop-blur border border-slate-200 rounded-full hover:bg-slate-50 shadow-sm transition"
+                    title="Reagieren"
+                  >
+                    <Smile className="w-3.5 h-3.5 text-slate-600" />
+                  </button>
+                  <button
+                    onClick={() => handleReplyTo(msg)}
+                    className="p-1.5 bg-white/90 backdrop-blur border border-slate-200 rounded-full hover:bg-slate-50 shadow-sm transition"
+                    title="Antworten"
+                  >
+                    <Reply className="w-3.5 h-3.5 text-slate-600" />
+                  </button>
+                  <button
+                    onClick={() => handleForwardMessage(msg)}
+                    className="p-1.5 bg-white/90 backdrop-blur border border-slate-200 rounded-full hover:bg-slate-50 shadow-sm transition"
+                    title="Weiterleiten"
+                  >
+                    <Forward className="w-3.5 h-3.5 text-slate-600" />
+                  </button>
+                  <button
+                    onClick={() => handlePinMessage(msg)}
+                    className={`p-1.5 border rounded-full shadow-sm transition backdrop-blur ${
+                      isPinned
+                        ? 'bg-yellow-100/90 border-yellow-300 text-yellow-600'
+                        : 'bg-white/90 border-slate-200 hover:bg-slate-50 text-slate-600'
+                    }`}
+                    title={isPinned ? 'Entfestigen' : 'Anpinnen'}
+                  >
+                    <Pin className="w-3.5 h-3.5" />
+                  </button>
+                  {isMine && (
+                    <button
+                      onClick={() => handleDeleteMessage(msg.id)}
+                      className="p-1.5 bg-white/90 backdrop-blur border border-slate-200 rounded-full hover:bg-red-50 shadow-sm transition"
+                      title="Löschen"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        </React.Fragment>
       );
     });
   };
@@ -1798,6 +1832,22 @@ const DirectMessenger = () => {
           {selectedContact?.name?.[0]?.toUpperCase() || user?.name?.[0]?.toUpperCase() || '?'}
         </div>
       </div>
+      {selectedContact && (
+        <div className="messenger-mobile-header-actions">
+          <button type="button" onClick={() => handleContactAction('call')} aria-label="Anrufen">
+            <Phone className="w-4 h-4" />
+            <span>Anruf</span>
+          </button>
+          <button type="button" onClick={() => handleContactAction('video')} aria-label="Videoanruf">
+            <Video className="w-4 h-4" />
+            <span>Video</span>
+          </button>
+          <button type="button" onClick={() => handleContactAction('info')} aria-label="Kontaktinfo">
+            <Info className="w-4 h-4" />
+            <span>Info</span>
+          </button>
+        </div>
+      )}
 
       <div className="messenger-mobile-actions">
         <button type="button" onClick={() => setShowSearch(true)}>

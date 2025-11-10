@@ -76,6 +76,14 @@ const CalendarView = ({
     });
   }, [events]);
 
+  const upcomingEvents = useMemo(() => {
+    const now = new Date();
+    return calendarEvents
+      .filter((event) => event.start >= now)
+      .sort((a, b) => a.start - b.start)
+      .slice(0, 3);
+  }, [calendarEvents]);
+
   // Handle event drag-and-drop (move)
   const handleEventDrop = useCallback(async ({ event, start, end }) => {
     if (!onEventUpdate) return;
@@ -419,6 +427,34 @@ const CalendarView = ({
           </div>
         )}
       </div>
+      )}
+
+      {isMobile && upcomingEvents.length > 0 && (
+        <div className="calendar-mobile-glance">
+          {upcomingEvents.map((event) => (
+            <button
+              key={event.id}
+              type="button"
+              onClick={() => handleSelectEvent(event)}
+              className="calendar-mobile-glance__card"
+            >
+              <span
+                className="calendar-mobile-glance__accent"
+                style={{ backgroundColor: event.color || '#2563eb' }}
+              />
+              <div className="calendar-mobile-glance__body">
+                <p className="calendar-mobile-glance__title">{event.title}</p>
+                <p className="calendar-mobile-glance__time">
+                  {format(event.start, 'HH:mm', { locale: de })} ·{' '}
+                  {format(event.start, 'dd.MM.', { locale: de })}
+                </p>
+              </div>
+              <span className="calendar-mobile-glance__tag">
+                {event.resource?.location || event.resource?.event_type || 'Termin'}
+              </span>
+            </button>
+          ))}
+        </div>
       )}
 
       {/* Calendar */}
