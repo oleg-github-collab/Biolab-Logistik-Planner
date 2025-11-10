@@ -36,6 +36,8 @@ const AdminDashboard = () => {
   const [broadcastMessage, setBroadcastMessage] = useState('');
   const [notificationMessage, setNotificationMessage] = useState('');
   const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const [broadcastSeverity, setBroadcastSeverity] = useState('info');
+  const [notificationSeverity, setNotificationSeverity] = useState('info');
 
   const { isConnected, adminEvents, onAdminEvent } = useWebSocketContext();
 
@@ -268,7 +270,7 @@ const AdminDashboard = () => {
       return;
     }
     try {
-      await api.post('/admin/broadcast', { message: broadcastMessage });
+      await api.post('/admin/broadcast', { message: broadcastMessage, type: broadcastSeverity });
       toast.success('Nachricht erfolgreich gesendet');
       setBroadcastMessage('');
     } catch (error) {
@@ -286,7 +288,7 @@ const AdminDashboard = () => {
     try {
       await api.post('/admin/broadcast', {
         message: notificationMessage,
-        type: 'notification'
+        type: notificationSeverity
       });
       toast.success('Benachrichtigung an alle Benutzer gesendet');
       setNotificationMessage('');
@@ -945,6 +947,19 @@ const AdminDashboard = () => {
               <h3 className="text-md font-semibold text-gray-900 mb-3">
                 Systemnachricht senden
               </h3>
+              <div className="mb-3">
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Priorität</label>
+                <select
+                  value={broadcastSeverity}
+                  onChange={(e) => setBroadcastSeverity(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="info">Info</option>
+                  <option value="success">Erfolg</option>
+                  <option value="warning">Warnung</option>
+                  <option value="error">Kritisch</option>
+                </select>
+              </div>
               <textarea
                 value={broadcastMessage}
                 onChange={(e) => setBroadcastMessage(e.target.value)}
@@ -966,6 +981,19 @@ const AdminDashboard = () => {
               <h3 className="text-md font-semibold text-gray-900 mb-3">
                 Benachrichtigung senden
               </h3>
+              <div className="mb-3">
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Priorität</label>
+                <select
+                  value={notificationSeverity}
+                  onChange={(e) => setNotificationSeverity(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                >
+                  <option value="info">Info</option>
+                  <option value="success">Erfolg</option>
+                  <option value="warning">Warnung</option>
+                  <option value="error">Kritisch</option>
+                </select>
+              </div>
               <textarea
                 value={notificationMessage}
                 onChange={(e) => setNotificationMessage(e.target.value)}

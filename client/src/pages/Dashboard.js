@@ -388,7 +388,7 @@ const Dashboard = () => {
             Kalender
           </button>
           <Link
-            to="/task-pool"
+            to="/kanban"
             className="py-4 px-1 font-medium text-sm border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors"
           >
             Kanban Board

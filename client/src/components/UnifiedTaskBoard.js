@@ -2,9 +2,10 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { format, parseISO, isToday } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
 import {
   ClipboardList,
+  Layers,
   Users,
   Flame,
   CheckCircle,
@@ -734,6 +735,13 @@ const UnifiedTaskBoard = () => {
               <RefreshCw className="w-3.5 h-3.5" />
               {t('app.refresh')}
             </button>
+            <Link
+              to="/kanban"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              <Layers className="w-3.5 h-3.5" />
+              Kanban öffnen
+            </Link>
           </div>
         </div>
       )}

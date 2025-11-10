@@ -5,7 +5,7 @@ import { useLocale } from '../context/LocaleContext';
 
 const NAV_ITEMS = [
   { to: '/dashboard', icon: LayoutDashboard, labelKey: 'navigation.dashboard' },
-  { to: '/task-pool', icon: ClipboardCheck, labelKey: 'navigation.tasks' },
+  { to: '/kanban', icon: ClipboardCheck, labelKey: 'navigation.tasks' },
   { to: '/messages', icon: MessageSquare, labelKey: 'navigation.messages' },
   { to: '/schedule', icon: Calendar, labelKey: 'navigation.schedule' },
   { to: '/kisten', icon: Boxes, labelKey: 'navigation.kisten' },

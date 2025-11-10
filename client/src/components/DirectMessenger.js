@@ -21,6 +21,7 @@ import {
   CalendarDays,
   Smile,
   Reply,
+  Plus,
   Pin,
   Zap,
   FileText,
@@ -95,6 +96,7 @@ const DirectMessenger = () => {
   const [showForwardModal, setShowForwardModal] = useState(false);
   const [messageToForward, setMessageToForward] = useState(null);
   const [typingUsers, setTypingUsers] = useState({});
+  const [showComposerActions, setShowComposerActions] = useState(false);
   const [showPinnedDrawer, setShowPinnedDrawer] = useState(false);
 
   const fileInputRef = useRef(null);
@@ -482,6 +484,7 @@ const DirectMessenger = () => {
     const replyTo = replyToMessage;
     setMessageInput('');
     setPendingAttachments([]);
+    setShowComposerActions(false);
     setReplyToMessage(null);
     setSending(true);
 
@@ -912,6 +915,10 @@ const DirectMessenger = () => {
   const handleForwardSuccess = useCallback(() => {
     setShowForwardModal(false);
     setMessageToForward(null);
+  }, []);
+
+  const toggleComposerActions = useCallback(() => {
+    setShowComposerActions((prev) => !prev);
   }, []);
 
   const filteredContacts = useMemo(
@@ -1877,64 +1884,63 @@ const DirectMessenger = () => {
       )}
 
       <form onSubmit={handleSendMessage} className="messenger-mobile-input">
-        <div className="input-wrapper">
+        <div className="flex items-end gap-2 w-full">
+          <div className="flex-1">
+            <div className="input-wrapper">
+              <button
+                type="button"
+                onClick={toggleComposerActions}
+                className={`compose-toggle ${showComposerActions ? 'active' : ''}`}
+                aria-label="Aktionen umschalten"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+              <input
+                type="text"
+                value={messageInput}
+                onChange={handleInputChange}
+                placeholder="Nachricht schreiben..."
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
+              />
+            </div>
+            {showComposerActions && (
+              <div className="composer-actions">
+                <button type="button" onClick={() => fileInputRef.current?.click()}>
+                  <Paperclip className="w-4 h-4" />
+                  Datei
+                </button>
+                <button type="button" onClick={() => setShowGifPicker((prev) => !prev)}>
+                  <ImageIcon className="w-4 h-4" />
+                  GIF
+                </button>
+                <button type="button" onClick={openEventPicker}>
+                  <CalendarDays className="w-4 h-4" />
+                  Event
+                </button>
+                <button type="button" onClick={() => setShowQuickReplies(true)}>
+                  <Zap className="w-4 h-4" />
+                  Quick
+                </button>
+                <button type="button" onClick={isRecording ? stopRecording : startRecording}>
+                  {isRecording ? <StopCircle className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                  Audio
+                </button>
+              </div>
+            )}
+          </div>
           <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="p-2 text-blue-300 hover:text-white transition"
+            type="submit"
+            disabled={sending || (!messageInput.trim() && pendingAttachments.length === 0 && !selectedEvent)}
+            className="send-btn"
           >
-            <Paperclip className="w-5 h-5" />
+            <Send className="w-5 h-5" />
           </button>
-          <button
-            type="button"
-            onClick={() => setShowGifPicker((prev) => !prev)}
-            className="p-2 text-blue-300 hover:text-white transition"
-          >
-            <ImageIcon className="w-5 h-5" />
-          </button>
-          <button
-            type="button"
-            onClick={openEventPicker}
-            className="p-2 text-blue-300 hover:text-white transition"
-          >
-            <CalendarDays className="w-5 h-5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowQuickReplies(true)}
-            className="p-2 text-blue-300 hover:text-white transition"
-          >
-            <Zap className="w-5 h-5" />
-          </button>
-          <button
-            type="button"
-            onClick={isRecording ? stopRecording : startRecording}
-            className={`p-2 transition ${
-              isRecording ? 'text-red-400' : 'text-blue-300 hover:text-white'
-            }`}
-          >
-            {isRecording ? <StopCircle className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-          </button>
-          <input
-            type="text"
-            value={messageInput}
-            onChange={handleInputChange}
-            placeholder="Nachricht..."
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSendMessage();
-              }
-            }}
-          />
         </div>
-        <button
-          type="submit"
-          disabled={sending || (!messageInput.trim() && pendingAttachments.length === 0 && !selectedEvent)}
-          className="send-btn"
-        >
-          <Send className="w-5 h-5" />
-        </button>
         <input
           ref={fileInputRef}
           type="file"

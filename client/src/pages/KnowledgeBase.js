@@ -23,7 +23,8 @@ import {
   FileText,
   Layers,
   Save,
-  AlertCircle
+  AlertCircle,
+  ToggleLeft
 } from 'lucide-react';
 import api from '../utils/api';
 import { uploadKBMedia, deleteKBMedia, getArticleVersions, restoreArticleVersion } from '../utils/apiEnhanced';
@@ -38,6 +39,12 @@ const SORT_OPTIONS = [
   { value: 'popular', label: 'Meist angesehen' },
   { value: 'helpful', label: 'Hilfreichste' },
   { value: 'oldest', label: 'Älteste zuerst' }
+];
+
+const STATUS_TABS = [
+  { id: 'published', label: 'Veröffentlicht' },
+  { id: 'draft', label: 'Entwürfe' },
+  { id: 'archived', label: 'Archiv' }
 ];
 
 // Category Icon Component
@@ -98,7 +105,7 @@ const EmptyState = ({ icon: Icon, title, description }) => (
 );
 
 // Article Card Component
-const ArticleCard = ({ article, onClick }) => {
+const ArticleCard = ({ article, onClick, canManage, onEdit, onStatusChange }) => {
   return (
     <div
       onClick={onClick}
@@ -166,6 +173,34 @@ const ArticleCard = ({ article, onClick }) => {
               +{article.tags.length - 3} mehr
             </span>
           )}
+        </div>
+      )}
+
+      {canManage && (
+        <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100 text-xs text-gray-500">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit?.(article);
+            }}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-gray-200 hover:border-gray-300 hover:text-gray-700 transition"
+          >
+            <Edit2 size={12} />
+            Bearbeiten
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              const nextStatus = article.status === 'published' ? 'archived' : 'published';
+              onStatusChange?.(article, nextStatus);
+            }}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-gray-200 hover:border-gray-300 text-blue-600 hover:text-blue-700 transition"
+          >
+            <ToggleLeft size={12} />
+            {article.status === 'published' ? 'Archivieren' : 'Veröffentlichen'}
+          </button>
         </div>
       )}
     </div>
@@ -968,6 +1003,7 @@ const KnowledgeBaseV3 = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sortBy, setSortBy] = useState('recent');
+  const [statusFilter, setStatusFilter] = useState('published');
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -976,6 +1012,10 @@ const KnowledgeBaseV3 = () => {
   const [isEditorModalOpen, setIsEditorModalOpen] = useState(false);
   const [editingArticle, setEditingArticle] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
+  const isAdminUser = useMemo(
+    () => ['admin', 'superadmin'].includes(currentUser?.role),
+    [currentUser]
+  );
 
   // Get current user
   useEffect(() => {
@@ -1040,7 +1080,7 @@ const KnowledgeBaseV3 = () => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams({
-        status: 'published',
+        status: statusFilter,
         limit: ITEMS_PER_PAGE * 100, // Fetch more for client-side pagination
         offset: 0,
         sort: sortBy
@@ -1064,7 +1104,7 @@ const KnowledgeBaseV3 = () => {
       setIsLoading(false);
       setIsInitialLoad(false);
     }
-  }, [selectedCategory, debouncedSearch, sortBy]);
+  }, [selectedCategory, debouncedSearch, sortBy, statusFilter]);
 
   useEffect(() => {
     fetchArticles();
@@ -1157,6 +1197,22 @@ const KnowledgeBaseV3 = () => {
     }
   };
 
+  const handleChangeArticleStatus = async (article, nextStatus) => {
+    try {
+      await api.put(`/kb/articles/${article.id}`, { status: nextStatus });
+      toast.success(
+        nextStatus === 'published' ? 'Artikel veröffentlicht' : 'Artikel archiviert'
+      );
+      fetchArticles();
+      if (selectedArticle?.id === article.id) {
+        refreshSelectedArticle(article.id);
+      }
+    } catch (error) {
+      console.error('Error updating article status:', error);
+      toast.error(error.response?.data?.error || 'Status konnte nicht geändert werden');
+    }
+  };
+
   const handleVote = async (articleId, isHelpful) => {
     try {
       const response = await api.post(`/kb/articles/${articleId}/vote`, { is_helpful: isHelpful });
@@ -1200,9 +1256,9 @@ const KnowledgeBaseV3 = () => {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex flex-col lg:flex-row min-h-screen bg-gray-50">
       {/* Sidebar */}
-      <div className="w-64 bg-white border-r border-gray-200 overflow-y-auto flex-shrink-0">
+      <div className="hidden lg:block w-64 bg-white border-r border-gray-200 overflow-y-auto flex-shrink-0">
         <div className="p-4 border-b border-gray-200">
           <h2 className="text-lg font-bold text-gray-900 flex items-center">
             <BookOpen className="mr-2" size={20} />
@@ -1310,6 +1366,25 @@ const KnowledgeBaseV3 = () => {
             </div>
           </div>
 
+          <div className="flex gap-2 mt-4 overflow-x-auto pb-1">
+            {STATUS_TABS.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  setStatusFilter(tab.id);
+                  setCurrentPage(1);
+                }}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
+                  statusFilter === tab.id
+                    ? 'bg-blue-600 text-white border-blue-600 shadow'
+                    : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
           {/* Active Filters */}
           {(selectedCategory || debouncedSearch) && (
             <div className="flex flex-wrap gap-2 mt-4">
@@ -1339,6 +1414,37 @@ const KnowledgeBaseV3 = () => {
           )}
         </div>
 
+        {/* Mobile category chips */}
+        {categories.length > 0 && (
+          <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3">
+            <div className="flex gap-2 overflow-x-auto">
+              <button
+                onClick={() => handleCategorySelect(null)}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${
+                  selectedCategory === null
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'border-gray-200 text-gray-600'
+                }`}
+              >
+                Alle
+              </button>
+              {categories.map((category) => (
+                <button
+                  key={category.id}
+                  onClick={() => handleCategorySelect(category.id)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${
+                    selectedCategory === category.id
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'border-gray-200 text-gray-600'
+                  }`}
+                >
+                  {category.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Article Grid */}
         <div className="flex-1 overflow-y-auto p-6">
           {isInitialLoad ? (
@@ -1357,13 +1463,19 @@ const KnowledgeBaseV3 = () => {
                     <LoadingSpinner />
                   </div>
                 ) : (
-                  paginatedArticles.map(article => (
-                    <ArticleCard
-                      key={article.id}
-                      article={article}
-                      onClick={() => handleArticleClick(article)}
-                    />
-                  ))
+                  paginatedArticles.map(article => {
+                    const canManage = isAdminUser || article.author_id === currentUser?.id;
+                    return (
+                      <ArticleCard
+                        key={article.id}
+                        article={article}
+                        onClick={() => handleArticleClick(article)}
+                        canManage={canManage}
+                        onEdit={handleEditArticle}
+                        onStatusChange={handleChangeArticleStatus}
+                      />
+                    );
+                  })
                 )}
               </div>
 

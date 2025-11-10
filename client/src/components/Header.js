@@ -10,7 +10,7 @@ import { Search } from 'lucide-react';
 const NAV_ITEMS = [
   { to: '/dashboard', labelKey: 'navigation.dashboard', icon: '📊', permission: 'schedule:read' },
   { to: '/messages', labelKey: 'navigation.messages', icon: '💬', permission: 'message:read' },
-  { to: '/task-pool', labelKey: 'navigation.tasks', icon: '✓', permission: 'task:read' },
+  { to: '/kanban', labelKey: 'navigation.tasks', icon: '✓', permission: 'task:read' },
   { to: '/kisten', labelKey: 'navigation.kisten', icon: '📦', permission: 'task:read' },
   { to: '/schedule', labelKey: 'navigation.schedule', icon: '⏰', permission: 'schedule:read' },
   { to: '/knowledge-base', labelKey: 'navigation.knowledge', icon: '📚', permission: 'schedule:read' },
@@ -130,7 +130,7 @@ const Header = () => {
   if (!state || !user) return null;
 
   return (
-    <header className="top-nav-mobile bg-white/95 backdrop-blur-xl border-b border-slate-200 sticky top-0 z-50 shadow-[0_8px_24px_rgba(15,23,42,0.08)]">
+    <header className="top-nav-mobile bg-white border-b border-slate-200 sticky top-0 z-50 shadow-[0_4px_12px_rgba(15,23,42,0.06)]">
       <div className="max-w-full mx-auto px-3 sm:px-4 lg:px-6">
         <div className="flex justify-between items-center" style={{ minHeight: '60px' }}>
 
