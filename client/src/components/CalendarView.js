@@ -244,10 +244,10 @@ const CalendarView = ({
   };
 
   // View options based on device
-  const viewOptions = useMemo(
-    () => (isMobile ? ['agenda', 'day', 'week', 'month'] : ['month', 'week', 'day', 'agenda']),
-    [isMobile]
-  );
+  const desktopViewOptions = ['month', 'week', 'day', 'agenda'];
+  const mobileViewOptions = ['month', 'week', 'agenda'];
+  const calendarViews = isMobile ? mobileViewOptions : desktopViewOptions;
+  const viewOptions = isMobile ? mobileViewOptions : desktopViewOptions;
 
   // Calendar height responsive to device
   const calendarHeight = isMobile ? 'min(680px, calc(100vh - 220px))' : 'min(840px, calc(100vh - 260px))';
@@ -294,8 +294,55 @@ const CalendarView = ({
   }, []);
 
   return (
-    <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+    <div className={`${isMobile ? 'calendar-mobile-card' : 'bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden'}`}>
       {/* Custom Toolbar */}
+      {isMobile ? (
+        <div className="calendar-mobile-toolbar">
+          <div className="calendar-mobile-toolbar__top">
+            <button
+              type="button"
+              onClick={() => handleNavigate('subtract')}
+              aria-label="Vorheriger Zeitraum"
+              disabled={loading}
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <div className="calendar-mobile-toolbar__date">
+              <p>{moment(date).format('MMMM YYYY')}</p>
+              <span>{moment(date).format('dddd, DD.MM')}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleNavigate('add')}
+              aria-label="Nächster Zeitraum"
+              disabled={loading}
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="calendar-mobile-toolbar__views">
+            {mobileViewOptions.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => handleViewChange(option)}
+                className={view === option ? 'active' : ''}
+                disabled={loading}
+              >
+                {messages[option]}
+              </button>
+            ))}
+            <button
+              type="button"
+              className="today"
+              onClick={handleToday}
+              disabled={loading}
+            >
+              Heute
+            </button>
+          </div>
+        </div>
+      ) : (
       <div className="flex flex-col gap-4 p-4 sm:p-6 border-b border-slate-200">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           {/* Date Navigation */}
@@ -372,13 +419,11 @@ const CalendarView = ({
           </div>
         )}
       </div>
+      )}
 
       {/* Calendar */}
       <div className="rounded-xl overflow-hidden">
-        <div
-          className={`relative ${isMobile ? 'overflow-x-auto' : ''}`}
-          style={{ minWidth: isMobile ? '580px' : 'auto' }}
-        >
+        <div className="relative">
           <DragAndDropCalendar
             localizer={localizer}
             events={calendarEvents}
@@ -401,7 +446,7 @@ const CalendarView = ({
               opacity: loading ? 0.6 : 1,
               transition: 'opacity 0.2s ease'
             }}
-            views={['month', 'week', 'day', 'agenda']}
+            views={calendarViews}
             toolbar={false}
             popup={!isMobile}
             eventPropGetter={eventStyleGetter}
