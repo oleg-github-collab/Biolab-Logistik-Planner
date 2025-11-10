@@ -20,45 +20,6 @@ const NAV_ITEMS = [
 
 const PRIMARY_NAV_LIMIT = 4;
 
-const QUICK_LINKS = [
-  {
-    to: '/schedule',
-    labelKey: 'quicklinks.schedule',
-    fallbackLabel: 'Planung',
-    description: 'Zeitfenster & Abwesenheiten',
-    icon: '⏱️',
-    gradient: 'from-sky-500 via-blue-500 to-indigo-500',
-    permission: 'schedule:read'
-  },
-  {
-    to: '/messages',
-    labelKey: 'quicklinks.messages',
-    fallbackLabel: 'Messenger',
-    description: 'Direkte Kommunikation & Stories',
-    icon: '💬',
-    gradient: 'from-rose-500 via-pink-500 to-fuchsia-500',
-    permission: 'message:read'
-  },
-  {
-    to: '/knowledge-base',
-    labelKey: 'quicklinks.knowledge',
-    fallbackLabel: 'Wissensbasis',
-    description: 'Artikel, Medien & Playbooks',
-    icon: '📚',
-    gradient: 'from-amber-500 via-orange-500 to-rose-500',
-    permission: 'schedule:read'
-  },
-  {
-    to: '/waste',
-    labelKey: 'quicklinks.waste',
-    fallbackLabel: 'Entsorgung',
-    description: 'Entsorgung & Kategorien',
-    icon: '♻️',
-    gradient: 'from-emerald-500 via-teal-500 to-cyan-500',
-    permission: 'task:read'
-  }
-];
-
 const Header = () => {
   const authContext = useAuth();
   const location = useLocation();
@@ -116,15 +77,10 @@ const Header = () => {
     };
   }, [visibleNavItems]);
 
-  const quickAccessLinks = useMemo(
-    () => QUICK_LINKS.filter((item) => hasPermission(item.permission)),
-    [hasPermission]
-  );
-
-  const resolveQuickLinkLabel = (link) => {
-    const translated = t(link.labelKey);
-    return translated && translated !== link.labelKey ? translated : link.fallbackLabel;
-  };
+  const searchPlaceholder = (() => {
+    const raw = t('mobile.search.placeholder');
+    return raw && raw !== 'mobile.search.placeholder' ? raw : 'Suche...';
+  })();
 
   useEffect(() => {
     setDesktopOverflowOpen(false);
@@ -323,65 +279,26 @@ const Header = () => {
               </svg>
             </button>
           </div>
-        </div>
       </div>
+    </div>
 
-      {/* Quick access chips */}
-      {quickAccessLinks.length > 0 && (
-        <>
-          <div className="hidden lg:grid grid-cols-2 xl:grid-cols-4 gap-3 px-6 pb-4">
-            {quickAccessLinks.map((link) => (
-              <Link
-                key={link.to}
-                to={link.to}
-                className={`group rounded-2xl border border-white/20 bg-gradient-to-r ${link.gradient} text-white px-4 py-3 shadow-lg shadow-slate-900/10 transition hover:-translate-y-0.5`}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold flex items-center gap-1">
-                      <span>{link.icon}</span> {resolveQuickLinkLabel(link)}
-                    </p>
-                    <p className="text-xs text-white/80">{link.description}</p>
-                  </div>
-                  <span className="text-lg">→</span>
-                </div>
-              </Link>
-            ))}
-          </div>
-
-          <div className="lg:hidden flex gap-3 overflow-x-auto px-3 pb-3 mobile-scroll-container">
-            {quickAccessLinks.map((link) => (
-              <Link
-                key={`mobile-${link.to}`}
-                to={link.to}
-                className={`flex flex-col min-w-[160px] rounded-2xl px-4 py-3 text-white bg-gradient-to-r ${link.gradient} shadow-lg shadow-slate-900/20`}
-              >
-                <span className="text-sm font-bold flex items-center gap-1">
-                  <span>{link.icon}</span> {resolveQuickLinkLabel(link)}
-                </span>
-                <span className="text-[11px] text-white/85 mt-1">{link.description}</span>
-              </Link>
-            ))}
-          </div>
-        </>
-      )}
+      {/* Compact mobile spacer */}
+      {!mobileMenuOpen && <div className="lg:hidden border-b border-slate-100" />}
 
       {/* Enhanced Mobile Menu - Native-like Drawer */}
       {mobileMenuOpen && (
         <>
           <div
-            className="lg:hidden fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-40"
+            className="lg:hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40"
             onClick={() => setMobileMenuOpen(false)}
           />
-          <div className="lg:hidden fixed inset-y-0 right-0 w-80 max-w-[88vw] bg-gradient-to-br from-white/95 via-white to-slate-100/95 backdrop-blur-2xl text-slate-900 shadow-[0_20px_60px_rgba(15,23,42,0.25)] z-50 animate-slideInRight safe-top safe-bottom rounded-l-3xl border-l border-slate-200/60">
+          <div className="lg:hidden fixed inset-y-0 right-0 w-72 max-w-[90vw] bg-white text-slate-900 shadow-2xl z-50 animate-slideInRight safe-top safe-bottom border-l border-slate-200">
             <div className="h-full flex flex-col">
-              <div className="h-1.5 w-12 bg-slate-300 rounded-full mx-auto mt-4 mb-2" />
-              {/* Menu Header */}
-              <div className="flex items-center justify-between px-4 py-4 border-b border-slate-200/60">
-                <h3 className="text-lg font-bold text-slate-900">Menü</h3>
+              <div className="flex items-center justify-between px-4 py-4 border-b border-slate-200">
+                <h3 className="text-base font-semibold text-slate-800">Menü</h3>
                 <button
                   onClick={() => setMobileMenuOpen(false)}
-                  className="btn-icon-mobile bg-slate-100 hover:bg-slate-200 mobile-touch-feedback"
+                  className="p-2 rounded-full hover:bg-slate-100 transition"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -390,9 +307,9 @@ const Header = () => {
               </div>
 
               {/* User Info Card */}
-              <div className="md:hidden m-4 p-4 rounded-3xl bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-600 text-white shadow-lg shadow-blue-900/40">
+              <div className="md:hidden m-4 mb-0 p-4 rounded-2xl border border-slate-100 bg-slate-50 text-slate-900">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full overflow-hidden bg-white/20 flex items-center justify-center ring-2 ring-white/30">
+                  <div className="w-12 h-12 rounded-full overflow-hidden bg-white flex items-center justify-center ring-2 ring-white shadow">
                     {profilePhotoUrl ? (
                       <img
                         src={profilePhotoUrl}
@@ -400,21 +317,21 @@ const Header = () => {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <span className="text-xl font-bold">
+                      <span className="text-xl font-bold text-slate-800">
                         {user.name.charAt(0).toUpperCase()}
                       </span>
                     )}
                   </div>
                   <div className="flex-1">
-                    <p className="text-base font-bold">{user.name}</p>
-                    <p className="text-sm text-blue-100/80">{getRoleLabel(user.role)}</p>
+                    <p className="text-sm font-semibold text-slate-900">{user.name}</p>
+                    <p className="text-xs text-slate-500">{getRoleLabel(user.role)}</p>
                   </div>
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-2">
                   <Link
                     to="/profile/me"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="text-xs font-semibold px-3 py-2 rounded-lg bg-white/15 text-white text-center hover:bg-white/25 transition"
+                    className="text-xs font-semibold px-3 py-2 rounded-lg bg-white text-slate-800 text-center border border-slate-200 hover:bg-slate-100 transition"
                   >
                     Profil öffnen
                   </Link>
@@ -423,7 +340,7 @@ const Header = () => {
                       setMobileMenuOpen(false);
                       handleLogout();
                     }}
-                    className="text-xs font-semibold px-3 py-2 rounded-lg bg-red-500/25 text-red-50 hover:bg-red-500/35 transition"
+                    className="text-xs font-semibold px-3 py-2 rounded-lg bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 transition"
                   >
                     Abmelden
                   </button>
@@ -431,20 +348,22 @@ const Header = () => {
               </div>
 
               {/* Navigation Items - List Style */}
-              <div className="flex-1 overflow-y-auto mobile-scroll-container px-3 pb-6">
-                <form onSubmit={handleGlobalSearch} className="md:hidden mb-4">
+              <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+                <form onSubmit={handleGlobalSearch}>
                   <div className="relative">
                     <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                       type="search"
                       value={globalSearch}
                       onChange={(e) => setGlobalSearch(e.target.value)}
-                      placeholder="Globale Suche"
-                      className="w-full pl-9 pr-3 py-2.5 rounded-2xl bg-white/80 border border-slate-200 text-sm text-slate-700 focus:bg-white focus:border-blue-400 focus:outline-none transition"
+                      placeholder={searchPlaceholder}
+                      autoComplete="off"
+                      className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 focus:border-slate-400 focus:ring-2 focus:ring-slate-200 transition bg-white"
                     />
                   </div>
                 </form>
-                <div className="space-y-2">
+
+                <div className="space-y-1">
                   {visibleNavItems.map((item) => {
                     const isActive = location.pathname === item.to;
                     return (
@@ -452,10 +371,10 @@ const Header = () => {
                         key={item.to}
                         to={item.to}
                         onClick={() => setMobileMenuOpen(false)}
-                        className={`flex items-center gap-3 px-4 py-3 rounded-2xl mobile-touch-feedback border transition-all ${
+                        className={`flex items-center gap-3 px-3 py-3 rounded-xl border transition-all ${
                           isActive
-                            ? 'bg-blue-100/70 border-blue-200 text-blue-700 shadow-inner'
-                            : 'bg-white/70 border-slate-200/80 text-slate-900 hover:bg-white'
+                            ? 'border-slate-900 text-slate-900 bg-slate-100'
+                            : 'bg-white border-slate-200 text-slate-700 hover:border-slate-400'
                         }`}
                       >
                         <span className="text-xl">{item.icon}</span>
@@ -465,44 +384,20 @@ const Header = () => {
                             {isActive ? 'Aktive Ansicht' : 'Tippen zum Öffnen'}
                           </p>
                         </div>
-                        {isActive && <div className="w-2 h-2 bg-blue-600 rounded-full" />}
+                        {isActive && <div className="w-2 h-2 bg-slate-900 rounded-full" />}
                       </Link>
                     );
                   })}
                 </div>
-
-                <div className="mt-6 space-y-3">
-                  <h4 className="text-xs uppercase text-slate-400 font-semibold tracking-wider px-1">
-                    Schnellzugriffe
-                  </h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    {[
-                      { to: '/kisten', label: 'Kisten', emoji: '📦', className: 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-900/20' },
-                      { to: '/task-pool', label: 'Aufgabe', emoji: '➕', className: 'bg-slate-100 text-slate-800 border border-slate-200' },
-                      { to: '/schedule', label: 'Planung', emoji: '⏱', className: 'bg-emerald-100 text-emerald-700 border border-emerald-200' },
-                      { to: '/knowledge-base', label: 'Wissen', emoji: '📚', className: 'bg-amber-100 text-amber-700 border border-amber-200' }
-                    ].map((entry) => (
-                      <Link
-                        key={entry.to}
-                        to={entry.to}
-                        onClick={() => setMobileMenuOpen(false)}
-                        className={`flex items-center justify-center gap-2 rounded-2xl py-3 font-semibold mobile-touch-feedback ${entry.className}`}
-                      >
-                        <span>{entry.emoji}</span>
-                        <span>{entry.label}</span>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
               </div>
 
-              <div className="px-4 pb-5 pt-4 border-t border-slate-200/70 bg-white/70">
+              <div className="px-4 pb-5 pt-4 border-t border-slate-200 bg-white">
                 <button
                   onClick={() => {
                     setMobileMenuOpen(false);
                     navigate('/users');
                   }}
-                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-slate-900 text-white font-semibold shadow-lg shadow-slate-900/20 hover:bg-slate-800 transition mobile-touch-feedback"
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-slate-800 text-slate-800 font-semibold hover:bg-slate-50 transition"
                 >
                   <span>Team & Admin</span>
                   <span aria-hidden>→</span>

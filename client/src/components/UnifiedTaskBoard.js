@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { format, parseISO, isToday } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -105,6 +105,8 @@ const buildBoardState = (tasks) => {
   return { taskMap, columns };
 };
 
+const EMPTY_COUNTS = { backlog: 0, poolAvailable: 0, inProgress: 0, needsHelp: 0, completed: 0 };
+
 const UnifiedTaskBoard = () => {
   const auth = useAuth();
   const { t } = useLocale();
@@ -115,11 +117,12 @@ const UnifiedTaskBoard = () => {
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
-  const [boardState, setBoardState] = useState({ taskMap: {}, columns: buildBoardState([]).columns });
-  const [counts, setCounts] = useState({ backlog: 0, poolAvailable: 0, inProgress: 0, needsHelp: 0, completed: 0 });
+  const [boardState, setBoardState] = useState(() => buildBoardState([]));
+  const [counts, setCounts] = useState(EMPTY_COUNTS);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [errorDetails, setErrorDetails] = useState(null);
   const [actionBusy, setActionBusy] = useState({});
   const [users, setUsers] = useState([]);
 
@@ -159,11 +162,20 @@ const UnifiedTaskBoard = () => {
       const tasks = response.data.tasks || [];
 
       setBoardState(buildBoardState(tasks));
-      setCounts(response.data.counts || { backlog: 0, poolAvailable: 0, inProgress: 0, needsHelp: 0, completed: 0 });
+      setCounts(response.data.counts || EMPTY_COUNTS);
       setError(null);
+      setErrorDetails(null);
     } catch (err) {
       console.error('Error loading unified task board', err);
-      setError(err.response?.data?.error || t('board.error.load'));
+      const message = err.response?.data?.error || t('board.error.load');
+      const detail =
+        err.response?.status
+          ? `${err.response.status} ${err.response.statusText || ''}`.trim()
+          : err.message;
+      setBoardState(buildBoardState([]));
+      setCounts(EMPTY_COUNTS);
+      setError(message);
+      setErrorDetails(detail);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -703,11 +715,25 @@ const UnifiedTaskBoard = () => {
       </div>
 
       {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 flex items-start gap-3">
-          <AlertCircle className="w-4 h-4 mt-0.5" />
-          <div>
-            <p className="font-semibold">{t('board.error.title')}</p>
-            <p>{error}</p>
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 flex flex-col gap-2">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="font-semibold">{t('board.error.title')}</p>
+              <p>{error}</p>
+              {errorDetails && (
+                <p className="text-xs text-red-500/80 mt-1 break-all">{errorDetails}</p>
+              )}
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => loadBoard(selectedDate)}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-red-200 bg-white/70 text-xs font-semibold text-red-600 hover:bg-white"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              {t('app.refresh')}
+            </button>
           </div>
         </div>
       )}

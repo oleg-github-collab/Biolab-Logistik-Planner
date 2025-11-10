@@ -101,6 +101,14 @@ const AdvancedCalendar = ({
 
   const totalGridHeight = timeSlots.length * slotHeight;
   const hourMarks = useMemo(() => timeSlots.filter((slot) => slot.minute === 0), [timeSlots]);
+  const gridViewportHeight = useMemo(
+    () => (isMobile ? 'calc(100svh - 220px)' : 'calc(100vh - 320px)'),
+    [isMobile]
+  );
+  const monthGridStyle = useMemo(
+    () => (isMobile ? { maxHeight: gridViewportHeight, overflowY: 'auto' } : {}),
+    [isMobile, gridViewportHeight]
+  );
 
   // Normalise incoming events once per render
   const normalisedEvents = useMemo(() => {
@@ -357,6 +365,7 @@ const AdvancedCalendar = ({
         className={`flex flex-1 ${
           isMobile ? 'overflow-x-auto snap-x snap-mandatory gap-4 px-2 pb-6 -mx-2' : 'overflow-hidden'
         }`}
+        style={{ maxHeight: gridViewportHeight }}
       >
         {/* Time column (desktop) */}
         {!isMobile && (
@@ -377,7 +386,10 @@ const AdvancedCalendar = ({
         )}
 
         {/* Day columns */}
-        <div className={`flex flex-1 ${isMobile ? 'gap-4' : 'overflow-auto'}`}>
+        <div
+          className={`flex flex-1 ${isMobile ? 'gap-4' : 'overflow-auto'}`}
+          style={{ maxHeight: gridViewportHeight, overflowY: 'auto' }}
+        >
           {calendarDates.map((date) => {
             const dayTimedEvents = layoutEventsForDay(
               timedEvents.filter((event) => isSameDay(event.start, date))
@@ -498,7 +510,10 @@ const AdvancedCalendar = ({
   );
 
   const renderMonthView = () => (
-    <div className="grid h-full flex-1 grid-cols-7 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div
+      className="grid h-full flex-1 grid-cols-7 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+      style={monthGridStyle}
+    >
       {['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map((day) => (
         <div key={day} className="border-b border-slate-100 bg-slate-50 py-3 text-center text-xs font-semibold uppercase tracking-wide text-slate-500">
           {day}
@@ -512,9 +527,10 @@ const AdvancedCalendar = ({
         return (
           <div
             key={date.toISOString()}
-            className={`min-h-[140px] border-b border-r border-slate-100 p-2 transition hover:bg-blue-50/60 ${
+            className={`border-b border-r border-slate-100 p-2 transition hover:bg-blue-50/60 ${
               isMuted ? 'bg-slate-50 text-slate-400' : 'bg-white text-slate-600'
             } ${isToday(date) ? 'border-blue-200 bg-blue-50/70' : ''}`}
+            style={{ minHeight: isMobile ? 110 : 140 }}
             onClick={() => onDateSelect?.(date)}
             onDoubleClick={(e) => openQuickCreate(date, null, e.clientX, e.clientY)}
           >
@@ -636,7 +652,7 @@ const AdvancedCalendar = ({
   );
 
   return (
-    <div className="advanced-calendar flex h-full flex-col gap-4">
+    <div className="advanced-calendar flex h-full flex-col gap-3 lg:gap-4">
       {renderToolbar()}
 
       <div className="relative flex-1 overflow-hidden">

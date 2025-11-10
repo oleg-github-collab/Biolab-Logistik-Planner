@@ -9,10 +9,10 @@ const Schedule = () => {
   const [activeTab, setActiveTab] = useState('calendar');
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 pt-6 pb-24 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-slate-50 pt-4 pb-20 px-3 sm:px-6">
+      <div className="w-full mx-auto space-y-8">
         {/* Page Header */}
-        <div className="mb-8">
+        <div className="space-y-4">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
             Arbeitsstunden Planung
           </h1>
@@ -46,9 +46,9 @@ const Schedule = () => {
         </div>
 
         {/* Tabs */}
-        <div className="mb-6">
+        <div>
           <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8">
+            <nav className="-mb-px flex space-x-8 overflow-x-auto">
               <button
                 onClick={() => setActiveTab('calendar')}
                 className={`${
@@ -99,7 +99,7 @@ const Schedule = () => {
         </div>
 
         {/* Content */}
-        <div>
+        <div className="space-y-8">
           {activeTab === 'calendar' && <HoursCalendar />}
           {activeTab === 'monthly' && <MonthlyHoursCalculator />}
           {activeTab === 'team' && <TeamScheduleCalendar />}

@@ -8,8 +8,6 @@ const TimePicker = ({ value, onChange, label, disabled = false }) => {
   const [hour, setHour] = useState('08');
   const [minute, setMinute] = useState('00');
   const pickerRef = useRef(null);
-  const hourScrollRef = useRef(null);
-  const minuteScrollRef = useRef(null);
   const scrollPositionRef = useRef(0);
   const bodyStyleRef = useRef({
     overflow: '',
@@ -45,27 +43,14 @@ const TimePicker = ({ value, onChange, label, disabled = false }) => {
     document.body.style.top = `-${scrollPositionRef.current}px`;
     document.body.style.width = '100%';
 
-    const timer = setTimeout(() => {
-      if (hourScrollRef.current) {
-        const hourIndex = parseInt(hour, 10);
-        hourScrollRef.current.scrollTop = Number.isNaN(hourIndex) ? 0 : hourIndex * 56;
-      }
-      if (minuteScrollRef.current) {
-        const parsedMinute = parseInt(minute, 10);
-        const minuteIndex = Number.isNaN(parsedMinute) ? 0 : parsedMinute;
-        minuteScrollRef.current.scrollTop = minuteIndex * 56;
-      }
-    }, 100);
-
     return () => {
-      clearTimeout(timer);
       document.body.style.overflow = bodyStyleRef.current.overflow;
       document.body.style.position = bodyStyleRef.current.position;
       document.body.style.top = bodyStyleRef.current.top;
       document.body.style.width = bodyStyleRef.current.width;
       window.scrollTo(0, scrollPositionRef.current);
     };
-  }, [showPicker, isMobile, hour, minute]);
+  }, [showPicker, isMobile]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -110,6 +95,31 @@ const TimePicker = ({ value, onChange, label, disabled = false }) => {
 
   const hours = Array.from({ length: 24 }, (_, i) => i);
   const minutes = Array.from({ length: 60 }, (_, i) => i);
+  const quickMinuteOptions = ['00', '15', '30', '45'];
+
+  const formatTwoDigits = (value) => String(value).padStart(2, '0');
+
+  const adjustHour = (delta) => {
+    const current = parseInt(hour, 10) || 0;
+    const next = (current + delta + 24) % 24;
+    setHour(formatTwoDigits(next));
+  };
+
+  const adjustMinute = (delta) => {
+    const current = parseInt(minute, 10) || 0;
+    const next = (current + delta + 60) % 60;
+    setMinute(formatTwoDigits(next));
+  };
+
+  const setMinuteDirect = (value) => {
+    const next = Math.min(Math.max(parseInt(value, 10) || 0, 0), 59);
+    setMinute(formatTwoDigits(next));
+  };
+
+  const setHourDirect = (value) => {
+    const next = Math.min(Math.max(parseInt(value, 10) || 0, 0), 23);
+    setHour(formatTwoDigits(next));
+  };
 
   if (isMobile) {
     return (
@@ -135,7 +145,7 @@ const TimePicker = ({ value, onChange, label, disabled = false }) => {
         {showPicker && (
           <>
             <div
-              className="fixed inset-0 bg-black bg-opacity-50 z-[60]"
+              className="fixed inset-0 bg-black/40 z-[60]"
               onClick={() => setShowPicker(false)}
             />
             <div className="fixed inset-0 z-[70] flex items-center justify-center px-4">
@@ -144,65 +154,96 @@ const TimePicker = ({ value, onChange, label, disabled = false }) => {
                   <button
                     type="button"
                     onClick={handleClear}
-                    className="text-red-600 font-semibold text-base px-3 py-2 rounded-lg active:bg-red-50 transition-colors"
+                    className="text-red-600 font-semibold text-sm px-3 py-2 rounded-lg hover:bg-red-50 transition"
                   >
-                    Loschen
+                    Löschen
                   </button>
-                  <h3 className="text-lg font-bold text-gray-900">Zeit auswahlen</h3>
+                  <h3 className="text-base font-semibold text-gray-900">Zeit wählen</h3>
                   <button
                     type="button"
                     onClick={handleConfirm}
-                    className="text-blue-600 font-semibold text-base px-3 py-2 rounded-lg active:bg-blue-50 transition-colors"
+                    className="text-blue-600 font-semibold text-sm px-3 py-2 rounded-lg hover:bg-blue-50 transition"
                   >
                     OK
                   </button>
                 </div>
 
-                <div className="flex items-center justify-center p-6 gap-4">
-                  <div className="relative">
-                    <div
-                      ref={hourScrollRef}
-                      className="h-56 w-20 overflow-y-scroll snap-y snap-mandatory overscroll-contain scrollbar-hide"
-                    >
-                      {hours.map((h) => (
-                        <div
-                          key={h}
-                          onClick={() => handleHourChange(h)}
-                          className={`h-14 flex items-center justify-center text-2xl font-bold cursor-pointer snap-center transition-all ${
-                            String(h).padStart(2, '0') === hour
-                              ? 'text-blue-600 scale-125'
-                              : 'text-gray-400'
-                          }`}
+                <div className="p-6 space-y-5">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-3 text-center">
+                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Stunden</p>
+                      <div className="rounded-2xl bg-slate-100 p-3 flex flex-col items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => adjustHour(1)}
+                          className="w-12 h-12 rounded-full bg-white shadow hover:bg-slate-50 active:scale-95 text-2xl font-semibold text-slate-700"
                         >
-                          {String(h).padStart(2, '0')}
-                        </div>
-                      ))}
+                          +
+                        </button>
+                        <input
+                          type="number"
+                          value={hour}
+                          onChange={(e) => setHourDirect(e.target.value)}
+                          min="0"
+                          max="23"
+                          inputMode="numeric"
+                          className="w-16 text-center text-4xl font-semibold text-slate-900 bg-transparent border-none focus:outline-none focus:ring-0 tabular-nums"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => adjustHour(-1)}
+                          className="w-12 h-12 rounded-full bg-white shadow hover:bg-slate-50 active:scale-95 text-2xl font-semibold text-slate-700"
+                        >
+                          −
+                        </button>
+                      </div>
                     </div>
-                    <div className="absolute top-1/2 left-0 right-0 h-14 -translate-y-1/2 border-y-2 border-blue-300 pointer-events-none rounded-lg" />
+
+                    <div className="space-y-3 text-center">
+                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Minuten</p>
+                      <div className="rounded-2xl bg-slate-100 p-3 flex flex-col items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => adjustMinute(1)}
+                          className="w-12 h-12 rounded-full bg-white shadow hover:bg-slate-50 active:scale-95 text-2xl font-semibold text-slate-700"
+                        >
+                          +
+                        </button>
+                        <input
+                          type="number"
+                          value={minute}
+                          onChange={(e) => setMinuteDirect(e.target.value)}
+                          min="0"
+                          max="59"
+                          inputMode="numeric"
+                          className="w-16 text-center text-4xl font-semibold text-slate-900 bg-transparent border-none focus:outline-none focus:ring-0 tabular-nums"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => adjustMinute(-1)}
+                          className="w-12 h-12 rounded-full bg-white shadow hover:bg-slate-50 active:scale-95 text-2xl font-semibold text-slate-700"
+                        >
+                          −
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="text-3xl font-bold text-gray-600">:</div>
-
-                  <div className="relative">
-                    <div
-                      ref={minuteScrollRef}
-                      className="h-56 w-20 overflow-y-scroll snap-y snap-mandatory overscroll-contain scrollbar-hide"
-                    >
-                      {minutes.map((m) => (
-                        <div
-                          key={m}
-                          onClick={() => handleMinuteChange(m)}
-                          className={`h-14 flex items-center justify-center text-2xl font-bold cursor-pointer snap-center transition-all ${
-                            String(m).padStart(2, '0') === minute
-                              ? 'text-blue-600 scale-125'
-                              : 'text-gray-400'
-                          }`}
-                        >
-                          {String(m).padStart(2, '0')}
-                        </div>
-                      ))}
-                    </div>
-                    <div className="absolute top-1/2 left-0 right-0 h-14 -translate-y-1/2 border-y-2 border-blue-300 pointer-events-none rounded-lg" />
+                  <div className="flex flex-wrap items-center gap-2 justify-center">
+                    {quickMinuteOptions.map((value) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setMinuteDirect(value)}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium border ${
+                          minute === value
+                            ? 'border-blue-500 bg-blue-50 text-blue-700'
+                            : 'border-slate-200 bg-white text-slate-600'
+                        }`}
+                      >
+                        :{value}
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>

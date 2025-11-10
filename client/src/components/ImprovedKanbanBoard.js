@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, memo, useRef } from 'react';
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { format, differenceInDays, isOverdue, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useAuth } from '../context/AuthContext';
