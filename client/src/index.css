@@ -2500,4 +2500,8 @@ body {
 
 .rbc-calendar {
   font-family: 'Inter', system-ui, sans-serif;
+  border: none !important;
+  background: transparent;
+  width: 100%;
+  box-shadow: none;
 }

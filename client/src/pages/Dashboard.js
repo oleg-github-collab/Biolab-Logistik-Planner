@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
-import { CalendarDays, LayoutDashboard, Recycle, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useWebSocketContext } from '../context/WebSocketContext';
@@ -7,8 +7,6 @@ import CalendarView from '../components/CalendarView';
 import EventDetailsModal from '../components/EventDetailsModal';
 import EventFormModal from '../components/EventFormModal';
 import AbsenceModal from '../components/AbsenceModal';
-import UnifiedTaskBoard from '../components/UnifiedTaskBoard';
-import WasteManagementV4 from '../components/WasteManagementV4';
 import {
   fetchEvents,
   createEventWithRefetch,
@@ -41,12 +39,6 @@ const PRIORITY_FILTERS = [
   { value: 'low', label: '⏱️ Locker', badgeClass: 'bg-emerald-100 text-emerald-700' },
   { value: 'medium', label: '⚡ Normal', badgeClass: 'bg-amber-100 text-amber-700' },
   { value: 'high', label: '🔥 Hoch', badgeClass: 'bg-rose-100 text-rose-700' }
-];
-
-const MOBILE_NAV_TABS = [
-  { id: 'calendar', label: 'Kalender', icon: CalendarDays },
-  { id: 'kanban', label: 'Kanban', icon: LayoutDashboard },
-  { id: 'waste-manager', label: 'Abfall', icon: Recycle }
 ];
 
 // ✅ OPTIMIZED: Memoized Toast component to prevent unnecessary re-renders
@@ -398,7 +390,7 @@ const Dashboard = () => {
 
       {/* Calendar View */}
       {activeTab === 'calendar' && (
-        <div className={`relative overflow-hidden rounded-3xl border border-slate-200 bg-white/90 shadow-lg ${isMobile ? 'p-4' : 'p-6'}`}>
+        <div className={`relative overflow-hidden rounded-3xl bg-white shadow-xl ring-1 ring-slate-100 ${isMobile ? 'p-4' : 'p-6'}`}>
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <h2 className="text-2xl font-bold text-slate-900">Kalender</h2>
@@ -502,16 +494,6 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Kanban Board */}
-      {activeTab === 'kanban' && (
-        <UnifiedTaskBoard />
-      )}
-
-      {/* Waste Manager */}
-      {activeTab === 'waste-manager' && (
-        <WasteManagementV4 />
-      )}
-
       {/* Event Form Modal (for create/edit) */}
       <EventFormModal
         isOpen={showEventFormModal}
@@ -554,34 +536,17 @@ const Dashboard = () => {
       />
 
       {isMobile && (
-        <>
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('calendar');
-              handleCalendarEventCreate({ start: selectedDate });
-            }}
-            className="fixed bottom-20 right-5 z-[1200] flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-xl shadow-blue-500/30 transition hover:bg-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-200"
-            aria-label="Neuen Termin erstellen"
-          >
-            <Plus className="h-6 w-6" />
-          </button>
-          <nav className="fixed bottom-4 left-1/2 z-[1190] flex w-[calc(100%-2.5rem)] max-w-md -translate-x-1/2 items-center justify-around rounded-2xl border border-slate-200 bg-white/95 px-4 py-3 shadow-xl backdrop-blur">
-            {MOBILE_NAV_TABS.map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                onClick={() => setActiveTab(id)}
-                className={`flex flex-col items-center gap-1 text-xs font-medium transition ${
-                  activeTab === id ? 'text-blue-600' : 'text-slate-500'
-                }`}
-                aria-label={label}
-              >
-                <Icon className={`h-5 w-5 ${activeTab === id ? 'text-blue-600' : 'text-slate-400'}`} />
-                <span>{label}</span>
-              </button>
-            ))}
-          </nav>
-        </>
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('calendar');
+            handleCalendarEventCreate({ start: selectedDate });
+          }}
+          className="fixed bottom-24 right-5 z-[1200] flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-xl shadow-blue-500/30 transition hover:bg-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-200"
+          aria-label="Neuen Termin erstellen"
+        >
+          <Plus className="h-6 w-6" />
+        </button>
       )}
 
       <Toast toast={toast} onClose={() => setToast(null)} />

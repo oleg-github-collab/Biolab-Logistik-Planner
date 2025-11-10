@@ -18,6 +18,13 @@ const NAV_ITEMS = [
   { to: '/admin', labelKey: 'navigation.admin', icon: '⚙️', permission: 'system:settings' }
 ];
 
+const MOBILE_HIGHLIGHTS = [
+  { to: '/knowledge-base', label: 'Knowledge Base', emoji: '📚', description: 'Artikel & Medien', permission: 'schedule:read' },
+  { to: '/schedule', label: 'Planung', emoji: '🗓', description: 'Arbeitszeiten & Stunden', permission: 'schedule:read' },
+  { to: '/messages', label: 'Messenger', emoji: '💬', description: 'Direkte Chats', permission: 'message:read' },
+  { to: '/kanban', label: 'Kanban', emoji: '🧩', description: 'Aufgaben & Projekte', permission: 'task:read' }
+];
+
 const PRIMARY_NAV_LIMIT = 4;
 
 const Header = () => {
@@ -68,6 +75,11 @@ const Header = () => {
 
   const visibleNavItems = useMemo(
     () => NAV_ITEMS.filter((item) => hasPermission(item.permission)),
+    [hasPermission]
+  );
+
+  const mobileHighlightItems = useMemo(
+    () => MOBILE_HIGHLIGHTS.filter((item) => hasPermission(item.permission)),
     [hasPermission]
   );
 
@@ -143,24 +155,24 @@ const Header = () => {
   }
 
   return (
-    <header className="top-nav-mobile bg-white border-b border-slate-200 sticky top-0 z-50 shadow-[0_4px_12px_rgba(15,23,42,0.06)]">
+    <header className="top-nav-mobile bg-white/95 backdrop-blur border-b border-slate-100 sticky top-0 z-50 shadow-[0_2px_10px_rgba(15,23,42,0.04)]">
       <div className="max-w-full mx-auto px-3 sm:px-4 lg:px-6">
-        <div className="flex justify-between items-center" style={{ minHeight: '60px' }}>
+        <div className="flex justify-between items-center py-3 min-h-[56px]">
 
           {/* Logo & Brand */}
-          <Link to="/dashboard" className="flex items-center space-x-2 flex-shrink-0 mobile-touch-feedback">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl flex items-center justify-center shadow-md">
-              <span className="text-white font-bold text-lg">BL</span>
+          <Link to="/dashboard" className="flex items-center gap-3 flex-shrink-0 mobile-touch-feedback">
+            <div className="w-9 h-9 rounded-xl border border-slate-200 bg-white flex items-center justify-center shadow-sm">
+              <span className="text-sm font-bold text-slate-700 tracking-tight">BL</span>
             </div>
-            <div className="hidden sm:block">
-              <h1 className="text-base font-bold text-gray-900 leading-tight tracking-tight">Biolab</h1>
-              <p className="text-xs text-gray-500 leading-tight">Logistik Planner</p>
+            <div className="hidden sm:flex flex-col leading-tight">
+              <span className="text-base font-semibold text-slate-900">Biolab</span>
+              <span className="text-xs text-slate-500 uppercase tracking-[0.12em]">Planner</span>
             </div>
           </Link>
 
           {/* Desktop Navigation - Dropdown Style */}
           <nav className="hidden lg:flex items-center flex-1 justify-center max-w-4xl mx-4">
-            <div className="flex items-center gap-1 bg-slate-100/80 border border-slate-200 rounded-2xl p-1.5 shadow-inner backdrop-blur">
+            <div className="flex items-center gap-1 bg-white/70 border border-slate-100 rounded-2xl p-1 shadow-sm">
               {primaryNavItems.map((item) => {
                 const isActive = location.pathname === item.to;
                 return (
@@ -170,8 +182,8 @@ const Header = () => {
                     className={`
                       px-3 py-2 rounded-xl text-xs xl:text-sm font-semibold transition-all whitespace-nowrap tracking-wide
                       ${isActive
-                        ? 'bg-white text-blue-700 shadow-lg ring-1 ring-blue-100'
-                        : 'text-slate-600 hover:bg-white hover:text-slate-900'}
+                        ? 'bg-slate-900 text-white shadow-sm'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}
                     `}
                   >
                     <span className="mr-1.5">{item.icon}</span>
@@ -184,6 +196,7 @@ const Header = () => {
                   <button
                     onClick={() => setDesktopOverflowOpen((prev) => !prev)}
                     ref={overflowTriggerRef}
+                    type="button"
                     className="px-3 py-2 rounded-xl text-xs xl:text-sm font-semibold transition-all text-slate-600 hover:bg-white hover:text-slate-900 flex items-center gap-1"
                     aria-haspopup="true"
                     aria-expanded={desktopOverflowOpen}
@@ -280,6 +293,7 @@ const Header = () => {
             {/* Mobile Menu Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              type="button"
               className="btn-icon-mobile bg-slate-100 hover:bg-slate-200 shadow-inner mobile-touch-feedback"
               aria-label={t('mobile.nav.toggle')}
             >
@@ -311,6 +325,7 @@ const Header = () => {
                 <h3 className="text-base font-semibold text-slate-800">Menü</h3>
                 <button
                   onClick={() => setMobileMenuOpen(false)}
+                  type="button"
                   className="p-2 rounded-full hover:bg-slate-100 transition"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -376,6 +391,26 @@ const Header = () => {
                   </div>
                 </form>
 
+                {mobileHighlightItems.length > 0 && (
+                  <div className="space-y-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">Schnellzugriffe</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {mobileHighlightItems.map((item) => (
+                        <Link
+                          key={item.to}
+                          to={item.to}
+                          onClick={() => setMobileMenuOpen(false)}
+                          className="flex flex-col gap-1 rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-3 shadow-sm"
+                        >
+                          <span className="text-xl">{item.emoji}</span>
+                          <span className="text-sm font-semibold text-slate-900">{item.label}</span>
+                          <span className="text-[11px] text-slate-500">{item.description}</span>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-1">
                   {visibleNavItems.map((item) => {
                     const isActive = location.pathname === item.to;
@@ -410,6 +445,7 @@ const Header = () => {
                     setMobileMenuOpen(false);
                     navigate('/users');
                   }}
+                  type="button"
                   className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-slate-800 text-slate-800 font-semibold hover:bg-slate-50 transition"
                 >
                   <span>Team & Admin</span>

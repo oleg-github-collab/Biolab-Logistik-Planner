@@ -77,33 +77,42 @@
   }
 
   .messenger-mobile-actions {
-    display: flex;
-    gap: 0.5rem;
-    padding: 0.75rem 1rem;
-    background: rgba(15, 23, 42, 0.85);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(18px);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+    gap: 0.65rem;
+    padding: 0.65rem 1rem;
+    background: rgba(15, 23, 42, 0.92);
+    border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+    backdrop-filter: blur(20px);
   }
 
   .messenger-mobile-actions button {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
+    display: inline-flex;
     align-items: center;
-    gap: 0.35rem;
-    padding: 0.5rem;
+    justify-content: flex-start;
+    gap: 0.4rem;
+    padding: 0.55rem 0.65rem;
     border-radius: 14px;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(15, 23, 42, 0.65);
     color: white;
-    font-size: 0.75rem;
+    font-size: 0.78rem;
     font-weight: 600;
+    text-align: left;
+  }
+
+  .messenger-mobile-actions button svg {
+    width: 1rem;
+    height: 1rem;
+    opacity: 0.8;
+    flex-shrink: 0;
   }
 
   .messenger-mobile-actions button span {
-    font-size: 0.7rem;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
+    font-size: 0.78rem;
+    letter-spacing: 0.01em;
+    text-transform: none;
+    opacity: 0.85;
   }
 
   .messenger-mobile-actions button:disabled {
@@ -114,11 +123,11 @@
   .messenger-mobile-messages {
     flex: 1;
     overflow-y: auto;
-    padding: 1rem;
+    padding: clamp(0.75rem, 4vw, 1.25rem);
     background: linear-gradient(to bottom, #0f172a 0%, #1e293b 100%);
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: clamp(0.5rem, 2.4vw, 0.9rem);
   }
 
   .messenger-mobile-messages::-webkit-scrollbar {
@@ -127,12 +136,13 @@
 
   /* Message Bubble */
   .message-bubble {
-    max-width: 75%;
-    padding: 0.75rem 1rem;
-    border-radius: 18px;
+    max-width: min(85%, 440px);
+    padding: 0.85rem 1.05rem;
+    border-radius: 20px;
     position: relative;
     word-break: break-word;
     animation: messageSlideIn 0.2s ease-out;
+    backdrop-filter: blur(6px);
   }
 
   @keyframes messageSlideIn {
@@ -208,7 +218,7 @@
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    padding: 0.4rem 0.9rem;
+    padding: 0.55rem 1rem;
     border: 1px solid rgba(148, 163, 184, 0.25);
   }
 

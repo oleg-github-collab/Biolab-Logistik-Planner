@@ -1074,7 +1074,12 @@ const DirectMessenger = () => {
               className="mt-2"
             />
           ) : msg.message_type === 'gif' || (msg.message && (msg.message.includes('giphy.com') || msg.message.includes('tenor.com') || msg.message.match(/\.(gif|webp)(\?|$)/i))) ? (
-            <img src={msg.message} alt="GIF" className="rounded-lg max-h-60 w-full object-contain" />
+            <img
+              src={msg.message}
+              alt="GIF"
+              loading="lazy"
+              className="rounded-2xl w-full h-auto max-h-[360px] object-contain bg-slate-900/20 border border-white/10 shadow-lg"
+            />
           ) : (
             <p className={`${isMobile ? 'message-text' : 'text-sm whitespace-pre-wrap break-words'}`}>
               {msg.message}
@@ -1090,7 +1095,8 @@ const DirectMessenger = () => {
                       key={`${att.url}-${idx}`}
                       src={att.url}
                       alt="Anhang"
-                      className="rounded-xl max-h-48 w-full object-cover"
+                      loading="lazy"
+                      className="rounded-2xl w-full h-auto max-h-80 object-cover shadow-lg border border-white/10"
                     />
                   );
                 }
