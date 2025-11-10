@@ -28,6 +28,7 @@ const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [globalSearch, setGlobalSearch] = useState('');
   const [desktopOverflowOpen, setDesktopOverflowOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const searchInputRef = useRef(null);
   const overflowMenuRef = useRef(null);
   const overflowTriggerRef = useRef(null);
@@ -83,6 +84,13 @@ const Header = () => {
   })();
 
   useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
     setDesktopOverflowOpen(false);
     setMobileMenuOpen(false);
   }, [location.pathname]);
@@ -128,6 +136,11 @@ const Header = () => {
   }, [mobileMenuOpen]);
 
   if (!state || !user) return null;
+
+  const hideHeader = isMobile && location.pathname.startsWith('/messages');
+  if (hideHeader) {
+    return null;
+  }
 
   return (
     <header className="top-nav-mobile bg-white border-b border-slate-200 sticky top-0 z-50 shadow-[0_4px_12px_rgba(15,23,42,0.06)]">
