@@ -1561,8 +1561,8 @@ const KnowledgeBaseV3 = () => {
       >
         <Plus size={24} />
       </button>
-      </div> {/* Close kb-layout */}
-    </div> {/* Close kb-page */}
+      </div>
+    </div>
   );
 };
 
