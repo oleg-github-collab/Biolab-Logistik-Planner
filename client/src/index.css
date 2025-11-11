@@ -11,6 +11,8 @@
 @import './styles/mobile-ultimate-final.css';
 /* TOTAL MOBILE REDESIGN - Complete Mobile UX Overhaul */
 @import './styles/mobile-total-redesign.css';
+/* PERFECT BUTTONS AND MODALS - Large, Readable, Perfect */
+@import './styles/mobile-perfect-buttons.css';
 
 @tailwind utilities;
 
