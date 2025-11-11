@@ -962,6 +962,10 @@ router.post('/broadcast', [auth, adminAuth], async (req, res) => {
     });
     res.json({ message: 'Broadcast erfolgreich gesendet', recipients: notificationResult.rowCount });
   } catch (err) {
+    console.error('[BROADCAST ERROR] Full error:', err);
+    console.error('[BROADCAST ERROR] Stack:', err.stack);
+    console.error('[BROADCAST ERROR] Message:', err.message);
+    console.error('[BROADCAST ERROR] Code:', err.code);
     logger.error('Error sending broadcast:', err);
     res.status(500).json({ error: 'Serverfehler beim Senden der Broadcast-Nachricht' });
   }
