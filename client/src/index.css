@@ -9,6 +9,8 @@
 @import './styles/messenger-mobile.css';
 /* ULTIMATE FINAL - ВСІ МОБІЛЬНІ ВИПРАВЛЕННЯ */
 @import './styles/mobile-ultimate-final.css';
+/* TOTAL MOBILE REDESIGN - Complete Mobile UX Overhaul */
+@import './styles/mobile-total-redesign.css';
 
 @tailwind utilities;
 

@@ -1,0 +1,774 @@
+/* ==========================================
+   ТОТАЛЬНИЙ РЕДИЗАЙН МОБІЛЬНОГО - PRODUCTION READY
+   Мінімалістичний, читабельний, якісний
+   ========================================== */
+
+@media (max-width: 1023px) {
+
+  /* ==========================================
+     ГЛОБАЛЬНІ НАЛАШТУВАННЯ
+     ========================================== */
+
+  * {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* ==========================================
+     1. MESSENGER - ВИДАЛИТИ ЗАЙВІ КНОПКИ
+     ========================================== */
+
+  /* Сховати Info, Video, Phone buttons */
+  button[aria-label*="Info"],
+  button[aria-label*="Video"],
+  button[aria-label*="Videoanruf"],
+  button[aria-label*="Anruf"],
+  button[title*="Info"],
+  button[title*="Video"],
+  button[title*="Call"] {
+    display: none !important;
+  }
+
+  /* Messenger header - тільки назва і back */
+  .messenger-header button:has(svg) {
+    display: flex !important;
+  }
+
+  .messenger-header button:has(svg):nth-child(n+3) {
+    display: none !important;
+  }
+
+  /* ==========================================
+     2. TOAST MENU → FULL-SCREEN MODAL
+     ========================================== */
+
+  /* Сховати старе toast меню */
+  .header-menu-button,
+  button[aria-label*="Menu"],
+  button[aria-label*="Menü"] {
+    position: relative;
+    z-index: 2000;
+  }
+
+  /* Full-screen menu modal */
+  .menu-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 9998;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+
+  .menu-modal-overlay.active {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  .menu-modal {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 85%;
+    max-width: 400px;
+    background: white;
+    z-index: 9999;
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    box-shadow: -4px 0 24px rgba(0, 0, 0, 0.15);
+  }
+
+  .menu-modal.active {
+    transform: translateX(0);
+  }
+
+  /* Menu header */
+  .menu-modal-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .menu-modal-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #111827;
+  }
+
+  .menu-close-button {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #f3f4f6;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .menu-close-button:active {
+    background: #e5e7eb;
+    transform: scale(0.95);
+  }
+
+  /* Menu items */
+  .menu-modal-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+  }
+
+  .menu-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    border-radius: 12px;
+    background: transparent;
+    border: none;
+    width: 100%;
+    text-align: left;
+    font-size: 1rem;
+    font-weight: 500;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 0.25rem;
+  }
+
+  .menu-item:active {
+    background: #f3f4f6;
+    transform: scale(0.98);
+  }
+
+  .menu-item svg,
+  .menu-item .icon {
+    width: 24px;
+    height: 24px;
+    color: #6b7280;
+  }
+
+  .menu-item.active {
+    background: #eff6ff;
+    color: #2563eb;
+  }
+
+  .menu-item.active svg,
+  .menu-item.active .icon {
+    color: #2563eb;
+  }
+
+  /* Menu footer */
+  .menu-modal-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid #e5e7eb;
+  }
+
+  .menu-logout-button {
+    width: 100%;
+    min-height: 48px;
+    background: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  .menu-logout-button:active {
+    background: #dc2626;
+    transform: scale(0.98);
+  }
+
+  /* ==========================================
+     3. ÜBERSICHT - МІНІМАЛІСТИЧНИЙ КАЛЕНДАР
+     ========================================== */
+
+  /* Calendar container */
+  .calendar-overview-container {
+    padding: 0 !important;
+  }
+
+  /* Toolbar компактний */
+  .rbc-toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: white;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  /* Navigation row */
+  .rbc-toolbar .rbc-toolbar-label {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: #111827;
+    text-align: center;
+    order: 1;
+  }
+
+  /* Кнопки перемикання дати */
+  .rbc-toolbar .rbc-btn-group:first-child {
+    display: flex;
+    gap: 0.5rem;
+    order: 2;
+    justify-content: center;
+  }
+
+  .rbc-toolbar .rbc-btn-group:first-child button {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #f3f4f6;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .rbc-toolbar .rbc-btn-group:first-child button:active {
+    background: #e5e7eb;
+    transform: scale(0.95);
+  }
+
+  /* View buttons → Dropdown */
+  .rbc-toolbar .rbc-btn-group:last-child {
+    order: 3;
+  }
+
+  .rbc-toolbar .rbc-btn-group:last-child button {
+    display: none;
+  }
+
+  /* Створити власний dropdown */
+  .calendar-view-dropdown {
+    position: relative;
+    width: 100%;
+  }
+
+  .calendar-view-dropdown-button {
+    width: 100%;
+    min-height: 48px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 1rem;
+    font-weight: 500;
+    color: #111827;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .calendar-view-dropdown-button:active {
+    background: #f3f4f6;
+  }
+
+  .calendar-view-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    z-index: 100;
+    opacity: 0;
+    transform: translateY(-10px);
+    pointer-events: none;
+    transition: all 0.2s;
+  }
+
+  .calendar-view-dropdown-menu.active {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: all;
+  }
+
+  .calendar-view-dropdown-item {
+    padding: 1rem;
+    border: none;
+    background: transparent;
+    width: 100%;
+    text-align: left;
+    font-size: 1rem;
+    color: #374151;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .calendar-view-dropdown-item:active {
+    background: #f3f4f6;
+  }
+
+  .calendar-view-dropdown-item.active {
+    background: #eff6ff;
+    color: #2563eb;
+    font-weight: 600;
+  }
+
+  /* Filters → Modal */
+  .calendar-filters-button {
+    width: 100%;
+    min-height: 48px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 12px;
+    padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #2563eb;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 0.5rem;
+  }
+
+  .calendar-filters-button:active {
+    background: #dbeafe;
+  }
+
+  /* Calendar grid - clean */
+  .rbc-calendar {
+    border: none !important;
+    background: white;
+  }
+
+  .rbc-month-view {
+    border: none !important;
+  }
+
+  .rbc-header {
+    padding: 0.75rem 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid #e5e7eb !important;
+    background: #f9fafb;
+  }
+
+  .rbc-day-bg {
+    border-left: 1px solid #f3f4f6 !important;
+    border-bottom: 1px solid #f3f4f6 !important;
+  }
+
+  .rbc-off-range-bg {
+    background: #fafafa;
+  }
+
+  .rbc-today {
+    background: #eff6ff !important;
+  }
+
+  .rbc-date-cell {
+    padding: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  .rbc-event {
+    background: #3b82f6 !important;
+    border-radius: 6px !important;
+    border: none !important;
+    padding: 2px 4px !important;
+    font-size: 0.75rem !important;
+  }
+
+  /* ==========================================
+     4. NOTIFICATIONS - ТОТАЛЬНИЙ РЕДИЗАЙН
+     ========================================== */
+
+  /* Notification bell button */
+  .notification-button {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #f3f4f6;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .notification-button:active {
+    background: #e5e7eb;
+    transform: scale(0.95);
+  }
+
+  .notification-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    min-width: 18px;
+    height: 18px;
+    background: #ef4444;
+    color: white;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    border: 2px solid white;
+  }
+
+  /* Notification panel */
+  .notification-panel {
+    position: fixed;
+    top: 64px;
+    right: 0;
+    bottom: 110px;
+    width: 100%;
+    background: white;
+    z-index: 1000;
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    box-shadow: -4px 0 24px rgba(0, 0, 0, 0.15);
+  }
+
+  .notification-panel.active {
+    transform: translateX(0);
+  }
+
+  /* Notification header */
+  .notification-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .notification-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #111827;
+  }
+
+  .notification-mark-read {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #2563eb;
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+
+  /* Notification list */
+  .notification-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0;
+  }
+
+  .notification-item {
+    padding: 1rem;
+    border-bottom: 1px solid #f3f4f6;
+    background: white;
+    cursor: pointer;
+    transition: background 0.2s;
+    position: relative;
+  }
+
+  .notification-item:active {
+    background: #f9fafb;
+  }
+
+  .notification-item.unread {
+    background: #eff6ff;
+  }
+
+  .notification-item.unread::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: #3b82f6;
+  }
+
+  .notification-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.5rem;
+  }
+
+  .notification-item-title {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: #111827;
+    margin: 0;
+  }
+
+  .notification-item-time {
+    font-size: 0.75rem;
+    color: #9ca3af;
+    white-space: nowrap;
+    margin-left: 0.5rem;
+  }
+
+  .notification-item-content {
+    font-size: 0.875rem;
+    color: #6b7280;
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  .notification-empty {
+    padding: 3rem 1rem;
+    text-align: center;
+    color: #9ca3af;
+  }
+
+  .notification-empty-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+  }
+
+  /* ==========================================
+     5. READABLE BUTTONS - ВСІ ВКЛАДКИ
+     ========================================== */
+
+  /* Всі кнопки мінімум 48px з чіткими labels */
+  button,
+  .btn,
+  a[role="button"] {
+    min-height: 48px !important;
+    min-width: 48px !important;
+    font-size: 1rem !important;
+    font-weight: 600 !important;
+    padding: 0.75rem 1rem !important;
+    border-radius: 12px !important;
+    border: none !important;
+    cursor: pointer;
+    transition: all 0.2s !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  /* Primary buttons */
+  button.bg-blue-600,
+  button.bg-blue-500,
+  .btn-primary {
+    background: #3b82f6 !important;
+    color: white !important;
+  }
+
+  button.bg-blue-600:active,
+  button.bg-blue-500:active,
+  .btn-primary:active {
+    background: #2563eb !important;
+    transform: scale(0.98);
+  }
+
+  /* Secondary buttons */
+  button.bg-gray-100,
+  button.bg-gray-200,
+  .btn-secondary {
+    background: #f3f4f6 !important;
+    color: #374151 !important;
+  }
+
+  button.bg-gray-100:active,
+  button.bg-gray-200:active,
+  .btn-secondary:active {
+    background: #e5e7eb !important;
+    transform: scale(0.98);
+  }
+
+  /* Danger buttons */
+  button.bg-red-600,
+  button.bg-red-500,
+  .btn-danger {
+    background: #ef4444 !important;
+    color: white !important;
+  }
+
+  button.bg-red-600:active,
+  button.bg-red-500:active,
+  .btn-danger:active {
+    background: #dc2626 !important;
+    transform: scale(0.98);
+  }
+
+  /* Icon buttons */
+  button:has(svg:only-child) {
+    min-width: 48px;
+    min-height: 48px;
+    padding: 0.75rem !important;
+  }
+
+  /* ==========================================
+     6. INPUTS & FORMS
+     ========================================== */
+
+  input,
+  textarea,
+  select {
+    min-height: 48px !important;
+    font-size: 1rem !important;
+    padding: 0.75rem 1rem !important;
+    border-radius: 12px !important;
+    border: 2px solid #e5e7eb !important;
+    background: white !important;
+    color: #111827 !important;
+    transition: all 0.2s !important;
+  }
+
+  input:focus,
+  textarea:focus,
+  select:focus {
+    outline: none !important;
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
+  }
+
+  textarea {
+    min-height: 96px !important;
+    resize: vertical;
+  }
+
+  label {
+    font-size: 0.9375rem !important;
+    font-weight: 600 !important;
+    color: #374151 !important;
+    margin-bottom: 0.5rem !important;
+    display: block;
+  }
+
+  /* ==========================================
+     7. CARDS & CONTAINERS
+     ========================================== */
+
+  .card,
+  [class*="card-"] {
+    background: white;
+    border-radius: 16px;
+    padding: 1.25rem;
+    border: 1px solid #e5e7eb;
+    margin-bottom: 1rem;
+  }
+
+  /* ==========================================
+     8. NO OVERLAPS - SPACING
+     ========================================== */
+
+  /* Ensure proper spacing */
+  .page-container,
+  .container,
+  main {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+
+  /* Section spacing */
+  section,
+  .section {
+    margin-bottom: 1.5rem !important;
+  }
+
+  section:last-child,
+  .section:last-child {
+    margin-bottom: 0 !important;
+  }
+
+  /* ==========================================
+     9. SMOOTH ANIMATIONS
+     ========================================== */
+
+  @keyframes modalFadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes modalSlideIn {
+    from {
+      transform: translateX(100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+
+  .modal-enter {
+    animation: modalFadeIn 0.3s ease-out;
+  }
+
+  .modal-slide-enter {
+    animation: modalSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* ==========================================
+     10. ACCESSIBILITY
+     ========================================== */
+
+  /* Focus visible */
+  *:focus-visible {
+    outline: 3px solid #3b82f6 !important;
+    outline-offset: 2px !important;
+  }
+
+  /* Touch targets */
+  a,
+  button,
+  input,
+  select,
+  textarea {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Smooth scrolling */
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+}
