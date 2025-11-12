@@ -28,9 +28,9 @@
     margin-bottom: 0 !important;
   }
 
-  /* Board columns container */
+  /* Board columns container - minimal padding */
   .flex.gap-4.min-w-max {
-    padding-bottom: calc(env(safe-area-inset-bottom) + 80px) !important;
+    padding-bottom: 0.5rem !important;
     margin-bottom: 0 !important;
   }
 

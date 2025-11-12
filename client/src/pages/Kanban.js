@@ -336,7 +336,7 @@ const KanbanBoard = () => {
       {/* Kanban Board */}
       <div className="overflow-x-auto lg:p-6 px-3 pt-3 pb-0 lg:pb-6 lg:flex-1">
         <DragDropContext onDragEnd={handleDragEnd}>
-          <div className="flex gap-4 min-w-max pb-20 lg:pb-0">
+          <div className="flex gap-4 min-w-max pb-2 lg:pb-0">
             {COLUMNS.map((column) => {
               const columnTasks = tasksByStatus[column.id] || [];
 
