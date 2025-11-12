@@ -9,3 +9,4 @@ dist
 coverage
 *.log
 logs/
+client/build/
