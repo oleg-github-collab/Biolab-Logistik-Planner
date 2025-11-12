@@ -1,7 +1,7 @@
 // Minimal production server - only essential features
-// Updated: 2025-11-12 18:30 - ALL FIXES DEPLOYED
+// Updated: 2025-11-12 23:20 - FORCE FRESH NO CACHE
 console.log('='.repeat(80));
-console.log('🚀 BIOLAB LOGISTIK PLANNER - SERVER v2.3-FINAL-VERIFIED');
+console.log('🚀 BIOLAB LOGISTIK PLANNER - SERVER v2.5-NOCACHE');
 console.log('='.repeat(80));
 console.log('Time:', new Date().toISOString());
 console.log('Node:', process.version);
