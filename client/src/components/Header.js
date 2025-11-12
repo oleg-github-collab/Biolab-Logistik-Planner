@@ -376,7 +376,8 @@ const Header = () => {
               </div>
 
               {/* Navigation Items - List Style */}
-              <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+              <div className="flex-1 overflow-y-auto mobile-scroll-container">
+                <div className="px-4 py-4 space-y-4">
                 <form onSubmit={handleGlobalSearch}>
                   <div className="relative">
                     <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -436,6 +437,7 @@ const Header = () => {
                       </Link>
                     );
                   })}
+                </div>
                 </div>
               </div>
 
