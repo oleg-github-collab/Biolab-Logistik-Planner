@@ -101,6 +101,15 @@ if (process.env.NODE_ENV === 'production') {
   const buildPath = path.join(__dirname, 'client', 'build');
   console.log('🌐 Production mode - serving static files from:', buildPath);
 
+  // Check asset manifest
+  const fs = require('fs');
+  const manifestPath = path.join(buildPath, 'asset-manifest.json');
+  if (fs.existsSync(manifestPath)) {
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    console.log('📦 CSS:', manifest.files['main.css']);
+    console.log('📦 JS:', manifest.files['main.js']);
+  }
+
   // Serve static files ONLY for non-API routes
   app.use((req, res, next) => {
     if (req.path.startsWith('/api/')) {
