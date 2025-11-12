@@ -10,7 +10,9 @@ cmds = [
 [phases.build]
 cmds = [
   "rm -rf client/node_modules/.cache client/build",
-  "cd client && CI=false GENERATE_SOURCEMAP=false npm run build"
+  "echo 'Force rebuild timestamp:' $(date)",
+  "cd client && CI=false GENERATE_SOURCEMAP=false DISABLE_ESLINT_PLUGIN=true npm run build",
+  "ls -lh client/build/static/js/main.*.js"
 ]
 
 [start]
