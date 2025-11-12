@@ -468,7 +468,13 @@ const NotificationDropdown = () => {
   return (
     <div className="relative" ref={dropdownRef}>
       <button
-        onClick={() => setIsOpen((prev) => !prev)}
+        onClick={() => {
+          console.log('[NotificationDropdown] Button clicked, current isOpen:', isOpen);
+          setIsOpen((prev) => {
+            console.log('[NotificationDropdown] Setting isOpen to:', !prev);
+            return !prev;
+          });
+        }}
         className="relative p-2.5 text-slate-700 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all shadow-sm border border-slate-200 hover:border-blue-300"
         title={
           isConnected

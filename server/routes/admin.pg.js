@@ -925,6 +925,13 @@ router.post('/broadcast', [auth, adminAuth], async (req, res) => {
       ON CONFLICT (user_id) DO NOTHING
     `);
 
+    console.log('[BROADCAST] About to INSERT with params:', {
+      title: notificationTitle,
+      message: sanitizedMessage,
+      type,
+      userId: req.user.id
+    });
+
     const notificationResult = await pool.query(
       `
       INSERT INTO notifications (user_id, type, title, content, metadata, created_at, priority, is_read, related_user_id, task_id, event_id)
@@ -943,6 +950,8 @@ router.post('/broadcast', [auth, adminAuth], async (req, res) => {
       `,
       [notificationTitle, sanitizedMessage, type, req.user.id]
     );
+
+    console.log('[BROADCAST] INSERT success, rows:', notificationResult.rowCount);
 
     try {
       const io = getIO();
