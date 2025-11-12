@@ -18,6 +18,7 @@
 @import './styles/mobile/mobile-toast.css';
 @import './styles/mobile/mobile-admin.css';
 @import './styles/mobile/mobile-modals.css';
+@import './styles/mobile/mobile-kanban.css';
 
 @tailwind utilities;
 

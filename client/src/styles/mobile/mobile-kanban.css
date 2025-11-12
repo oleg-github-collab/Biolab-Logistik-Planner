@@ -1,0 +1,59 @@
+/* ==========================================
+   MOBILE KANBAN
+   Remove ALL white space below tasks
+   ========================================== */
+
+@media (max-width: 1023px) {
+
+  /* Main Kanban container - NO extra height */
+  [class*="kanban"],
+  [class*="Kanban"] {
+    height: auto !important;
+    min-height: 0 !important;
+    padding-bottom: 0 !important;
+    margin-bottom: 0 !important;
+  }
+
+  /* Kanban board container */
+  [class*="kanban"] > div,
+  [class*="Kanban"] > div {
+    padding-bottom: 0 !important;
+    margin-bottom: 0 !important;
+  }
+
+  /* Remove all padding/margin from flex containers */
+  .flex.flex-col.h-full,
+  .flex.flex-col.bg-transparent {
+    padding-bottom: 0 !important;
+    margin-bottom: 0 !important;
+  }
+
+  /* Board columns container */
+  .flex.gap-4.min-w-max {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 80px) !important;
+    margin-bottom: 0 !important;
+  }
+
+  /* Overflow container */
+  .overflow-x-auto {
+    padding-bottom: 0 !important;
+    margin-bottom: 0 !important;
+  }
+
+  /* Task columns */
+  .flex.flex-col.w-80 {
+    margin-bottom: 0 !important;
+  }
+
+  /* Remove body padding when on Kanban */
+  body:has([class*="kanban"]),
+  body:has([class*="Kanban"]) {
+    padding-bottom: 0 !important;
+  }
+
+  /* Ensure main content doesn't add extra space */
+  main {
+    padding-bottom: 0 !important;
+  }
+
+}

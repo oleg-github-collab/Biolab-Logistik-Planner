@@ -237,7 +237,7 @@ const KanbanBoard = () => {
   }
 
   return (
-    <div className="h-full flex flex-col bg-transparent lg:bg-slate-50">
+    <div className="lg:h-full flex flex-col bg-transparent lg:bg-slate-50" style={{ minHeight: '100vh' }}>
       {/* Header */}
       <div className="bg-white border-b border-slate-200 lg:px-6 px-3 py-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -334,9 +334,9 @@ const KanbanBoard = () => {
       </div>
 
       {/* Kanban Board */}
-      <div className="flex-1 overflow-x-auto lg:p-6 px-3 py-3 pb-0">
+      <div className="overflow-x-auto lg:p-6 px-3 pt-3 pb-0 lg:pb-6 lg:flex-1">
         <DragDropContext onDragEnd={handleDragEnd}>
-          <div className="flex gap-4 min-w-max" style={{ minHeight: '100%' }}>
+          <div className="flex gap-4 min-w-max pb-20 lg:pb-0">
             {COLUMNS.map((column) => {
               const columnTasks = tasksByStatus[column.id] || [];
 
