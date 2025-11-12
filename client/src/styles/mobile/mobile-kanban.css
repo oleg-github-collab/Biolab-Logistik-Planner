@@ -1,71 +1,36 @@
 /* ==========================================
-   MOBILE KANBAN - REDESIGNED FROM SCRATCH
-   Clean mobile-first layout without white space
+   MOBILE KANBAN - Clean mobile layout
    ========================================== */
 
 @media (max-width: 1023px) {
 
-  /* Main container - fills viewport height minus header and bottom nav */
+  /* Main container - fills available space */
   .mobile-kanban-container {
     min-height: 100vh;
-    max-height: 100vh;
-    height: 100vh;
-    overflow: hidden;
     display: flex;
     flex-direction: column;
   }
 
-  /* Board container - takes remaining space, enables scroll */
+  /* Board container - scrollable area */
   .mobile-kanban-board {
     flex: 1;
     overflow-x: auto;
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
-    /* Space for bottom nav (60px) + safe area */
-    padding-bottom: calc(60px + env(safe-area-inset-bottom)) !important;
+    padding-bottom: calc(70px + env(safe-area-inset-bottom)) !important;
   }
 
-  /* Columns wrapper - horizontal scroll */
+  /* Columns wrapper */
   .mobile-kanban-columns {
-    height: 100%;
-    padding-bottom: 0 !important;
-    margin-bottom: 0 !important;
+    min-height: calc(100vh - 200px);
+    align-items: flex-start;
   }
 
-  /* Individual column - full height */
+  /* Individual columns - auto height */
   .mobile-kanban-columns > div {
-    height: calc(100vh - 180px - 60px - env(safe-area-inset-bottom));
-    max-height: calc(100vh - 180px - 60px - env(safe-area-inset-bottom));
-  }
-
-  /* Column content scrollable */
-  .mobile-kanban-columns > div > div {
-    height: 100%;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  /* Remove ALL extra padding/margin */
-  .mobile-kanban-container * {
-    margin-bottom: 0 !important;
-  }
-
-  .mobile-kanban-board:after {
-    content: '';
-    display: block;
-    height: 0;
-  }
-
-  /* Ensure no body overflow */
-  body:has(.mobile-kanban-container) {
-    overflow: hidden;
-    height: 100vh;
-  }
-
-  /* Main content wrapper */
-  #root:has(.mobile-kanban-container) {
-    height: 100vh;
-    overflow: hidden;
+    min-height: 400px;
+    height: auto !important;
+    max-height: none !important;
   }
 
 }
