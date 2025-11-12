@@ -237,9 +237,9 @@ const KanbanBoard = () => {
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col bg-transparent lg:bg-slate-50">
       {/* Header */}
-      <div className="bg-white border-b border-slate-200 px-6 py-4">
+      <div className="bg-white border-b border-slate-200 lg:px-6 px-3 py-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Kanban Board</h1>
@@ -334,7 +334,7 @@ const KanbanBoard = () => {
       </div>
 
       {/* Kanban Board */}
-      <div className="flex-1 overflow-x-auto lg:p-6 lg:bg-slate-50 px-3">
+      <div className="flex-1 overflow-x-auto lg:p-6 px-3 py-3">
         <DragDropContext onDragEnd={handleDragEnd}>
           <div className="flex gap-4 min-w-max h-full">
             {COLUMNS.map((column) => {
