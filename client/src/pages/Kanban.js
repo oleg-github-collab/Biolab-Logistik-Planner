@@ -316,7 +316,7 @@ const KanbanBoard = () => {
                   <option value="">Alle Prioritäten</option>
                   <option value="low">Niedrig</option>
                   <option value="medium">Mittel</option>
-                  <option value="high">Dringend</option>
+                  <option value="urgent">Dringend</option>
                 </select>
               </div>
 

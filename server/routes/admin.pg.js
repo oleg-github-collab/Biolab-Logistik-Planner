@@ -890,7 +890,7 @@ router.get('/users/online', [auth, adminAuth], async (req, res) => {
 // @desc    Broadcast message to all users (admin only)
 router.post('/broadcast', [auth, adminAuth], async (req, res) => {
   try {
-    console.log('[BROADCAST] Request:', JSON.stringify(req.body, null, 2));
+    console.log('[BROADCAST-v3-FIXED] User:', req.user.id, 'Body:', JSON.stringify(req.body, null, 2));
     const { message, type = 'info' } = req.body;
 
     if (!message || !message.trim()) {
