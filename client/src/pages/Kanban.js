@@ -334,7 +334,7 @@ const KanbanBoard = () => {
       </div>
 
       {/* Kanban Board */}
-      <div className="flex-1 overflow-x-auto p-6 bg-slate-50">
+      <div className="flex-1 overflow-x-auto lg:p-6 lg:bg-slate-50 px-3">
         <DragDropContext onDragEnd={handleDragEnd}>
           <div className="flex gap-4 min-w-max h-full">
             {COLUMNS.map((column) => {
