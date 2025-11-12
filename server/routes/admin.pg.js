@@ -927,12 +927,15 @@ router.post('/broadcast', [auth, adminAuth], async (req, res) => {
 
     const notificationResult = await pool.query(
       `
-      INSERT INTO notifications (user_id, type, title, content, metadata, created_at, priority, is_read)
+      INSERT INTO notifications (user_id, type, title, content, metadata, created_at, priority, is_read, related_user_id, task_id, event_id)
       SELECT id, 'broadcast', $1, $2,
              jsonb_build_object('category', 'admin', 'severity', $3)::jsonb,
              NOW(),
              'normal',
-             FALSE
+             FALSE,
+             $4,
+             NULL,
+             NULL
       FROM users
       WHERE is_active = TRUE
         AND id <> $4
