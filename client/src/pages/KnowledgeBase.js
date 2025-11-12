@@ -24,13 +24,24 @@ import {
   Layers,
   Save,
   AlertCircle,
-  ToggleLeft
+  ToggleLeft,
+  Mic
 } from 'lucide-react';
 import api from '../utils/api';
-import { uploadKBMedia, deleteKBMedia, getArticleVersions, restoreArticleVersion } from '../utils/apiEnhanced';
+import {
+  uploadKBMedia,
+  deleteKBMedia,
+  getArticleVersions,
+  restoreArticleVersion,
+  createKBArticle,
+  updateKBArticle,
+  dictateKBArticle,
+  compareArticleVersions
+} from '../utils/apiEnhanced';
 import { getAssetUrl } from '../utils/media';
 import toast from 'react-hot-toast';
 import { useMobile } from '../hooks/useMobile';
+import VoiceRecorder from '../components/VoiceRecorder';
 
 // Constants
 const ITEMS_PER_PAGE = 12;
@@ -46,6 +57,15 @@ const STATUS_TABS = [
   { id: 'published', label: 'Veröffentlicht' },
   { id: 'draft', label: 'Entwürfe' },
   { id: 'archived', label: 'Archiv' }
+];
+
+const DICTATION_LANGUAGES = [
+  { value: 'auto', label: 'Automatisch erkennen' },
+  { value: 'de', label: 'Deutsch' },
+  { value: 'en', label: 'Englisch' },
+  { value: 'es', label: 'Spanisch' },
+  { value: 'ru', label: 'Russisch' },
+  { value: 'uk', label: 'Ukrainisch' }
 ];
 
 // Category Icon Component
@@ -440,27 +460,37 @@ const ArticleViewModal = ({
                   <p className="text-sm text-gray-500">Keine Versionen verfügbar.</p>
                 ) : (
                   versions.map((version) => (
-                    <div
-                      key={version.id || version.version_number}
-                      className="flex items-center justify-between border border-gray-200 rounded-lg p-3 bg-white"
-                    >
-                      <div>
-                        <p className="text-sm font-semibold text-gray-900">
-                          Version {version.version_number}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {formatDateTime(version.created_at)} · {version.author_name || 'Unbekannt'}
-                        </p>
-                      </div>
-                      {canRestore && (
+                      <div
+                        key={version.id || version.version_number}
+                        className="flex items-center justify-between border border-gray-200 rounded-lg p-3 bg-white"
+                      >
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">
+                            Version {version.version_number}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {formatDateTime(version.created_at)} · {version.author_name || 'Unbekannt'}
+                          </p>
+                        </div>
+                      <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          onClick={() => handleRestoreVersion(version.version_number)}
-                          className="text-xs px-3 py-1.5 rounded-md border border-blue-200 text-blue-700 hover:bg-blue-50"
+                          onClick={() => handleVersionDiff(version.version_number)}
+                          disabled={diffLoadingVersion === version.version_number}
+                          className="text-xs px-3 py-1.5 rounded-md border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-60"
                         >
-                          Wiederherstellen
+                          {diffLoadingVersion === version.version_number ? 'Lädt…' : 'Diff'}
                         </button>
-                      )}
+                        {canRestore && (
+                          <button
+                            type="button"
+                            onClick={() => handleRestoreVersion(version.version_number)}
+                            className="text-xs px-3 py-1.5 rounded-md border border-blue-200 text-blue-700 hover:bg-blue-50"
+                          >
+                            Wiederherstellen
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))
                 )}
@@ -527,7 +557,7 @@ const ArticleViewModal = ({
 };
 
 // Article Editor Modal Component
-const ArticleEditorModal = ({ article, categories, allTags, onSave, onClose }) => {
+const ArticleEditorModal = ({ article, categories, allTags, onSave, onClose, onDraftSaved = () => {} }) => {
   const [title, setTitle] = useState(article?.title || '');
   const [content, setContent] = useState(article?.content || '');
   const [summary, setSummary] = useState(article?.summary || '');
@@ -541,8 +571,22 @@ const ArticleEditorModal = ({ article, categories, allTags, onSave, onClose }) =
   const [mediaFiles, setMediaFiles] = useState([]);
   const [existingMedia, setExistingMedia] = useState(article?.media || []);
   const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [draftId, setDraftId] = useState(article?.id || null);
+  const [autoSaving, setAutoSaving] = useState(false);
+  const [autoSaveError, setAutoSaveError] = useState('');
 
   const isEditing = !!article?.id;
+
+  useEffect(() => {
+    setTitle(article?.title || '');
+    setContent(article?.content || '');
+    setSummary(article?.summary || '');
+    setCategoryId(article?.category_id || '');
+    setTags(article?.tags || []);
+    setStatus(article?.status || 'draft');
+    setExistingMedia(article?.media || []);
+    setDraftId(article?.id || null);
+  }, [article]);
 
   const filteredTagSuggestions = useMemo(() => {
     if (!tagInput.trim()) return [];
@@ -605,6 +649,54 @@ const ArticleEditorModal = ({ article, categories, allTags, onSave, onClose }) =
       return prev.filter((entry) => entry.id !== id);
     });
   };
+
+  const autoSaveDraft = useCallback(async () => {
+    if (isSaving || autoSaving) return;
+    if (!title.trim() && !content.trim()) return;
+    const targetCategory = categoryId || categories[0]?.id;
+    if (!targetCategory) return;
+
+    const trimmedTags = tags.map((tag) => tag.trim()).filter(Boolean);
+    const payload = {
+      title: title.trim(),
+      content: content.trim(),
+      summary: summary.trim() || null,
+      category_id: parseInt(targetCategory, 10),
+      tags: trimmedTags,
+      status: 'draft',
+      auto_save: true
+    };
+
+    setAutoSaving(true);
+    setAutoSaveError('');
+
+    try {
+      const response = draftId
+        ? await updateKBArticle(draftId, payload)
+        : await createKBArticle(payload);
+      const saved = response.data;
+      if (saved?.id) {
+        setDraftId(saved.id);
+        onDraftSaved(saved);
+      }
+    } catch (error) {
+      console.error('Auto-save failed:', error);
+      setAutoSaveError('Entwurf konnte nicht automatisch gespeichert werden');
+    } finally {
+      setAutoSaving(false);
+    }
+  }, [
+    title,
+    content,
+    summary,
+    categoryId,
+    tags,
+    categories,
+    draftId,
+    isSaving,
+    autoSaving,
+    onDraftSaved
+  ]);
 
   const handleDeleteExistingMedia = async (mediaId) => {
     try {
@@ -684,6 +776,14 @@ const ArticleEditorModal = ({ article, categories, allTags, onSave, onClose }) =
       setIsSaving(false);
     }
   };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      autoSaveDraft();
+    }, 4500);
+
+    return () => clearTimeout(timer);
+  }, [title, content, summary, categoryId, tags, autoSaveDraft, categories]);
 
 
   return (
@@ -984,6 +1084,12 @@ const ArticleEditorModal = ({ article, categories, allTags, onSave, onClose }) =
             </div>
           </div>
 
+          {(autoSaving || autoSaveError) && (
+            <div className="px-6 text-xs text-slate-500">
+              {autoSaving ? 'Entwurf wird automatisch gespeichert…' : autoSaveError}
+            </div>
+          )}
+
           {/* Footer */}
           <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50">
             <button
@@ -1004,6 +1110,67 @@ const ArticleEditorModal = ({ article, categories, allTags, onSave, onClose }) =
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+};
+
+const VersionDiffModal = ({ isOpen, onClose, diff }) => {
+  if (!isOpen || !diff) return null;
+  const version1 = diff.version1 || {};
+  const version2 = diff.version2 || {};
+  const lines1 = (version1.content || '').split('\\n');
+  const lines2 = (version2.content || '').split('\\n');
+  const maxLines = Math.max(lines1.length, lines2.length);
+  const rows = Array.from({ length: maxLines }, (_, index) => ({
+    index,
+    left: lines1[index] || '',
+    right: lines2[index] || '',
+    changed: (lines1[index] || '').trim() !== (lines2[index] || '').trim()
+  }));
+  const changedCount = rows.filter((row) => row.changed).length;
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-60 px-4 py-8">
+      <div className="bg-white rounded-3xl w-full max-w-5xl shadow-2xl overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+          <div>
+            <p className="text-xs text-gray-500 uppercase tracking-[0.2em]">Version Diff</p>
+            <h3 className="text-xl font-bold text-slate-900">Version {version1.version_number} ↔ {version2.version_number}</h3>
+            <p className="text-xs text-slate-500">
+              {formatDateTime(version1.created_at)} · {formatDateTime(version2.created_at)} · {changedCount} Zeilen geändert
+            </p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-4 px-6 py-6">
+          {['left', 'right'].map((side, idx) => (
+            <div key={side} className="border border-gray-100 rounded-2xl bg-slate-50 p-4">
+              <p className="text-xs uppercase text-gray-500 mb-3">
+                Version {side === 'left' ? version1.version_number : version2.version_number}
+              </p>
+              <div className="space-y-1 text-xs font-mono leading-snug">
+                {rows.map((row) => {
+                  const value = side === 'left' ? row.left : row.right;
+                  return (
+                    <div
+                      key={`${side}-${row.index}`}
+                      className={`flex gap-2 ${row.changed ? 'bg-amber-50 border border-amber-200 rounded-md px-2 py-1' : ''}`}
+                    >
+                      <span className="text-[10px] text-gray-400 w-6 text-right">
+                        {row.index + 1}
+                      </span>
+                      <span className="break-words">{value || '·'}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -1034,6 +1201,15 @@ const KnowledgeBaseV3 = () => {
     () => ['admin', 'superadmin', 'observer'].includes(currentUser?.role),
     [currentUser]
   );
+  const [isDictationModalOpen, setIsDictationModalOpen] = useState(false);
+  const [dictationLanguage, setDictationLanguage] = useState('auto');
+  const [dictationLoading, setDictationLoading] = useState(false);
+  const [dictationError, setDictationError] = useState('');
+  const [dictationPreview, setDictationPreview] = useState(null);
+  const [dictationTranscript, setDictationTranscript] = useState('');
+  const [diffModalOpen, setDiffModalOpen] = useState(false);
+  const [diffPayload, setDiffPayload] = useState(null);
+  const [diffLoadingVersion, setDiffLoadingVersion] = useState(null);
 
   // Get current user
   useEffect(() => {
@@ -1218,6 +1394,18 @@ const KnowledgeBaseV3 = () => {
     }
   };
 
+  const handleDraftSaved = useCallback((draft) => {
+    if (!draft?.id) return;
+    setArticles((prev) => {
+      const exists = prev.some((item) => item.id === draft.id);
+      if (exists) {
+        return prev.map((item) => (item.id === draft.id ? draft : item));
+      }
+      return [draft, ...prev];
+    });
+    setSelectedArticle((prev) => (prev?.id === draft.id ? draft : prev));
+  }, []);
+
   const handleDeleteArticle = async (articleId) => {
     try {
       await api.delete(`/kb/articles/${articleId}`);
@@ -1269,12 +1457,94 @@ const KnowledgeBaseV3 = () => {
           : article
       ));
 
-      toast.success(isHelpful ? 'Als hilfreich markiert' : 'Als nicht hilfreich markiert');
+    toast.success(isHelpful ? 'Als hilfreich markiert' : 'Als nicht hilfreich markiert');
+  } catch (error) {
+    console.error('Error voting:', error);
+    toast.error(error.response?.data?.error || 'Fehler beim Abstimmen');
+  }
+};
+
+  const openDictationModal = useCallback(() => {
+    setDictationError('');
+    setDictationTranscript('');
+    setDictationPreview(null);
+    setIsDictationModalOpen(true);
+  }, []);
+
+  const closeDictationModal = useCallback(() => {
+    setIsDictationModalOpen(false);
+    setDictationPreview(null);
+    setDictationTranscript('');
+    setDictationError('');
+  }, []);
+
+  const handleDictationComplete = useCallback(async (audioBlob) => {
+    if (!audioBlob) return;
+    setDictationLoading(true);
+    setDictationError('');
+    try {
+      const formData = new FormData();
+      formData.append('audio', audioBlob, 'dictation.webm');
+      formData.append('language', dictationLanguage);
+      const response = await dictateKBArticle(formData);
+      const { transcript, instructions } = response.data;
+      setDictationTranscript(transcript || '');
+      setDictationPreview(instructions);
+      toast.success('Diktat erfolgreich verarbeitet');
     } catch (error) {
-      console.error('Error voting:', error);
-      toast.error(error.response?.data?.error || 'Fehler beim Abstimmen');
+      console.error('Error processing dictation:', error);
+      setDictationError(
+        error.response?.data?.error ||
+          error.message ||
+          'Diktat konnte nicht verarbeitet werden'
+      );
+    } finally {
+      setDictationLoading(false);
     }
-  };
+  }, [dictationLanguage]);
+
+  const handleUseDictation = useCallback(() => {
+    if (!dictationPreview) return;
+    const fallbackCategory = selectedCategory || categories[0]?.id || '';
+    setEditingArticle({
+      id: null,
+      title: dictationPreview.title || '',
+      summary: dictationPreview.summary || '',
+      content: dictationPreview.content || '',
+      category_id: fallbackCategory,
+      tags: [],
+      status: 'draft'
+    });
+    setIsEditorModalOpen(true);
+    closeDictationModal();
+  }, [categories, closeDictationModal, dictationPreview, selectedCategory]);
+
+  const handleVersionDiff = useCallback(async (versionNumber) => {
+    if (!selectedArticle?.id || versionNumber <= 1) {
+      toast.error('Die vorherige Version konnte nicht geladen werden');
+      return;
+    }
+    setDiffLoadingVersion(versionNumber);
+    try {
+      const response = await compareArticleVersions(
+        selectedArticle.id,
+        versionNumber - 1,
+        versionNumber
+      );
+      setDiffPayload(response.data);
+      setDiffModalOpen(true);
+    } catch (error) {
+      console.error('Error loading version diff:', error);
+      toast.error('Differenz konnte nicht geladen werden');
+    } finally {
+      setDiffLoadingVersion(null);
+    }
+  }, [selectedArticle, toast]);
+
+  const handleCloseDiffModal = useCallback(() => {
+    setDiffModalOpen(false);
+    setDiffPayload(null);
+  }, []);
 
   const handleCategorySelect = (categoryId) => {
     setSelectedCategory(categoryId === selectedCategory ? null : categoryId);
@@ -1382,24 +1652,25 @@ const KnowledgeBaseV3 = () => {
             </div>
 
             {/* Sort and Create */}
-            <div className="kb-controls">
-              <div className="kb-sort">
-                <Filter size={16} className="text-gray-500" />
-                <select
-                  value={sortBy}
-                  onChange={(e) => {
-                    setSortBy(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                >
-                  {SORT_OPTIONS.map(option => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+          <div className="kb-controls">
+            <div className="kb-sort">
+              <Filter size={16} className="text-gray-500" />
+              <select
+                value={sortBy}
+                onChange={(e) => {
+                  setSortBy(e.target.value);
+                  setCurrentPage(1);
+                }}
+              >
+                {SORT_OPTIONS.map(option => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
 
+            <div className="kb-control-actions">
               <button
                 type="button"
                 onClick={handleCreateArticle}
@@ -1408,7 +1679,16 @@ const KnowledgeBaseV3 = () => {
                 <Plus size={18} />
                 <span>Artikel erstellen</span>
               </button>
+              <button
+                type="button"
+                onClick={openDictationModal}
+                className="kb-create-btn kb-create-btn--ghost"
+              >
+                <Mic className="w-4 h-4" />
+                <span>Artikel diktieren</span>
+              </button>
             </div>
+          </div>
           </div>
 
           <div className="kb-status-tabs">
@@ -1575,8 +1855,10 @@ const KnowledgeBaseV3 = () => {
             setIsEditorModalOpen(false);
             setEditingArticle(null);
           }}
+          onDraftSaved={handleDraftSaved}
         />
       )}
+      <VersionDiffModal isOpen={diffModalOpen} onClose={handleCloseDiffModal} diff={diffPayload} />
 
       {/* Floating Action Button (Mobile) */}
       <button
@@ -1585,9 +1867,98 @@ const KnowledgeBaseV3 = () => {
       >
         <Plus size={24} />
       </button>
-      </div>
+      {isDictationModalOpen && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4 py-8">
+          <div className="bg-white rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-500 uppercase tracking-[0.2em]">Voice Assistant</p>
+                <h3 className="text-xl font-bold text-slate-900">Artikel diktieren</h3>
+              </div>
+              <button onClick={closeDictationModal} className="text-gray-400 hover:text-gray-600">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="px-6 py-6 space-y-5">
+              <div className="flex items-center gap-3">
+                <label className="text-sm font-semibold text-gray-700">Sprache</label>
+                <select
+                  className="border border-gray-200 rounded-lg px-3 py-1 text-sm"
+                  value={dictationLanguage}
+                  onChange={(e) => setDictationLanguage(e.target.value)}
+                >
+                  {DICTATION_LANGUAGES.map((lang) => (
+                    <option key={lang.value} value={lang.value}>
+                      {lang.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <VoiceRecorder
+                onRecordingComplete={handleDictationComplete}
+                existingAudioUrl={null}
+              />
+
+              {dictationLoading && (
+                <p className="text-sm text-gray-500">
+                  Verarbeitung läuft... Bitte einen Moment warten.
+                </p>
+              )}
+
+              {dictationError && (
+                <p className="text-sm text-red-600">{dictationError}</p>
+              )}
+
+              {dictationPreview && (
+                <div className="space-y-3 border border-gray-100 rounded-2xl p-4 bg-slate-50">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-lg font-semibold text-slate-900">
+                      {dictationPreview.title || 'Neue Anleitung'}
+                    </h4>
+                    <span className="text-xs uppercase text-blue-600 tracking-[0.2em]">
+                      {dictationPreview.steps?.length || 0} Schritte
+                    </span>
+                  </div>
+                  <p className="text-sm text-slate-600">{dictationPreview.summary}</p>
+                  <div className="space-y-2">
+                    {(dictationPreview.steps || []).map((step, index) => (
+                      <p key={`${step}-${index}`} className="text-sm text-slate-800">
+                        <span className="font-semibold">{index + 1}.</span> {step}
+                      </p>
+                    ))}
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">Transkript</p>
+                    <pre className="max-h-32 overflow-y-auto text-xs text-slate-700 bg-white/70 rounded-xl p-3 border border-dashed border-slate-200">
+                      {dictationTranscript || 'Transkript wird angezeigt, sobald die Aufnahme verarbeitet ist.'}
+                    </pre>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={handleUseDictation}
+                      className="px-4 py-2 rounded-2xl bg-blue-600 text-white font-semibold text-sm shadow hover:bg-blue-700 transition"
+                    >
+                      In Editor öffnen
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDictationPreview(null)}
+                      className="px-4 py-2 rounded-2xl bg-white text-slate-700 font-semibold text-sm border border-slate-200 hover:border-slate-400 transition"
+                    >
+                      Nochmals diktieren
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
-  );
+  </div>
+);
 };
 
 export default KnowledgeBaseV3;

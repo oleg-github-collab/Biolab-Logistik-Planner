@@ -1,7 +1,8 @@
 const express = require('express');
 const { pool } = require('../config/database');
 const { auth, adminAuth } = require('../middleware/auth');
-const { ensureDisposalCalendarEvent } = require('../services/entsorgungBot');
+const { ensureDisposalCalendarEvent, ensureBotUser, sendBotMessage, createNotification } = require('../services/entsorgungBot');
+const logger = require('../utils/logger');
 const router = express.Router();
 
 // XSS Protection Helper
@@ -1562,6 +1563,81 @@ router.get('/statistics', auth, async (req, res) => {
   } catch (error) {
     console.error('Error fetching waste statistics:', error);
     res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// POST /api/waste/disposal-schedules/:scheduleId/action
+router.post('/disposal-schedules/:scheduleId/action', auth, async (req, res) => {
+  const { scheduleId } = req.params;
+  const { action, message } = req.body;
+  const allowedActions = ['acknowledge', 'defer'];
+
+  if (!allowedActions.includes(action)) {
+    return res.status(400).json({ error: 'Ungültige Aktion' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const scheduleResult = await client.query(
+      'SELECT * FROM waste_disposal_schedule WHERE id = $1 FOR UPDATE',
+      [scheduleId]
+    );
+
+    if (scheduleResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Entsorgungsplan nicht gefunden' });
+    }
+
+    const newStatus = action === 'acknowledge' ? 'scheduled' : 'rescheduled';
+    const note = `${action === 'acknowledge' ? 'Bestätigt' : 'Verschoben'} von ${req.user.name}${
+      message ? ` – ${message}` : ''
+    }`;
+
+    await client.query(
+      `UPDATE waste_disposal_schedule
+         SET status = $1,
+             last_bot_notification_at = CURRENT_TIMESTAMP,
+             notes = COALESCE(notes, '') || $2,
+             updated_at = CURRENT_TIMESTAMP
+       WHERE id = $3`,
+      [newStatus, `${note}\n`, scheduleId]
+    );
+
+    await client.query(
+      `INSERT INTO waste_disposal_schedule_responses (schedule_id, user_id, action, message)
+       VALUES ($1, $2, $3, $4)`,
+      [scheduleId, req.user.id, action, message || null]
+    );
+
+    const responseText =
+      action === 'acknowledge'
+        ? 'Danke, die Erinnerung wurde als bestätigt markiert.'
+        : 'Verstanden. Ich erinnere dich später erneut.';
+
+    await sendBotMessage(client, req.user.id, responseText);
+    await createNotification(client, req.user.id, {
+      title: 'Entsorgungshinweis',
+      content: responseText,
+      type: 'waste',
+      metadata: {
+        scheduleId,
+        action
+      }
+    });
+
+    await client.query('COMMIT');
+    res.json({ success: true, scheduleId, action });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    logger.error('Error processing disposal schedule action', {
+      error: error.message,
+      scheduleId,
+      action
+    });
+    res.status(500).json({ error: 'Fehler beim Verarbeiten der Aktion' });
+  } finally {
+    client.release();
   }
 });
 

@@ -19,7 +19,9 @@ import {
   markNotificationAsRead,
   markAllNotificationsAsRead,
   deleteNotification,
-  clearAllReadNotifications
+  clearAllReadNotifications,
+  takeNotificationAction,
+  respondToDisposalAction
 } from '../utils/apiEnhanced';
 import { useWebSocketContext } from '../context/WebSocketContext';
 import { useMobile, useScrollLock } from '../hooks/useMobile';
@@ -43,6 +45,7 @@ const NotificationDropdown = () => {
   const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef(null);
+  const [actionLoadingKey, setActionLoadingKey] = useState(null);
 
   const closeDropdown = useCallback(() => {
     setIsOpen(false);
@@ -192,6 +195,29 @@ const NotificationDropdown = () => {
     }
   }, [loadUnreadCount]);
 
+  const handleNotificationActionButton = useCallback(async (event, notification, action) => {
+    event.stopPropagation();
+    const actionKey = `${notification.id}-${action.key}`;
+    if (actionLoadingKey === actionKey) {
+      return;
+    }
+    setActionLoadingKey(actionKey);
+    try {
+      await takeNotificationAction(notification.id, action.key, {
+        scheduleId: notification.metadata?.scheduleId
+      });
+      if (action.entAction && notification.metadata?.scheduleId) {
+        await respondToDisposalAction(notification.metadata.scheduleId, action.entAction);
+      }
+      loadNotifications();
+      loadUnreadCount();
+    } catch (error) {
+      console.error('Notification action error:', error);
+    } finally {
+      setActionLoadingKey(null);
+    }
+  }, [actionLoadingKey, loadNotifications, loadUnreadCount]);
+
   const getNotificationIcon = useCallback((type) => {
     const icons = {
       message: <MessageSquare className="w-4 h-4 text-blue-500" />,
@@ -283,6 +309,30 @@ const NotificationDropdown = () => {
               <p className="text-sm text-gray-600 mt-1 break-words">
                 {notification.content}
               </p>
+              {notification.metadata?.actions?.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {notification.metadata.actions.map((action) => {
+                    const isLoading = actionLoadingKey === `${notification.id}-${action.key}`;
+                    const variant =
+                      action.variant === 'primary'
+                        ? 'bg-blue-600 text-white border-transparent hover:bg-blue-700'
+                        : action.variant === 'danger'
+                        ? 'bg-red-600 text-white border-transparent hover:bg-red-700'
+                        : 'bg-white text-slate-700 border border-gray-200 hover:bg-gray-50';
+                    return (
+                      <button
+                        key={action.key}
+                        type="button"
+                        onClick={(event) => handleNotificationActionButton(event, notification, action)}
+                        disabled={isLoading}
+                        className={`text-xs px-3 py-1 rounded-full font-semibold transition ${variant} disabled:opacity-60`}
+                      >
+                        {isLoading ? 'Wird gesendet…' : action.label || 'Aktion'}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
               <div className="flex items-center gap-2 text-xs text-gray-400 mt-2">
                 <span>{formatTimestamp(notification.created_at)}</span>
                 {!notification.is_read && <span className="w-2 h-2 rounded-full bg-blue-500" />}

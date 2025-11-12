@@ -11,6 +11,21 @@ const {
   buildDisposalReminderMessage
 } = require('./entsorgungBot');
 
+const ENT_NOTIFICATION_ACTIONS = [
+  {
+    key: 'entsorgung_acknowledge',
+    label: 'Bestätigen',
+    entAction: 'acknowledge',
+    variant: 'primary'
+  },
+  {
+    key: 'entsorgung_defer',
+    label: 'Später erinnern',
+    entAction: 'defer',
+    variant: 'secondary'
+  }
+];
+
 const REMINDER_LOOKAHEAD_DAYS = 2;
 
 const fetchDueSchedules = async (client) => {
@@ -131,7 +146,8 @@ const runEntsorgungReminderJob = async ({ triggeredByScheduler = false } = {}) =
                 scheduleId: scheduleRow.id,
                 wasteItemId: scheduleRow.waste_item_id,
                 triggeredByScheduler,
-                hazardLevel: scheduleRow.hazard_level
+                hazardLevel: scheduleRow.hazard_level,
+                actions: ENT_NOTIFICATION_ACTIONS
               }
             });
           } catch (notifyError) {

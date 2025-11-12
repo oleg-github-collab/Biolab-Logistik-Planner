@@ -267,6 +267,11 @@ export const voteKBArticle = (articleId, isHelpful) =>
 export const searchKB = (query, params = {}) =>
   api.get('/kb/search', { params: { q: query, ...params } });
 
+export const dictateKBArticle = (formData) =>
+  api.post('/kb/articles/dictate', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+
 // ============================================
 // KANBAN FILTERS APIs (assuming we extend tasks.pg.js)
 // ============================================
@@ -466,6 +471,9 @@ export const checkEventConflict = (eventData) =>
 // Get waste statistics
 export const getWasteStatistics = (params = {}) =>
   api.get('/waste/statistics', { params });
+
+export const respondToDisposalAction = (scheduleId, action, message = '') =>
+  api.post(`/waste/disposal-schedules/${scheduleId}/action`, { action, message });
 
 // ==================== KB ARTICLE VERSIONING ====================
 

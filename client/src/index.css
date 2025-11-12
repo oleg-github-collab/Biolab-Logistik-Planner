@@ -2742,6 +2742,16 @@ body {
   font-weight: 600;
   box-shadow: 0 14px 30px rgba(37, 99, 235, 0.35);
 }
+.kb-control-actions {
+  display: inline-flex;
+  gap: 0.75rem;
+}
+.kb-create-btn--ghost {
+  background: #eef2ff;
+  color: #1d4ed8;
+  box-shadow: none;
+  border: 1px solid #c7d2fe;
+}
 
 .kb-status-tabs {
   display: flex;

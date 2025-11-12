@@ -1,7 +1,9 @@
 const express = require('express');
+const fs = require('fs');
 const { pool } = require('../config/database');
 const { auth } = require('../middleware/auth');
 const { uploadSingle } = require('../services/fileService');
+const { transcribeAudio, createInstructionDraft } = require('../services/openaiService');
 const { getIO } = require('../websocket');
 const logger = require('../utils/logger');
 
@@ -630,6 +632,41 @@ router.post('/articles/:id/media', auth, uploadSingle('media'), async (req, res)
   } catch (error) {
     logger.error('Error uploading media:', error);
     res.status(500).json({ error: 'Serverfehler beim Hochladen' });
+  }
+});
+
+// @route   POST /api/kb/articles/dictate
+// @desc    Transcribe audio and generate KB instructions via OpenAI
+router.post('/articles/dictate', auth, uploadSingle('audio'), async (req, res) => {
+  const cleanupFile = async () => {
+    if (req.file?.path) {
+      try {
+        await fs.promises.unlink(req.file.path);
+      } catch (error) {
+        logger.warn('Failed to remove dictation upload', { error: error.message });
+      }
+    }
+  };
+
+  if (!req.file) {
+    await cleanupFile();
+    return res.status(400).json({ error: 'Audiomaterial erforderlich' });
+  }
+
+  const languageHint = req.body.language || 'auto';
+  try {
+    const transcript = await transcribeAudio(req.file.path, languageHint);
+    const instructions = await createInstructionDraft(transcript);
+    res.json({
+      transcript,
+      instructions,
+      language: languageHint
+    });
+  } catch (error) {
+    logger.error('Error dictating KB article', { error: error.message });
+    res.status(500).json({ error: 'Fehler beim Verarbeiten der Aufnahme', details: error.message });
+  } finally {
+    await cleanupFile();
   }
 });
 
