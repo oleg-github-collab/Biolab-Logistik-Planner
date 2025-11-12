@@ -53,7 +53,32 @@ export const fetchEvents = async (start, end, type, priority) => {
  */
 export const createEventWithRefetch = async (eventData, refetchCallback) => {
   try {
-    const response = await createEventBase(eventData);
+    // Transform field names to match server expectations
+    const transformedData = {
+      title: eventData.title,
+      description: eventData.description,
+      startDate: eventData.start_date || eventData.startDate,
+      endDate: eventData.end_date || eventData.endDate,
+      startTime: eventData.start_time || eventData.startTime,
+      endTime: eventData.end_time || eventData.endTime,
+      all_day: eventData.all_day,
+      type: eventData.type || eventData.event_type,
+      priority: eventData.priority,
+      location: eventData.location,
+      attendees: eventData.attendees,
+      reminder: eventData.reminder,
+      notes: eventData.notes,
+      is_recurring: eventData.recurring || eventData.is_recurring,
+      recurrence_pattern: eventData.recurring_pattern || eventData.recurrence_pattern,
+      recurrence_end_date: eventData.recurring_end || eventData.recurrence_end_date,
+      audio_url: eventData.audio_url,
+      attachments: eventData.attachments,
+      color: eventData.color,
+      status: eventData.status,
+      category: eventData.category,
+    };
+
+    const response = await createEventBase(transformedData);
 
     // Immediately refetch events to get the latest state from server
     if (refetchCallback && typeof refetchCallback === 'function') {

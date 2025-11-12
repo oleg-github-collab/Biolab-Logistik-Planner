@@ -104,14 +104,17 @@
     height: 100dvh !important;
     overflow: hidden !important;
     animation: slideInRightFullscreen 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    border-radius: 28px 0 0 28px;
+    border-radius: 0;
     overflow: hidden;
+    width: 100vw !important;
+    left: 0 !important;
   }
 
-  /* Tailwind class override for drawer */
+  /* Tailwind class override for drawer - FULL SCREEN */
   .lg\:hidden.fixed.inset-y-0.right-0 {
-    left: 10vw !important;
-    border-radius: 28px 0 0 28px !important;
+    left: 0 !important;
+    width: 100vw !important;
+    border-radius: 0 !important;
   }
 
   @keyframes slideInRightFullscreen {
