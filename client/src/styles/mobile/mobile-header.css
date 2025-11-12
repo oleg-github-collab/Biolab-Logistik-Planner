@@ -73,6 +73,7 @@
     background: rgba(15, 23, 42, 0.65) !important;
     backdrop-filter: blur(16px) !important;
     -webkit-backdrop-filter: blur(16px) !important;
+    z-index: 10040 !important; /* Під меню але над всім іншим */
   }
 
   @keyframes fadeInBackdrop {
@@ -96,7 +97,7 @@
     left: 10vw !important;
     background: linear-gradient(180deg, #ffffff 0%, #fafbfc 50%, #f8fafc 100%);
     box-shadow: -16px 0 80px rgba(15, 23, 42, 0.3);
-    z-index: 9999;
+    z-index: 10050 !important; /* Вище від всього включно з білим полем Kanban */
     display: flex !important;
     flex-direction: column !important;
     height: 100vh !important;
