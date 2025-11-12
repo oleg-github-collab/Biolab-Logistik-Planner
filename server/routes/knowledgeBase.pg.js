@@ -58,44 +58,51 @@ router.get('/articles', auth, async (req, res) => {
   try {
     const { category_id, tag, search, status = 'published', limit = 50, offset = 0, sort = 'recent' } = req.query;
     
+    const params = [status];
+    const userVotePlaceholder = `$${params.length + 1}`;
+    params.push(req.user.id);
+
     let query = `
       SELECT a.*, u.name as author_name, u.profile_photo as author_photo,
         c.name as category_name, c.color as category_color,
-        COUNT(DISTINCT acm.id) as comments_count
+        COUNT(DISTINCT acm.id) as comments_count,
+        COUNT(DISTINCT v.id) as version_count,
+        MAX(user_votes.is_helpful) as user_vote
       FROM kb_articles a
       LEFT JOIN users u ON a.author_id = u.id
       LEFT JOIN kb_categories c ON a.category_id = c.id
       LEFT JOIN kb_article_comments acm ON a.id = acm.article_id
+      LEFT JOIN kb_article_votes user_votes ON user_votes.article_id = a.id AND user_votes.user_id = ${userVotePlaceholder}
+      LEFT JOIN kb_article_versions v ON v.article_id = a.id
       WHERE a.status = $1
     `;
-    const params = [status];
-    let paramIndex = 2;
 
     if (category_id) {
-      query += ` AND a.category_id = $${paramIndex}`;
+      query += ` AND a.category_id = $${params.length + 1}`;
       params.push(parseInt(category_id));
-      paramIndex++;
     }
 
     if (tag) {
-      query += ` AND $${paramIndex} = ANY(a.tags)`;
+      query += ` AND $${params.length + 1} = ANY(a.tags)`;
       params.push(tag);
-      paramIndex++;
     }
 
     if (search) {
-      query += ` AND (a.search_vector @@ plainto_tsquery('german', $${paramIndex}) OR LOWER(a.title) LIKE $${paramIndex + 1})`;
+      query += ` AND (a.search_vector @@ plainto_tsquery('german', $${params.length + 1}) OR LOWER(a.title) LIKE $${params.length + 2})`;
       params.push(search, `%${search.toLowerCase()}%`);
-      paramIndex += 2;
     }
 
     query += ' GROUP BY a.id, u.name, u.profile_photo, c.name, c.color, c.id';
 
-    if (sort === 'popular') query += ' ORDER BY a.view_count DESC';
-    else if (sort === 'helpful') query += ' ORDER BY a.helpful_count DESC';
-    else query += ' ORDER BY a.is_featured DESC, a.created_at DESC';
+    if (sort === 'popular') {
+      query += ' ORDER BY a.view_count DESC';
+    } else if (sort === 'helpful') {
+      query += ' ORDER BY a.helpful_count DESC';
+    } else {
+      query += ' ORDER BY a.is_featured DESC, a.created_at DESC';
+    }
 
-    query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    query += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
     params.push(parseInt(limit), parseInt(offset));
 
     const result = await pool.query(query, params);
@@ -139,11 +146,25 @@ router.get('/articles/:id', auth, async (req, res) => {
       WHERE c.article_id = $1 ORDER BY c.created_at ASC
     `, [id]);
 
+    const versionCountResult = await client.query(
+      'SELECT COUNT(*) as version_count FROM kb_article_versions WHERE article_id = $1',
+      [id]
+    );
+
+    const voteResult = await client.query(
+      'SELECT is_helpful FROM kb_article_votes WHERE article_id = $1 AND user_id = $2',
+      [id, req.user.id]
+    );
+
+    const versionCount = parseInt(versionCountResult.rows[0]?.version_count || '0', 10);
+    const userVote = voteResult.rows.length > 0 ? voteResult.rows[0].is_helpful : null;
+
     res.json({
       ...articleResult.rows[0],
       media: [], // No media table yet
       comments: commentsResult.rows,
-      user_vote: null // No votes table yet
+      user_vote: userVote,
+      version_count: versionCount
     });
   } catch (error) {
     logger.error('Error fetching article:', error);

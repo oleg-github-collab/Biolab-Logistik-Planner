@@ -31,6 +31,37 @@ const RECURRENCE_PATTERNS = [
   { value: 'yearly', label: 'Jährlich' },
 ];
 
+const toDateInstance = (value) => {
+  if (!value && value !== 0) return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const formatAsDateInput = (value) => {
+  const date = toDateInstance(value);
+  return date ? format(date, 'yyyy-MM-dd') : '';
+};
+
+const formatAsTimeInput = (value) => {
+  const date = toDateInstance(value);
+  return date ? format(date, 'HH:mm') : '';
+};
+
+const ensureTimeString = (value) => {
+  if (!value) return '00:00';
+  const [hour = '00', minute = '00'] = value.split(':');
+  return `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`;
+};
+
+const combineDateAndTime = (dateValue, timeValue, allDay, fallbackDate = null) => {
+  const dateString = dateValue || formatAsDateInput(fallbackDate);
+  if (!dateString) return null;
+  const normalizedDate = formatAsDateInput(dateString);
+  const normalizedTime = allDay ? '00:00' : ensureTimeString(timeValue || formatAsTimeInput(fallbackDate));
+  return toDateInstance(`${normalizedDate}T${normalizedTime}:00`);
+};
+
 /**
  * EventFormModal Component
  * A comprehensive form for creating and editing calendar events
@@ -57,6 +88,8 @@ const EventFormModal = ({
     end_date: format(selectedDate, 'yyyy-MM-dd'),
     start_time: '09:00',
     end_time: '17:00',
+    start: toDateInstance(selectedDate),
+    end: toDateInstance(selectedDate) ? new Date(new Date(selectedDate).getTime() + 60 * 60 * 1000) : null,
     all_day: false,
     type: 'Arbeit',
     priority: 'medium',
@@ -81,10 +114,24 @@ const EventFormModal = ({
   // Initialize form data when event changes
   useEffect(() => {
     if (event && mode === 'edit') {
+      const normalizedStart = event.start || event.start_date;
+      const normalizedEnd = event.end || event.end_date;
+      const normalizedStartDate = formatAsDateInput(normalizedStart);
+      const normalizedEndDate = formatAsDateInput(normalizedEnd);
+      const normalizedStartTime = event.all_day ? '' : formatAsTimeInput(normalizedStart);
+      const normalizedEndTime = event.all_day ? '' : formatAsTimeInput(normalizedEnd);
+      const normalizedRecurringEnd = formatAsDateInput(event.recurring_end);
       setFormData({
         ...event,
+        start: toDateInstance(normalizedStart),
+        end: toDateInstance(normalizedEnd),
         attendees: Array.isArray(event.attendees) ? event.attendees : [],
         attachments: Array.isArray(event.attachments) ? event.attachments : [],
+        start_date: normalizedStartDate || '',
+        end_date: normalizedEndDate || '',
+        start_time: normalizedStartTime || '',
+        end_time: normalizedEndTime || '',
+        recurring_end: normalizedRecurringEnd || '',
       });
       setShowRecurringOptions(Boolean(event.recurring));
 
@@ -97,13 +144,17 @@ const EventFormModal = ({
       }
     } else {
       // Reset form for new event
+      const defaultStart = toDateInstance(selectedDate) || new Date();
+      const defaultEnd = new Date(defaultStart.getTime() + 60 * 60 * 1000);
       setFormData({
         title: '',
         description: '',
-        start_date: format(selectedDate, 'yyyy-MM-dd'),
-        end_date: format(selectedDate, 'yyyy-MM-dd'),
-        start_time: '09:00',
-        end_time: '17:00',
+        start_date: formatAsDateInput(defaultStart) || format(selectedDate, 'yyyy-MM-dd'),
+        end_date: formatAsDateInput(defaultEnd),
+        start_time: formatAsTimeInput(defaultStart) || '09:00',
+        end_time: formatAsTimeInput(defaultEnd) || '17:00',
+        start: defaultStart,
+        end: defaultEnd,
         all_day: false,
         type: 'Arbeit',
         priority: 'medium',
@@ -247,10 +298,31 @@ const EventFormModal = ({
       return;
     }
 
+    const normalizedStart = combineDateAndTime(
+      formData.start_date,
+      formData.start_time,
+      formData.all_day,
+      formData.start
+    );
+    const normalizedEnd = combineDateAndTime(
+      formData.end_date || formData.start_date,
+      formData.end_time,
+      formData.all_day,
+      formData.end || normalizedStart
+    ) || normalizedStart;
+
     setIsSubmitting(true);
 
     try {
-      await onSave(formData);
+      await onSave({
+        ...formData,
+        start: normalizedStart,
+        end: normalizedEnd,
+        start_date: formatAsDateInput(normalizedStart) || formData.start_date,
+        end_date: formatAsDateInput(normalizedEnd) || formData.end_date || formData.start_date,
+        start_time: formData.all_day ? '' : formatAsTimeInput(normalizedStart) || formData.start_time,
+        end_time: formData.all_day ? '' : formatAsTimeInput(normalizedEnd) || formData.end_time,
+      });
       onClose();
     } catch (error) {
       console.error('Error saving event:', error);

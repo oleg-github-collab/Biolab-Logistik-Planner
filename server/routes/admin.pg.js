@@ -314,7 +314,7 @@ router.put('/users/:id', [auth, adminAuth], async (req, res) => {
     }
 
     if (role) {
-      const allowedRoles = ['employee', 'admin', 'superadmin'];
+      const allowedRoles = ['employee', 'admin', 'superadmin', 'observer'];
 
       if (!allowedRoles.includes(role)) {
         return res.status(400).json({ error: 'Ungültige Rolle angegeben' });
@@ -484,7 +484,7 @@ router.post('/users', [auth, adminAuth], async (req, res) => {
     }
 
     // Validate role
-    const allowedRoles = ['employee', 'admin', 'superadmin'];
+    const allowedRoles = ['employee', 'admin', 'superadmin', 'observer'];
     if (!allowedRoles.includes(role)) {
       return res.status(400).json({ error: 'Ungültige Rolle angegeben' });
     }
@@ -917,13 +917,20 @@ router.post('/broadcast', [auth, adminAuth], async (req, res) => {
     const notificationTitle = `Nachricht von ${req.user.name}`;
 
     // Ensure all active users have notification_preferences
-    await pool.query(`
-      INSERT INTO notification_preferences (user_id)
-      SELECT id FROM users
-      WHERE is_active = TRUE
-        AND id NOT IN (SELECT user_id FROM notification_preferences)
-      ON CONFLICT (user_id) DO NOTHING
-    `);
+    try {
+      await pool.query(`
+        INSERT INTO notification_preferences (user_id)
+        SELECT id FROM users
+        WHERE is_active = TRUE
+          AND id NOT IN (SELECT user_id FROM notification_preferences)
+        ON CONFLICT (user_id) DO NOTHING
+      `);
+    } catch (prefsError) {
+      logger.warn('Failed to seed notification_preferences before broadcast', {
+        error: prefsError.message,
+        stack: prefsError.stack
+      });
+    }
 
     console.log('[BROADCAST] About to INSERT with params:', {
       title: notificationTitle,

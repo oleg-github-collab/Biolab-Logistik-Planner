@@ -10,6 +10,8 @@ const UserRow = memo(({ userItem, currentUserId, onEdit, onDelete }) => {
         return 'bg-indigo-100 text-indigo-700';
       case 'admin':
         return 'bg-purple-100 text-purple-800';
+      case 'observer':
+        return 'bg-teal-100 text-teal-800';
       default:
         return 'bg-green-100 text-green-800';
     }
@@ -21,6 +23,8 @@ const UserRow = memo(({ userItem, currentUserId, onEdit, onDelete }) => {
         return 'Superadministrator';
       case 'admin':
         return 'Administrator';
+      case 'observer':
+        return 'Beobachter';
       default:
         return 'Mitarbeiter';
     }
@@ -373,6 +377,7 @@ const UserManagement = () => {
                   onChange={(e) => setFormData({...formData, role: e.target.value})}
                   className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-biolab-blue focus:border-transparent"
                 >
+                  <option value="observer">Beobachter</option>
                   <option value="employee">Mitarbeiter</option>
                   <option value="admin">Administrator</option>
                   {user.role === 'superadmin' && (

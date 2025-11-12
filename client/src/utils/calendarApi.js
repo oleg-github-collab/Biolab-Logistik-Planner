@@ -6,6 +6,7 @@
  * This guarantees the UI always displays the most current data from the server.
  */
 
+import { format } from 'date-fns';
 import {
   getEvents as getEventsBase,
   createEvent as createEventBase,
@@ -14,6 +15,36 @@ import {
   duplicateEvent as duplicateEventBase,
   createBulkEvents as createBulkEventsBase,
 } from './api';
+
+const toDateInstance = (value) => {
+  if (!value && value !== 0) return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const formatDateOnly = (value) => {
+  const date = toDateInstance(value);
+  return date ? format(date, 'yyyy-MM-dd') : '';
+};
+
+const formatTimeOnly = (value) => {
+  const date = toDateInstance(value);
+  return date ? format(date, 'HH:mm') : '';
+};
+
+const buildDateTimeFromFields = (dateField, timeField, fallback = null, allDay = false) => {
+  const sourceDate = allDay ? formatDateOnly(dateField) : dateField;
+  if (!sourceDate && fallback) {
+    return toDateInstance(fallback);
+  }
+
+  if (!sourceDate) return null;
+
+  const normalizedTime = timeField && timeField.length === 5 ? timeField : `${String(timeField || '00:00').padStart(5, '0')}`;
+  const isoString = `${sourceDate}T${normalizedTime}:00`;
+  return toDateInstance(isoString);
+};
 
 /**
  * Fetch events with date range and filters
@@ -322,6 +353,10 @@ export const transformApiEventToUi = (apiEvent) => {
   const end = parseEventDate(apiEvent.end_time) ?? new Date(start.getTime() + 60 * 60 * 1000);
   const allDay = Boolean(apiEvent.all_day);
   const type = apiEvent.event_type || apiEvent.type || 'Termin';
+  const startDateString = formatDateOnly(start);
+  const endDateString = formatDateOnly(end);
+  const startTimeString = allDay ? '' : formatTimeOnly(start);
+  const endTimeString = allDay ? '' : formatTimeOnly(end);
 
   const attachments = Array.isArray(apiEvent.attachments)
     ? apiEvent.attachments
@@ -344,6 +379,10 @@ export const transformApiEventToUi = (apiEvent) => {
     start,
     end,
     all_day: allDay,
+    start_date: startDateString,
+    end_date: endDateString,
+    start_time: startTimeString,
+    end_time: endTimeString,
     type,
     priority: apiEvent.priority || 'medium',
     location: apiEvent.location || '',
@@ -374,18 +413,39 @@ export const transformApiEventToUi = (apiEvent) => {
 export const transformUiEventToApi = (uiEvent) => {
   const recurring = Boolean(uiEvent.recurring);
   const eventType = uiEvent.type || uiEvent.event_type || 'Termin';
+  const allDay = Boolean(uiEvent.all_day);
+  const startTimestamp = buildDateTimeFromFields(
+    uiEvent.start_date || uiEvent.start,
+    uiEvent.start_time || formatTimeOnly(uiEvent.start),
+    uiEvent.start || null,
+    allDay
+  );
+  const endTimestamp = buildDateTimeFromFields(
+    uiEvent.end_date || uiEvent.end,
+    uiEvent.end_time || formatTimeOnly(uiEvent.end) || (allDay ? '23:59' : null),
+    uiEvent.end || startTimestamp,
+    allDay
+  ) || startTimestamp;
+  const normalizedStartDate = startTimestamp ? format(startTimestamp, 'yyyy-MM-dd') : (uiEvent.start_date || '');
+  const normalizedEndDate = endTimestamp ? format(endTimestamp, 'yyyy-MM-dd') : (uiEvent.end_date || normalizedStartDate);
+  const normalizedStartTime = allDay ? '' : formatTimeOnly(startTimestamp || uiEvent.start_time);
+  const normalizedEndTime = allDay ? '' : formatTimeOnly(endTimestamp || uiEvent.end_time);
 
   return {
+    start: startTimestamp,
+    end: endTimestamp,
     title: uiEvent.title,
     description: uiEvent.description || '',
-    startDate: uiEvent.start instanceof Date ? uiEvent.start.toISOString() : uiEvent.start,
-    endDate: uiEvent.end instanceof Date ? uiEvent.end.toISOString() : uiEvent.end,
-    startTime: uiEvent.all_day ? null : uiEvent.start_time,
-    endTime: uiEvent.all_day ? null : uiEvent.end_time,
+    startDate: normalizedStartDate,
+    endDate: normalizedEndDate,
+    startTime: normalizedStartTime,
+    endTime: normalizedEndTime,
+    start_time: normalizedStartTime,
+    end_time: normalizedEndTime,
     event_type: eventType,
     type: eventType,
-    all_day: Boolean(uiEvent.all_day),
-    isAllDay: Boolean(uiEvent.all_day),
+    all_day: allDay,
+    isAllDay: allDay,
     is_recurring: recurring,
     isRecurring: recurring,
     recurrence_pattern: recurring ? (uiEvent.recurring_pattern || null) : null,

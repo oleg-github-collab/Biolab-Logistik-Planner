@@ -142,6 +142,14 @@ const ArticleCard = ({ article, onClick, canManage, onEdit, onStatusChange }) =>
           <Eye size={14} />
           <span>{article.views_count || 0}</span>
         </div>
+        {typeof article.version_count === 'number' && (
+          <div className="kb-article-card__meta-group">
+            <Layers size={14} />
+            <span>
+              Version{article.version_count === 1 ? '' : 'en'} {article.version_count}
+            </span>
+          </div>
+        )}
       </div>
 
       {article.tags && article.tags.length > 0 && (
@@ -160,11 +168,19 @@ const ArticleCard = ({ article, onClick, canManage, onEdit, onStatusChange }) =>
       )}
 
       <div className="kb-article-card__stats">
-        <div>
+        <div
+          className={`flex items-center gap-1 text-sm ${
+            article.user_vote === true ? 'text-green-600' : 'text-gray-500'
+          }`}
+        >
           <ThumbsUp size={14} />
           <span>{article.helpful_count || 0}</span>
         </div>
-        <div>
+        <div
+          className={`flex items-center gap-1 text-sm ${
+            article.user_vote === false ? 'text-red-600' : 'text-gray-500'
+          }`}
+        >
           <ThumbsDown size={14} />
           <span>{article.not_helpful_count || 0}</span>
         </div>
@@ -217,7 +233,7 @@ const ArticleViewModal = ({
   const [showVersions, setShowVersions] = useState(false);
   const [versionsLoading, setVersionsLoading] = useState(false);
 
-  const canEdit = article.author_id === currentUserId;
+  const canEdit = article.author_id === currentUserId || ['admin', 'superadmin', 'observer'].includes(currentUserRole);
   const canDelete =
     canEdit || ['admin', 'superadmin'].includes(currentUserRole);
   const canRestore = ['admin', 'superadmin'].includes(currentUserRole);
@@ -325,14 +341,20 @@ const ArticleViewModal = ({
                 <User size={16} className="mr-1" />
                 <span>{article.author_name || 'Unbekannt'}</span>
               </div>
-              <div className="flex items-center">
-                <Calendar size={16} className="mr-1" />
-                <span>{formatDateTime(article.created_at)}</span>
-              </div>
-              <div className="flex items-center">
-                <Eye size={16} className="mr-1" />
-                <span>{article.views_count || 0} Aufrufe</span>
-              </div>
+            <div className="flex items-center">
+              <Calendar size={16} className="mr-1" />
+              <span>{formatDateTime(article.created_at)}</span>
+            </div>
+            <div className="flex items-center">
+              <Eye size={16} className="mr-1" />
+              <span>{article.views_count || 0} Aufrufe</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Layers size={16} className="text-gray-500" />
+              <span>
+                {article.version_count || 0} Version{article.version_count === 1 ? '' : 'en'}
+              </span>
+            </div>
               {article.category_name && (
                 <span
                   className="px-2 py-1 text-xs font-medium rounded-full text-white"
@@ -405,7 +427,9 @@ const ArticleViewModal = ({
               className="text-sm font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-2"
             >
               <Layers size={16} />
-              {showVersions ? 'Versionen ausblenden' : 'Versionen anzeigen'}
+              {showVersions
+                ? 'Versionen ausblenden'
+                : `Versionen anzeigen (${versions.length || article.version_count || 0})`}
             </button>
 
             {showVersions && (
@@ -1007,7 +1031,7 @@ const KnowledgeBaseV3 = () => {
   const [editingArticle, setEditingArticle] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const isAdminUser = useMemo(
-    () => ['admin', 'superadmin'].includes(currentUser?.role),
+    () => ['admin', 'superadmin', 'observer'].includes(currentUser?.role),
     [currentUser]
   );
 

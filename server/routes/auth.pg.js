@@ -142,7 +142,7 @@ router.post('/register', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 12);
 
     // Set role for first user
-    const allowedRoles = ['employee', 'admin', 'superadmin'];
+    const allowedRoles = ['employee', 'admin', 'superadmin', 'observer'];
     const requestedRole = allowedRoles.includes(role) ? role : 'employee';
     const userRole = allowOpenRegistration ? 'superadmin' : requestedRole;
 

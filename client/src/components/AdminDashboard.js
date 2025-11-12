@@ -377,6 +377,7 @@ const AdminDashboard = () => {
     switch (role) {
       case 'superadmin': return 'bg-purple-100 text-purple-800';
       case 'admin': return 'bg-blue-100 text-blue-800';
+      case 'observer': return 'bg-teal-100 text-teal-800';
       case 'employee': return 'bg-green-100 text-green-800';
       default: return 'bg-gray-100 text-gray-800';
     }
@@ -824,6 +825,7 @@ const AdminDashboard = () => {
                         required
                       >
                         <option value="employee">Employee</option>
+                        <option value="observer">Beobachter</option>
                         <option value="admin">Admin</option>
                         {user?.role === 'superadmin' && (
                           <option value="superadmin">Superadmin</option>
