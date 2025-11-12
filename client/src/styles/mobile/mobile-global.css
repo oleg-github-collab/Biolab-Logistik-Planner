@@ -310,4 +310,26 @@
     border-width: 2px;
   }
 
+  /* ==========================================
+     SCROLL FIX - Забезпечити скрол у flex контейнерах
+     ========================================== */
+
+  /* Критично: flex контейнери потребують min-height: 0 для скролу */
+  .flex.flex-col,
+  .flex.flex-column {
+    min-height: 0 !important;
+  }
+
+  /* Забезпечити правильний скрол */
+  .overflow-y-auto {
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-y: contain !important;
+  }
+
+  /* Flex-1 з overflow повинен мати min-height: 0 */
+  .flex-1.overflow-y-auto {
+    min-height: 0 !important;
+    flex: 1 1 0% !important;
+  }
+
 }

@@ -5,7 +5,9 @@
 @import './styles/advanced-calendar.css';
 
 /* Import Mobile Design System - MODULAR & PROFESSIONAL */
+@import './styles/mobile/mobile-native-core.css';
 @import './styles/mobile/mobile-global.css';
+@import './styles/mobile/mobile-scroll-fix.css';
 @import './styles/mobile/mobile-bottom-nav.css';
 @import './styles/mobile/mobile-header.css';
 @import './styles/mobile/mobile-calendar.css';

@@ -1,0 +1,129 @@
+/* ==========================================
+   MOBILE SCROLL FIX
+   Критичні виправлення для вертикального скролу
+   ========================================== */
+
+@media (max-width: 1023px) {
+
+  /* ==========================================
+     ГОЛОВНА ПРОБЛЕМА: Flex контейнери не скролять
+     РІШЕННЯ: min-height: 0 на flex дітях
+     ========================================== */
+
+  /* Всі flex-column контейнери */
+  .flex.flex-col,
+  .flex-col,
+  [class*="flex"][class*="flex-col"] {
+    min-height: 0 !important;
+  }
+
+  /* Всі flex-1 елементи з overflow */
+  .flex-1.overflow-y-auto,
+  [class*="flex-1"][class*="overflow-y-auto"] {
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-y: contain !important;
+  }
+
+  /* Батьківський контейнер має бути flex column з висотою */
+  .lg\:hidden.fixed.inset-y-0,
+  [class*="lg:hidden"][class*="fixed"][class*="inset"] {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    overflow: hidden !important;
+  }
+
+  /* Header та Footer не повинні розтягуватися */
+  .mobile-menu-drawer > div:first-child,
+  .mobile-menu-drawer > div:last-child {
+    flex-shrink: 0 !important;
+    flex-grow: 0 !important;
+  }
+
+  /* Середній контейнер має скролитися */
+  .mobile-menu-drawer > .flex-1,
+  .mobile-menu-drawer > div.flex-1 {
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+
+  /* ==========================================
+     ДОДАТКОВІ ВИПРАВЛЕННЯ
+     ========================================== */
+
+  /* Всі overflow-y-auto елементи */
+  .overflow-y-auto {
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-y: contain !important;
+  }
+
+  /* Space-y utility не повинен заважати скролу */
+  .space-y-1 > *,
+  .space-y-2 > *,
+  .space-y-3 > *,
+  .space-y-4 > * {
+    flex-shrink: 0;
+  }
+
+  /* Grid контейнери */
+  .grid {
+    flex-shrink: 0;
+  }
+
+  /* ==========================================
+     CUSTOM SCROLLBAR
+     ========================================== */
+
+  .overflow-y-auto::-webkit-scrollbar,
+  .flex-1.overflow-y-auto::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .overflow-y-auto::-webkit-scrollbar-track,
+  .flex-1.overflow-y-auto::-webkit-scrollbar-track {
+    background: transparent;
+    margin: 12px 0;
+  }
+
+  .overflow-y-auto::-webkit-scrollbar-thumb,
+  .flex-1.overflow-y-auto::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.4);
+    border-radius: 999px;
+    border: 1.5px solid transparent;
+    background-clip: padding-box;
+  }
+
+  .overflow-y-auto::-webkit-scrollbar-thumb:hover,
+  .flex-1.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.6);
+    background-clip: padding-box;
+  }
+
+  .overflow-y-auto::-webkit-scrollbar-thumb:active,
+  .flex-1.overflow-y-auto::-webkit-scrollbar-thumb:active {
+    background: rgba(148, 163, 184, 0.8);
+    background-clip: padding-box;
+  }
+
+  /* ==========================================
+     DEBUG (можна видалити після тестування)
+     ========================================== */
+
+  /* Розкоментуй для дебагу:
+  .flex-1.overflow-y-auto {
+    border: 2px solid red !important;
+  }
+
+  .mobile-menu-drawer {
+    border: 2px solid blue !important;
+  }
+  */
+
+}

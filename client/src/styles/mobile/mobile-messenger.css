@@ -1,33 +1,66 @@
 /* ==========================================
-   MOBILE MESSENGER
-   Clean messenger + event picker modal
+   MOBILE MESSENGER - PREMIUM
+   Покращені кнопки, піднятий input у viewport
    ========================================== */
 
 @media (max-width: 1023px) {
 
-  /* Messenger container */
+  /* ==========================================
+     MESSENGER CONTAINER
+     ========================================== */
+
   .messenger-mobile-container {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    height: 100vh;
+    height: 100dvh;
+    background: #fafbfc;
   }
 
-  /* Messenger header */
+  /* ==========================================
+     MESSENGER HEADER - Premium style
+     ========================================== */
+
   .messenger-mobile-header {
-    padding: 12px 16px;
-    padding-top: calc(12px + env(safe-area-inset-top));
-    background: white;
-    border-bottom: 1px solid #e5e7eb;
+    padding: 16px 20px;
+    padding-top: max(16px, calc(env(safe-area-inset-top, 0) + 8px));
+    background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
+    border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+    box-shadow: 0 2px 12px rgba(15, 23, 42, 0.04);
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 14px;
     flex-shrink: 0;
+    z-index: 10;
   }
 
   .messenger-mobile-header-actions {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
+  }
+
+  /* Header buttons - Premium */
+  .messenger-mobile-header button {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 14px;
+    color: #475569;
+    transition: all 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
+    box-shadow: 0 3px 10px rgba(15, 23, 42, 0.06);
+  }
+
+  .messenger-mobile-header button:active {
+    transform: scale(0.94);
+    background: linear-gradient(135deg, #e2e8f0, #cbd5e1);
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.1);
   }
 
   /* Hide Info, Video, Phone buttons */
@@ -35,6 +68,7 @@
   .messenger-mobile-header button[aria-label*="Video"],
   .messenger-mobile-header button[aria-label*="Videoanruf"],
   .messenger-mobile-header button[aria-label*="Anruf"],
+  .messenger-mobile-header button[aria-label*="Phone"],
   .messenger-mobile-header button[title*="Info"],
   .messenger-mobile-header button[title*="Video"],
   .messenger-mobile-header button[title*="Call"],
@@ -45,239 +79,418 @@
     display: none !important;
   }
 
-  /* Messages area */
+  /* ==========================================
+     MESSAGES AREA
+     ========================================== */
+
   .messenger-mobile-messages {
     flex: 1;
     overflow-y: auto;
-    padding: 16px;
+    -webkit-overflow-scrolling: touch;
+    padding: 20px 16px;
     background: #f8fafc;
+    min-height: 0;
   }
 
-  /* Message bubble */
+  .messenger-mobile-messages::-webkit-scrollbar {
+    width: 5px;
+  }
+
+  .messenger-mobile-messages::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .messenger-mobile-messages::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.4);
+    border-radius: 999px;
+  }
+
+  /* ==========================================
+     MESSAGE BUBBLES - Premium
+     ========================================== */
+
   .message-bubble {
-    max-width: 80%;
-    padding: 12px 16px;
-    border-radius: 16px;
-    margin-bottom: 8px;
+    max-width: 85%;
+    padding: 14px 18px;
+    border-radius: 20px;
+    margin-bottom: 10px;
     word-wrap: break-word;
+    line-height: 1.5;
+    font-size: 16px;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
   }
 
   .message-bubble.own {
     background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-    color: white;
+    color: #ffffff;
     margin-left: auto;
-    border-bottom-right-radius: 4px;
+    border-bottom-right-radius: 6px;
+    box-shadow: 0 3px 12px rgba(59, 130, 246, 0.25);
   }
 
   .message-bubble.other {
-    background: white;
+    background: #ffffff;
     color: #0f172a;
-    border: 1px solid #e5e7eb;
-    border-bottom-left-radius: 4px;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-bottom-left-radius: 6px;
   }
 
-  /* Input area */
+  /* Message timestamp */
+  .message-timestamp {
+    font-size: 12px;
+    opacity: 0.7;
+    margin-top: 4px;
+  }
+
+  /* ==========================================
+     INPUT AREA - ПІДНЯТИЙ У VIEWPORT
+     ========================================== */
+
   .messenger-mobile-input {
     position: sticky;
     bottom: 0;
-    padding: 12px 16px;
-    padding-bottom: calc(12px + env(safe-area-inset-bottom));
-    background: white;
-    border-top: 1px solid #e5e7eb;
+    padding: 14px 16px;
+    padding-bottom: max(14px, calc(env(safe-area-inset-bottom, 0) + 8px));
+    background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
+    border-top: 1px solid rgba(15, 23, 42, 0.08);
+    box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.04);
     display: flex;
-    align-items: flex-end;
-    gap: 8px;
+    flex-direction: column;
+    gap: 10px;
+    flex-shrink: 0;
+    z-index: 20;
+    /* КРИТИЧНО: Піднятий у viewport */
+    transform: translateY(0);
+    transition: transform 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
   }
 
+  /* Коли клавіатура відкрита, input залишається видимим */
+  .messenger-mobile-input.keyboard-open {
+    transform: translateY(0) !important;
+  }
+
+  /* Main input row */
+  .messenger-input-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+  }
+
+  /* Textarea - Premium */
   .messenger-mobile-input textarea {
     flex: 1;
-    min-height: 44px;
+    min-height: 48px;
     max-height: 120px;
-    padding: 12px 16px;
-    font-size: 16px;
+    padding: 14px 18px;
+    font-size: 16px !important; /* Prevent iOS zoom */
     line-height: 1.5;
-    border: 1px solid #d1d5db;
-    border-radius: 12px;
-    background: #f8fafc;
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    border-radius: 16px;
+    background: #ffffff;
     resize: none;
     font-family: inherit;
+    color: #0f172a;
+    transition: all 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
   }
 
   .messenger-mobile-input textarea:focus {
     outline: none;
     border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    background: #ffffff;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12), 0 4px 16px rgba(59, 130, 246, 0.08);
   }
 
-  /* Send button */
+  .messenger-mobile-input textarea::placeholder {
+    color: #94a3b8;
+    font-weight: 500;
+  }
+
+  /* ==========================================
+     ACTION BUTTONS - Premium
+     ========================================== */
+
+  /* Attach button */
+  .messenger-attach-button {
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 14px;
+    color: #475569;
+    flex-shrink: 0;
+    transition: all 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
+    box-shadow: 0 3px 10px rgba(15, 23, 42, 0.06);
+  }
+
+  .messenger-attach-button:active {
+    transform: scale(0.94);
+    background: linear-gradient(135deg, #e2e8f0, #cbd5e1);
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.1);
+  }
+
+  .messenger-attach-button svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  /* Send button - Premium gradient */
   .messenger-mobile-input button[type="submit"],
   .messenger-send-button {
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    color: #ffffff;
+    border: none;
+    border-radius: 14px;
+    flex-shrink: 0;
+    box-shadow: 0 4px 16px rgba(59, 130, 246, 0.35);
+    transition: all 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
+  }
+
+  .messenger-send-button:active {
+    transform: scale(0.94);
+    box-shadow: 0 2px 10px rgba(59, 130, 246, 0.4);
+  }
+
+  .messenger-send-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .messenger-send-button svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  /* ==========================================
+     TOOLBAR - Premium buttons
+     ========================================== */
+
+  .messenger-mobile-actions,
+  .messenger-toolbar {
+    display: flex;
+    gap: 10px;
+    padding: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .messenger-toolbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .messenger-toolbar button {
+    padding: 12px 18px;
+    background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+    color: #475569;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 14px;
+    font-size: 14px;
+    font-weight: 700;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
+    box-shadow: 0 3px 10px rgba(15, 23, 42, 0.06);
+    min-height: 44px;
+  }
+
+  .messenger-toolbar button:active {
+    background: linear-gradient(135deg, #e2e8f0, #cbd5e1);
+    transform: scale(0.96);
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.1);
+  }
+
+  .messenger-toolbar button svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* ==========================================
+     EVENT PICKER MODAL - BOTTOM SHEET
+     ========================================== */
+
+  .event-picker-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    z-index: 10000;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    animation: fadeInBackdrop 0.3s ease;
+  }
+
+  .event-picker-modal {
+    width: 100%;
+    max-width: 100vw;
+    max-height: 90vh;
+    background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
+    border-radius: 28px 28px 0 0;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 -8px 40px rgba(15, 23, 42, 0.25);
+    animation: slideInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+  }
+
+  @keyframes slideInUp {
+    from {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  /* Pull handle - Premium */
+  .event-picker-modal::before {
+    content: '';
+    position: absolute;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 48px;
+    height: 5px;
+    background: linear-gradient(90deg, #cbd5e1, #94a3b8, #cbd5e1);
+    border-radius: 999px;
+    z-index: 1;
+    opacity: 0.7;
+  }
+
+  /* Modal header - Premium */
+  .event-picker-modal .modal-header {
+    padding: 28px 24px 18px;
+    border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+    background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
+  }
+
+  .event-picker-modal .modal-header h2,
+  .event-picker-modal .modal-header h3 {
+    font-size: 22px;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0;
+    letter-spacing: -0.02em;
+  }
+
+  .event-picker-modal .modal-header button {
     width: 44px;
     height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-    color: white;
-    border: none;
-    border-radius: 12px;
-    flex-shrink: 0;
-    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
-    transition: all 0.15s ease;
-  }
-
-  .messenger-send-button:active {
-    transform: scale(0.95);
-  }
-
-  .messenger-send-button svg {
-    width: 20px;
-    height: 20px;
-  }
-
-  /* Toolbar */
-  .messenger-mobile-actions,
-  .messenger-toolbar {
-    display: flex;
-    gap: 8px;
-    margin-top: 8px;
-    overflow-x: auto;
-  }
-
-  .messenger-toolbar button {
-    padding: 10px 16px;
-    background: #f1f5f9;
-    color: #475569;
-    border: none;
-    border-radius: 10px;
-    font-size: 14px;
-    font-weight: 600;
-    white-space: nowrap;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    transition: all 0.15s ease;
-  }
-
-  .messenger-toolbar button:active {
-    background: #e2e8f0;
-    transform: scale(0.98);
-  }
-
-  .messenger-toolbar button svg {
-    width: 16px;
-    height: 16px;
-  }
-
-  /* EVENT PICKER MODAL - BOTTOM SHEET */
-  .event-picker-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(6px);
-    z-index: 10000;
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
-  }
-
-  .event-picker-modal {
-    width: 100%;
-    max-height: 85vh;
-    background: white;
-    border-radius: 20px 20px 0 0;
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.15);
-    animation: slideInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  /* Pull handle */
-  .event-picker-modal::before {
-    content: '';
-    position: absolute;
-    top: 12px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 36px;
-    height: 4px;
-    background: #cbd5e1;
-    border-radius: 999px;
-  }
-
-  /* Modal header */
-  .event-picker-modal .modal-header {
-    padding: 24px 20px 16px;
-    border-bottom: 1px solid #e5e7eb;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-shrink: 0;
-  }
-
-  .event-picker-modal .modal-header h2,
-  .event-picker-modal .modal-header h3 {
-    font-size: 20px;
-    font-weight: 700;
-    color: #0f172a;
-    margin: 0;
-  }
-
-  .event-picker-modal .modal-header button {
-    width: 36px;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #f1f5f9;
-    border: none;
-    border-radius: 8px;
+    background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 14px;
     color: #64748b;
+    transition: all 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
+    box-shadow: 0 3px 10px rgba(15, 23, 42, 0.06);
+  }
+
+  .event-picker-modal .modal-header button:active {
+    transform: scale(0.92);
+    background: linear-gradient(135deg, #e2e8f0, #cbd5e1);
   }
 
   /* Modal body - scrollable */
   .event-picker-modal .modal-body {
     flex: 1;
     overflow-y: auto;
-    padding: 16px 20px;
+    -webkit-overflow-scrolling: touch;
+    padding: 20px 24px;
+    padding-bottom: calc(20px + env(safe-area-inset-bottom, 0));
+    min-height: 0;
   }
 
-  /* Event list items */
+  .event-picker-modal .modal-body::-webkit-scrollbar {
+    width: 5px;
+  }
+
+  .event-picker-modal .modal-body::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.4);
+    border-radius: 999px;
+  }
+
+  /* Event list items - Premium */
   .event-picker-item,
   .event-item-mobile {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 14px 16px;
-    margin-bottom: 10px;
-    background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    transition: all 0.15s ease;
+    gap: 14px;
+    padding: 16px 18px;
+    margin-bottom: 12px;
+    background: linear-gradient(135deg, #ffffff 0%, #fafbfc 100%);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 18px;
+    transition: all 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
     cursor: pointer;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .event-picker-item::before,
+  .event-item-mobile::before {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #3b82f6, #6366f1, #8b5cf6);
+    opacity: 0;
+    transition: opacity 0.25s ease;
   }
 
   .event-picker-item:active,
   .event-item-mobile:active {
-    background: #f8fafc;
-    transform: scale(0.98);
-    border-color: #3b82f6;
+    background: linear-gradient(135deg, #fafbfc, #f1f5f9);
+    transform: scale(0.97);
+    border-color: rgba(59, 130, 246, 0.3);
+    box-shadow: 0 2px 10px rgba(59, 130, 246, 0.15);
+  }
+
+  .event-picker-item:active::before,
+  .event-item-mobile:active::before {
+    opacity: 1;
   }
 
   .event-picker-item .icon {
-    width: 44px;
-    height: 44px;
-    min-width: 44px;
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-    border-radius: 10px;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(99, 102, 241, 0.1));
+    border-radius: 14px;
   }
 
   .event-picker-item .icon svg {
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
     color: #3b82f6;
   }
 
@@ -287,63 +500,90 @@
   }
 
   .event-picker-item .title {
-    font-size: 15px;
-    font-weight: 600;
+    font-size: 16px;
+    font-weight: 700;
     color: #0f172a;
     margin: 0 0 4px 0;
     line-height: 1.4;
+    letter-spacing: -0.01em;
   }
 
   .event-picker-item .time {
-    font-size: 13px;
+    font-size: 14px;
     color: #64748b;
     margin: 0;
+    font-weight: 500;
   }
 
   /* Modal footer */
   .event-picker-modal .modal-footer {
-    padding: 16px 20px;
-    padding-bottom: calc(16px + env(safe-area-inset-bottom));
-    border-top: 1px solid #e5e7eb;
+    padding: 20px 24px;
+    padding-bottom: max(20px, calc(env(safe-area-inset-bottom, 0) + 8px));
+    border-top: 1px solid rgba(15, 23, 42, 0.08);
+    background: linear-gradient(180deg, #fafbfc 0%, #f1f5f9 100%);
     display: flex;
-    gap: 12px;
+    gap: 14px;
+    flex-shrink: 0;
+    box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.04);
   }
 
   .event-picker-modal .modal-footer button {
     flex: 1;
-    padding: 14px;
-    border-radius: 12px;
+    min-height: 54px;
+    padding: 16px 20px;
+    border-radius: 14px;
     font-size: 16px;
-    font-weight: 700;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    transition: all 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
   }
 
-  /* Selected event preview */
+  .event-picker-modal .modal-footer button:active {
+    transform: scale(0.96);
+  }
+
+  .event-picker-modal .modal-footer .btn-primary {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: #ffffff;
+    border: none;
+    box-shadow: 0 4px 16px rgba(59, 130, 246, 0.35);
+  }
+
+  .event-picker-modal .modal-footer .btn-secondary {
+    background: linear-gradient(135deg, #ffffff, #f8fafc);
+    color: #0f172a;
+    border: 1px solid rgba(15, 23, 42, 0.12);
+  }
+
+  /* Selected event preview - Premium */
   .selected-event-preview {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 12px 16px;
-    margin: 8px 16px;
-    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    gap: 14px;
+    padding: 14px 18px;
+    margin-bottom: 12px;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(99, 102, 241, 0.08));
     border: 2px solid #3b82f6;
-    border-radius: 12px;
+    border-radius: 18px;
+    box-shadow: 0 4px 16px rgba(59, 130, 246, 0.15);
   }
 
   .selected-event-preview .icon {
-    width: 44px;
-    height: 44px;
-    min-width: 44px;
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #3b82f6;
-    color: white;
-    border-radius: 10px;
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: #ffffff;
+    border-radius: 14px;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
   }
 
   .selected-event-preview .icon svg {
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
   }
 
   .selected-event-preview .content {
@@ -352,33 +592,41 @@
   }
 
   .selected-event-preview .title {
-    font-size: 15px;
-    font-weight: 700;
+    font-size: 16px;
+    font-weight: 800;
     color: #0f172a;
     margin: 0 0 2px 0;
+    letter-spacing: -0.01em;
   }
 
   .selected-event-preview .time {
-    font-size: 13px;
+    font-size: 14px;
     color: #475569;
     margin: 0;
+    font-weight: 600;
   }
 
   .selected-event-preview .remove {
-    width: 32px;
-    height: 32px;
+    width: 40px;
+    height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(239, 68, 68, 0.15);
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.1));
     color: #dc2626;
-    border: none;
-    border-radius: 8px;
+    border: 1px solid rgba(220, 38, 38, 0.2);
+    border-radius: 12px;
+    transition: all 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
+  }
+
+  .selected-event-preview .remove:active {
+    transform: scale(0.94);
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(220, 38, 38, 0.15));
   }
 
   .selected-event-preview .remove svg {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
   }
 
 }
