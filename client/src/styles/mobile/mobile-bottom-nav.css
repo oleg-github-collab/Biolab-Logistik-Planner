@@ -1,0 +1,95 @@
+/* ==========================================
+   MOBILE BOTTOM NAVIGATION
+   Icons only + pull indicator
+   ========================================== */
+
+@media (max-width: 1023px) {
+
+  /* Bottom nav container */
+  .bottom-nav-mobile {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(to top, #ffffff 0%, #ffffff 90%, rgba(255, 255, 255, 0.98) 100%);
+    border-top: 1px solid rgba(148, 163, 184, 0.15);
+    box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.04);
+    padding: 8px 4px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom));
+    z-index: 1000;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+  }
+
+  /* Pull indicator */
+  .bottom-nav-mobile::before {
+    content: '';
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 36px;
+    height: 4px;
+    background: #cbd5e1;
+    border-radius: 999px;
+    transition: background 0.2s ease;
+  }
+
+  /* Nav items */
+  .bottom-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 8px;
+    border-radius: 12px;
+    transition: all 0.2s ease;
+    position: relative;
+    min-width: 52px;
+    text-decoration: none;
+  }
+
+  /* Icons */
+  .bottom-nav-item svg {
+    width: 26px;
+    height: 26px;
+    stroke-width: 2;
+    color: #64748b;
+    transition: all 0.2s ease;
+  }
+
+  /* Active state */
+  .bottom-nav-item.active {
+    background: rgba(59, 130, 246, 0.08);
+  }
+
+  .bottom-nav-item.active svg {
+    color: #3b82f6;
+    stroke-width: 2.5;
+  }
+
+  /* Hide text labels */
+  .bottom-nav-item span {
+    display: none !important;
+  }
+
+  /* Badge */
+  .bottom-nav-item .badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    background: #ef4444;
+    color: white;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+}

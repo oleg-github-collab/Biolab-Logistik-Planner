@@ -1,0 +1,121 @@
+/* ==========================================
+   MOBILE PLANNER - TOGGLES
+   Standard iOS-style green toggles
+   ========================================== */
+
+@media (max-width: 1023px) {
+
+  /* Toggle container */
+  .toggle-switch,
+  .form-switch,
+  label:has(> input[type="checkbox"][role="switch"]),
+  .planner-toggle {
+    position: relative;
+    display: inline-block;
+    width: 52px;
+    height: 32px;
+    margin: 0;
+  }
+
+  /* Hide default checkbox */
+  .toggle-switch input[type="checkbox"],
+  .form-switch input[type="checkbox"],
+  input[type="checkbox"][role="switch"] {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+  }
+
+  /* Slider track */
+  .toggle-slider,
+  .form-switch .slider,
+  .switch-slider,
+  label:has(> input[type="checkbox"][role="switch"]) span {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #cbd5e1;
+    transition: 0.3s ease;
+    border-radius: 34px;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  /* Knob */
+  .toggle-slider::before,
+  .form-switch .slider::before,
+  .switch-slider::before,
+  label:has(> input[type="checkbox"][role="switch"]) span::before {
+    position: absolute;
+    content: "";
+    height: 26px;
+    width: 26px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.3s ease;
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  }
+
+  /* Checked state - GREEN */
+  .toggle-switch input:checked + .toggle-slider,
+  .form-switch input:checked + .slider,
+  input:checked + .switch-slider,
+  label:has(> input[type="checkbox"][role="switch"]:checked) span {
+    background-color: #10b981 !important;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1), 0 0 0 2px rgba(16, 185, 129, 0.2);
+  }
+
+  .toggle-switch input:checked + .toggle-slider::before,
+  .form-switch input:checked + .slider::before,
+  input:checked + .switch-slider::before,
+  label:has(> input[type="checkbox"][role="switch"]:checked) span::before {
+    transform: translateX(20px);
+  }
+
+  /* Focus state */
+  .toggle-switch input:focus + .toggle-slider,
+  .form-switch input:focus + .slider,
+  input:focus + .switch-slider {
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+  }
+
+  /* Toggle labels */
+  .toggle-label,
+  .form-switch-label {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 16px;
+    font-weight: 500;
+    color: #334155;
+  }
+
+  /* Disabled state */
+  .toggle-switch input:disabled + .toggle-slider,
+  .form-switch input:disabled + .slider {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* Planner specific */
+  [class*="planner"] .toggle-switch,
+  [class*="Planner"] .toggle-switch,
+  [class*="planner"] .form-switch,
+  [class*="Planner"] .form-switch {
+    margin: 4px 0;
+  }
+
+  /* Work hour toggles */
+  [class*="hours"] .toggle-switch,
+  [class*="Hours"] .toggle-switch,
+  [class*="schedule"] .toggle-switch,
+  [class*="Schedule"] .toggle-switch {
+    margin: 0;
+  }
+
+}

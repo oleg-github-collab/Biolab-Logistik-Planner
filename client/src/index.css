@@ -4,10 +4,15 @@
 /* Import Advanced Calendar Styles */
 @import './styles/advanced-calendar.css';
 
-/* Import Mobile Design System - PROFESSIONAL */
-@import './styles/mobile-final.css';
-@import './styles/messenger-mobile.css';
-@import './styles/mobile-professional.css';
+/* Import Mobile Design System - MODULAR & PROFESSIONAL */
+@import './styles/mobile/mobile-global.css';
+@import './styles/mobile/mobile-bottom-nav.css';
+@import './styles/mobile/mobile-header.css';
+@import './styles/mobile/mobile-calendar.css';
+@import './styles/mobile/mobile-planner.css';
+@import './styles/mobile/mobile-notifications.css';
+@import './styles/mobile/mobile-messenger.css';
+@import './styles/mobile/mobile-forms.css';
 
 @tailwind utilities;
 

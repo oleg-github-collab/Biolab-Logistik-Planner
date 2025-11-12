@@ -1,0 +1,384 @@
+/* ==========================================
+   MOBILE MESSENGER
+   Clean messenger + event picker modal
+   ========================================== */
+
+@media (max-width: 1023px) {
+
+  /* Messenger container */
+  .messenger-mobile-container {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  }
+
+  /* Messenger header */
+  .messenger-mobile-header {
+    padding: 12px 16px;
+    padding-top: calc(12px + env(safe-area-inset-top));
+    background: white;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  .messenger-mobile-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Hide Info, Video, Phone buttons */
+  .messenger-mobile-header button[aria-label*="Info"],
+  .messenger-mobile-header button[aria-label*="Video"],
+  .messenger-mobile-header button[aria-label*="Videoanruf"],
+  .messenger-mobile-header button[aria-label*="Anruf"],
+  .messenger-mobile-header button[title*="Info"],
+  .messenger-mobile-header button[title*="Video"],
+  .messenger-mobile-header button[title*="Call"],
+  button[aria-label*="Info"],
+  button[aria-label*="Video"],
+  button[title*="Info"],
+  button[title*="Video"] {
+    display: none !important;
+  }
+
+  /* Messages area */
+  .messenger-mobile-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    background: #f8fafc;
+  }
+
+  /* Message bubble */
+  .message-bubble {
+    max-width: 80%;
+    padding: 12px 16px;
+    border-radius: 16px;
+    margin-bottom: 8px;
+    word-wrap: break-word;
+  }
+
+  .message-bubble.own {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    color: white;
+    margin-left: auto;
+    border-bottom-right-radius: 4px;
+  }
+
+  .message-bubble.other {
+    background: white;
+    color: #0f172a;
+    border: 1px solid #e5e7eb;
+    border-bottom-left-radius: 4px;
+  }
+
+  /* Input area */
+  .messenger-mobile-input {
+    position: sticky;
+    bottom: 0;
+    padding: 12px 16px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+    background: white;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+  }
+
+  .messenger-mobile-input textarea {
+    flex: 1;
+    min-height: 44px;
+    max-height: 120px;
+    padding: 12px 16px;
+    font-size: 16px;
+    line-height: 1.5;
+    border: 1px solid #d1d5db;
+    border-radius: 12px;
+    background: #f8fafc;
+    resize: none;
+    font-family: inherit;
+  }
+
+  .messenger-mobile-input textarea:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+
+  /* Send button */
+  .messenger-mobile-input button[type="submit"],
+  .messenger-send-button {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+    transition: all 0.2s ease;
+  }
+
+  .messenger-send-button:active {
+    transform: scale(0.95);
+  }
+
+  .messenger-send-button svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  /* Toolbar */
+  .messenger-mobile-actions,
+  .messenger-toolbar {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    overflow-x: auto;
+  }
+
+  .messenger-toolbar button {
+    padding: 10px 16px;
+    background: #f1f5f9;
+    color: #475569;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+  }
+
+  .messenger-toolbar button:active {
+    background: #e2e8f0;
+    transform: scale(0.98);
+  }
+
+  .messenger-toolbar button svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  /* EVENT PICKER MODAL - BOTTOM SHEET */
+  .event-picker-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(6px);
+    z-index: 10000;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+  }
+
+  .event-picker-modal {
+    width: 100%;
+    max-height: 85vh;
+    background: white;
+    border-radius: 20px 20px 0 0;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.15);
+    animation: slideInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Pull handle */
+  .event-picker-modal::before {
+    content: '';
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 36px;
+    height: 4px;
+    background: #cbd5e1;
+    border-radius: 999px;
+  }
+
+  /* Modal header */
+  .event-picker-modal .modal-header {
+    padding: 24px 20px 16px;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  .event-picker-modal .modal-header h2,
+  .event-picker-modal .modal-header h3 {
+    font-size: 20px;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+  }
+
+  .event-picker-modal .modal-header button {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f1f5f9;
+    border: none;
+    border-radius: 8px;
+    color: #64748b;
+  }
+
+  /* Modal body - scrollable */
+  .event-picker-modal .modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px;
+  }
+
+  /* Event list items */
+  .event-picker-item,
+  .event-item-mobile {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+  }
+
+  .event-picker-item:active,
+  .event-item-mobile:active {
+    background: #f8fafc;
+    transform: scale(0.98);
+    border-color: #3b82f6;
+  }
+
+  .event-picker-item .icon {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    border-radius: 10px;
+  }
+
+  .event-picker-item .icon svg {
+    width: 20px;
+    height: 20px;
+    color: #3b82f6;
+  }
+
+  .event-picker-item .content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .event-picker-item .title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #0f172a;
+    margin: 0 0 4px 0;
+    line-height: 1.4;
+  }
+
+  .event-picker-item .time {
+    font-size: 13px;
+    color: #64748b;
+    margin: 0;
+  }
+
+  /* Modal footer */
+  .event-picker-modal .modal-footer {
+    padding: 16px 20px;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    gap: 12px;
+  }
+
+  .event-picker-modal .modal-footer button {
+    flex: 1;
+    padding: 14px;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  /* Selected event preview */
+  .selected-event-preview {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    margin: 8px 16px;
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    border: 2px solid #3b82f6;
+    border-radius: 12px;
+  }
+
+  .selected-event-preview .icon {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #3b82f6;
+    color: white;
+    border-radius: 10px;
+  }
+
+  .selected-event-preview .icon svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .selected-event-preview .content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .selected-event-preview .title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0 0 2px 0;
+  }
+
+  .selected-event-preview .time {
+    font-size: 13px;
+    color: #475569;
+    margin: 0;
+  }
+
+  .selected-event-preview .remove {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(239, 68, 68, 0.15);
+    color: #dc2626;
+    border: none;
+    border-radius: 8px;
+  }
+
+  .selected-event-preview .remove svg {
+    width: 16px;
+    height: 16px;
+  }
+
+}
