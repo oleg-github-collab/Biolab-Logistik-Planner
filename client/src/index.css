@@ -4,15 +4,10 @@
 /* Import Advanced Calendar Styles */
 @import './styles/advanced-calendar.css';
 
-/* Import Mobile Design System (BEFORE utilities to allow override) */
+/* Import Mobile Design System - PROFESSIONAL */
 @import './styles/mobile-final.css';
 @import './styles/messenger-mobile.css';
-/* ULTIMATE FINAL - ВСІ МОБІЛЬНІ ВИПРАВЛЕННЯ */
-@import './styles/mobile-ultimate-final.css';
-/* TOTAL MOBILE REDESIGN - Complete Mobile UX Overhaul */
-@import './styles/mobile-total-redesign.css';
-/* PERFECT BUTTONS AND MODALS - Large, Readable, Perfect */
-@import './styles/mobile-perfect-buttons.css';
+@import './styles/mobile-professional.css';
 
 @tailwind utilities;
 
