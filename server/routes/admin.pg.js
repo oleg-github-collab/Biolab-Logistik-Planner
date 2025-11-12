@@ -916,6 +916,15 @@ router.post('/broadcast', [auth, adminAuth], async (req, res) => {
 
     const notificationTitle = `Nachricht von ${req.user.name}`;
 
+    // Ensure all active users have notification_preferences
+    await pool.query(`
+      INSERT INTO notification_preferences (user_id)
+      SELECT id FROM users
+      WHERE is_active = TRUE
+        AND id NOT IN (SELECT user_id FROM notification_preferences)
+      ON CONFLICT (user_id) DO NOTHING
+    `);
+
     const notificationResult = await pool.query(
       `
       INSERT INTO notifications (user_id, type, title, content, metadata, created_at)

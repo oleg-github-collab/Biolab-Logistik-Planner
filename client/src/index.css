@@ -17,6 +17,7 @@
 @import './styles/mobile/mobile-forms.css';
 @import './styles/mobile/mobile-toast.css';
 @import './styles/mobile/mobile-admin.css';
+@import './styles/mobile/mobile-modals.css';
 
 @tailwind utilities;
 
