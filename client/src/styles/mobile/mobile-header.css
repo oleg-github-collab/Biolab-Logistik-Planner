@@ -34,8 +34,8 @@
   }
 
   .top-nav-mobile .logo {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     flex-shrink: 0;
   }
 
@@ -62,8 +62,8 @@
 
   /* Mobile menu toggle button */
   .mobile-menu-toggle {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -71,7 +71,7 @@
     border: none;
     border-radius: 10px;
     color: #475569;
-    transition: all 0.2s ease;
+    transition: all 0.15s ease;
   }
 
   .mobile-menu-toggle:active {
@@ -137,8 +137,8 @@
   }
 
   .mobile-menu-close {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -146,7 +146,7 @@
     border: none;
     border-radius: 10px;
     color: #475569;
-    transition: all 0.2s ease;
+    transition: all 0.15s ease;
   }
 
   .mobile-menu-close:active {
@@ -181,7 +181,7 @@
     font-size: 16px;
     font-weight: 600;
     text-decoration: none;
-    transition: all 0.2s ease;
+    transition: all 0.15s ease;
   }
 
   .mobile-menu-item:active {

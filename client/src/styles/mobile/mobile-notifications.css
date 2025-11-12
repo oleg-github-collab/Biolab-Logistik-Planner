@@ -10,15 +10,15 @@
   button[aria-label*="Benachrichtigung" i],
   .notification-button {
     position: relative;
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: #f8fafc;
     border: none;
     border-radius: 10px;
-    transition: all 0.2s ease;
+    transition: all 0.15s ease;
   }
 
   .notification-button:active {
@@ -118,7 +118,7 @@
     border: none;
     border-radius: 8px;
     color: #64748b;
-    transition: all 0.2s ease;
+    transition: all 0.15s ease;
   }
 
   .notification-panel-close:active {
@@ -151,7 +151,7 @@
     font-weight: 600;
     color: #64748b;
     white-space: nowrap;
-    transition: all 0.2s ease;
+    transition: all 0.15s ease;
   }
 
   .notification-filter-tab.active {
@@ -177,7 +177,7 @@
     background: white;
     border: 1px solid #e5e7eb;
     border-radius: 12px;
-    transition: all 0.2s ease;
+    transition: all 0.15s ease;
   }
 
   .notification-item:active {
@@ -192,9 +192,9 @@
 
   /* Icon */
   .notification-item-icon {
-    width: 40px;
-    height: 40px;
-    min-width: 40px;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -254,7 +254,7 @@
     border: none;
     border-radius: 8px;
     color: #64748b;
-    transition: all 0.2s ease;
+    transition: all 0.15s ease;
   }
 
   .notification-item-action:active {
