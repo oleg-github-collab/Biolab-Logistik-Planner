@@ -44,6 +44,96 @@ const sanitizeInput = (input) => {
     .trim();
 };
 
+const ALLOWED_BROADCAST_TYPES = ['info', 'warning', 'success', 'error'];
+const BROADCAST_TITLE_PREFIX = 'Nachricht von';
+
+const isValidBroadcastType = (type) =>
+  ALLOWED_BROADCAST_TYPES.includes(type);
+
+const buildBroadcastTitle = (adminName) =>
+  `${BROADCAST_TITLE_PREFIX} ${adminName || 'Administrations-Team'}`;
+
+const logBroadcastEntry = async ({ adminId, message, severity, recipients, metadata = {} }) => {
+  const result = await pool.query(
+    `
+      INSERT INTO admin_broadcast_logs (admin_id, message, severity, recipients, metadata)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING *
+    `,
+    [adminId, message, severity, recipients, metadata || {}]
+  );
+  return result.rows[0];
+};
+
+const broadcastToAllUsers = async ({ adminId, adminName, message, type, metadata = {} }) => {
+  const notificationTitle = buildBroadcastTitle(adminName);
+  const sanitizedType = isValidBroadcastType(type) ? type : 'info';
+
+  const notificationResult = await pool.query(
+    `
+    INSERT INTO notifications (user_id, type, title, content, metadata, created_at, priority, is_read, related_user_id, task_id, event_id)
+    SELECT id, 'broadcast', $1, $2,
+           jsonb_build_object('category', 'admin', 'severity', $3)::jsonb,
+           NOW(),
+           'normal',
+           FALSE,
+           $4,
+           NULL,
+           NULL
+    FROM users
+    WHERE is_active = TRUE
+      AND id <> $4
+    RETURNING id, user_id
+    `,
+    [notificationTitle, message, sanitizedType, adminId]
+  );
+
+  const recipients = notificationResult.rowCount;
+
+  try {
+    const io = getIO();
+    if (io) {
+      io.emit('admin:broadcast', {
+        message,
+        type: sanitizedType,
+        timestamp: new Date().toISOString(),
+        from: adminName
+      });
+    }
+  } catch (wsError) {
+    logger.warn('WebSocket not available for broadcast', { error: wsError.message });
+  }
+
+  for (const { user_id, id } of notificationResult.rows) {
+    sendNotificationToUser(user_id, {
+      id,
+      user_id,
+      type: 'broadcast',
+      title: notificationTitle,
+      content: message,
+      metadata: { category: 'admin', severity: sanitizedType }
+    });
+  }
+
+  const logEntry = await logBroadcastEntry({
+    adminId,
+    message,
+    severity: sanitizedType,
+    recipients,
+    metadata
+  });
+
+  logger.info('Admin broadcast dispatched', {
+    adminId,
+    type: sanitizedType,
+    recipients,
+    logId: logEntry?.id,
+    metadata
+  });
+
+  return { recipients, log: logEntry };
+};
+
 // @route   GET /api/admin/users
 // @desc    Get all users (admin only)
 router.get('/users', [auth, adminAuth], async (req, res) => {
@@ -890,17 +980,14 @@ router.get('/users/online', [auth, adminAuth], async (req, res) => {
 // @desc    Broadcast message to all users (admin only)
 router.post('/broadcast', [auth, adminAuth], async (req, res) => {
   try {
-    console.log('[BROADCAST-v3-FIXED] User:', req.user.id, 'Body:', JSON.stringify(req.body, null, 2));
     const { message, type = 'info' } = req.body;
 
     if (!message || !message.trim()) {
-      console.log('[BROADCAST] ERROR: Empty message');
       return res.status(400).json({ error: 'Nachricht ist erforderlich' });
     }
 
-    // Sanitize message
     const sanitizedMessage = sanitizeInput(message);
-    if (!sanitizedMessage || sanitizedMessage.length === 0) {
+    if (!sanitizedMessage) {
       return res.status(400).json({ error: 'Nachricht darf nicht leer sein' });
     }
 
@@ -908,96 +995,96 @@ router.post('/broadcast', [auth, adminAuth], async (req, res) => {
       return res.status(400).json({ error: 'Nachricht darf maximal 5000 Zeichen lang sein' });
     }
 
-    // Validate type
-    const allowedTypes = ['info', 'warning', 'success', 'error'];
-    if (!allowedTypes.includes(type)) {
-      return res.status(400).json({ error: 'Ungültiger Nachrichtentyp. Erlaubt: info, warning, success, error' });
-    }
-
-    const notificationTitle = `Nachricht von ${req.user.name}`;
-
-    // Ensure all active users have notification_preferences
-    try {
-      await pool.query(`
-        INSERT INTO notification_preferences (user_id)
-        SELECT id FROM users
-        WHERE is_active = TRUE
-          AND id NOT IN (SELECT user_id FROM notification_preferences)
-        ON CONFLICT (user_id) DO NOTHING
-      `);
-    } catch (prefsError) {
-      logger.warn('Failed to seed notification_preferences before broadcast', {
-        error: prefsError.message,
-        stack: prefsError.stack
-      });
-    }
-
-    console.log('[BROADCAST] About to INSERT with params:', {
-      title: notificationTitle,
-      message: sanitizedMessage,
-      type,
-      userId: req.user.id
-    });
-
-    const notificationResult = await pool.query(
-      `
-      INSERT INTO notifications (user_id, type, title, content, metadata, created_at, priority, is_read, related_user_id, task_id, event_id)
-      SELECT id, 'broadcast', $1, $2,
-             jsonb_build_object('category', 'admin', 'severity', $3)::jsonb,
-             NOW(),
-             'normal',
-             FALSE,
-             $4,
-             NULL,
-             NULL
-      FROM users
-      WHERE is_active = TRUE
-        AND id <> $4
-      RETURNING id, user_id
-      `,
-      [notificationTitle, sanitizedMessage, type, req.user.id]
-    );
-
-    console.log('[BROADCAST] INSERT success, rows:', notificationResult.rowCount);
-
-    try {
-      const io = getIO();
-      if (io) {
-        io.emit('admin:broadcast', {
-          message: sanitizedMessage,
-          type,
-          timestamp: new Date().toISOString(),
-          from: req.user.name
-        });
-      }
-
-      notificationResult.rows.forEach(({ user_id, id }) => {
-        sendNotificationToUser(user_id, {
-          id,
-          user_id,
-          type: 'broadcast',
-          title: notificationTitle,
-          content: sanitizedMessage,
-          metadata: { category: 'admin', severity: type }
-        });
-      });
-    } catch (wsError) {
-      logger.warn('WebSocket not available for broadcast:', wsError.message);
-    }
-
-    logger.info('Admin broadcast sent', {
+    const broadcastType = isValidBroadcastType(type) ? type : 'info';
+    const dispatchResult = await broadcastToAllUsers({
       adminId: req.user.id,
-      type,
-      recipients: notificationResult.rowCount
+      adminName: req.user.name,
+      message: sanitizedMessage,
+      type: broadcastType,
+      metadata: { source: 'admin_panel' }
     });
-    res.json({ message: 'Broadcast erfolgreich gesendet', recipients: notificationResult.rowCount });
+
+    res.json({
+      message: 'Broadcast erfolgreich gesendet',
+      recipients: dispatchResult.recipients,
+      log: dispatchResult.log
+    });
   } catch (err) {
-    console.error('[BROADCAST ERROR] Full error:', err);
-    console.error('[BROADCAST ERROR] Stack:', err.stack);
-    console.error('[BROADCAST ERROR] Message:', err.message);
-    console.error('[BROADCAST ERROR] Code:', err.code);
     logger.error('Error sending broadcast:', err);
     res.status(500).json({ error: 'Serverfehler beim Senden der Broadcast-Nachricht' });
+  }
+});
+
+// @route   GET /api/admin/broadcasts
+// @desc    List recent broadcast history (admin only)
+router.get('/broadcasts', [auth, adminAuth], async (req, res) => {
+  try {
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 6, 1), 50);
+    const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
+    const severity = isValidBroadcastType(req.query.severity) ? req.query.severity : null;
+
+    const params = severity ? [limit, offset, severity] : [limit, offset];
+    const severityClause = severity ? 'WHERE bl.severity = $3' : '';
+
+    const result = await pool.query(
+      `
+        SELECT
+          bl.*,
+          u.name as admin_name
+        FROM admin_broadcast_logs bl
+        LEFT JOIN users u ON u.id = bl.admin_id
+        ${severityClause}
+        ORDER BY bl.created_at DESC
+        LIMIT $1
+        OFFSET $2
+      `,
+      params
+    );
+
+    res.json({ broadcasts: result.rows });
+  } catch (error) {
+    logger.error('Error fetching broadcast history', { error: error.message });
+    res.status(500).json({ error: 'Broadcast-Verlauf konnte nicht geladen werden' });
+  }
+});
+
+// @route   POST /api/admin/broadcasts/:id/resend
+// @desc    Resend a saved broadcast
+router.post('/broadcasts/:id/resend', [auth, adminAuth], async (req, res) => {
+  try {
+    const { id } = req.params;
+    const historyResult = await pool.query('SELECT * FROM admin_broadcast_logs WHERE id = $1', [id]);
+    if (historyResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Broadcast nicht gefunden' });
+    }
+
+    const logEntry = historyResult.rows[0];
+    const sanitizedMessage = sanitizeInput(logEntry.message);
+    if (!sanitizedMessage) {
+      return res.status(400).json({ error: 'Keine gültige Nachricht zum erneuten Senden gefunden' });
+    }
+
+    const broadcastType = isValidBroadcastType(logEntry.severity) ? logEntry.severity : 'info';
+    const dispatchResult = await broadcastToAllUsers({
+      adminId: req.user.id,
+      adminName: req.user.name,
+      message: sanitizedMessage,
+      type: broadcastType,
+      metadata: {
+        source: 'broadcast_resend',
+        original_log_id: logEntry.id
+      }
+    });
+
+    res.json({
+      message: 'Broadcast erneut gesendet',
+      recipients: dispatchResult.recipients,
+      log: dispatchResult.log,
+      resentFrom: logEntry.id
+    });
+  } catch (error) {
+    logger.error('Error resending broadcast', { error: error.message, broadcastId: req.params.id });
+    res.status(500).json({ error: 'Broadcast konnte nicht erneut gesendet werden' });
   }
 });
 

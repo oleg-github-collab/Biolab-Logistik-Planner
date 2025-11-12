@@ -963,4 +963,48 @@
     height: 18px;
   }
 
+  .messenger-quick-replies {
+    padding: 10px 16px 0;
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .messenger-quick-replies::-webkit-scrollbar {
+    display: none;
+  }
+
+  .messenger-quick-replies .messenger-quick-reply {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    background: #ffffff;
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    color: #0f172a;
+    font-size: 12px;
+    font-weight: 600;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+    transition: all 0.25s ease;
+  }
+
+  .messenger-quick-reply:hover {
+    transform: translateY(-1px);
+    border-color: rgba(59, 130, 246, 0.45);
+  }
+
+  .messenger-quick-reply--action {
+    background: linear-gradient(135deg, #1d4ed8, #2563eb);
+    color: #ffffff;
+    border-color: transparent;
+    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
+  }
+
+  .messenger-quick-reply--action svg {
+    color: #ffffff;
+  }
+
 }

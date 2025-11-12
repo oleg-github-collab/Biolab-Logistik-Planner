@@ -400,6 +400,12 @@ export const snoozeNotification = (id, minutes = 60) =>
 export const dismissNotification = (id) =>
   api.put(`/notifications/${id}/dismiss`);
 
+export const getBroadcastHistory = (params = {}) =>
+  api.get('/admin/broadcasts', { params });
+
+export const resendBroadcast = (broadcastId) =>
+  api.post(`/admin/broadcasts/${broadcastId}/resend`);
+
 export const takeNotificationAction = (id, action_type, metadata = {}) =>
   api.put(`/notifications/${id}/action`, { action_type, metadata });
 

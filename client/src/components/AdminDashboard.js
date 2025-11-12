@@ -12,6 +12,34 @@ import toast from 'react-hot-toast';
 import { useWebSocketContext } from '../context/WebSocketContext';
 import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
+import { getBroadcastHistory, resendBroadcast } from '../utils/apiEnhanced';
+
+const BROADCAST_HISTORY_LIMIT = 6;
+const BROADCAST_SEVERITY_STYLES = {
+  info: 'bg-blue-50 text-blue-600 ring-1 ring-blue-100',
+  warning: 'bg-amber-50 text-amber-600 ring-1 ring-amber-100',
+  success: 'bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100',
+  error: 'bg-red-50 text-red-600 ring-1 ring-red-100'
+};
+
+const formatBroadcastTimestamp = (value) => {
+  if (!value) return '–';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '–';
+  return new Intl.DateTimeFormat('de-DE', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(date);
+};
+
+const previewBroadcastMessage = (text = '', maxLength = 120) => {
+  const clean = (text || '').trim();
+  if (clean.length <= maxLength) return clean;
+  return `${clean.slice(0, maxLength).trim()}…`;
+};
 
 const AdminDashboard = () => {
   const { user } = useAuth();
@@ -38,6 +66,9 @@ const AdminDashboard = () => {
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [broadcastSeverity, setBroadcastSeverity] = useState('info');
   const [notificationSeverity, setNotificationSeverity] = useState('info');
+  const [broadcastHistory, setBroadcastHistory] = useState([]);
+  const [broadcastHistoryLoading, setBroadcastHistoryLoading] = useState(false);
+  const [resendingBroadcastId, setResendingBroadcastId] = useState(null);
 
   const { isConnected, adminEvents, onAdminEvent } = useWebSocketContext();
 
@@ -110,6 +141,19 @@ const AdminDashboard = () => {
     }
   }, []);
 
+  const fetchBroadcastHistory = useCallback(async () => {
+    setBroadcastHistoryLoading(true);
+    try {
+      const response = await getBroadcastHistory({ limit: BROADCAST_HISTORY_LIMIT });
+      setBroadcastHistory(response.data.broadcasts || []);
+    } catch (error) {
+      console.error('Error fetching broadcast history:', error);
+      setBroadcastHistory([]);
+    } finally {
+      setBroadcastHistoryLoading(false);
+    }
+  }, []);
+
   const fetchData = useCallback(async () => {
     if (accessDenied) return;
     try {
@@ -173,13 +217,26 @@ const AdminDashboard = () => {
       } else if (activeSection === 'activity') {
         await fetchActivityLog();
       }
+
+      await fetchBroadcastHistory();
     } catch (error) {
       console.error('Fehler beim Laden der Admin-Daten:', error);
       toast.error('Fehler beim Laden der Administrator-Daten');
     } finally {
       setLoading(false);
     }
-  }, [accessDenied, category, days, severity, activeSection, fetchDashboardStats, fetchUsers, fetchSystemHealth, fetchActivityLog]);
+  }, [
+    accessDenied,
+    category,
+    days,
+    severity,
+    activeSection,
+    fetchDashboardStats,
+    fetchUsers,
+    fetchSystemHealth,
+    fetchActivityLog,
+    fetchBroadcastHistory
+  ]);
 
   useEffect(() => {
     if (accessDenied) return;
@@ -298,6 +355,23 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleResendBroadcast = useCallback(async (logEntry) => {
+    if (!logEntry?.id) return;
+    setResendingBroadcastId(logEntry.id);
+    try {
+      const response = await resendBroadcast(logEntry.id);
+      toast.success(
+        `Broadcast erneut gesendet (${response.data.recipients || 0} Empfänger)`
+      );
+      fetchBroadcastHistory();
+    } catch (error) {
+      console.error('Error resending broadcast:', error);
+      toast.error(error.response?.data?.error || 'Broadcast konnte nicht erneut gesendet werden');
+    } finally {
+      setResendingBroadcastId(null);
+    }
+  }, [fetchBroadcastHistory]);
+
   // Export data
   const handleExportData = async (dataType) => {
     try {
@@ -382,6 +456,12 @@ const AdminDashboard = () => {
       default: return 'bg-gray-100 text-gray-800';
     }
   };
+
+  const broadcastTotalRecipients = broadcastHistory.reduce(
+    (sum, entry) => sum + (entry.recipients || 0),
+    0
+  );
+  const broadcastLastSentAt = broadcastHistory[0]?.created_at || null;
 
   if (accessDenied) {
     return (
@@ -629,6 +709,89 @@ const AdminDashboard = () => {
               </div>
             </div>
           )}
+
+          {/* Broadcast History */}
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Broadcast-Verlauf</h2>
+                <p className="text-sm text-gray-500">
+                  Letzte {broadcastHistory.length || 0} Broadcasts im Blick behalten.
+                </p>
+              </div>
+              <button
+                onClick={fetchBroadcastHistory}
+                disabled={broadcastHistoryLoading}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-slate-100 text-slate-700 text-xs font-semibold hover:bg-slate-200 transition disabled:opacity-50"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Aktualisieren
+              </button>
+            </div>
+            <div className="grid grid-cols-3 gap-3 text-center text-xs text-gray-500 mb-4">
+              <div className="rounded-2xl bg-slate-50 px-3 py-2">
+                <p className="uppercase tracking-wide text-[10px] text-slate-400">Letzter Versand</p>
+                <p className="text-sm font-semibold text-gray-900">{formatBroadcastTimestamp(broadcastLastSentAt)}</p>
+              </div>
+              <div className="rounded-2xl bg-slate-50 px-3 py-2">
+                <p className="uppercase tracking-wide text-[10px] text-slate-400">Empfänger gesamt</p>
+                <p className="text-sm font-semibold text-gray-900">{broadcastTotalRecipients}</p>
+              </div>
+              <div className="rounded-2xl bg-slate-50 px-3 py-2">
+                <p className="uppercase tracking-wide text-[10px] text-slate-400">Einträge</p>
+                <p className="text-sm font-semibold text-gray-900">{broadcastHistory.length}</p>
+              </div>
+            </div>
+
+            {broadcastHistoryLoading ? (
+              <div className="border border-dashed border-slate-200 rounded-2xl p-6">
+                <div className="flex items-center justify-center gap-3 text-sm text-blue-600">
+                  <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                  Lade Broadcasts…
+                </div>
+              </div>
+            ) : broadcastHistory.length === 0 ? (
+              <div className="border border-dashed border-slate-200 rounded-2xl p-6 text-center text-sm text-gray-500">
+                Noch keine Broadcasts vorhanden. Sende eine Nachricht, um den Verlauf zu füllen.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {broadcastHistory.map((log) => (
+                  <div
+                    key={log.id}
+                    className="flex items-start justify-between gap-4 border border-slate-100 rounded-2xl p-4 bg-slate-50 shadow-sm"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900">
+                        {previewBroadcastMessage(log.message)}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {log.admin_name || 'Admin'} · {formatBroadcastTimestamp(log.created_at)}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Empfänger: {log.recipients || 0}
+                      </p>
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      <span
+                        className={`text-[10px] px-2 py-1 rounded-full font-semibold uppercase tracking-wide ${BROADCAST_SEVERITY_STYLES[log.severity || 'info']}`}
+                      >
+                        {(log.severity || 'info').toUpperCase()}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleResendBroadcast(log)}
+                        disabled={resendingBroadcastId === log.id}
+                        className="text-xs font-semibold px-3 py-1.5 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition disabled:opacity-60"
+                      >
+                        {resendingBroadcastId === log.id ? 'Sende…' : 'Erneut senden'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Online Users */}
           {onlineUsers.length > 0 && (

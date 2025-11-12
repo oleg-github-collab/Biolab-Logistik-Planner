@@ -42,6 +42,7 @@ import {
   uploadAttachment,
   deleteMessage,
   getStoriesFeed,
+  getQuickReplies,
   markStoryViewed,
   linkCalendarToMessage,
   getCalendarEvents,
@@ -101,6 +102,8 @@ const DirectMessenger = () => {
   const [typingUsers, setTypingUsers] = useState({});
   const [showComposerActions, setShowComposerActions] = useState(false);
   const [showPinnedDrawer, setShowPinnedDrawer] = useState(false);
+  const [mobileQuickReplies, setMobileQuickReplies] = useState([]);
+  const [quickRepliesLoading, setQuickRepliesLoading] = useState(false);
 
   const fileInputRef = useRef(null);
   const mediaRecorderRef = useRef(null);
@@ -920,10 +923,29 @@ const DirectMessenger = () => {
     highlightMessage(message.id);
   }, [highlightMessage]);
 
+  const loadMobileQuickReplies = useCallback(async () => {
+    setQuickRepliesLoading(true);
+    try {
+      const response = await getQuickReplies();
+      const templates = Array.isArray(response.data) ? response.data : [];
+      setMobileQuickReplies(templates.slice(0, 6));
+    } catch (error) {
+      console.error('Error loading quick replies:', error);
+      setMobileQuickReplies([]);
+    } finally {
+      setQuickRepliesLoading(false);
+    }
+  }, []);
+
+  const closeQuickReplies = useCallback(() => {
+    setShowQuickReplies(false);
+    loadMobileQuickReplies();
+  }, [loadMobileQuickReplies]);
+
   const handleQuickReplySelect = useCallback((content) => {
     setMessageInput(content);
-    setShowQuickReplies(false);
-  }, []);
+    closeQuickReplies();
+  }, [closeQuickReplies]);
 
   const handleForwardMessage = useCallback((message) => {
     setMessageToForward(message);
@@ -934,6 +956,10 @@ const DirectMessenger = () => {
     setShowForwardModal(false);
     setMessageToForward(null);
   }, []);
+
+  useEffect(() => {
+    loadMobileQuickReplies();
+  }, [loadMobileQuickReplies]);
 
   const toggleComposerActions = useCallback(() => {
     setShowComposerActions((prev) => !prev);
@@ -1793,6 +1819,58 @@ const DirectMessenger = () => {
     </div>
   );
 
+  const renderMobileQuickReplies = () => {
+    if (!isMobile || !selectedContact) return null;
+
+    if (quickRepliesLoading) {
+      return (
+        <div className="messenger-quick-replies">
+          <div className="messenger-quick-reply animate-pulse bg-slate-200" />
+          <div className="messenger-quick-reply animate-pulse bg-slate-200" />
+          <div className="messenger-quick-reply animate-pulse bg-slate-200" />
+        </div>
+      );
+    }
+
+    if (!mobileQuickReplies.length) {
+      return (
+        <div className="messenger-quick-replies">
+          <button
+            type="button"
+            onClick={() => setShowQuickReplies(true)}
+            className="messenger-quick-reply messenger-quick-reply--action"
+          >
+            <Zap className="w-4 h-4" />
+            Schnellantworten
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="messenger-quick-replies">
+        {mobileQuickReplies.map((reply) => (
+          <button
+            key={`qr-${reply.id || reply.shortcut}`}
+            type="button"
+            onClick={() => setMessageInput(reply.content)}
+            className="messenger-quick-reply"
+          >
+            {reply.shortcut || reply.title}
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={() => setShowQuickReplies(true)}
+          className="messenger-quick-reply messenger-quick-reply--action"
+        >
+          <Zap className="w-4 h-4" />
+          Quick
+        </button>
+      </div>
+    );
+  };
+
   const renderMobileLayout = () => (
     <div className="messenger-mobile-container">
       {showSidebar && (
@@ -1938,6 +2016,8 @@ const DirectMessenger = () => {
           </div>
         </div>
       )}
+
+      {renderMobileQuickReplies()}
 
       <form onSubmit={handleSendMessage} className="messenger-mobile-input">
         <div className="flex items-end gap-2 w-full">
@@ -2282,7 +2362,7 @@ const DirectMessenger = () => {
       {showQuickReplies && (
         <QuickRepliesPanel
           onSelect={handleQuickReplySelect}
-          onClose={() => setShowQuickReplies(false)}
+          onClose={closeQuickReplies}
         />
       )}
 

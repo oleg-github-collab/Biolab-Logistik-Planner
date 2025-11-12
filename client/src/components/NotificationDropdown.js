@@ -380,6 +380,103 @@ const NotificationDropdown = () => {
     return base;
   }, [notifications, unreadCount]);
 
+  const renderMobileNotificationList = () => {
+    if (loading) {
+      return (
+        <div className="notification-list">
+          <div className="notification-empty">
+            <div className="w-10 h-10 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-3" />
+            <p className="text-sm font-semibold text-blue-600">Lade Benachrichtigungen…</p>
+            <p className="text-xs text-blue-300">Bitte einen Moment Geduld</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (!notifications.length) {
+      return (
+        <div className="notification-list">
+          <div className="notification-empty">
+            <Bell className="w-16 h-16 text-slate-300 mb-4" />
+            <h3 className="text-base font-semibold text-slate-600">Keine Benachrichtigungen</h3>
+            <p className="text-sm text-slate-400">Bleiben Sie informiert, sobald neue Meldungen eintreffen.</p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="notification-list">
+        {notifications.map((notification) => (
+          <button
+            type="button"
+            key={notification.id}
+            onClick={() => handleNotificationClick(notification)}
+            className={`notification-item ${notification.is_read ? '' : 'unread'}`}
+          >
+            <div className="notification-item-icon">
+              {getNotificationIcon(notification.type)}
+            </div>
+            <div className="notification-item-content">
+              <p className="notification-item-title">{notification.title}</p>
+              <p className="notification-item-message line-clamp-2">{notification.content}</p>
+              <div className="notification-item-time">
+                <span>{formatTimestamp(notification.created_at)}</span>
+                {!notification.is_read && (
+                  <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-600 text-[10px] font-semibold uppercase tracking-wide">
+                    Neu
+                  </span>
+                )}
+              </div>
+              {notification.metadata?.actions?.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {notification.metadata.actions.map((action) => {
+                    const isLoading = actionLoadingKey === `${notification.id}-${action.key}`;
+                    return (
+                      <button
+                        key={action.key}
+                        type="button"
+                        onClick={(event) => handleNotificationActionButton(event, notification, action)}
+                        disabled={isLoading}
+                        className="text-[11px] px-3 py-1 rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition disabled:opacity-60"
+                      >
+                        {isLoading ? 'Wird gesendet…' : action.label || 'Aktion'}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="flex flex-col items-end gap-2">
+              {!notification.is_read && (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleMarkAsRead(notification.id);
+                  }}
+                  className="notification-item-action"
+                >
+                  <Check className="w-4 h-4" />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  handleDelete(notification.id);
+                }}
+                className="notification-item-action"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          </button>
+        ))}
+      </div>
+    );
+  };
+
   const dropdownPanel = (
     <div className="absolute right-0 mt-2 w-screen max-w-md sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 max-h-[80vh] flex flex-col overflow-hidden">
       <div className="p-4 border-b border-gray-200">
@@ -442,75 +539,70 @@ const NotificationDropdown = () => {
 
   const mobilePanel = (
     <>
-      <div
-        className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-[95]"
-        onClick={closeDropdown}
-      />
-      <div className="fixed inset-x-0 bottom-0 top-16 bg-white rounded-t-3xl shadow-2xl z-[100] flex flex-col overflow-hidden">
-        <div className="h-1.5 w-12 bg-slate-300 rounded-full mx-auto mt-3" />
-        <div className="p-4 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-900">Benachrichtigungen</h3>
-            <button
-              onClick={closeDropdown}
-              className="p-2 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 active:bg-gray-300 transition"
-              aria-label="Schließen"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
+      <div className="notification-backdrop active" onClick={closeDropdown} />
+      <div className="notification-panel active" role="dialog" aria-modal="true">
+        <div className="notification-panel-header">
+          <h3>Benachrichtigungen</h3>
+          <button
+            type="button"
+            onClick={closeDropdown}
+            className="notification-panel-close"
+            aria-label="Schließen"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            {FILTERS.map((item) => (
-              <button
-                key={item.value}
-                onClick={() => onFilterChange(item.value)}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition ${
-                  filter === item.value
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-600 active:bg-gray-200'
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
+        <div className="notification-filters px-0">
+          {FILTERS.map((item) => (
+            <button
+              key={item.value}
+              type="button"
+              onClick={() => onFilterChange(item.value)}
+              className={`notification-filter-tab ${filter === item.value ? 'active' : ''}`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-3 gap-3 px-4 py-2 text-center text-xs text-gray-500">
+          <div className="rounded-2xl bg-blue-50/80 px-2 py-2">
+            <p className="text-[10px] uppercase tracking-wide text-blue-500">Ungelesen</p>
+            <p className="text-sm font-semibold text-slate-900">{notificationStats.pending}</p>
           </div>
-          <div className="grid grid-cols-3 gap-2 mt-4 text-center text-xs text-gray-500">
-            <div className="rounded-lg bg-blue-50 py-2">
-              <p className="text-base font-semibold text-gray-900">{notificationStats.pending}</p>
-              <p>Ungelesen</p>
-            </div>
-            <div className="rounded-lg bg-emerald-50 py-2">
-              <p className="text-base font-semibold text-gray-900">{notificationStats.tasks}</p>
-              <p>Aufgaben</p>
-            </div>
-            <div className="rounded-lg bg-amber-50 py-2">
-              <p className="text-base font-semibold text-gray-900">{notificationStats.alerts}</p>
-              <p>Termine/System</p>
-            </div>
+          <div className="rounded-2xl bg-emerald-50/80 px-2 py-2">
+            <p className="text-[10px] uppercase tracking-wide text-emerald-600">Aufgaben</p>
+            <p className="text-sm font-semibold text-slate-900">{notificationStats.tasks}</p>
+          </div>
+          <div className="rounded-2xl bg-amber-50/80 px-2 py-2">
+            <p className="text-[10px] uppercase tracking-wide text-amber-600">System</p>
+            <p className="text-sm font-semibold text-slate-900">{notificationStats.alerts}</p>
           </div>
         </div>
 
-        <div className="px-4 py-3 flex items-center gap-3 border-b border-gray-100">
+        <div className="px-4 py-3 flex gap-2">
           {unreadCount > 0 && (
             <button
+              type="button"
               onClick={handleMarkAllAsRead}
-              className="flex items-center gap-2 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg text-xs font-semibold active:bg-blue-100 transition"
+              className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 rounded-2xl text-xs font-semibold uppercase tracking-wide bg-blue-50 text-blue-600 hover:bg-blue-100 transition"
             >
               <CheckCheck className="w-4 h-4" />
-              Alle gelesen
+              Alle lesen
             </button>
           )}
           <button
+            type="button"
             onClick={handleClearAll}
-            className="flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-600 rounded-lg text-xs font-semibold active:bg-gray-200 transition"
+            className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 rounded-2xl text-xs font-semibold uppercase tracking-wide bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
           >
             <Trash2 className="w-4 h-4" />
             Aufräumen
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto">{notificationList}</div>
+        {renderMobileNotificationList()}
       </div>
     </>
   );
@@ -518,14 +610,8 @@ const NotificationDropdown = () => {
   return (
     <div className="relative" ref={dropdownRef}>
       <button
-        onClick={() => {
-          console.log('[NotificationDropdown] Button clicked, current isOpen:', isOpen);
-          setIsOpen((prev) => {
-            console.log('[NotificationDropdown] Setting isOpen to:', !prev);
-            return !prev;
-          });
-        }}
-        className="relative p-2.5 text-slate-700 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all shadow-sm border border-slate-200 hover:border-blue-300"
+        onClick={() => setIsOpen((prev) => !prev)}
+        className={`relative ${isMobile ? 'notification-button' : 'p-2.5 text-slate-700 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all shadow-sm border border-slate-200 hover:border-blue-300'}`}
         title={
           isConnected
             ? 'Benachrichtigungen'
