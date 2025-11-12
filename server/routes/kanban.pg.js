@@ -333,6 +333,27 @@ router.delete('/tasks/:id', auth, async (req, res) => {
   }
 });
 
+// @route   GET /api/kanban/tasks/:id/comments
+// @desc    Get all comments for a task
+router.get('/tasks/:id/comments', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query(`
+      SELECT tc.*, u.name as user_name, u.profile_photo as user_photo
+      FROM task_comments tc
+      LEFT JOIN users u ON tc.user_id = u.id
+      WHERE tc.task_id = $1
+      ORDER BY tc.created_at DESC
+    `, [id]);
+
+    res.json(result.rows);
+  } catch (err) {
+    logger.error('Error fetching task comments:', err);
+    res.status(500).json({ error: 'Serverfehler beim Laden der Kommentare' });
+  }
+});
+
 // @route   POST /api/kanban/tasks/:id/comments
 // @desc    Add comment to task
 router.post('/tasks/:id/comments', auth, async (req, res) => {
