@@ -1,59 +1,71 @@
 /* ==========================================
-   MOBILE KANBAN
-   Remove ALL white space below tasks
+   MOBILE KANBAN - REDESIGNED FROM SCRATCH
+   Clean mobile-first layout without white space
    ========================================== */
 
 @media (max-width: 1023px) {
 
-  /* Main Kanban container - NO extra height */
-  [class*="kanban"],
-  [class*="Kanban"] {
-    height: auto !important;
-    min-height: 0 !important;
+  /* Main container - fills viewport height minus header and bottom nav */
+  .mobile-kanban-container {
+    min-height: 100vh;
+    max-height: 100vh;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Board container - takes remaining space, enables scroll */
+  .mobile-kanban-board {
+    flex: 1;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    /* Space for bottom nav (60px) + safe area */
+    padding-bottom: calc(60px + env(safe-area-inset-bottom)) !important;
+  }
+
+  /* Columns wrapper - horizontal scroll */
+  .mobile-kanban-columns {
+    height: 100%;
     padding-bottom: 0 !important;
     margin-bottom: 0 !important;
   }
 
-  /* Kanban board container */
-  [class*="kanban"] > div,
-  [class*="Kanban"] > div {
-    padding-bottom: 0 !important;
+  /* Individual column - full height */
+  .mobile-kanban-columns > div {
+    height: calc(100vh - 180px - 60px - env(safe-area-inset-bottom));
+    max-height: calc(100vh - 180px - 60px - env(safe-area-inset-bottom));
+  }
+
+  /* Column content scrollable */
+  .mobile-kanban-columns > div > div {
+    height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Remove ALL extra padding/margin */
+  .mobile-kanban-container * {
     margin-bottom: 0 !important;
   }
 
-  /* Remove all padding/margin from flex containers */
-  .flex.flex-col.h-full,
-  .flex.flex-col.bg-transparent {
-    padding-bottom: 0 !important;
-    margin-bottom: 0 !important;
+  .mobile-kanban-board:after {
+    content: '';
+    display: block;
+    height: 0;
   }
 
-  /* Board columns container - minimal padding */
-  .flex.gap-4.min-w-max {
-    padding-bottom: 0.5rem !important;
-    margin-bottom: 0 !important;
+  /* Ensure no body overflow */
+  body:has(.mobile-kanban-container) {
+    overflow: hidden;
+    height: 100vh;
   }
 
-  /* Overflow container */
-  .overflow-x-auto {
-    padding-bottom: 0 !important;
-    margin-bottom: 0 !important;
-  }
-
-  /* Task columns */
-  .flex.flex-col.w-80 {
-    margin-bottom: 0 !important;
-  }
-
-  /* Remove body padding when on Kanban */
-  body:has([class*="kanban"]),
-  body:has([class*="Kanban"]) {
-    padding-bottom: 0 !important;
-  }
-
-  /* Ensure main content doesn't add extra space */
-  main {
-    padding-bottom: 0 !important;
+  /* Main content wrapper */
+  #root:has(.mobile-kanban-container) {
+    height: 100vh;
+    overflow: hidden;
   }
 
 }

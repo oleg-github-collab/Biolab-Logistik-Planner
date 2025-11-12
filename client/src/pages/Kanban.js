@@ -237,9 +237,9 @@ const KanbanBoard = () => {
   }
 
   return (
-    <div className="lg:h-full flex flex-col bg-transparent lg:bg-slate-50" style={{ minHeight: '100vh' }}>
+    <div className="flex flex-col bg-slate-50 mobile-kanban-container">
       {/* Header */}
-      <div className="bg-white border-b border-slate-200 lg:px-6 px-3 py-4">
+      <div className="bg-white border-b border-slate-200 lg:px-6 px-3 py-4 flex-shrink-0">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Kanban Board</h1>
@@ -334,9 +334,9 @@ const KanbanBoard = () => {
       </div>
 
       {/* Kanban Board */}
-      <div className="overflow-x-auto lg:p-6 px-3 pt-3 pb-0 lg:pb-6 lg:flex-1">
+      <div className="mobile-kanban-board lg:p-6 px-3 pt-3">
         <DragDropContext onDragEnd={handleDragEnd}>
-          <div className="flex gap-4 min-w-max pb-2 lg:pb-0">
+          <div className="flex gap-4 min-w-max mobile-kanban-columns">
             {COLUMNS.map((column) => {
               const columnTasks = tasksByStatus[column.id] || [];
 

@@ -1,6 +1,7 @@
 // Minimal production server - only essential features
+// Updated: 2025-11-12 17:45 - Force restart for broadcast fix
 console.log('='.repeat(80));
-console.log('🚀 BIOLAB LOGISTIK PLANNER - MINIMAL SERVER');
+console.log('🚀 BIOLAB LOGISTIK PLANNER - MINIMAL SERVER v2.1');
 console.log('='.repeat(80));
 console.log('Time:', new Date().toISOString());
 console.log('Node:', process.version);
