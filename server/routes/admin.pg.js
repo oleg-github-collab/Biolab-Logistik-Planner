@@ -7,7 +7,6 @@ const logger = require('../utils/logger');
 const auditLogger = require('../utils/auditLog');
 const { getIO, getOnlineUsers } = require('../websocket');
 const { createNotification } = require('../services/entsorgungBot');
-const { createNotification } = require('../services/entsorgungBot');
 const router = express.Router();
 
 const formatUptime = (seconds = 0) => {

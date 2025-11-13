@@ -1210,6 +1210,29 @@ const KnowledgeBaseV3 = () => {
   const [diffModalOpen, setDiffModalOpen] = useState(false);
   const [diffPayload, setDiffPayload] = useState(null);
   const [diffLoadingVersion, setDiffLoadingVersion] = useState(null);
+  const formatDictationPreview = useCallback((instructions = {}) => {
+    const payload = instructions || {};
+    const title = (payload.title || payload.heading || '').trim();
+    const summary = (payload.summary || payload.description || '').trim();
+    const structuredSteps = Array.isArray(payload.steps) ? payload.steps : [];
+    const bodySources = [];
+    if (payload.content) bodySources.push(payload.content);
+    if (payload.body) bodySources.push(payload.body);
+    if (structuredSteps.length) {
+      structuredSteps.forEach((step, index) => {
+        const stepTitle = step.title || `Schritt ${index + 1}`;
+        const stepText = step.description || step.body || '';
+        bodySources.push(`${stepTitle}\n${stepText}`);
+      });
+    }
+    const normalizedContent = bodySources.filter(Boolean).join('\n\n');
+    return {
+      title: title || payload.intent || 'Neue Anleitung',
+      summary: summary || normalizedContent.slice(0, 160),
+      content: normalizedContent || summary || 'Diktierter Inhalt wird hier angezeigt.',
+      steps: structuredSteps
+    };
+  }, []);
 
   // Get current user
   useEffect(() => {
@@ -1488,8 +1511,9 @@ const KnowledgeBaseV3 = () => {
       formData.append('language', dictationLanguage);
       const response = await dictateKBArticle(formData);
       const { transcript, instructions } = response.data;
-      setDictationTranscript(transcript || '');
-      setDictationPreview(instructions);
+      const formatted = formatDictationPreview(instructions);
+      setDictationTranscript(transcript || formatted.content || '');
+      setDictationPreview(formatted);
       toast.success('Diktat erfolgreich verarbeitet');
     } catch (error) {
       console.error('Error processing dictation:', error);
@@ -1503,21 +1527,28 @@ const KnowledgeBaseV3 = () => {
     }
   }, [dictationLanguage]);
 
-  const handleUseDictation = useCallback(() => {
+  const handleUseDictation = useCallback(async () => {
     if (!dictationPreview) return;
     const fallbackCategory = selectedCategory || categories[0]?.id || '';
-    setEditingArticle({
-      id: null,
-      title: dictationPreview.title || '',
-      summary: dictationPreview.summary || '',
-      content: dictationPreview.content || '',
+    const articlePayload = {
+      title: dictationPreview.title,
+      summary: dictationPreview.summary,
+      content: dictationPreview.content,
       category_id: fallbackCategory,
       tags: [],
       status: 'draft'
-    });
-    setIsEditorModalOpen(true);
-    closeDictationModal();
-  }, [categories, closeDictationModal, dictationPreview, selectedCategory]);
+    };
+    try {
+      const savedArticle = await handleSaveArticle(articlePayload);
+      if (savedArticle?.id) {
+        setEditingArticle(savedArticle);
+        setIsEditorModalOpen(true);
+      }
+      closeDictationModal();
+    } catch (error) {
+      toast.error('Diktat konnte nicht gespeichert werden');
+    }
+  }, [categories, closeDictationModal, dictationPreview, handleSaveArticle, selectedCategory]);
 
   const handleVersionDiff = useCallback(async (versionNumber) => {
     if (!selectedArticle?.id || versionNumber <= 1) {

@@ -1505,153 +1505,111 @@ const DirectMessenger = () => {
     });
   };
 
-  const ContactList = ({ variant, storyEntries, storyMap, onStoryOpen, storiesLoading }) => (
-    <div
-      className={
-        variant === 'overlay'
-          ? 'flex flex-col h-full bg-white'
-          : 'flex flex-col w-full md:w-80 lg:w-96 bg-white border-r border-slate-200 shadow-lg'
-      }
-    >
-      <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-gradient-to-r from-blue-600 to-blue-700">
-        <div className="flex items-center gap-3">
-          <Users className="w-6 h-6 text-white" />
-          <h2 className="text-lg font-bold text-white">Kontakte</h2>
+  const ContactList = ({ variant, storyEntries, storyMap, onStoryOpen, storiesLoading }) => {
+    const wrapperClass =
+      variant === 'overlay'
+        ? 'contact-list contact-list--overlay'
+        : 'contact-list contact-list--panel';
+    return (
+      <div className={wrapperClass}>
+        <div className="contact-list__header">
+          <div>
+            <h2>Write to your colleagues</h2>
+            <p>Direct messages & quick status</p>
+          </div>
+          {variant === 'overlay' && (
+            <button
+              onClick={() => setShowSidebar(false)}
+              className="contact-list__close"
+              aria-label="Kontakte schließen"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
         </div>
-        {variant === 'overlay' && (
-          <button
-            onClick={() => setShowSidebar(false)}
-            className="p-2 text-white hover:bg-white/20 rounded-lg transition"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        )}
-      </div>
 
-      <div className="p-4 border-b border-slate-200">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <div className="contact-list__search">
+          <Search className="w-4 h-4 text-slate-500" />
           <input
             type="text"
-            placeholder="Kontakte durchsuchen..."
+            placeholder="Search"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-slate-50"
           />
         </div>
-      </div>
 
-      {storiesLoading && (
-        <div className="px-4 py-3 border-b border-slate-200 bg-white">
-          <div className="flex gap-3">
-            {Array.from({ length: 3 }).map((_, idx) => (
-              <div
-                key={`story-skeleton-${idx}`}
-                className="w-16 h-16 rounded-full bg-slate-200/70 animate-pulse"
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {!storiesLoading && storyEntries.length > 0 && (
-        <div className="px-4 py-3 border-b border-slate-200 bg-white">
-          <div className="flex gap-4 overflow-x-auto pb-1">
-            {storyEntries.map((story) => (
-              <button
-                key={story.id}
-                type="button"
-                onClick={() => onStoryOpen(story.id)}
-                className="flex flex-col items-center gap-2 focus:outline-none"
-              >
-                <div
-                  className={`p-[3px] rounded-full transition ${
-                    story.viewerHasSeen
-                      ? 'bg-slate-200'
-                      : 'bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500'
-                  }`}
-                >
-                  <div className="w-16 h-16 rounded-full bg-slate-200 flex items-center justify-center text-lg font-bold text-slate-800">
+        <div className="contact-list__stories">
+          {storiesLoading ? (
+            Array.from({ length: 3 }).map((_, idx) => (
+              <div key={`story-skel-${idx}`} className="story-chip story-chip--skeleton" />
+            ))
+          ) : (
+            storyEntries.map((story) => (
+              <button key={story.id} type="button" onClick={() => onStoryOpen(story.id)} className="story-chip">
+                <div className={`story-chip__ring ${story.viewerHasSeen ? 'seen' : ''}`}>
+                  <div className="story-chip__avatar">
                     {story.userName?.charAt(0)?.toUpperCase() || '?'}
                   </div>
                 </div>
-                <span className="text-xs text-slate-600 max-w-[72px] text-center truncate">
-                  {story.userName || 'Story'}
-                </span>
+                <span>{story.userName || 'Story'}</span>
               </button>
-            ))}
-          </div>
+            ))
+          )}
         </div>
-      )}
 
-      <div className="flex-1 overflow-y-auto">
-        {loading ? (
-          <div className="flex items-center justify-center h-32">
-            <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" />
-          </div>
-        ) : filteredContacts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-32 text-slate-400">
-            <Users className="w-12 h-12 mb-2" />
-            <p>Keine Kontakte gefunden</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-slate-100">
-            {filteredContacts.map((contact) => {
+        <div className="contact-list__grid">
+          {loading ? (
+            <div className="flex items-center justify-center h-32">
+              <div className="animate-spin w-8 h-8 border-4 border-white border-t-transparent rounded-full" />
+            </div>
+          ) : filteredContacts.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-32 text-slate-400 gap-2">
+              <Users className="w-12 h-12" />
+              <p>No contacts found</p>
+            </div>
+          ) : (
+            filteredContacts.map((contact) => {
+              const isSelected = selectedContact?.id === contact.id;
               const contactStory = storyMap?.[contact.id];
               return (
                 <button
                   key={contact.id}
                   onClick={() => handleContactClick(contact)}
-                  className={`w-full px-4 py-4 flex items-center gap-3 transition ${
-                    selectedContact?.id === contact.id
-                      ? 'bg-blue-50 border-l-4 border-blue-600'
-                      : 'hover:bg-slate-50'
-                  }`}
+                  className={`contact-card ${isSelected ? 'contact-card--active' : ''}`}
                 >
-                <div className="flex-shrink-0 mr-1">
                   <div
-                    role={contactStory ? 'button' : undefined}
-                    tabIndex={contactStory ? 0 : -1}
-                    onClick={(event) => {
-                      if (contactStory) {
-                        event.stopPropagation();
-                        onStoryOpen(contactStory.id);
-                      }
-                    }}
-                    className={`p-[2px] rounded-full ${
-                      contactStory
-                        ? contactStory.viewerHasSeen
-                          ? 'bg-slate-200'
-                          : 'bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500'
-                        : 'bg-transparent'
+                    className={`contact-card__avatar-ring ${contactStory ? 'has-story' : ''} ${
+                      contactStory && !contactStory.viewerHasSeen ? 'story-unread' : ''
                     }`}
                   >
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-md cursor-pointer">
+                    <div className="contact-card__avatar">
                       {contact.name?.[0]?.toUpperCase() || contact.email?.[0]?.toUpperCase() || '?'}
                     </div>
                   </div>
-                  {contactStory && !contactStory.viewerHasSeen && (
-                    <span className="block w-2.5 h-2.5 bg-blue-500 border-2 border-white rounded-full mx-auto -mt-2" />
-                  )}
-                </div>
-                <div className="flex-1 text-left min-w-0">
-                  <p className="font-semibold text-slate-900 truncate">{contact.name}</p>
-                  <p className="text-sm text-slate-500 truncate">{contact.email}</p>
-                  {contact.status && (
-                    <p className="text-xs text-slate-400 mt-0.5">{contact.status}</p>
-                  )}
-                </div>
-                {contact.online && (
-                  <div className="w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
-                )}
-              </button>
+                  <div className="contact-card__body">
+                    <p className="contact-card__name">{contact.name}</p>
+                    <p className="contact-card__snippet">
+                      {contact.status || 'Bereit, direkt zu schreiben'}
+                    </p>
+                  </div>
+                  <div className="contact-card__meta">
+                    <span className="contact-card__email">{contact.email}</span>
+                    <span
+                      className={`contact-card__presence ${
+                        contact.online ? 'online' : 'offline'
+                      }`}
+                    >
+                      {contact.online ? 'Online' : 'Offline'}
+                    </span>
+                  </div>
+                </button>
               );
-            })}
-          </div>
-        )}
+            })
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderDesktopLayout = () => (
     <div className="flex h-full bg-gradient-to-br from-slate-50 to-slate-100 rounded-2xl overflow-hidden border border-slate-200 shadow-lg">

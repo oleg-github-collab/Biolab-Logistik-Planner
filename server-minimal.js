@@ -1,7 +1,7 @@
 // Minimal production server - only essential features
-// Updated: 2025-11-13 00:30 - Error Handling + All Features
+// Updated: 2025-11-13 02:15 - Admin Routes Fix
 console.log('='.repeat(80));
-console.log('🚀 BIOLAB LOGISTIK PLANNER - SERVER v3.1-PRODUCTION');
+console.log('🚀 BIOLAB LOGISTIK PLANNER - SERVER v3.2-HOTFIX');
 console.log('='.repeat(80));
 console.log('Time:', new Date().toISOString());
 console.log('Node:', process.version);
