@@ -164,15 +164,6 @@ const TaskModal = ({ isOpen, onClose, task, users = [], onTaskUpdated, onTaskDel
     };
   }, [onTaskEvent, pushActivityEntry, task?.id, currentUser?.name]);
 
-  const loadActivityLog = async (taskId) => {
-    try {
-      const log = await fetchActivityLog(taskId);
-      setActivityLog(log);
-    } catch (error) {
-      console.error('Failed to load activity log:', error);
-    }
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
 
