@@ -7,7 +7,16 @@ import 'moment/locale/de';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
-import { format, addMinutes, differenceInMinutes } from 'date-fns';
+import {
+  format,
+  addMinutes,
+  differenceInMinutes,
+  startOfWeek,
+  addDays,
+  startOfDay,
+  endOfWeek,
+  isSameDay
+} from 'date-fns';
 import { de } from 'date-fns/locale';
 
 // Initialize moment with German locale
@@ -37,6 +46,8 @@ const CalendarView = ({
   onEventUpdate,
   onSelectSlot,
   onRangeChange,
+  onEventEdit,
+  onEventDelete,
   loading = false,
   isMobile = false
 }) => {
@@ -62,7 +73,7 @@ const CalendarView = ({
       if (isNaN(end.getTime())) {
         console.warn(`Invalid end date for event ${event.id}:`, endValue);
         end = new Date(start.getTime() + 3600000); // Add 1 hour
-      }
+    }
 
       return {
         ...event,
@@ -83,6 +94,44 @@ const CalendarView = ({
       .sort((a, b) => a.start - b.start)
       .slice(0, 3);
   }, [calendarEvents]);
+
+  const heroWeekStart = useMemo(() => startOfWeek(date, { weekStartsOn: 1 }), [date]);
+  const heroWeekEnd = useMemo(() => endOfWeek(date, { weekStartsOn: 1 }), [date]);
+  const mobileWeekDays = useMemo(() => {
+    const days = [];
+    for (let i = 0; i < 7; i += 1) {
+      days.push(addDays(heroWeekStart, i));
+    }
+    return days;
+  }, [heroWeekStart]);
+
+  const getEventsForDay = useCallback(
+    (day) => calendarEvents.filter((event) => isSameDay(event.start, day)),
+    [calendarEvents]
+  );
+
+  const upcomingMobileEvents = useMemo(() => {
+    const today = startOfDay(new Date());
+    return calendarEvents
+      .filter((event) => event.start >= today)
+      .sort((a, b) => a.start - b.start)
+      .slice(0, 4);
+  }, [calendarEvents]);
+
+  const handleMobileDayFocus = useCallback((day) => {
+    setView('day');
+    setDate(day);
+  }, []);
+
+  const handleMobileQuickCreate = useCallback(() => {
+    if (!onEventCreate) return;
+    const start = new Date();
+    const end = addMinutes(start, 60);
+    onEventCreate({
+      start,
+      end
+    });
+  }, [onEventCreate]);
 
   // Handle event drag-and-drop (move)
   const handleEventDrop = useCallback(async ({ event, start, end }) => {
@@ -187,6 +236,144 @@ const CalendarView = ({
   const handleDateChange = useCallback((newDate) => {
     setDate(newDate);
   }, []);
+
+  const heroWeekLabel = `${format(heroWeekStart, 'dd.MM')} – ${format(heroWeekEnd, 'dd.MM')}`;
+
+  const MobileCalendarHero = ({
+    days,
+    selectedDate,
+    weekLabel,
+    onPrev,
+    onNext,
+    onToday,
+    onDayFocus,
+    onEventCreate,
+    upcomingEvents,
+    onEventClick,
+    onEventEdit,
+    onEventDelete
+  }) => (
+    <div className="mobile-calendar-hero">
+      <div className="mobile-calendar-hero__header">
+        <div>
+          <p className="text-xs uppercase tracking-[0.3em] text-blue-500">Kalender</p>
+          <h3 className="text-lg font-semibold text-slate-900">{weekLabel}</h3>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onPrev}
+            className="mobile-calendar-hero__nav"
+            aria-label="Vorherige Woche"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={onToday}
+            className="mobile-calendar-hero__nav mobile-calendar-hero__nav--solid"
+          >
+            Heute
+          </button>
+          <button
+            type="button"
+            onClick={onNext}
+            className="mobile-calendar-hero__nav"
+            aria-label="Nächste Woche"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      <div className="mobile-calendar-hero__days">
+        {days.map((day) => {
+          const dayEvents = getEventsForDay(day);
+          const isActiveDay = isSameDay(day, selectedDate);
+          return (
+            <button
+              key={day.toISOString()}
+              type="button"
+              onClick={() => onDayFocus(day)}
+              className={`mobile-calendar-day-card ${isActiveDay ? 'mobile-calendar-day-card--active' : ''}`}
+            >
+              <span className="mobile-calendar-day-card__weekday">{format(day, 'EEE', { locale: de })}</span>
+              <span className="mobile-calendar-day-card__date">{format(day, 'dd')}</span>
+              <span className="mobile-calendar-day-card__count">{dayEvents.length} Termine</span>
+            </button>
+          );
+        })}
+        <button
+          type="button"
+          onClick={onEventCreate}
+          className="mobile-calendar-day-card mobile-calendar-day-card--cta"
+        >
+          + Termin
+        </button>
+      </div>
+
+      <div className="mobile-calendar-upcoming">
+        <div className="mobile-calendar-upcoming__header">
+          <div>
+            <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Als nächstes</p>
+            <h4 className="text-sm font-semibold text-slate-900">Fokus-Termine</h4>
+          </div>
+          <button
+            type="button"
+            onClick={onEventCreate}
+            className="text-xs font-semibold uppercase text-blue-600 tracking-wide hover:underline"
+          >
+            + Termin hinzufügen
+          </button>
+        </div>
+        {upcomingEvents.length === 0 ? (
+          <div className="mobile-calendar-upcoming__empty">
+            Keine neuen Termine – nutze den Quick-Add-Knopf.
+          </div>
+        ) : (
+          upcomingEvents.map((event) => {
+            const resource = event.resource || event;
+            const eventTitle = event.title;
+            const timeLabel = event.allDay
+              ? 'Ganztägig'
+              : `${format(event.start, 'HH:mm')} – ${format(event.end, 'HH:mm')}`;
+            return (
+              <div key={event.id} className="mobile-calendar-event-card">
+                <div
+                  className="mobile-calendar-event-card__body"
+                  role="button"
+                  onClick={() => onEventClick?.(event)}
+                >
+                  <p className="text-sm font-semibold text-slate-900">{eventTitle}</p>
+                  <p className="text-xs text-slate-500">{timeLabel}</p>
+                </div>
+                <div className="mobile-calendar-event-card__actions">
+                  {onEventEdit && (
+                    <button
+                      type="button"
+                      onClick={() => onEventEdit(resource)}
+                      className="mobile-calendar-event-card__action"
+                    >
+                      Bearbeiten
+                    </button>
+                  )}
+                  {onEventDelete && (
+                    <button
+                      type="button"
+                      onClick={() => onEventDelete(resource.id ?? event.id)}
+                      className="mobile-calendar-event-card__action mobile-calendar-event-card__action--danger"
+                    >
+                      Löschen
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
 
   // Notify parent of range changes for data fetching
   useEffect(() => {
@@ -429,32 +616,21 @@ const CalendarView = ({
       </div>
       )}
 
-      {isMobile && upcomingEvents.length > 0 && (
-        <div className="calendar-mobile-glance">
-          {upcomingEvents.map((event) => (
-            <button
-              key={event.id}
-              type="button"
-              onClick={() => handleSelectEvent(event)}
-              className="calendar-mobile-glance__card"
-            >
-              <span
-                className="calendar-mobile-glance__accent"
-                style={{ backgroundColor: event.color || '#2563eb' }}
-              />
-              <div className="calendar-mobile-glance__body">
-                <p className="calendar-mobile-glance__title">{event.title}</p>
-                <p className="calendar-mobile-glance__time">
-                  {format(event.start, 'HH:mm', { locale: de })} ·{' '}
-                  {format(event.start, 'dd.MM.', { locale: de })}
-                </p>
-              </div>
-              <span className="calendar-mobile-glance__tag">
-                {event.resource?.location || event.resource?.event_type || 'Termin'}
-              </span>
-            </button>
-          ))}
-        </div>
+      {isMobile && (
+        <MobileCalendarHero
+          days={mobileWeekDays}
+          selectedDate={date}
+          weekLabel={heroWeekLabel}
+          onPrev={() => handleNavigate('subtract')}
+          onNext={() => handleNavigate('add')}
+          onToday={handleToday}
+          onDayFocus={handleMobileDayFocus}
+          onEventCreate={handleMobileQuickCreate}
+          upcomingEvents={upcomingMobileEvents}
+          onEventClick={handleSelectEvent}
+          onEventEdit={onEventEdit}
+          onEventDelete={onEventDelete}
+        />
       )}
 
       {/* Calendar */}
@@ -548,6 +724,8 @@ CalendarView.propTypes = {
   onEventClick: PropTypes.func,
   onEventCreate: PropTypes.func,
   onEventUpdate: PropTypes.func,
+  onEventEdit: PropTypes.func,
+  onEventDelete: PropTypes.func,
   onSelectSlot: PropTypes.func,
   onRangeChange: PropTypes.func,
   loading: PropTypes.bool,

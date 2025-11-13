@@ -255,6 +255,13 @@ const Dashboard = () => {
     }
   }, [refetchEvents, showToast]);
 
+  const handleEventEdit = useCallback((event) => {
+    setSelectedEvent(event);
+    setEventFormMode('edit');
+    setShowEventFormModal(true);
+    setShowEventDetailsModal(false);
+  }, []);
+
   // Handle event duplicate
   const handleEventDuplicate = useCallback(async (eventData) => {
     try {
@@ -487,6 +494,8 @@ const Dashboard = () => {
               onEventCreate={handleCalendarEventCreate}
               onEventUpdate={handleEventUpdate}
               onRangeChange={handleRangeChange}
+              onEventEdit={handleEventEdit}
+              onEventDelete={handleEventDelete}
               loading={eventsLoading}
               isMobile={isMobile}
             />
@@ -542,7 +551,7 @@ const Dashboard = () => {
             setActiveTab('calendar');
             handleCalendarEventCreate({ start: selectedDate });
           }}
-          className="fixed bottom-24 right-5 z-[1200] flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-xl shadow-blue-500/30 transition hover:bg-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-200"
+          className={`fixed bottom-24 right-5 z-[1200] flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-xl shadow-blue-500/30 transition hover:bg-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-200 ${showEventFormModal || showEventDetailsModal ? 'pointer-events-none opacity-0' : ''}`}
           aria-label="Neuen Termin erstellen"
         >
           <Plus className="h-6 w-6" />
