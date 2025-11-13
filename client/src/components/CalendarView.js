@@ -312,62 +312,40 @@ const CalendarView = ({
         </button>
       </div>
 
-      <div className="mobile-calendar-upcoming">
-        <div className="mobile-calendar-upcoming__header">
-          <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Als nächstes</p>
-            <h4 className="text-sm font-semibold text-slate-900">Fokus-Termine</h4>
-          </div>
-          <button
-            type="button"
-            onClick={onEventCreate}
-            className="text-xs font-semibold uppercase text-blue-600 tracking-wide hover:underline"
-          >
-            + Termin hinzufügen
-          </button>
-        </div>
+      <div className="calendar-mobile-glance">
         {upcomingEvents.length === 0 ? (
-          <div className="mobile-calendar-upcoming__empty">
-            Keine neuen Termine – nutze den Quick-Add-Knopf.
+          <div className="calendar-mobile-glance__card">
+            <span className="calendar-mobile-glance__accent" aria-hidden="true" />
+            <div className="calendar-mobile-glance__body">
+              <p className="calendar-mobile-glance__title">Noch nichts geplant</p>
+              <p className="calendar-mobile-glance__time">
+                Tippe auf „+ Termin“ oder wähle eine Woche aus.
+              </p>
+              <span className="calendar-mobile-glance__tag">Bereit</span>
+            </div>
           </div>
         ) : (
           upcomingEvents.map((event) => {
             const resource = event.resource || event;
-            const eventTitle = event.title;
             const timeLabel = event.allDay
               ? 'Ganztägig'
               : `${format(event.start, 'HH:mm')} – ${format(event.end, 'HH:mm')}`;
+            const tagLabel = resource.type || resource.category || 'Termin';
+            const titleLabel = event.title || 'Kalendertermin';
             return (
-              <div key={event.id} className="mobile-calendar-event-card">
-                <div
-                  className="mobile-calendar-event-card__body"
-                  role="button"
-                  onClick={() => onEventClick?.(event)}
-                >
-                  <p className="text-sm font-semibold text-slate-900">{eventTitle}</p>
-                  <p className="text-xs text-slate-500">{timeLabel}</p>
+              <button
+                key={event.id}
+                type="button"
+                onClick={() => onEventClick?.(event)}
+                className="calendar-mobile-glance__card text-left"
+              >
+                <span className="calendar-mobile-glance__accent" aria-hidden="true" />
+                <div className="calendar-mobile-glance__body">
+                  <p className="calendar-mobile-glance__title truncate">{titleLabel}</p>
+                  <p className="calendar-mobile-glance__time">{timeLabel}</p>
+                  <span className="calendar-mobile-glance__tag">{tagLabel}</span>
                 </div>
-                <div className="mobile-calendar-event-card__actions">
-                  {onEventEdit && (
-                    <button
-                      type="button"
-                      onClick={() => onEventEdit(resource)}
-                      className="mobile-calendar-event-card__action"
-                    >
-                      Bearbeiten
-                    </button>
-                  )}
-                  {onEventDelete && (
-                    <button
-                      type="button"
-                      onClick={() => onEventDelete(resource.id ?? event.id)}
-                      className="mobile-calendar-event-card__action mobile-calendar-event-card__action--danger"
-                    >
-                      Löschen
-                    </button>
-                  )}
-                </div>
-              </div>
+              </button>
             );
           })
         )}

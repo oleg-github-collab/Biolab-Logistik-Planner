@@ -19,6 +19,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CalendarDays,
+  Loader2,
   Smile,
   Reply,
   Plus,
@@ -1988,24 +1989,29 @@ const DirectMessenger = () => {
       )}
 
       {selectedEvent && (
-        <div className="px-4 py-3 bg-slate-900 text-blue-100 flex items-center gap-3 border-t border-slate-800">
-          <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-500 text-white">
-            <CalendarDays className="w-5 h-5" />
+        <div className="px-4 pb-1">
+          <div className="selected-event-preview">
+            <div className="icon">
+              <CalendarDays className="w-5 h-5 text-white" />
+            </div>
+            <div className="content">
+              <p className="title truncate">{selectedEvent.title || 'Kalendereintrag'}</p>
+              <p className="time">
+                {formatEventDateRange(selectedEvent.start_time, selectedEvent.end_time)}
+              </p>
+              {selectedEvent.location && (
+                <p className="text-xs text-slate-400 mt-1 leading-tight">Ort: {selectedEvent.location}</p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={clearSelectedEvent}
+              className="remove"
+              aria-label="Ereignis entfernen"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold truncate">{selectedEvent.title}</p>
-            <p className="text-xs opacity-80">
-              {formatEventDateRange(selectedEvent.start_time, selectedEvent.end_time)}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={clearSelectedEvent}
-            className="p-2 rounded-full hover:bg-blue-500/30 transition"
-            title="Ereignis entfernen"
-          >
-            <X className="w-4 h-4" />
-          </button>
         </div>
       )}
 
@@ -2093,53 +2099,79 @@ const DirectMessenger = () => {
     if (!showEventPicker) return null;
 
     return (
-      <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center px-4 py-6">
-        <div
-          className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
-          onClick={() => setShowEventPicker(false)}
-        />
-        <div className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
-            <h3 className="text-lg font-semibold text-slate-900">Kalenderereignis teilen</h3>
+      <div
+        className="event-picker-overlay"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Kalenderereignis auswählen"
+        onClick={() => setShowEventPicker(false)}
+      >
+        <div className="event-picker-modal" onClick={(event) => event.stopPropagation()}>
+          <div className="modal-header">
+            <div>
+              <h2>Kalenderereignis teilen</h2>
+              <p className="text-sm text-slate-500">Wähle einen Termin, um ihn im Chat zu teilen.</p>
+            </div>
             <button
               type="button"
               onClick={() => setShowEventPicker(false)}
-              className="p-2 rounded-full hover:bg-slate-100 transition"
-              aria-label="Auswahl schließen"
+              className="rounded-xl border border-slate-100 p-2"
+              aria-label="Modal schließen"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
           </div>
-          <div className="max-h-[60vh] overflow-y-auto px-5 py-4 space-y-3">
+          <div className="modal-body">
             {eventsLoading ? (
-              <div className="flex items-center justify-center py-10">
-                <div className="animate-spin w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full" />
+              <div className="flex flex-col items-center justify-center gap-3 py-10">
+                <Loader2 className="h-10 w-10 text-blue-600 animate-spin" />
+                <p className="text-xs font-semibold text-slate-500">Kalender lädt…</p>
               </div>
             ) : eventOptions.length === 0 ? (
-              <div className="py-10 text-center text-sm text-slate-500">
-                {eventError || 'Keine kommenden Termine gefunden'}
+              <div className="text-center text-sm text-slate-500 py-10 space-y-1">
+                <p>{eventError || 'Keine kommenden Termine gefunden.'}</p>
+                <p>Versuche es später erneut.</p>
               </div>
             ) : (
               eventOptions.map((calendarEvent) => (
                 <button
-                  key={calendarEvent.id}
+                  key={calendarEvent.id || calendarEvent.start_time}
                   type="button"
                   onClick={() => handleEventSelect(calendarEvent)}
-                  className="w-full text-left rounded-2xl border border-slate-200 hover:border-blue-300 hover:bg-blue-50/40 transition px-4 py-3"
+                  className="event-picker-item"
                 >
-                  <p className="text-sm font-semibold text-slate-900 truncate">{calendarEvent.title}</p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    {formatEventDateRange(calendarEvent.start_time, calendarEvent.end_time)}
-                  </p>
-                  {calendarEvent.location && (
-                    <p className="text-xs text-slate-400 mt-1">Ort: {calendarEvent.location}</p>
-                  )}
+                  <div className="icon">
+                    <CalendarDays className="w-5 h-5" />
+                  </div>
+                  <div className="content">
+                    <p className="title">{calendarEvent.title || 'Unbenannter Termin'}</p>
+                    <p className="time">
+                      {formatEventDateRange(calendarEvent.start_time, calendarEvent.end_time)}
+                    </p>
+                    {calendarEvent.location && (
+                      <p className="text-xs text-slate-400 mt-1">Ort: {calendarEvent.location}</p>
+                    )}
+                  </div>
                 </button>
               ))
             )}
-            {eventError && eventOptions.length > 0 && (
-              <p className="text-xs text-rose-600">{eventError}</p>
-            )}
+          </div>
+          <div className="modal-footer">
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setShowEventPicker(false)}
+            >
+              Abbrechen
+            </button>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={loadCalendarOptions}
+              disabled={eventsLoading}
+            >
+              Aktualisieren
+            </button>
           </div>
         </div>
       </div>
