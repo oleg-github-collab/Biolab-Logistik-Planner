@@ -6,7 +6,13 @@ const { auth, adminAuth } = require('../middleware/auth');
 const logger = require('../utils/logger');
 const auditLogger = require('../utils/auditLog');
 const { getIO, getOnlineUsers } = require('../websocket');
-const { createNotification } = require('../services/entsorgungBot');
+const entsorgungBot = require('../services/entsorgungBot');
+const createNotification =
+  typeof entsorgungBot?.createNotification === 'function'
+    ? entsorgungBot.createNotification
+    : async () => {
+        logger.warn('Broadcast notifications unavailable: createNotification helper missing');
+      };
 const router = express.Router();
 
 const formatUptime = (seconds = 0) => {
