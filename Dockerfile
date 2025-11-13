@@ -15,11 +15,17 @@ RUN cd client && npm ci
 # Copy application code
 COPY . .
 
-# Build client
-RUN echo "Building client at $(date)"
+# Build client - v3.1 PRODUCTION
+RUN echo "======================================== v3.1 ========================================" && \
+    echo "Building v3.1-PRODUCTION at $(date)" && \
+    echo "======================================================================================"
 RUN cd client && CI=false GENERATE_SOURCEMAP=false DISABLE_ESLINT_PLUGIN=true npm run build
-RUN echo "Build complete. Files:" && ls -lh client/build/static/js/main.*.js
-RUN cat client/build/asset-manifest.json
+RUN echo "======================================================================================" && \
+    echo "✅ Build v3.1-PRODUCTION complete!" && \
+    ls -lh client/build/static/js/main.*.js && \
+    echo "======================================================================================" && \
+    cat client/build/asset-manifest.json && \
+    echo "======================================================================================"
 
 # Expose port
 EXPOSE 5000

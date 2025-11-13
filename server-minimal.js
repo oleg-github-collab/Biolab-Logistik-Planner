@@ -1,7 +1,7 @@
 // Minimal production server - only essential features
-// Updated: 2025-11-13 00:15 - Migration 032 + Broadcast Logging
+// Updated: 2025-11-13 00:30 - Error Handling + All Features
 console.log('='.repeat(80));
-console.log('🚀 BIOLAB LOGISTIK PLANNER - SERVER v3.0-STABLE');
+console.log('🚀 BIOLAB LOGISTIK PLANNER - SERVER v3.1-PRODUCTION');
 console.log('='.repeat(80));
 console.log('Time:', new Date().toISOString());
 console.log('Node:', process.version);

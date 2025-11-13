@@ -46,6 +46,15 @@ const sanitizeInput = (input) => {
 
 const ALLOWED_BROADCAST_TYPES = ['info', 'warning', 'success', 'error'];
 const BROADCAST_TITLE_PREFIX = 'Nachricht von';
+const USER_ROLE_OPTIONS = ['employee', 'admin', 'superadmin', 'observer'];
+const BULK_USER_ACTIONS = ['activate', 'deactivate', 'delete', 'updateRole'];
+
+const sanitizeIdList = (ids = []) => {
+  if (!Array.isArray(ids)) return [];
+  return ids
+    .map((id) => parseInt(id, 10))
+    .filter((value) => Number.isInteger(value) && value > 0);
+};
 
 const isValidBroadcastType = (type) =>
   ALLOWED_BROADCAST_TYPES.includes(type);
@@ -54,15 +63,26 @@ const buildBroadcastTitle = (adminName) =>
   `${BROADCAST_TITLE_PREFIX} ${adminName || 'Administrations-Team'}`;
 
 const logBroadcastEntry = async ({ adminId, message, severity, recipients, metadata = {} }) => {
-  const result = await pool.query(
-    `
-      INSERT INTO admin_broadcast_logs (admin_id, message, severity, recipients, metadata)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING *
-    `,
-    [adminId, message, severity, recipients, metadata || {}]
-  );
-  return result.rows[0];
+  try {
+    const result = await pool.query(
+      `
+        INSERT INTO admin_broadcast_logs (admin_id, message, severity, recipients, metadata)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING *
+      `,
+      [adminId, message, severity, recipients, metadata || {}]
+    );
+    return result.rows[0];
+  } catch (error) {
+    logger.warn('Broadcast logging skipped', {
+      adminId,
+      message,
+      severity,
+      recipients,
+      error: error.message
+    });
+    return null;
+  }
 };
 
 const broadcastToAllUsers = async ({ adminId, adminName, message, type, metadata = {} }) => {
