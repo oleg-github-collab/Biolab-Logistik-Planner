@@ -5,7 +5,9 @@ const { pool } = require('../config/database');
 const { auth, adminAuth } = require('../middleware/auth');
 const logger = require('../utils/logger');
 const auditLogger = require('../utils/auditLog');
-const { getIO, getOnlineUsers, sendNotificationToUser } = require('../websocket');
+const { getIO, getOnlineUsers } = require('../websocket');
+const { createNotification } = require('../services/entsorgungBot');
+const { createNotification } = require('../services/entsorgungBot');
 const router = express.Router();
 
 const formatUptime = (seconds = 0) => {
@@ -88,27 +90,38 @@ const logBroadcastEntry = async ({ adminId, message, severity, recipients, metad
 const broadcastToAllUsers = async ({ adminId, adminName, message, type, metadata = {} }) => {
   const notificationTitle = buildBroadcastTitle(adminName);
   const sanitizedType = isValidBroadcastType(type) ? type : 'info';
+  const client = await pool.connect();
+  const recipients = [];
 
-  const notificationResult = await pool.query(
-    `
-    INSERT INTO notifications (user_id, type, title, content, metadata, created_at, priority, is_read, related_user_id, task_id, event_id)
-    SELECT id, 'broadcast', $1, $2,
-           jsonb_build_object('category', 'admin', 'severity', $3)::jsonb,
-           NOW(),
-           'normal',
-           FALSE,
-           $4,
-           NULL,
-           NULL
-    FROM users
-    WHERE is_active = TRUE
-      AND id <> $4
-    RETURNING id, user_id
-    `,
-    [notificationTitle, message, sanitizedType, adminId]
-  );
+  try {
+    const userRows = await client.query(
+      'SELECT id FROM users WHERE is_active = TRUE AND id <> $1',
+      [adminId]
+    );
 
-  const recipients = notificationResult.rowCount;
+    for (const { id: userId } of userRows.rows) {
+      try {
+        await createNotification(client, userId, {
+          title: notificationTitle,
+          content: message,
+          type: 'broadcast',
+          metadata: {
+            ...metadata,
+            category: 'admin',
+            severity: sanitizedType
+          }
+        });
+        recipients.push(userId);
+      } catch (notifyError) {
+        logger.warn('Broadcast notification failed for user', {
+          userId,
+          error: notifyError.message
+        });
+      }
+    }
+  } finally {
+    client.release();
+  }
 
   try {
     const io = getIO();
@@ -124,34 +137,23 @@ const broadcastToAllUsers = async ({ adminId, adminName, message, type, metadata
     logger.warn('WebSocket not available for broadcast', { error: wsError.message });
   }
 
-  for (const { user_id, id } of notificationResult.rows) {
-    sendNotificationToUser(user_id, {
-      id,
-      user_id,
-      type: 'broadcast',
-      title: notificationTitle,
-      content: message,
-      metadata: { category: 'admin', severity: sanitizedType }
-    });
-  }
-
   const logEntry = await logBroadcastEntry({
     adminId,
     message,
     severity: sanitizedType,
-    recipients,
+    recipients: recipients.length,
     metadata
   });
 
   logger.info('Admin broadcast dispatched', {
     adminId,
     type: sanitizedType,
-    recipients,
+    recipients: recipients.length,
     logId: logEntry?.id,
     metadata
   });
 
-  return { recipients, log: logEntry };
+  return { recipients: recipients.length, log: logEntry };
 };
 
 // @route   GET /api/admin/users
@@ -680,6 +682,76 @@ router.post('/users', [auth, adminAuth], async (req, res) => {
   } catch (err) {
     console.error('Fehler beim Erstellen des Benutzers:', err.message);
     res.status(500).json({ error: 'Serverfehler beim Erstellen des Benutzers' });
+  }
+});
+
+// @route   POST /api/admin/users/bulk
+// @desc    Bulk operations on users
+router.post('/users/bulk', [auth, adminAuth], async (req, res) => {
+  const { action, userIds, payload = {} } = req.body;
+  const ids = sanitizeIdList(userIds);
+
+  if (!action || !BULK_USER_ACTIONS.includes(action)) {
+    return res.status(400).json({ error: 'Ungültige Bulk-Aktion' });
+  }
+
+  if (!ids.length) {
+    return res.status(400).json({ error: 'Keine Benutzer ausgewählt' });
+  }
+
+  try {
+    let result;
+
+    switch (action) {
+      case 'activate':
+        result = await pool.query(
+          `UPDATE users SET is_active = TRUE, updated_at = CURRENT_TIMESTAMP WHERE id = ANY($1) RETURNING id`,
+          [ids]
+        );
+        break;
+      case 'deactivate':
+        result = await pool.query(
+          `UPDATE users SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP WHERE id = ANY($1) RETURNING id`,
+          [ids]
+        );
+        break;
+      case 'delete': {
+        const filtered = ids.filter((id) => id !== req.user.id);
+        if (!filtered.length) {
+          return res.status(400).json({ error: 'Konnte nicht alle ausgewählten Benutzer löschen' });
+        }
+        result = await pool.query(
+          `DELETE FROM users WHERE id = ANY($1) RETURNING id`,
+          [filtered]
+        );
+        break;
+      }
+      case 'updateRole': {
+        const { role } = payload;
+        if (!role || !USER_ROLE_OPTIONS.includes(role)) {
+          return res.status(400).json({ error: 'Ungültige Rolle für die Massenbearbeitung' });
+        }
+        if (role === 'superadmin' && req.user.role !== 'superadmin') {
+          return res.status(403).json({ error: 'Nur Superadmins dürfen diese Rolle vergeben' });
+        }
+        result = await pool.query(
+          `UPDATE users SET role = $1, updated_at = CURRENT_TIMESTAMP WHERE id = ANY($2) RETURNING id`,
+          [role, ids]
+        );
+        break;
+      }
+      default:
+        return res.status(400).json({ error: 'Bulk-Aktion nicht unterstützt' });
+    }
+
+    res.json({
+      success: true,
+      action,
+      affected: result.rowCount
+    });
+  } catch (error) {
+    logger.error('Error executing bulk user action', { action, ids, error: error.message });
+    res.status(500).json({ error: 'Bulk-Aktion fehlgeschlagen' });
   }
 });
 

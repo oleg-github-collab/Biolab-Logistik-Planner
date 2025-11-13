@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   Shield, Activity, Users, FileText, AlertTriangle,
   TrendingUp, Clock, Filter, Download, RefreshCw,
@@ -41,6 +41,20 @@ const previewBroadcastMessage = (text = '', maxLength = 120) => {
   return `${clean.slice(0, maxLength).trim()}…`;
 };
 
+const BULK_USER_ACTIONS = [
+  { value: 'activate', label: 'Aktivieren' },
+  { value: 'deactivate', label: 'Deaktivieren' },
+  { value: 'delete', label: 'Löschen' },
+  { value: 'updateRole', label: 'Rolle ändern' }
+];
+
+const USER_ROLE_OPTIONS = [
+  { value: 'employee', label: 'Mitarbeiter' },
+  { value: 'admin', label: 'Admin' },
+  { value: 'superadmin', label: 'Superadmin' },
+  { value: 'observer', label: 'Beobachter' }
+];
+
 const AdminDashboard = () => {
   const { user } = useAuth();
   const [activeSection, setActiveSection] = useState('overview');
@@ -69,6 +83,11 @@ const AdminDashboard = () => {
   const [broadcastHistory, setBroadcastHistory] = useState([]);
   const [broadcastHistoryLoading, setBroadcastHistoryLoading] = useState(false);
   const [resendingBroadcastId, setResendingBroadcastId] = useState(null);
+  const [selectedUsersBulk, setSelectedUsersBulk] = useState([]);
+  const [selectAllUsers, setSelectAllUsers] = useState(false);
+  const [bulkAction, setBulkAction] = useState(BULK_USER_ACTIONS[0].value);
+  const [bulkRole, setBulkRole] = useState('employee');
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   const { isConnected, adminEvents, onAdminEvent } = useWebSocketContext();
 
@@ -112,6 +131,67 @@ const AdminDashboard = () => {
       setAllUsers([]);
     }
   }, []);
+
+  useEffect(() => {
+    setSelectedUsersBulk((prev) =>
+      prev.filter((id) => allUsers.some((user) => user.id === id))
+    );
+  }, [allUsers]);
+
+  useEffect(() => {
+    setSelectAllUsers(allUsers.length > 0 && selectedUsersBulk.length === allUsers.length);
+  }, [allUsers, selectedUsersBulk]);
+
+  const toggleUserSelection = useCallback((userId) => {
+    setSelectedUsersBulk((prev) => {
+      if (prev.includes(userId)) {
+        return prev.filter((id) => id !== userId);
+      }
+      return [...prev, userId];
+    });
+  }, []);
+
+  const handleSelectAllUsers = useCallback(() => {
+    if (selectAllUsers) {
+      setSelectedUsersBulk([]);
+      setSelectAllUsers(false);
+      return;
+    }
+    setSelectedUsersBulk(allUsers.map((user) => user.id));
+    setSelectAllUsers(true);
+  }, [allUsers, selectAllUsers]);
+
+  const performBulkUserAction = useCallback(async () => {
+    if (!selectedUsersBulk.length) {
+      toast.error('Wähle zuerst Benutzer aus');
+      return;
+    }
+
+    setBulkLoading(true);
+    try {
+      const payload =
+        bulkAction === 'updateRole'
+          ? { action: bulkAction, userIds: selectedUsersBulk, payload: { role: bulkRole } }
+          : { action: bulkAction, userIds: selectedUsersBulk };
+
+      const response = await api.post('/admin/users/bulk', payload);
+
+      toast.success(
+        `Bulk-Aktion durchgeführt (${response.data.affected || 0} Benutzer betroffen)`
+      );
+      setSelectedUsersBulk([]);
+      setSelectAllUsers(false);
+      if (bulkAction !== 'updateRole' && bulkAction !== 'delete') {
+        setBulkAction('activate');
+      }
+      fetchUsers();
+    } catch (error) {
+      console.error('Bulk user action error:', error);
+      toast.error(error.response?.data?.error || 'Bulk-Aktion fehlgeschlagen');
+    } finally {
+      setBulkLoading(false);
+    }
+  }, [bulkAction, bulkRole, selectedUsersBulk, fetchUsers]);
 
   // Fetch system health
   const fetchSystemHealth = useCallback(async () => {
@@ -823,19 +903,87 @@ const AdminDashboard = () => {
 
       {/* User Management Section */}
       {activeSection === 'users' && (
-        <div className="space-y-6">
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <Users className="w-5 h-5 text-blue-600" />
-              Benutzerverwaltung
-            </h2>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Benutzer
-                    </th>
+      <div className="space-y-6">
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Users className="w-5 h-5 text-blue-600" />
+            Benutzerverwaltung
+          </h2>
+          <div className="mb-4 space-y-3">
+            <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 md:flex-row md:items-center md:justify-between">
+              <div className="flex flex-col gap-1">
+                <p className="text-sm font-semibold text-slate-900">
+                  Bulk-Operationen
+                </p>
+                <p className="text-xs text-slate-500">
+                  {selectedUsersBulk.length} Benutzer ausgewählt.
+                  {selectedUsersBulk.length === 0 && ' Bitte wähle Nutzer in der Tabelle aus.'}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <select
+                  value={bulkAction}
+                  onChange={(e) => setBulkAction(e.target.value)}
+                  className="rounded-full border border-slate-200 px-3 py-1 text-sm font-semibold text-slate-700"
+                >
+                  {BULK_USER_ACTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                {bulkAction === 'updateRole' && (
+                  <select
+                    value={bulkRole}
+                    onChange={(e) => setBulkRole(e.target.value)}
+                    className="rounded-full border border-slate-200 px-3 py-1 text-sm font-semibold text-slate-700"
+                  >
+                    {USER_ROLE_OPTIONS.map((role) => (
+                      <option key={role.value} value={role.value}>
+                        {role.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <button
+                  type="button"
+                  onClick={performBulkUserAction}
+                  disabled={bulkLoading || selectedUsersBulk.length === 0}
+                  className="rounded-full bg-blue-600 px-4 py-1 text-sm font-semibold text-white shadow hover:bg-blue-700 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {bulkLoading ? 'Wird angewendet…' : 'Bulk ausführen'}
+                </button>
+              </div>
+            </div>
+            {selectedUsersBulk.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedUsersBulk([]);
+                  setSelectAllUsers(false);
+                }}
+                className="text-xs text-blue-600 hover:text-blue-800 font-semibold"
+              >
+                Auswahl aufheben
+              </button>
+            )}
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <input
+                      type="checkbox"
+                      checked={selectAllUsers}
+                      onChange={handleSelectAllUsers}
+                      aria-label="Alle Benutzer auswählen"
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Benutzer
+                  </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       E-Mail
                     </th>
@@ -857,12 +1005,21 @@ const AdminDashboard = () => {
                         Keine Benutzer gefunden
                       </td>
                     </tr>
-                  ) : (
-                    allUsers.map((user) => (
-                      <tr key={user.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold">
+                ) : (
+                  allUsers.map((user) => (
+                    <tr key={user.id} className="hover:bg-gray-50">
+                      <td className="px-3 py-4">
+                        <input
+                          type="checkbox"
+                          checked={selectedUsersBulk.includes(user.id)}
+                          onChange={() => toggleUserSelection(user.id)}
+                          aria-label={`Benutzer ${user.name} auswählen`}
+                          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold">
                               {user.name?.charAt(0).toUpperCase()}
                             </div>
                             <div>
