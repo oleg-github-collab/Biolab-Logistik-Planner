@@ -1915,7 +1915,7 @@ router.get('/team-week/:weekStart', auth, async (req, res) => {
   try {
     const { weekStart } = req.params;
 
-    // Get all active users with their schedules
+    // Get all active users with their schedules (excluding bots)
     const result = await pool.query(
       `SELECT
         u.id as user_id,
@@ -1932,7 +1932,9 @@ router.get('/team-week/:weekStart', auth, async (req, res) => {
         ws.notes
        FROM users u
        LEFT JOIN weekly_schedules ws ON ws.user_id = u.id AND ws.week_start = $1
-       WHERE u.is_active = TRUE AND u.role NOT IN ('system')
+       WHERE u.is_active = TRUE
+         AND u.role NOT IN ('system')
+         AND LOWER(u.email) NOT LIKE '%bot%'
        ORDER BY u.name, ws.day_of_week`,
       [weekStart]
     );
