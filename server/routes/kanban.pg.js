@@ -3,6 +3,7 @@ const { pool } = require('../config/database');
 const { auth } = require('../middleware/auth');
 const { getIO } = require('../websocket');
 const logger = require('../utils/logger');
+const { uploadArray } = require('../middleware/upload');
 
 const router = express.Router();
 
@@ -355,34 +356,54 @@ router.get('/tasks/:id/comments', auth, async (req, res) => {
 });
 
 // @route   POST /api/kanban/tasks/:id/comments
-// @desc    Add comment to task
-router.post('/tasks/:id/comments', auth, async (req, res) => {
+// @desc    Add comment to task with attachments
+router.post('/tasks/:id/comments', auth, uploadArray('attachments', 5), async (req, res) => {
   try {
     const { id } = req.params;
-    const { comment } = req.body;
+    const commentText = req.body.comment_text || req.body.comment || '';
 
-    if (!comment || !comment.trim()) {
-      return res.status(400).json({ error: 'Kommentar ist erforderlich' });
+    if (!commentText.trim() && (!req.files || req.files.length === 0)) {
+      return res.status(400).json({ error: 'Kommentar oder Anhänge erforderlich' });
     }
 
     const result = await pool.query(`
       INSERT INTO task_comments (task_id, user_id, comment, created_at)
       VALUES ($1, $2, $3, NOW())
       RETURNING *
-    `, [id, req.user.id, comment.trim()]);
+    `, [id, req.user.id, commentText.trim()]);
+
+    const commentId = result.rows[0].id;
+
+    // Handle attachments if any
+    if (req.files && req.files.length > 0) {
+      const attachments = req.files.map(file => ({
+        file_name: file.originalname,
+        file_url: `/uploads/${file.filename}`,
+        mime_type: file.mimetype,
+        file_size: file.size
+      }));
+
+      await pool.query(`
+        UPDATE task_comments
+        SET attachments = $1
+        WHERE id = $2
+      `, [JSON.stringify(attachments), commentId]);
+    }
 
     const commentWithUser = await pool.query(`
       SELECT tc.*, u.name as user_name, u.profile_photo as user_photo
       FROM task_comments tc
       LEFT JOIN users u ON tc.user_id = u.id
       WHERE tc.id = $1
-    `, [result.rows[0].id]);
+    `, [commentId]);
 
     // Broadcast via WebSocket
     const io = getIO();
     if (io) {
       io.emit('task:comment', { taskId: id, comment: commentWithUser.rows[0] });
     }
+
+    logger.info('Task comment added', { taskId: id, commentId, userId: req.user.id });
 
     res.status(201).json(commentWithUser.rows[0]);
   } catch (error) {

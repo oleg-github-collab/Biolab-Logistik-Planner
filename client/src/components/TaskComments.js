@@ -127,7 +127,7 @@ const TaskComments = ({ taskId }) => {
                 </p>
               </div>
             </div>
-            <p className="text-gray-800 text-sm">{comment.text}</p>
+            <p className="text-gray-800 text-sm">{comment.comment || comment.text}</p>
 
             {/* Attachments */}
             {comment.attachments && comment.attachments.length > 0 && (

@@ -26,12 +26,19 @@ const buildHeaders = (contentType = 'application/json') => {
 };
 
 const transcribeAudio = async (filePath, language = 'auto') => {
-const formData = new FormDataImpl();
+  const formData = new FormDataImpl();
   formData.set('model', 'whisper-1');
   formData.set('file', fs.createReadStream(filePath));
-  if (language && language !== 'auto') {
+
+  // Force German language for better accuracy
+  if (language === 'de' || language === 'auto') {
+    formData.set('language', 'de');
+  } else if (language && language !== 'auto') {
     formData.set('language', language);
   }
+
+  // Add prompt to guide Whisper for lab/logistics terminology
+  formData.set('prompt', 'Labor, Logistik, Entsorgung, Probe, Reagenz, Chemikalien, Sicherheit');
 
   const response = await fetchFn(`${OPENAI_API_BASE}/audio/transcriptions`, {
     method: 'POST',
@@ -51,15 +58,47 @@ const formData = new FormDataImpl();
 };
 
 const createInstructionDraft = async (transcript) => {
-  const systemPrompt = `Du bist ein deutscher Knowledge-Base-Autor für Labor- und Logistikteams. Aus einer Nutzereingabe formulierst du klare, strukturierte Schritt-für-Schritt-Anleitungen, Vorschläge für Titel und kurze Zusammenfassungen.`;
-  const userPrompt = `Transkription:\n${transcript}\n\nAntworte ausschließlich mit gültigem JSON im folgenden Format:\n{\n  "title": "...",\n  "summary": "...",\n  "steps": ["Schritt 1", "Schritt 2"],\n  "details": "..."\n}`;
+  const systemPrompt = `Du bist ein professioneller Knowledge-Base-Autor für Labor- und Logistikteams.
+
+DEINE AUFGABE:
+1. Transkribiere und korrigiere die Nutzereingabe (Rechtschreibung, Grammatik, Fachbegriffe)
+2. Formuliere ALLES auf Deutsch in einem klaren, lehrreichen, aber leicht verständlichen Stil
+3. Strukturiere den Inhalt in logische Schritte
+4. Verwende korrekte Fachterminologie für Labor- und Logistikarbeit
+5. Schreibe so, als würdest du einen neuen Mitarbeiter einarbeiten
+
+STIL:
+- Freundlich und professionell
+- Präzise und konkret
+- Leicht verständlich, aber fachlich korrekt
+- Mit praktischen Beispielen wo sinnvoll
+
+WICHTIG:
+- Korrigiere ALLE Rechtschreibfehler
+- Vervollständige unvollständige Sätze
+- Formatiere Fachbegriffe korrekt (z.B. "pH-Wert", "PPE", "SOP")`;
+
+  const userPrompt = `Transkription (kann Fehler enthalten):
+${transcript}
+
+Erstelle daraus einen strukturierten Wissensbasis-Artikel auf DEUTSCH.
+
+Antworte ausschließlich mit gültigem JSON:
+{
+  "title": "Prägnanter Titel (max 80 Zeichen)",
+  "summary": "Kurze Zusammenfassung (2-3 Sätze, was der Leser lernt)",
+  "steps": ["Schritt 1: Beschreibung", "Schritt 2: Beschreibung", ...],
+  "details": "Zusätzliche Details, Hinweise, Sicherheitsaspekte, Best Practices"
+}
+
+ALLE Texte müssen auf Deutsch sein, korrekt geschrieben und leicht verständlich.`;
 
   const response = await fetchFn(`${OPENAI_API_BASE}/chat/completions`, {
     method: 'POST',
     headers: buildHeaders(),
     body: JSON.stringify({
       model: 'gpt-4o-mini',
-      temperature: 0.2,
+      temperature: 0.3,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }

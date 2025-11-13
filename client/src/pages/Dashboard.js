@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useWebSocketContext } from '../context/WebSocketContext';
 import CalendarView from '../components/CalendarView';
+import MobileEventCalendar from '../components/MobileEventCalendar';
 import EventDetailsModal from '../components/EventDetailsModal';
 import EventFormModal from '../components/EventFormModal';
 import AbsenceModal from '../components/AbsenceModal';
@@ -297,6 +298,8 @@ const Dashboard = () => {
     const start = details.start ? new Date(details.start) : selectedDate || new Date();
     const end = details.end ? new Date(details.end) : addMinutes(start, 60);
 
+    setSelectedDate(start);
+
     setSelectedEvent({
       title: details.title || '',
       description: details.description || '',
@@ -321,7 +324,7 @@ const Dashboard = () => {
 
     setEventFormMode('create');
     setShowEventFormModal(true);
-  }, [selectedDate]);
+  }, [selectedDate, setSelectedDate]);
 
   // ✅ OPTIMIZED: useCallback for filter change handlers
   const handleTypeFilterChange = useCallback((value) => {
@@ -488,17 +491,26 @@ const Dashboard = () => {
           )}
 
           <div className="relative mt-6 w-full">
-            <CalendarView
-              events={events}
-              onEventClick={handleEventClick}
-              onEventCreate={handleCalendarEventCreate}
-              onEventUpdate={handleEventUpdate}
-              onRangeChange={handleRangeChange}
-              onEventEdit={handleEventEdit}
-              onEventDelete={handleEventDelete}
-              loading={eventsLoading}
-              isMobile={isMobile}
-            />
+            {isMobile ? (
+              <MobileEventCalendar
+                events={events}
+                onSlotSelect={handleCalendarEventCreate}
+                onDaySelect={(day) => handleCalendarEventCreate({ start: day })}
+                onEventClick={handleEventClick}
+              />
+            ) : (
+              <CalendarView
+                events={events}
+                onEventClick={handleEventClick}
+                onEventCreate={handleCalendarEventCreate}
+                onEventUpdate={handleEventUpdate}
+                onRangeChange={handleRangeChange}
+                onEventEdit={handleEventEdit}
+                onEventDelete={handleEventDelete}
+                loading={eventsLoading}
+                isMobile={isMobile}
+              />
+            )}
           </div>
         </div>
       )}
