@@ -611,6 +611,55 @@
     transform: scale(1.1);
   }
 
+  /* Mobile message action toolbar to expose reactions/comments on touch */
+  .mobile-message-action-toolbar {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 0 8px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mobile-message-action-toolbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mobile-message-action-btn {
+    flex: 0 0 auto;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    border-radius: 14px;
+    border: 1px solid rgba(15, 23, 42, 0.15);
+    background: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
+    transition: all 0.25s ease;
+    color: var(--action-color, #0f172a);
+  }
+
+  .mobile-message-action-btn svg {
+    width: 20px;
+    height: 20px;
+    color: currentColor;
+    transition: transform 0.25s ease;
+  }
+
+  .mobile-message-action-btn:hover {
+    transform: translateY(-2px);
+    border-color: rgba(59, 130, 246, 0.6);
+  }
+
+  .mobile-message-action-btn.active {
+    background: #bfdbfe;
+    border-color: #3b82f6;
+    color: #1d4ed8;
+    box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3);
+  }
+
   /* Legacy toolbar class */
   .messenger-toolbar {
     display: flex;

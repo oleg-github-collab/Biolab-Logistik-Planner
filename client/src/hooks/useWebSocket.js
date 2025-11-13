@@ -18,6 +18,45 @@ const useWebSocket = () => {
   const conversationEventHandlersRef = useRef(new Map());
   const adminEventHandlersRef = useRef(new Map());
 
+  const normalizeSocketNotification = useCallback((payload = {}) => {
+    const baseContent = payload.content ?? payload.body ?? payload.message ?? payload.description ?? '';
+    return {
+      id: payload.id ?? payload.notification_id ?? `notif-${Date.now()}`,
+      type: payload.type || 'system',
+      title: payload.title || payload.subject || (baseContent ? baseContent.slice(0, 40) : 'Benachrichtigung'),
+      content: baseContent,
+      created_at: payload.created_at || new Date().toISOString(),
+      metadata: payload.metadata || {}
+    };
+  }, []);
+
+  const pushSocketNotification = useCallback((payload) => {
+    const normalized = normalizeSocketNotification(payload);
+    setNotifications((prev) => {
+      if (prev.some((item) => item.id === normalized.id)) {
+        return prev;
+      }
+      return [normalized, ...prev];
+    });
+  }, [normalizeSocketNotification]);
+
+  const handleBroadcastEvent = useCallback((payload) => {
+    const broadcastPayload = normalizeSocketNotification({
+      ...payload,
+      type: 'broadcast',
+      title: payload.title || payload.message || 'Broadcast-Nachricht',
+      content: payload.message ?? payload.body ?? payload.description ?? ''
+    });
+
+    setAdminEvents((prev) => [...prev, { ...broadcastPayload, type: 'broadcast' }]);
+    const handlers = adminEventHandlersRef.current.get('broadcast');
+    if (handlers) {
+      handlers.forEach((handler) => handler(broadcastPayload));
+    }
+
+    pushSocketNotification(broadcastPayload);
+  }, [normalizeSocketNotification, pushSocketNotification]);
+
   // Initialize WebSocket connection with auto-reconnect
   useEffect(() => {
     if (!isAuthenticated || !token) {
@@ -123,22 +162,9 @@ const useWebSocket = () => {
         });
 
         // Browser notification
-        socket.on('notification', (notification) => {
-          setNotifications(prev => [...prev, { ...notification, timestamp: Date.now() }]);
-        });
+        socket.on('notification', pushSocketNotification);
 
-        socket.on('admin:broadcast', (payload) => {
-          const enriched = {
-            type: 'broadcast',
-            timestamp: new Date().toISOString(),
-            ...payload
-          };
-          setAdminEvents(prev => [...prev, enriched]);
-          const handlers = adminEventHandlersRef.current.get('broadcast');
-          if (handlers) {
-            handlers.forEach(handler => handler(enriched));
-          }
-        });
+        socket.on('admin:broadcast', handleBroadcastEvent);
 
         socket.on('admin:audit_log', (payload) => {
           const entry = {
@@ -268,7 +294,7 @@ const useWebSocket = () => {
       }
       setIsConnected(false);
     };
-  }, [isAuthenticated, token]);
+  }, [isAuthenticated, token, pushSocketNotification, handleBroadcastEvent]);
 
   // Fallback HTTP message sending
   const sendMessageHttp = useCallback(async (receiverId, message) => {

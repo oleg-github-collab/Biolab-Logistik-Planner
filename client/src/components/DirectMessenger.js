@@ -1060,6 +1060,7 @@ const DirectMessenger = () => {
 
     const isHovered = hoveredMessage === msg.id;
     const isPinned = pinnedMessages.some((m) => m.id === msg.id);
+    const isReactionToolbarOpen = showReactionPicker === msg.id;
 
     return (
       <div
@@ -1273,6 +1274,53 @@ const DirectMessenger = () => {
               </div>
             )}
           </div>
+          {isMobile && (
+            <div className="mobile-message-action-toolbar">
+              <button
+                type="button"
+                className={`mobile-message-action-btn ${isReactionToolbarOpen ? 'active' : ''}`}
+                onClick={() => setShowReactionPicker(isReactionToolbarOpen ? null : msg.id)}
+                title="Reagieren"
+              >
+                <Smile className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                className="mobile-message-action-btn"
+                onClick={() => handleReplyTo(msg)}
+                title="Antworten"
+              >
+                <Reply className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                className="mobile-message-action-btn"
+                onClick={() => handleForwardMessage(msg)}
+                title="Weiterleiten"
+              >
+                <Forward className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                className={`mobile-message-action-btn ${isPinned ? 'active' : ''}`}
+                onClick={() => handlePinMessage(msg)}
+                title={isPinned ? 'Entfestigen' : 'Anpinnen'}
+              >
+                <Pin className="w-4 h-4" />
+              </button>
+              {isMine && (
+                <button
+                  type="button"
+                  className="mobile-message-action-btn text-red-600 hover:text-red-800"
+                  onClick={() => handleDeleteMessage(msg.id)}
+                  title="Löschen"
+                  style={{ '--action-color': '#dc2626' }}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Desktop action buttons - positioned outside bubble on hover */}
