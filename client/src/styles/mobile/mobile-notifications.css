@@ -241,7 +241,7 @@
   }
 
   .notification-panel-broadcast {
-    background: rgba(255, 255, 255, 0.9);
+    background: #ffffff;
     border-radius: 16px;
     border: 1px solid rgba(148, 163, 184, 0.25);
     padding: 12px 14px;
