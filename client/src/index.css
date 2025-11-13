@@ -429,6 +429,196 @@ body {
   color: rgba(226, 232, 240, 0.94);
 }
 
+@media (min-width: 1024px) {
+  .contact-list {
+    flex: 0 0 360px;
+    min-width: 320px;
+    max-width: 380px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(244, 246, 255, 0.92));
+    border-radius: 32px;
+    padding: 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    box-shadow: 0 20px 45px rgba(15, 23, 42, 0.12);
+  }
+
+  .contact-list--panel {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(236, 242, 255, 0.92));
+  }
+
+  .contact-list__header {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .contact-list__eyebrow {
+    margin: 0;
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: rgba(30, 64, 175, 0.8);
+  }
+
+  .contact-list__header h2 {
+    margin: 0;
+    font-size: 24px;
+    color: #0f172a;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .contact-list__subheader {
+    margin: 0;
+    font-size: 13px;
+    color: rgba(15, 23, 42, 0.6);
+  }
+
+  .contact-list__search {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 18px;
+    padding: 10px 14px;
+    border: 1px solid rgba(148, 163, 184, 0.4);
+  }
+
+  .contact-list__search input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-size: 14px;
+    color: #0f172a;
+    background: transparent;
+  }
+
+  .contact-list__stories {
+    gap: 12px;
+  }
+
+  .story-chip {
+    border-radius: 20px;
+    padding: 6px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(148, 163, 184, 0.4);
+    min-width: 70px;
+    gap: 8px;
+  }
+
+  .story-chip__ring {
+    width: 56px;
+    height: 56px;
+    padding: 3px;
+  }
+
+  .story-chip__avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 16px;
+  }
+
+  .story-chip span {
+    font-size: 11px;
+    color: #0f172a;
+  }
+
+  .contact-list__grid {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-right: 4px;
+  }
+
+  .contact-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 18px;
+    border-radius: 24px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  }
+
+  .contact-card--active {
+    border-color: rgba(59, 130, 246, 0.6);
+    box-shadow: 0 20px 40px rgba(59, 130, 246, 0.2);
+  }
+
+  .contact-card__avatar-ring {
+    background: rgba(15, 23, 42, 0.05);
+    border-radius: 999px;
+    padding: 3px;
+  }
+
+  .contact-card__avatar {
+    width: 54px;
+    height: 54px;
+    border-radius: 18px;
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+    color: white;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+
+  .contact-card__body {
+    flex: 1;
+  }
+
+  .contact-card__name {
+    font-size: 16px;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+  }
+
+  .contact-card__snippet {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: rgba(15, 23, 42, 0.6);
+  }
+
+  .contact-card__meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    text-align: right;
+    font-size: 11px;
+  }
+
+  .contact-card__email {
+    color: rgba(15, 23, 42, 0.55);
+  }
+
+  .contact-card__presence {
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .contact-card__presence.online {
+    background: rgba(16, 185, 129, 0.15);
+    color: #047857;
+  }
+
+  .contact-card__presence.offline {
+    background: rgba(148, 163, 184, 0.2);
+    color: #475569;
+  }
+}
+
 .chat-surface {
   display: flex;
   flex-direction: column;

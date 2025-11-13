@@ -276,93 +276,98 @@ const NotificationDropdown = () => {
 
     return (
       <ul className="divide-y divide-gray-100">
-        {notifications.map((notification) => (
-          <li
-            key={notification.id}
-            onClick={() => handleNotificationClick(notification)}
-            className={`flex items-start gap-3 p-4 transition ${
-              notification.is_read ? 'bg-white' : 'bg-blue-50'
-            } ${isMobile ? 'active:bg-blue-100' : 'hover:bg-gray-50 cursor-pointer'}`}
-          >
-            <div className="flex-shrink-0">
-              <div
-                className={`w-9 h-9 rounded-full flex items-center justify-center ${
-                  notification.is_read ? 'bg-gray-100' : 'bg-blue-100'
-                }`}
-              >
-                {getNotificationIcon(notification.type)}
-              </div>
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-gray-400">
-                <span>{getNotificationLabel(notification.type)}</span>
-                {!notification.is_read && <span className="text-blue-600 font-semibold">Neu</span>}
-              </div>
-              <p
-                className={`text-sm font-semibold ${
-                  notification.is_read ? 'text-gray-700' : 'text-gray-900'
-                }`}
-              >
-                {notification.title}
-              </p>
-              <p className="text-sm text-gray-600 mt-1 break-words">
-                {notification.content}
-              </p>
-              {notification.metadata?.actions?.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {notification.metadata.actions.map((action) => {
-                    const isLoading = actionLoadingKey === `${notification.id}-${action.key}`;
-                    const variant =
-                      action.variant === 'primary'
-                        ? 'bg-blue-600 text-white border-transparent hover:bg-blue-700'
-                        : action.variant === 'danger'
-                        ? 'bg-red-600 text-white border-transparent hover:bg-red-700'
-                        : 'bg-white text-slate-700 border border-gray-200 hover:bg-gray-50';
-                    return (
-                      <button
-                        key={action.key}
-                        type="button"
-                        onClick={(event) => handleNotificationActionButton(event, notification, action)}
-                        disabled={isLoading}
-                        className={`text-xs px-3 py-1 rounded-full font-semibold transition ${variant} disabled:opacity-60`}
-                      >
-                        {isLoading ? 'Wird gesendet…' : action.label || 'Aktion'}
-                      </button>
-                    );
-                  })}
+        {notifications.map((notification) => {
+          const displayMessage = notification.content?.trim()
+            ? notification.content
+            : notification.title;
+          return (
+            <li
+              key={notification.id}
+              onClick={() => handleNotificationClick(notification)}
+              className={`flex items-start gap-3 p-4 transition ${
+                notification.is_read ? 'bg-white' : 'bg-blue-50'
+              } ${isMobile ? 'active:bg-blue-100' : 'hover:bg-gray-50 cursor-pointer'}`}
+            >
+              <div className="flex-shrink-0">
+                <div
+                  className={`w-9 h-9 rounded-full flex items-center justify-center ${
+                    notification.is_read ? 'bg-gray-100' : 'bg-blue-100'
+                  }`}
+                >
+                  {getNotificationIcon(notification.type)}
                 </div>
-              )}
-              <div className="flex items-center gap-2 text-xs text-gray-400 mt-2">
-                <span>{formatTimestamp(notification.created_at)}</span>
-                {!notification.is_read && <span className="w-2 h-2 rounded-full bg-blue-500" />}
               </div>
-            </div>
 
-            <div className="flex flex-col items-end gap-2">
-              {!notification.is_read && (
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-gray-400">
+                  <span>{getNotificationLabel(notification.type)}</span>
+                  {!notification.is_read && <span className="text-blue-600 font-semibold">Neu</span>}
+                </div>
+                <p
+                  className={`text-sm font-semibold ${
+                    notification.is_read ? 'text-gray-700' : 'text-gray-900'
+                  }`}
+                >
+                  {notification.title}
+                </p>
+                <p className="text-sm text-gray-600 mt-1 break-words">
+                  {displayMessage}
+                </p>
+                {notification.metadata?.actions?.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {notification.metadata.actions.map((action) => {
+                      const isLoading = actionLoadingKey === `${notification.id}-${action.key}`;
+                      const variant =
+                        action.variant === 'primary'
+                          ? 'bg-blue-600 text-white border-transparent hover:bg-blue-700'
+                          : action.variant === 'danger'
+                          ? 'bg-red-600 text-white border-transparent hover:bg-red-700'
+                          : 'bg-white text-slate-700 border border-gray-200 hover:bg-gray-50';
+                      return (
+                        <button
+                          key={action.key}
+                          type="button"
+                          onClick={(event) => handleNotificationActionButton(event, notification, action)}
+                          disabled={isLoading}
+                          className={`text-xs px-3 py-1 rounded-full font-semibold transition ${variant} disabled:opacity-60`}
+                        >
+                          {isLoading ? 'Wird gesendet…' : action.label || 'Aktion'}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                <div className="flex items-center gap-2 text-xs text-gray-400 mt-2">
+                  <span>{formatTimestamp(notification.created_at)}</span>
+                  {!notification.is_read && <span className="w-2 h-2 rounded-full bg-blue-500" />}
+                </div>
+              </div>
+
+              <div className="flex flex-col items-end gap-2">
+                {!notification.is_read && (
+                  <button
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleMarkAsRead(notification.id);
+                    }}
+                    className="p-1 text-blue-600 hover:text-blue-700 transition"
+                  >
+                    <Check className="w-4 h-4" />
+                  </button>
+                )}
                 <button
                   onClick={(event) => {
                     event.stopPropagation();
-                    handleMarkAsRead(notification.id);
+                    handleDelete(notification.id);
                   }}
-                  className="p-1 text-blue-600 hover:text-blue-700 transition"
+                  className="p-1 text-gray-400 hover:text-red-500 transition"
                 >
-                  <Check className="w-4 h-4" />
+                  <Trash2 className="w-4 h-4" />
                 </button>
-              )}
-              <button
-                onClick={(event) => {
-                  event.stopPropagation();
-                  handleDelete(notification.id);
-                }}
-                className="p-1 text-gray-400 hover:text-red-500 transition"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          </li>
-        ))}
+              </div>
+            </li>
+          );
+        })}
       </ul>
     );
   }, [formatTimestamp, getNotificationIcon, handleNotificationClick, handleMarkAsRead, handleDelete, isMobile, loading, notifications]);
@@ -379,6 +384,14 @@ const NotificationDropdown = () => {
     });
     return base;
   }, [notifications, unreadCount]);
+
+  const latestBroadcast = useMemo(() => {
+    return notifications.find((notification) => notification.type === 'broadcast');
+  }, [notifications]);
+
+  const heroMessage = latestBroadcast?.content?.trim()
+    ? latestBroadcast.content
+    : latestBroadcast?.title || '';
 
   const renderMobileNotificationList = () => {
     if (loading) {
@@ -407,71 +420,75 @@ const NotificationDropdown = () => {
 
     return (
       <div className="notification-list">
-        {notifications.map((notification) => (
-          <button
-            type="button"
-            key={notification.id}
-            onClick={() => handleNotificationClick(notification)}
-            className={`notification-item ${notification.is_read ? '' : 'unread'}`}
-          >
-            <div className="notification-item-icon">
-              {getNotificationIcon(notification.type)}
-            </div>
-            <div className="notification-item-content">
-              <p className="notification-item-title">{notification.title}</p>
-              <p className="notification-item-message line-clamp-2">{notification.content}</p>
-              <div className="notification-item-time">
-                <span>{formatTimestamp(notification.created_at)}</span>
-                {!notification.is_read && (
-                  <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-600 text-[10px] font-semibold uppercase tracking-wide">
-                    Neu
-                  </span>
+        {notifications.map((notification) => {
+          const displayMessage = notification.content?.trim()
+            ? notification.content
+            : notification.title;
+          return (
+            <button
+              type="button"
+              key={notification.id}
+              onClick={() => handleNotificationClick(notification)}
+              className={`notification-item ${notification.is_read ? '' : 'unread'}`}
+            >
+              <div className="notification-item-icon">
+                {getNotificationIcon(notification.type)}
+              </div>
+              <div className="notification-item-content">
+                <p className="notification-item-title">{notification.title}</p>
+                <p className="notification-item-message line-clamp-2">{displayMessage}</p>
+                <div className="notification-item-time">
+                  <span>{formatTimestamp(notification.created_at)}</span>
+                  {!notification.is_read && (
+                    <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-600 text-[10px] font-semibold uppercase tracking-wide">
+                      Neu
+                    </span>
+                  )}
+                </div>
+                {notification.metadata?.actions?.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {notification.metadata.actions.map((action) => {
+                      const isLoading = actionLoadingKey === `${notification.id}-${action.key}`;
+                      return (
+                        <button
+                          key={action.key}
+                          type="button"
+                          onClick={(event) => handleNotificationActionButton(event, notification, action)}
+                          disabled={isLoading}
+                          className="text-[11px] px-3 py-1 rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition disabled:opacity-60"
+                        >
+                          {isLoading ? 'Wird gesendet…' : action.label || 'Aktion'}
+                        </button>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
-              {notification.metadata?.actions?.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-3">
-                  {notification.metadata.actions.map((action) => {
-                    const isLoading = actionLoadingKey === `${notification.id}-${action.key}`;
-                    return (
-                      <button
-                        key={action.key}
-                        type="button"
-                        onClick={(event) => handleNotificationActionButton(event, notification, action)}
-                        disabled={isLoading}
-                        className="text-[11px] px-3 py-1 rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition disabled:opacity-60"
-                      >
-                        {isLoading ? 'Wird gesendet…' : action.label || 'Aktion'}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-            <div className="flex flex-col items-end gap-2">
-              {!notification.is_read && (
+              <div className="flex flex-col items-end gap-2">
+                {!notification.is_read && (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleMarkAsRead(notification.id);
+                    }}
+                    className="notification-item-action"
+                  >
+                    <Check className="w-4 h-4" />
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={(event) => {
                     event.stopPropagation();
-                    handleMarkAsRead(notification.id);
+                    handleDelete(notification.id);
                   }}
                   className="notification-item-action"
                 >
-                  <Check className="w-4 h-4" />
+                  <Trash2 className="w-4 h-4" />
                 </button>
-              )}
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  handleDelete(notification.id);
-                }}
-                className="notification-item-action"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          </button>
+              </div>
+            </button>
         ))}
       </div>
     );
@@ -557,15 +574,18 @@ const NotificationDropdown = () => {
         </div>
 
         <div className="notification-panel-hero">
-          <div>
-            <p className="notification-panel-hero__label">Broadcast</p>
-            <h4 className="notification-panel-hero__title">
-              {notificationStats.pending > 0 ? `${notificationStats.pending} ungelesene${notificationStats.pending > 1 ? ' Notifications' : ''}` : 'Alles gelesen'}
-            </h4>
-            <p className="notification-panel-hero__subtitle">
-              Live-Updates wurden zuletzt vor {notificationStats.pending ? 'kurzem' : 'wenigen Minuten'} synchronisiert.
-            </p>
-          </div>
+            <div>
+              <p className="notification-panel-hero__label">Broadcast</p>
+              <h4 className="notification-panel-hero__title">
+                {notificationStats.pending > 0 ? `${notificationStats.pending} ungelesene${notificationStats.pending > 1 ? ' Notifications' : ''}` : 'Alles gelesen'}
+              </h4>
+              <p className="notification-panel-hero__subtitle">
+                Live-Updates wurden zuletzt vor {notificationStats.pending ? 'kurzem' : 'wenigen Minuten'} synchronisiert.
+              </p>
+              {heroMessage && (
+                <p className="notification-panel-hero__description">{heroMessage}</p>
+              )}
+            </div>
           <button
             type="button"
             className="notification-panel-hero__button"

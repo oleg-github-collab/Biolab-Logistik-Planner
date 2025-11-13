@@ -37,55 +37,47 @@
   .messenger-mobile-header-actions {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 12px 16px;
-    background: linear-gradient(180deg, #fafbfc 0%, #f8fafc 100%);
-    border-bottom: 1px solid rgba(15, 23, 42, 0.06);
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-  }
-
-  .messenger-mobile-header-actions::-webkit-scrollbar {
-    display: none;
-  }
-
-  /* Header action buttons - Premium */
-  .messenger-mobile-header-actions button {
-    min-width: fit-content;
+    gap: 10px;
     padding: 10px 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    background: linear-gradient(135deg, #ffffff, #f8fafc);
-    border: 1px solid rgba(15, 23, 42, 0.08);
-    border-radius: 16px;
-    color: #475569;
-    font-size: 14px;
-    font-weight: 600;
-    white-space: nowrap;
-    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
-    cursor: pointer;
+    border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+    background: #ffffff;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+    flex-wrap: wrap;
   }
 
-  .messenger-mobile-header-actions button:active {
-    transform: scale(0.96) translateY(1px);
-    background: linear-gradient(135deg, #3b82f6, #2563eb);
-    color: white;
-    border-color: #3b82f6;
-    box-shadow: 0 4px 14px rgba(59, 130, 246, 0.3);
+  .messenger-mobile-header-actions button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(148, 163, 184, 0.4);
+    background: #f8fafc;
+    color: #0f172a;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    transition: all 0.2s ease;
+  }
+
+  .messenger-mobile-header-actions button span {
+    font-size: 13px;
+  }
+
+  .messenger-mobile-header-actions button:active:not(:disabled) {
+    transform: translateY(1px) scale(0.98);
+    border-color: rgba(59, 130, 246, 0.7);
+    background: rgba(59, 130, 246, 0.1);
+  }
+
+  .messenger-mobile-header-actions button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   .messenger-mobile-header-actions button svg {
     width: 18px;
     height: 18px;
-    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-
-  .messenger-mobile-header-actions button:active svg {
-    transform: scale(1.1);
   }
 
   .messenger-mobile-messages {
@@ -782,70 +774,6 @@
   /* ==========================================
      TOOLBAR - Premium buttons
      ========================================== */
-
-  /* Mobile actions toolbar - Premium */
-  .messenger-mobile-actions {
-    display: flex;
-    gap: 8px;
-    padding: 12px 16px;
-    background: linear-gradient(180deg, #fafbfc 0%, #f8fafc 100%);
-    border-bottom: 1px solid rgba(15, 23, 42, 0.06);
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-  }
-
-  .messenger-mobile-actions::-webkit-scrollbar {
-    display: none;
-  }
-
-  .messenger-mobile-actions button {
-    min-width: fit-content;
-    padding: 10px 18px;
-    background: linear-gradient(135deg, #ffffff, #f8fafc);
-    color: #475569;
-    border: 1px solid rgba(15, 23, 42, 0.08);
-    border-radius: 18px;
-    font-size: 14px;
-    font-weight: 600;
-    white-space: nowrap;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
-    cursor: pointer;
-    will-change: transform;
-  }
-
-  .messenger-mobile-actions button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
-  }
-
-  .messenger-mobile-actions button:active {
-    transform: scale(0.96) translateY(0);
-    background: linear-gradient(135deg, #3b82f6, #2563eb);
-    color: white;
-    border-color: #3b82f6;
-    box-shadow: 0 4px 16px rgba(59, 130, 246, 0.3);
-  }
-
-  .messenger-mobile-actions button:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-    transform: none !important;
-  }
-
-  .messenger-mobile-actions button svg {
-    width: 18px;
-    height: 18px;
-    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-
-  .messenger-mobile-actions button:active svg {
-    transform: scale(1.1);
-  }
 
   /* Mobile message action toolbar to expose reactions/comments on touch */
   .mobile-message-action-toolbar {

@@ -26,10 +26,7 @@ import {
   Pin,
   Zap,
   FileText,
-  Forward,
-  Phone,
-  Video,
-  Info
+  Forward
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useWebSocketContext } from '../context/WebSocketContext';
@@ -1453,52 +1450,6 @@ const DirectMessenger = () => {
                 {renderMessageContent(msg, isMine)}
               </div>
 
-              {/* Mobile action buttons - always visible on mobile */}
-              {isMobile && (
-                <div className="flex flex-col gap-1 flex-shrink-0">
-                  <button
-                    onClick={() => setShowReactionPicker(showReactionPicker === msg.id ? null : msg.id)}
-                    className="p-1.5 bg-white/90 backdrop-blur border border-slate-200 rounded-full hover:bg-slate-50 shadow-sm transition"
-                    title="Reagieren"
-                  >
-                    <Smile className="w-3.5 h-3.5 text-slate-600" />
-                  </button>
-                  <button
-                    onClick={() => handleReplyTo(msg)}
-                    className="p-1.5 bg-white/90 backdrop-blur border border-slate-200 rounded-full hover:bg-slate-50 shadow-sm transition"
-                    title="Antworten"
-                  >
-                    <Reply className="w-3.5 h-3.5 text-slate-600" />
-                  </button>
-                  <button
-                    onClick={() => handleForwardMessage(msg)}
-                    className="p-1.5 bg-white/90 backdrop-blur border border-slate-200 rounded-full hover:bg-slate-50 shadow-sm transition"
-                    title="Weiterleiten"
-                  >
-                    <Forward className="w-3.5 h-3.5 text-slate-600" />
-                  </button>
-                  <button
-                    onClick={() => handlePinMessage(msg)}
-                    className={`p-1.5 border rounded-full shadow-sm transition backdrop-blur ${
-                      isPinned
-                        ? 'bg-yellow-100/90 border-yellow-300 text-yellow-600'
-                        : 'bg-white/90 border-slate-200 hover:bg-slate-50 text-slate-600'
-                    }`}
-                    title={isPinned ? 'Entfestigen' : 'Anpinnen'}
-                  >
-                    <Pin className="w-3.5 h-3.5" />
-                  </button>
-                  {isMine && (
-                    <button
-                      onClick={() => handleDeleteMessage(msg.id)}
-                      className="p-1.5 bg-white/90 backdrop-blur border border-slate-200 rounded-full hover:bg-red-50 shadow-sm transition"
-                      title="Löschen"
-                    >
-                      <Trash2 className="w-3.5 h-3.5 text-red-600" />
-                    </button>
-                  )}
-                </div>
-              )}
             </div>
           </div>
         </React.Fragment>
@@ -1511,12 +1462,18 @@ const DirectMessenger = () => {
       variant === 'overlay'
         ? 'contact-list contact-list--overlay'
         : 'contact-list contact-list--panel';
+    const totalContacts = contacts.length;
+    const onlineContacts = contacts.filter((contact) => contact.online).length;
+    const filteredCount = filteredContacts.length;
     return (
       <div className={wrapperClass}>
         <div className="contact-list__header">
           <div>
-            <h2>Write to your colleagues</h2>
-            <p>Direct messages & quick status</p>
+            <p className="contact-list__eyebrow">Team Messenger</p>
+            <h2>Kontakte im Blick behalten</h2>
+            <p className="contact-list__subheader">
+              {filteredCount} von {totalContacts} Kontakten · {onlineContacts} online
+            </p>
           </div>
           {variant === 'overlay' && (
             <button
@@ -1529,15 +1486,16 @@ const DirectMessenger = () => {
           )}
         </div>
 
-        <div className="contact-list__search">
-          <Search className="w-4 h-4 text-slate-500" />
-          <input
-            type="text"
-            placeholder="Search"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
+          <div className="contact-list__search">
+            <Search className="w-4 h-4 text-slate-500" />
+            <input
+              type="text"
+              placeholder="Kontakte suchen"
+              aria-label="Kontakte suchen"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
 
         <div className="contact-list__stories">
           {storiesLoading ? (
@@ -1925,35 +1883,27 @@ const DirectMessenger = () => {
       </div>
       {selectedContact && (
         <div className="messenger-mobile-header-actions">
-          <button type="button" aria-label="Anrufen">
-            <Phone className="w-5 h-5" />
+          <button
+            type="button"
+            onClick={() => setShowSearch(true)}
+            aria-label="Nachrichten durchsuchen"
+            title="Nachrichten durchsuchen"
+          >
+            <Search className="w-5 h-5" />
+            <span>Suche</span>
           </button>
-          <button type="button" aria-label="Videoanruf">
-            <Video className="w-5 h-5" />
-          </button>
-          <button type="button" aria-label="Kontaktinfo">
-            <Info className="w-5 h-5" />
+          <button
+            type="button"
+            onClick={() => setShowPinnedDrawer(true)}
+            disabled={pinnedMessages.length === 0}
+            aria-label="Gepinnte Nachrichten"
+            title="Gepinnte Nachrichten"
+          >
+            <Pin className="w-5 h-5" />
+            <span>Gepinnt</span>
           </button>
         </div>
       )}
-      <div className="messenger-mobile-actions">
-        <button type="button" onClick={() => setShowSearch(true)}>
-          <Search className="w-5 h-5" />
-        </button>
-        <button
-          type="button"
-          onClick={() => setShowPinnedDrawer(true)}
-          disabled={pinnedMessages.length === 0}
-        >
-          <Pin className="w-5 h-5" />
-        </button>
-        <button type="button" onClick={() => fileInputRef.current?.click()}>
-          <Paperclip className="w-5 h-5" />
-        </button>
-        <button type="button" onClick={openEventPicker}>
-          <CalendarDays className="w-5 h-5" />
-        </button>
-      </div>
       <div className="messenger-mobile-messages">
         {renderMessages()}
         {Object.entries(typingUsers).map(([userId, data]) => (
