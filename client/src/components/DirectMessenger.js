@@ -974,6 +974,70 @@ const DirectMessenger = () => {
     [contacts, searchTerm]
   );
 
+  const formatContactTimestamp = useCallback((timestamp) => {
+    if (!timestamp) return '';
+    const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) return '';
+    return formatDistanceToNow(date, { locale: de, addSuffix: true });
+  }, []);
+
+  const threadMapByContact = useMemo(() => {
+    if (!Array.isArray(threads) || threads.length === 0) return {};
+    const map = {};
+    threads.forEach((thread) => {
+      if (thread?.type !== 'direct') return;
+      const partner = Array.isArray(thread.members)
+        ? thread.members.find((member) => member?.user_id && member?.user_id !== user?.id)
+        : null;
+      if (partner?.user_id) {
+        map[partner.user_id] = thread;
+      }
+    });
+    return map;
+  }, [threads, user?.id]);
+
+  const decoratedContacts = useMemo(
+    () =>
+      filteredContacts.map((contact) => {
+        const thread = threadMapByContact[contact.id];
+        const lastMessage = thread?.lastMessage;
+        const timestamp = lastMessage?.createdAt || thread?.updatedAt;
+        return {
+          ...contact,
+          thread,
+          unreadCount: thread?.unreadCount || 0,
+          lastMessageSnippet:
+            lastMessage?.content || contact.status || 'Bereit, direkt zu schreiben',
+          lastMessageTime: timestamp,
+          lastMessageTimeLabel: formatContactTimestamp(timestamp)
+        };
+      }),
+    [filteredContacts, threadMapByContact, formatContactTimestamp]
+  );
+
+  const groupedContacts = useMemo(() => {
+    const contactList = decoratedContacts;
+    const sortByRecency = (a, b) => {
+      const aTs = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
+      const bTs = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
+      if (bTs !== aTs) return bTs - aTs;
+      return (a.name || '').localeCompare(b.name || '');
+    };
+    const unread = contactList.filter((item) => item.unreadCount > 0).sort(sortByRecency);
+    const remaining = contactList
+      .filter((item) => item.unreadCount === 0)
+      .sort((a, b) => {
+        if (Number(b.online) !== Number(a.online)) {
+          return Number(b.online) - Number(a.online);
+        }
+        return sortByRecency(a, b);
+      });
+    return {
+      unreadContacts: unread,
+      remainingContacts: remaining
+    };
+  }, [decoratedContacts]);
+
   const selectedStory = useMemo(
     () =>
       selectedStoryIndex !== null && stories[selectedStoryIndex]
@@ -1059,6 +1123,10 @@ const DirectMessenger = () => {
     const isHovered = hoveredMessage === msg.id;
     const isPinned = pinnedMessages.some((m) => m.id === msg.id);
     const isReactionToolbarOpen = showReactionPicker === msg.id;
+    const messageTimestamp = msg.created_at
+      ? format(parseISO(msg.created_at), 'HH:mm', { locale: de })
+      : '';
+    const isReadMessage = Boolean(msg.read_status || msg.read);
 
     return (
       <div
@@ -1255,21 +1323,25 @@ const DirectMessenger = () => {
             </div>
           )}
 
-          {/* Timestamp and read receipts */}
           <div
-            className={`mt-2 text-xs flex items-center gap-2 ${
-              isMine ? 'justify-end text-blue-100' : 'justify-start text-slate-500'
-            } ${isMobile ? 'message-time' : ''}`}
+            className={`message-meta mt-3 flex items-center gap-2 ${
+              isMine ? 'justify-end' : 'justify-start'
+            }`}
           >
-            <span className="opacity-75">{format(parseISO(msg.created_at), 'HH:mm', { locale: de })}</span>
+            <span className="message-meta__time">{messageTimestamp || '—'}</span>
             {isMine && (
-              <div className="flex items-center">
-                {msg.read ? (
-                  <CheckCheck className="w-3.5 h-3.5 text-blue-300" />
-                ) : (
-                  <Check className="w-3.5 h-3.5 text-blue-200" />
-                )}
-              </div>
+              <span className={`message-status ${isReadMessage ? 'read' : 'sent'}`}>
+                <span className="message-status__icon">
+                  {isReadMessage ? (
+                    <CheckCheck className="w-3 h-3" />
+                  ) : (
+                    <Check className="w-3 h-3" />
+                  )}
+                </span>
+                <span className="message-status__label">
+                  {isReadMessage ? 'Gelesen' : 'Zugestellt'}
+                </span>
+              </span>
             )}
           </div>
           {isMobile && (
@@ -1465,6 +1537,48 @@ const DirectMessenger = () => {
     const totalContacts = contacts.length;
     const onlineContacts = contacts.filter((contact) => contact.online).length;
     const filteredCount = filteredContacts.length;
+    const renderContactCard = (contact) => {
+      const isSelected = selectedContact?.id === contact.id;
+      const contactStory = storyMap?.[contact.id];
+      return (
+        <button
+          key={contact.id}
+          onClick={() => handleContactClick(contact)}
+          className={`contact-card ${isSelected ? 'contact-card--active' : ''}`}
+        >
+          <div
+            className={`contact-card__avatar-ring ${contactStory ? 'has-story' : ''} ${
+              contactStory && !contactStory.viewerHasSeen ? 'story-unread' : ''
+            }`}
+          >
+            <div className="contact-card__avatar">
+              {contact.name?.[0]?.toUpperCase() || contact.email?.[0]?.toUpperCase() || '?'}
+            </div>
+          </div>
+          <div className="contact-card__body">
+            <div className="contact-card__body-top">
+              <p className="contact-card__name">{contact.name}</p>
+              {contact.unreadCount > 0 && (
+                <span className="contact-card__badge">{contact.unreadCount}</span>
+              )}
+            </div>
+            <p className="contact-card__snippet">
+              {contact.lastMessageSnippet}
+            </p>
+          </div>
+          <div className="contact-card__meta">
+            <span className="contact-card__time">
+              {contact.lastMessageTimeLabel || 'Noch keine Aktivität'}
+            </span>
+            <span
+              className={`contact-card__presence ${contact.online ? 'online' : 'offline'}`}
+            >
+              {contact.online ? 'Online' : 'Offline'}
+            </span>
+          </div>
+        </button>
+      );
+    };
     return (
       <div className={wrapperClass}>
         <div className="contact-list__header">
@@ -1521,49 +1635,32 @@ const DirectMessenger = () => {
             <div className="flex items-center justify-center h-32">
               <div className="animate-spin w-8 h-8 border-4 border-white border-t-transparent rounded-full" />
             </div>
-          ) : filteredContacts.length === 0 ? (
+          ) : decoratedContacts.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-32 text-slate-400 gap-2">
               <Users className="w-12 h-12" />
               <p>No contacts found</p>
             </div>
           ) : (
-            filteredContacts.map((contact) => {
-              const isSelected = selectedContact?.id === contact.id;
-              const contactStory = storyMap?.[contact.id];
-              return (
-                <button
-                  key={contact.id}
-                  onClick={() => handleContactClick(contact)}
-                  className={`contact-card ${isSelected ? 'contact-card--active' : ''}`}
-                >
-                  <div
-                    className={`contact-card__avatar-ring ${contactStory ? 'has-story' : ''} ${
-                      contactStory && !contactStory.viewerHasSeen ? 'story-unread' : ''
-                    }`}
-                  >
-                    <div className="contact-card__avatar">
-                      {contact.name?.[0]?.toUpperCase() || contact.email?.[0]?.toUpperCase() || '?'}
-                    </div>
+            <>
+              {groupedContacts.unreadContacts.length > 0 && (
+                <div className="contact-group">
+                  <p className="contact-group__heading">Unbeantwortete Nachrichten</p>
+                  <div className="contact-group__grid">
+                    {groupedContacts.unreadContacts.map((contact) => renderContactCard(contact))}
                   </div>
-                  <div className="contact-card__body">
-                    <p className="contact-card__name">{contact.name}</p>
-                    <p className="contact-card__snippet">
-                      {contact.status || 'Bereit, direkt zu schreiben'}
-                    </p>
-                  </div>
-                  <div className="contact-card__meta">
-                    <span className="contact-card__email">{contact.email}</span>
-                    <span
-                      className={`contact-card__presence ${
-                        contact.online ? 'online' : 'offline'
-                      }`}
-                    >
-                      {contact.online ? 'Online' : 'Offline'}
-                    </span>
-                  </div>
-                </button>
-              );
-            })
+                </div>
+              )}
+              <div className="contact-group">
+                <p className="contact-group__heading">Alle Kontakte</p>
+                <div className="contact-group__grid">
+                  {groupedContacts.remainingContacts.length > 0 ? (
+                    groupedContacts.remainingContacts.map((contact) => renderContactCard(contact))
+                  ) : (
+                    <p className="contact-list__empty">Alle Kontakte sind auf dem aktuellen Stand.</p>
+                  )}
+                </div>
+              </div>
+            </>
           )}
         </div>
       </div>

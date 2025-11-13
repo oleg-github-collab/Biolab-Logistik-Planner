@@ -392,6 +392,45 @@ const NotificationDropdown = () => {
   const heroMessage = latestBroadcast?.content?.trim()
     ? latestBroadcast.content
     : latestBroadcast?.title || '';
+  const recentBroadcasts = useMemo(
+    () => notifications.filter((notification) => notification.type === 'broadcast'),
+    [notifications]
+  );
+  const broadcastHighlights = recentBroadcasts.slice(0, 3);
+  const getBroadcastRecipientsLabel = (notification) => {
+    const recipients = notification.metadata?.recipients || notification.metadata?.recipientCount;
+    if (!recipients) return null;
+    return `${recipients} Empfänger`;
+  };
+  const renderBroadcastHighlights = (variant = 'mobile') => {
+    if (!broadcastHighlights.length) return null;
+    const title = variant === 'desktop' ? 'Zuletzt verschickte Broadcasts' : 'Massenmeldungen';
+    return (
+      <div className={`notification-panel-broadcasts ${variant === 'desktop' ? 'notification-panel-broadcasts--desktop' : ''}`}>
+        <div className="notification-panel-broadcasts__heading">
+          <p>{title}</p>
+          <span>{broadcastHighlights.length} Einträge</span>
+        </div>
+        <div className="notification-panel-broadcasts__list">
+          {broadcastHighlights.map((broadcast) => (
+            <div
+              key={broadcast.id || broadcast.notification_id || broadcast.created_at}
+              className="notification-panel-broadcast"
+            >
+              <p className="notification-panel-broadcast__title">{broadcast.title}</p>
+              <p className="notification-panel-broadcast__snippet">{broadcast.content || heroMessage}</p>
+              <div className="notification-panel-broadcast__meta">
+                <span>{formatTimestamp(broadcast.created_at)}</span>
+                {getBroadcastRecipientsLabel(broadcast) && (
+                  <span>{getBroadcastRecipientsLabel(broadcast)}</span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
 
   const renderMobileNotificationList = () => {
     if (loading) {
@@ -549,6 +588,7 @@ const NotificationDropdown = () => {
             <p>Termine/System</p>
           </div>
         </div>
+        {renderBroadcastHighlights('desktop')}
       </div>
 
       <div className="flex-1 overflow-y-auto">{notificationList}</div>
@@ -575,18 +615,18 @@ const NotificationDropdown = () => {
         </div>
 
         <div className="notification-panel-hero">
-            <div>
-              <p className="notification-panel-hero__label">Broadcast</p>
-              <h4 className="notification-panel-hero__title">
-                {notificationStats.pending > 0 ? `${notificationStats.pending} ungelesene${notificationStats.pending > 1 ? ' Notifications' : ''}` : 'Alles gelesen'}
-              </h4>
-              <p className="notification-panel-hero__subtitle">
-                Live-Updates wurden zuletzt vor {notificationStats.pending ? 'kurzem' : 'wenigen Minuten'} synchronisiert.
-              </p>
-              {heroMessage && (
-                <p className="notification-panel-hero__description">{heroMessage}</p>
-              )}
-            </div>
+          <div>
+            <p className="notification-panel-hero__label">Broadcast</p>
+            <h4 className="notification-panel-hero__title">
+              {notificationStats.pending > 0 ? `${notificationStats.pending} ungelesene${notificationStats.pending > 1 ? ' Notifications' : ''}` : 'Alles gelesen'}
+            </h4>
+            <p className="notification-panel-hero__subtitle">
+              Live-Updates wurden zuletzt vor {notificationStats.pending ? 'kurzem' : 'wenigen Minuten'} synchronisiert.
+            </p>
+            {heroMessage && (
+              <p className="notification-panel-hero__description">{heroMessage}</p>
+            )}
+          </div>
           <button
             type="button"
             className="notification-panel-hero__button"
@@ -597,6 +637,8 @@ const NotificationDropdown = () => {
             Alle lesen
           </button>
         </div>
+
+        {renderBroadcastHighlights()}
 
         <div className="notification-filters px-0">
           {FILTERS.map((item) => (

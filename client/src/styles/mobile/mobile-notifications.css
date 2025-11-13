@@ -212,6 +212,65 @@
     overflow: hidden;
   }
 
+  .notification-panel-broadcasts {
+    margin: 16px 20px 0;
+    border-radius: 20px;
+    background: rgba(15, 23, 42, 0.04);
+    padding: 16px;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+  }
+
+  .notification-panel-broadcasts--desktop {
+    margin: 12px 20px;
+    background: rgba(248, 250, 252, 0.9);
+  }
+
+  .notification-panel-broadcasts__heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: rgba(15, 23, 42, 0.6);
+    margin-bottom: 12px;
+  }
+
+  .notification-panel-broadcasts__list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .notification-panel-broadcast {
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 16px;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    padding: 12px 14px;
+  }
+
+  .notification-panel-broadcast__title {
+    font-size: 14px;
+    font-weight: 700;
+    margin: 0;
+    color: #0f172a;
+  }
+
+  .notification-panel-broadcast__snippet {
+    margin: 6px 0 0;
+    font-size: 13px;
+    color: rgba(15, 23, 42, 0.7);
+  }
+
+  .notification-panel-broadcast__meta {
+    display: flex;
+    gap: 10px;
+    font-size: 11px;
+    color: rgba(15, 23, 42, 0.55);
+    margin-top: 8px;
+    align-items: center;
+  }
+
   .notification-panel-hero__button {
     border: 0;
     background: rgba(255, 255, 255, 0.2);

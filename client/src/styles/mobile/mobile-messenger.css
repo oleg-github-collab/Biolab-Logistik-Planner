@@ -113,6 +113,49 @@
     border-color: transparent;
   }
 
+  .message-meta {
+    margin-top: 6px;
+    font-size: 11px;
+    line-height: 1.2;
+    color: #475569;
+  }
+
+  .message-meta__time {
+    font-weight: 600;
+  }
+
+  .message-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  .message-status__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .message-status.read {
+    background: rgba(16, 185, 129, 0.15);
+    color: #047857;
+  }
+
+  .message-status.sent {
+    background: rgba(59, 130, 246, 0.12);
+    color: #1d4ed8;
+  }
+
+  .message-bubble.other {
+    background: linear-gradient(180deg, #f8fafc, #eef2ff);
+    border-color: rgba(148, 163, 184, 0.4);
+    color: #0f172a;
+  }
+
   .contact-list {
     display: flex;
     flex-direction: column;
@@ -250,7 +293,32 @@
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 16px;
+  }
+
+  .contact-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .contact-group__heading {
+    font-size: 12px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: rgba(15, 23, 42, 0.6);
+  }
+
+  .contact-group__grid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .contact-list__empty {
+    margin: 0;
+    font-size: 13px;
+    color: rgba(71, 85, 105, 0.75);
   }
 
   .contact-card {
@@ -296,6 +364,13 @@
     flex: 1;
   }
 
+  .contact-card__body-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
   .contact-card__name {
     margin: 0;
     font-weight: 700;
@@ -305,7 +380,11 @@
   .contact-card__snippet {
     margin: 2px 0 0;
     font-size: 13px;
-    color: #64748b;
+    color: rgba(15, 23, 42, 0.6);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 
   .contact-card__meta {
@@ -314,6 +393,20 @@
     text-align: right;
     gap: 4px;
     font-size: 11px;
+  }
+
+  .contact-card__time {
+    color: rgba(15, 23, 42, 0.55);
+    font-weight: 600;
+  }
+
+  .contact-card__badge {
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: rgba(37, 99, 235, 0.15);
+    color: #2563eb;
+    font-size: 11px;
+    font-weight: 700;
   }
 
   .contact-card__email {
