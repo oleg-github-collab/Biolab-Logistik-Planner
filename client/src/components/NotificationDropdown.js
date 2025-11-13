@@ -542,7 +542,10 @@ const NotificationDropdown = () => {
       <div className="notification-backdrop active" onClick={closeDropdown} />
       <div className="notification-panel active" role="dialog" aria-modal="true">
         <div className="notification-panel-header">
-          <h3>Benachrichtigungen</h3>
+          <div className="notification-panel-header__main">
+            <h3>Benachrichtigungen</h3>
+            <p>Alle wichtigen Meldungen im Blick</p>
+          </div>
           <button
             type="button"
             onClick={closeDropdown}
@@ -550,6 +553,27 @@ const NotificationDropdown = () => {
             aria-label="Schließen"
           >
             <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="notification-panel-hero">
+          <div>
+            <p className="notification-panel-hero__label">Broadcast</p>
+            <h4 className="notification-panel-hero__title">
+              {notificationStats.pending > 0 ? `${notificationStats.pending} ungelesene${notificationStats.pending > 1 ? ' Notifications' : ''}` : 'Alles gelesen'}
+            </h4>
+            <p className="notification-panel-hero__subtitle">
+              Live-Updates wurden zuletzt vor {notificationStats.pending ? 'kurzem' : 'wenigen Minuten'} synchronisiert.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="notification-panel-hero__button"
+            onClick={handleMarkAllAsRead}
+            disabled={unreadCount === 0}
+          >
+            <CheckCheck className="w-4 h-4" />
+            Alle lesen
           </button>
         </div>
 
@@ -582,16 +606,6 @@ const NotificationDropdown = () => {
         </div>
 
         <div className="px-4 py-3 flex gap-2">
-          {unreadCount > 0 && (
-            <button
-              type="button"
-              onClick={handleMarkAllAsRead}
-              className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 rounded-2xl text-xs font-semibold uppercase tracking-wide bg-blue-50 text-blue-600 hover:bg-blue-100 transition"
-            >
-              <CheckCheck className="w-4 h-4" />
-              Alle lesen
-            </button>
-          )}
           <button
             type="button"
             onClick={handleClearAll}
@@ -602,7 +616,9 @@ const NotificationDropdown = () => {
           </button>
         </div>
 
-        {renderMobileNotificationList()}
+        <div className="notification-panel__list">
+          {renderMobileNotificationList()}
+        </div>
       </div>
     </>
   );

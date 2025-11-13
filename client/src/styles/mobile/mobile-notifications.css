@@ -152,16 +152,76 @@
     transform: translateX(-50%) scaleX(1.1);
   }
 
-  .notification-panel-header h2 {
+  .notification-panel-header__main h3 {
+    margin: 0;
     font-size: 26px;
     font-weight: 900;
-    background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: #f8fafc;
+    letter-spacing: -0.02em;
+  }
+
+  .notification-panel-header__main p {
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: rgba(248, 250, 252, 0.75);
+  }
+
+  .notification-panel-hero {
+    margin: 12px 20px 0;
+    background: linear-gradient(135deg, #1d4ed8, #2563eb);
+    border-radius: 20px;
+    padding: 16px;
+    color: white;
+    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.35);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .notification-panel-hero__label {
+    font-size: 10px;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    opacity: 0.8;
+  }
+
+  .notification-panel-hero__title {
+    margin: 4px 0 0;
+    font-size: 18px;
+    font-weight: 700;
+  }
+
+  .notification-panel-hero__subtitle {
     margin: 0;
-    letter-spacing: -0.03em;
-    text-shadow: 0 2px 8px rgba(15, 23, 42, 0.1);
+    font-size: 12px;
+    opacity: 0.85;
+  }
+
+  .notification-panel-hero__button {
+    border: 0;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    padding: 8px 14px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    transition: background 0.3s ease;
+  }
+
+  .notification-panel-hero__button:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.3);
+  }
+
+  .notification-panel-header__main p {
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: rgba(248, 250, 252, 0.75);
   }
 
   .notification-panel-close {
@@ -256,6 +316,12 @@
     padding: 20px 20px calc(20px + env(safe-area-inset-bottom)) 20px;
     scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
+  }
+
+  .notification-panel__list {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
   }
 
   /* Notification item - Complete redesign with stunning effects */

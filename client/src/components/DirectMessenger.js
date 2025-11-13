@@ -79,6 +79,7 @@ const DirectMessenger = () => {
   const [messageInput, setMessageInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [showSidebar, setShowSidebar] = useState(true);
+  const [mobileMode, setMobileMode] = useState('list');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [showGifPicker, setShowGifPicker] = useState(false);
@@ -461,7 +462,7 @@ const DirectMessenger = () => {
 
       console.log('[DirectMessenger] Mobile check:', isMobile);
       if (isMobile) {
-        setShowSidebar(false);
+        setMobileMode('chat');
       }
 
       console.log('[DirectMessenger] ===== handleContactClick SUCCESS =====');
@@ -1878,40 +1879,45 @@ const DirectMessenger = () => {
     );
   };
 
-  const renderMobileLayout = () => (
-    <div className="messenger-mobile-container">
-      {showSidebar && (
-        <>
-          <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
-            onClick={() => setShowSidebar(false)}
-          />
-          <div className="fixed inset-0 z-50">
-            <ContactList
-              variant="overlay"
-              storyEntries={storyEntries}
-              storyMap={storiesByUser}
-              onStoryOpen={handleStoryOpen}
-              storiesLoading={storiesLoading}
-            />
-          </div>
-        </>
-      )}
+  const renderMobileContactListView = () => (
+    <div className="messenger-mobile-list-view">
+      <div className="messenger-mobile-list-header">
+        <div>
+          <p className="text-xs uppercase tracking-[0.3em] text-blue-400">Team messenger</p>
+          <h2>Kontakte</h2>
+        </div>
+        <button
+          type="button"
+          className="messenger-mobile-list-add"
+          onClick={() => setShowSearch(true)}
+        >
+          <Plus className="w-4 h-4 text-white" />
+          <span>Neue Nachricht</span>
+        </button>
+      </div>
+      <ContactList
+        variant="panel"
+        storyEntries={storyEntries}
+        storyMap={storiesByUser}
+        onStoryOpen={handleStoryOpen}
+        storiesLoading={storiesLoading}
+      />
+    </div>
+  );
 
+  const renderMobileChatView = () => (
+    <div className="messenger-mobile-chat-mode">
       <div className="messenger-mobile-header">
         <button
           className="back-btn"
-          onClick={() => setShowSidebar(true)}
+          onClick={() => setMobileMode('list')}
+          aria-label="Zurück zu Kontakten"
         >
-          <Menu className="w-5 h-5" />
+          <ChevronLeft className="w-4 h-4" />
         </button>
         <div className="contact-info">
-          <p className="contact-name">
-            {selectedContact ? selectedContact.name : 'Chat auswählen'}
-          </p>
-          <p className="contact-status">
-            {isConnected ? 'Online' : 'Offline'}
-          </p>
+          <p className="contact-name">{selectedContact?.name || 'Chat auswählen'}</p>
+          <p className="contact-status">{isConnected ? 'Online' : 'Offline'}</p>
         </div>
         <div className="avatar">
           {selectedContact?.name?.[0]?.toUpperCase() || user?.name?.[0]?.toUpperCase() || '?'}
@@ -1919,68 +1925,51 @@ const DirectMessenger = () => {
       </div>
       {selectedContact && (
         <div className="messenger-mobile-header-actions">
-          <button type="button" onClick={() => handleContactAction('call')} aria-label="Anrufen">
-            <Phone className="w-4 h-4" />
-            <span>Anruf</span>
+          <button type="button" aria-label="Anrufen">
+            <Phone className="w-5 h-5" />
           </button>
-          <button type="button" onClick={() => handleContactAction('video')} aria-label="Videoanruf">
-            <Video className="w-4 h-4" />
-            <span>Video</span>
+          <button type="button" aria-label="Videoanruf">
+            <Video className="w-5 h-5" />
           </button>
-          <button type="button" onClick={() => handleContactAction('info')} aria-label="Kontaktinfo">
-            <Info className="w-4 h-4" />
-            <span>Info</span>
+          <button type="button" aria-label="Kontaktinfo">
+            <Info className="w-5 h-5" />
           </button>
         </div>
       )}
-
       <div className="messenger-mobile-actions">
         <button type="button" onClick={() => setShowSearch(true)}>
-          <Search className="w-4 h-4" />
-          <span>Suche</span>
+          <Search className="w-5 h-5" />
         </button>
         <button
           type="button"
           onClick={() => setShowPinnedDrawer(true)}
           disabled={pinnedMessages.length === 0}
         >
-          <Pin className="w-4 h-4" />
-          <span>Pins</span>
+          <Pin className="w-5 h-5" />
         </button>
         <button type="button" onClick={() => fileInputRef.current?.click()}>
-          <Paperclip className="w-4 h-4" />
-          <span>Datei</span>
+          <Paperclip className="w-5 h-5" />
         </button>
         <button type="button" onClick={openEventPicker}>
-          <CalendarDays className="w-4 h-4" />
-          <span>Kalender</span>
+          <CalendarDays className="w-5 h-5" />
         </button>
       </div>
-
       <div className="messenger-mobile-messages">
-        {selectedContact ? renderMessages() : (
-          <div className="flex-1 flex flex-col items-center justify-center text-blue-100">
-            <Users className="w-20 h-20 mb-3" />
-            <p className="text-lg font-semibold">Kontakt auswählen</p>
-            <p className="text-sm text-blue-200 mt-1">Tippe auf die Liste, um einen Chat zu starten</p>
-          </div>
-        )}
-
-        {/* Typing Indicators */}
+        {renderMessages()}
         {Object.entries(typingUsers).map(([userId, data]) => (
           <TypingIndicator key={userId} userName={data.name} />
         ))}
-
         <div ref={messagesEndRef} />
       </div>
-
       {replyToMessage && (
-        <div className="px-4 py-3 bg-slate-800 text-slate-100 flex items-start gap-3 border-t border-slate-700 border-l-4 border-l-blue-400">
+        <div className="px-4 py-3 bg-slate-900 text-slate-100 flex items-start gap-3 border-t border-slate-700 border-l-4 border-l-blue-400">
           <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-500 text-white flex-shrink-0">
             <Reply className="w-5 h-5" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-blue-300 mb-1">Antworten auf {replyToMessage.sender_name}</p>
+            <p className="text-xs font-semibold text-blue-300 mb-1">
+              Antworten auf {replyToMessage.sender_name}
+            </p>
             <p className="text-sm line-clamp-2">{replyToMessage.message}</p>
           </div>
           <button
@@ -1993,7 +1982,6 @@ const DirectMessenger = () => {
           </button>
         </div>
       )}
-
       {selectedEvent && (
         <div className="px-4 pb-1">
           <div className="selected-event-preview">
@@ -2006,7 +1994,9 @@ const DirectMessenger = () => {
                 {formatEventDateRange(selectedEvent.start_time, selectedEvent.end_time)}
               </p>
               {selectedEvent.location && (
-                <p className="text-xs text-slate-400 mt-1 leading-tight">Ort: {selectedEvent.location}</p>
+                <p className="text-xs text-slate-400 mt-1 leading-tight">
+                  Ort: {selectedEvent.location}
+                </p>
               )}
             </div>
             <button
@@ -2020,7 +2010,6 @@ const DirectMessenger = () => {
           </div>
         </div>
       )}
-
       {pendingAttachments.length > 0 && (
         <div className="px-4 py-2 bg-slate-900">
           <div className="flex gap-2 overflow-x-auto">
@@ -2028,9 +2017,7 @@ const DirectMessenger = () => {
           </div>
         </div>
       )}
-
       {renderMobileQuickReplies()}
-
       <form onSubmit={handleSendMessage} className="messenger-mobile-input">
         <div className="flex items-end gap-2 w-full">
           <div className="flex-1">
@@ -2100,6 +2087,21 @@ const DirectMessenger = () => {
       </form>
     </div>
   );
+
+  const renderMobileLayout = () => {
+    if (mobileMode === 'list' || !selectedContact) {
+      return (
+        <div className="messenger-mobile-container messenger-mobile-list-mode">
+          {renderMobileContactListView()}
+        </div>
+      );
+    }
+    return (
+      <div className="messenger-mobile-container messenger-mobile-chat-mode">
+        {renderMobileChatView()}
+      </div>
+    );
+  };
 
   const renderEventPicker = () => {
     if (!showEventPicker) return null;

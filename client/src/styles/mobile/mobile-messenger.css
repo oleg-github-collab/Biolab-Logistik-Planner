@@ -347,6 +347,50 @@
     color: #475569;
   }
 
+  .messenger-mobile-container.messenger-mobile-list-mode {
+    background: linear-gradient(180deg, #0f172a 0%, #1e1b4b 60%, #0b1223 100%);
+    padding-bottom: 80px;
+  }
+
+  .messenger-mobile-list-mode,
+  .messenger-mobile-chat-mode {
+    min-height: 100vh;
+  }
+
+  .messenger-mobile-list-view {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 24px 16px;
+  }
+
+  .messenger-mobile-list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .messenger-mobile-list-header h2 {
+    margin: 0;
+    font-size: 26px;
+    font-weight: 800;
+  }
+
+  .messenger-mobile-list-add {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    color: white;
+    border-radius: 16px;
+    font-size: 13px;
+    font-weight: 600;
+    border: none;
+    box-shadow: 0 10px 25px rgba(37, 99, 235, 0.35);
+  }
+
   /* Back button in header */
   .messenger-mobile-header .back-btn {
     width: 44px;
@@ -384,73 +428,6 @@
   button[title*="Video"] {
     display: none !important;
   }
-
-  /* ==========================================
-     MESSAGES AREA
-     ========================================== */
-
-  .messenger-mobile-messages {
-    flex: 1;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    padding: 20px 16px;
-    background: #f8fafc;
-    min-height: 0;
-  }
-
-  .messenger-mobile-messages::-webkit-scrollbar {
-    width: 5px;
-  }
-
-  .messenger-mobile-messages::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  .messenger-mobile-messages::-webkit-scrollbar-thumb {
-    background: rgba(148, 163, 184, 0.4);
-    border-radius: 999px;
-  }
-
-  /* ==========================================
-     MESSAGE BUBBLES - Premium
-     ========================================== */
-
-  .message-bubble {
-    max-width: 85%;
-    padding: 14px 18px;
-    border-radius: 20px;
-    margin-bottom: 10px;
-    word-wrap: break-word;
-    line-height: 1.5;
-    font-size: 16px;
-    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
-  }
-
-  .message-bubble.own {
-    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-    color: #ffffff;
-    margin-left: auto;
-    border-bottom-right-radius: 6px;
-    box-shadow: 0 3px 12px rgba(59, 130, 246, 0.25);
-  }
-
-  .message-bubble.other {
-    background: #ffffff;
-    color: #0f172a;
-    border: 1px solid rgba(15, 23, 42, 0.08);
-    border-bottom-left-radius: 6px;
-  }
-
-  /* Message timestamp */
-  .message-timestamp {
-    font-size: 12px;
-    opacity: 0.7;
-    margin-top: 4px;
-  }
-
-  /* ==========================================
-     INPUT AREA - ПІДНЯТИЙ У VIEWPORT
-     ========================================== */
 
   .messenger-mobile-input {
     position: fixed;
