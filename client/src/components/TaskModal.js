@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   X,
   Calendar,
@@ -27,6 +27,8 @@ import {
   getPriorityColorClass,
 } from '../utils/kanbanApi';
 import { getAssetUrl } from '../utils/media';
+import { useAuth } from '../context/AuthContext';
+import useWebSocket from '../hooks/useWebSocket';
 
 const PRIORITIES = [
   { value: 'low', label: 'Niedrig', color: 'bg-green-100 text-green-700 border-green-300' },
@@ -62,8 +64,31 @@ const TaskModal = ({ isOpen, onClose, task, users = [], onTaskUpdated, onTaskDel
   const [loading, setLoading] = useState(false);
   const [uploadingAudio, setUploadingAudio] = useState(false);
   const [activeTab, setActiveTab] = useState('details'); // details, comments, activity
+  const auth = useAuth();
+  const currentUser = auth?.user;
+  const { onTaskEvent } = useWebSocket();
+  const lastTaskRef = useRef(task);
 
   // Load task data into form
+  const loadActivityLog = useCallback(async (taskId) => {
+    try {
+      const log = await fetchActivityLog(taskId);
+      const formatted = (Array.isArray(log) ? log : []).map((entry) => ({
+        id: `activity-${entry.id || entry.created_at || Date.now()}`,
+        user_name: entry.user_name || currentUser?.name || 'System',
+        action_type: entry.action_type || entry.type || 'comment_added',
+        old_value: entry.old_value,
+        new_value: entry.new_value || entry.comment || entry.description,
+        message: entry.message || entry.comment || '',
+        created_at: entry.created_at || entry.timestamp || new Date().toISOString()
+      }));
+      setActivityLog(formatted);
+    } catch (error) {
+      console.error('Failed to load activity log:', error);
+      setActivityLog([]);
+    }
+  }, [currentUser?.name]);
+
   useEffect(() => {
     if (task) {
       setFormData({
@@ -80,10 +105,64 @@ const TaskModal = ({ isOpen, onClose, task, users = [], onTaskUpdated, onTaskDel
 
       // Load activity log
       if (task.id) {
+        setActivityLog([]);
         loadActivityLog(task.id);
       }
     }
+  }, [task, loadActivityLog]);
+
+  useEffect(() => {
+    lastTaskRef.current = task;
   }, [task]);
+
+  const pushActivityEntry = useCallback((entry) => {
+    setActivityLog((prev) => {
+      const normalized = [entry, ...prev];
+      return normalized.slice(0, 25);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!task?.id) return undefined;
+    const unsubscribeComment = onTaskEvent('task:comment', (payload) => {
+      if (payload.taskId !== task.id) {
+        return;
+      }
+      const comment = payload.comment;
+      if (!comment) return;
+      pushActivityEntry({
+        id: `comment-${comment.id}`,
+        user_name: comment.user_name || currentUser?.name || 'Team',
+        action_type: 'comment_added',
+        message: comment.comment || comment.text || 'Kommentar',
+        created_at: comment.created_at || new Date().toISOString()
+      });
+    });
+
+    const unsubscribeUpdated = onTaskEvent('task:updated', (payload) => {
+      if (payload.task?.id !== task.id) {
+        return;
+      }
+      const previous = lastTaskRef.current;
+      const updatedTask = payload.task;
+      lastTaskRef.current = updatedTask;
+      if (previous?.status && updatedTask?.status && previous.status !== updatedTask.status) {
+        pushActivityEntry({
+          id: `status-${Date.now()}`,
+          user_name: currentUser?.name || 'System',
+          action_type: 'status_changed',
+          old_value: previous.status,
+          new_value: updatedTask.status,
+          created_at: new Date().toISOString()
+        });
+      }
+    });
+
+    return () => {
+      unsubscribeComment();
+      unsubscribeUpdated();
+    };
+  }, [onTaskEvent, pushActivityEntry, task?.id, currentUser?.name]);
 
   const loadActivityLog = async (taskId) => {
     try {
@@ -105,6 +184,7 @@ const TaskModal = ({ isOpen, onClose, task, users = [], onTaskUpdated, onTaskDel
     try {
       setLoading(true);
 
+      const previousStatus = task?.status;
       const updatedTask = await updateTask(task.id, {
         title: formData.title,
         description: formData.description,
@@ -121,6 +201,17 @@ const TaskModal = ({ isOpen, onClose, task, users = [], onTaskUpdated, onTaskDel
 
       if (onTaskUpdated) {
         onTaskUpdated(updatedTask);
+      }
+
+      if (previousStatus && updatedTask.status && previousStatus !== updatedTask.status) {
+        pushActivityEntry({
+          id: `status-${Date.now()}`,
+          user_name: currentUser?.name || 'System',
+          action_type: 'status_changed',
+          old_value: previousStatus,
+          new_value: updatedTask.status,
+          created_at: new Date().toISOString()
+        });
       }
 
       onClose();
@@ -168,6 +259,13 @@ const TaskModal = ({ isOpen, onClose, task, users = [], onTaskUpdated, onTaskDel
 
       await uploadAttachment(task.id, audioFile, 'audio');
       toast.success('Audio hochgeladen');
+      pushActivityEntry({
+        id: `attachment-${Date.now()}`,
+        user_name: currentUser?.name || 'System',
+        action_type: 'attachment_added',
+        new_value: audioFile.name,
+        created_at: new Date().toISOString()
+      });
 
       // Refresh task data
       if (onTaskUpdated) {
@@ -186,6 +284,13 @@ const TaskModal = ({ isOpen, onClose, task, users = [], onTaskUpdated, onTaskDel
     try {
       await deleteAttachment(attachmentId);
       toast.success('Anhang gelöscht');
+      pushActivityEntry({
+        id: `attachment-rem-${Date.now()}`,
+        user_name: currentUser?.name || 'System',
+        action_type: 'attachment_removed',
+        new_value: attachmentId,
+        created_at: new Date().toISOString()
+      });
 
       // Refresh task data
       if (onTaskUpdated) {
@@ -627,7 +732,18 @@ const TaskModal = ({ isOpen, onClose, task, users = [], onTaskUpdated, onTaskDel
             {/* Comments Tab */}
             {activeTab === 'comments' && (
               <div className="py-2">
-                <TaskComments taskId={task.id} />
+                <TaskComments
+                  taskId={task.id}
+                  onNewComment={(newComment) => {
+                    pushActivityEntry({
+                      id: `comment-${newComment.id || Date.now()}`,
+                      user_name: newComment.user_name || currentUser?.name || 'Team',
+                      action_type: 'comment_added',
+                      message: newComment.comment || newComment.text || '',
+                      created_at: newComment.created_at || new Date().toISOString()
+                    });
+                  }}
+                />
               </div>
             )}
 
@@ -648,12 +764,23 @@ const TaskModal = ({ isOpen, onClose, task, users = [], onTaskUpdated, onTaskDel
                     <div className="flex-1">
                       <p className="text-sm font-semibold text-slate-900">{activity.user_name}</p>
                       <p className="text-sm text-slate-600 mt-1">
-                        {activity.action_type === 'created' && `Aufgabe erstellt`}
+                        {activity.action_type === 'created' && 'Aufgabe erstellt'}
                         {activity.action_type === 'status_changed' &&
                           `Status geändert: ${activity.old_value} → ${activity.new_value}`}
                         {activity.action_type === 'attachment_added' &&
-                          `Anhang hinzugefügt: ${activity.new_value}`}
-                        {activity.action_type === 'comment_added' && `Kommentar hinzugefügt`}
+                          `Anhang hinzugefügt: ${activity.new_value || 'Datei'}`}
+                        {activity.action_type === 'attachment_removed' && 'Anhang entfernt'}
+                        {activity.action_type === 'comment_added' && 'Kommentar hinzugefügt'}
+                        {activity.action_type === 'comment_added' && activity.message && (
+                          <span className="block text-xs text-slate-500 mt-1 leading-tight">
+                            „{activity.message.length > 120 ? `${activity.message.slice(0, 120)}…` : activity.message}“
+                          </span>
+                        )}
+                        {activity.action_type === 'attachment_added' && activity.message && (
+                          <span className="block text-xs text-slate-500 mt-1 leading-tight">
+                            {activity.message}
+                          </span>
+                        )}
                       </p>
                       <p className="text-xs text-slate-500 mt-1">
                         {new Date(activity.created_at).toLocaleString('de-DE')}

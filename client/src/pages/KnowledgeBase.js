@@ -1212,25 +1212,45 @@ const KnowledgeBaseV3 = () => {
   const [diffLoadingVersion, setDiffLoadingVersion] = useState(null);
   const formatDictationPreview = useCallback((instructions = {}) => {
     const payload = instructions || {};
-    const title = (payload.title || payload.heading || '').trim();
-    const summary = (payload.summary || payload.description || '').trim();
-    const structuredSteps = Array.isArray(payload.steps) ? payload.steps : [];
-    const bodySources = [];
-    if (payload.content) bodySources.push(payload.content);
-    if (payload.body) bodySources.push(payload.body);
-    if (structuredSteps.length) {
-      structuredSteps.forEach((step, index) => {
-        const stepTitle = step.title || `Schritt ${index + 1}`;
-        const stepText = step.description || step.body || '';
-        bodySources.push(`${stepTitle}\n${stepText}`);
-      });
-    }
-    const normalizedContent = bodySources.filter(Boolean).join('\n\n');
+    const rawSteps = Array.isArray(payload.steps) ? payload.steps : [];
+    const normalizedSteps = rawSteps
+      .map((step) => {
+        if (!step) return '';
+        if (typeof step === 'string') return step.trim();
+        return (step.title || step.description || step.body || '').trim();
+      })
+      .filter(Boolean);
+
+    const fallbackBody = (payload.details || payload.body || payload.content || '')
+      .split(/\n+/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    const steps = normalizedSteps.length
+      ? normalizedSteps
+      : fallbackBody.slice(0, 5);
+
+    const contentSources = [
+      payload.content,
+      payload.body,
+      payload.details,
+      payload.instructions,
+      payload.transcript
+    ].filter(Boolean);
+
+    const normalizedContent = contentSources.join('\n\n');
+    const title = (payload.title || payload.heading || payload.intent || 'Neue Anleitung').trim();
+    const summary = (payload.summary || payload.description || steps[0] || '').trim();
+    const details = (payload.details || payload.notes || payload.additional || '').trim();
+
     return {
-      title: title || payload.intent || 'Neue Anleitung',
-      summary: summary || normalizedContent.slice(0, 160),
-      content: normalizedContent || summary || 'Diktierter Inhalt wird hier angezeigt.',
-      steps: structuredSteps
+      title,
+      summary: summary || (normalizedContent || 'Diktierter Inhalt wird hier angezeigt.').slice(0, 200),
+      details,
+      steps,
+      content: normalizedContent || payload.summary || summary,
+      transcript: payload.transcript || '',
+      styleHint: 'Lehrreich, klar und praxisnah formuliert'
     };
   }, []);
 
@@ -1951,6 +1971,11 @@ const KnowledgeBaseV3 = () => {
                       {dictationPreview.steps?.length || 0} Schritte
                     </span>
                   </div>
+                  {dictationPreview.styleHint && (
+                    <p className="text-xs text-blue-600 uppercase tracking-[0.3em]">
+                      {dictationPreview.styleHint}
+                    </p>
+                  )}
                   <p className="text-sm text-slate-600">{dictationPreview.summary}</p>
                   <div className="space-y-2">
                     {(dictationPreview.steps || []).map((step, index) => (
@@ -1959,6 +1984,14 @@ const KnowledgeBaseV3 = () => {
                       </p>
                     ))}
                   </div>
+                  {dictationPreview.details && (
+                    <div className="rounded-2xl border border-dashed border-slate-200 p-3 bg-white/70">
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500 mb-1">
+                        Zusätzliche Hinweise
+                      </p>
+                      <p className="text-sm text-slate-700">{dictationPreview.details}</p>
+                    </div>
+                  )}
                   <div>
                     <p className="text-xs text-gray-500 uppercase tracking-wide">Transkript</p>
                     <pre className="max-h-32 overflow-y-auto text-xs text-slate-700 bg-white/70 rounded-xl p-3 border border-dashed border-slate-200">

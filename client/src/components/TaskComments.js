@@ -2,8 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
 import { Send, Image as ImageIcon, Mic, Paperclip, X } from 'lucide-react';
+import useWebSocket from '../hooks/useWebSocket';
 
-const TaskComments = ({ taskId }) => {
+const TaskComments = ({ taskId, onNewComment }) => {
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
   const [attachments, setAttachments] = useState([]);
@@ -19,6 +20,25 @@ const TaskComments = ({ taskId }) => {
       console.error('Error loading comments:', error);
     }
   }, [taskId]);
+
+  const { onTaskEvent } = useWebSocket();
+
+  useEffect(() => {
+    if (!taskId) return undefined;
+    const unsubscribe = onTaskEvent('task:comment', (payload) => {
+      if (payload.taskId !== taskId) return;
+      const incoming = payload.comment;
+      if (!incoming) return;
+      setComments((prev) => {
+        const exists = prev.some((comment) => comment.id === incoming.id);
+        if (exists) {
+          return prev.map((comment) => (comment.id === incoming.id ? incoming : comment));
+        }
+        return [incoming, ...prev];
+      });
+    });
+    return () => unsubscribe();
+  }, [taskId, onTaskEvent]);
 
   useEffect(() => {
     loadComments();
@@ -49,13 +69,15 @@ const TaskComments = ({ taskId }) => {
         formData.append('attachments', att.file);
       });
 
-      await api.post(`/kanban/tasks/${taskId}/comments`, formData, {
+      const response = await api.post(`/kanban/tasks/${taskId}/comments`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 
+      const createdComment = response.data;
       setNewComment('');
       setAttachments([]);
       loadComments();
+      onNewComment?.(createdComment);
       toast.success('Kommentar hinzugefugt');
     } catch (error) {
       console.error('Error posting comment:', error);

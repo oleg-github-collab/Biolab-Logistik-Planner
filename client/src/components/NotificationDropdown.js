@@ -13,18 +13,8 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
-import {
-  getNotifications,
-  getUnreadCount,
-  markNotificationAsRead,
-  markAllNotificationsAsRead,
-  deleteNotification,
-  clearAllReadNotifications,
-  takeNotificationAction,
-  respondToDisposalAction
-} from '../utils/apiEnhanced';
-import { useWebSocketContext } from '../context/WebSocketContext';
 import { useMobile, useScrollLock } from '../hooks/useMobile';
+import { useNotifications } from '../hooks/useNotifications';
 
 const FILTERS = [
   { value: 'all', label: 'Alle' },
@@ -35,17 +25,26 @@ const FILTERS = [
 ];
 
 const NotificationDropdown = () => {
-  const { isConnected, notifications: socketNotifications } = useWebSocketContext();
   const { isMobile } = useMobile();
   const { lockScroll, unlockScroll } = useScrollLock();
 
   const [isOpen, setIsOpen] = useState(false);
-  const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [filter, setFilter] = useState('all');
-  const [loading, setLoading] = useState(false);
   const dropdownRef = useRef(null);
   const [actionLoadingKey, setActionLoadingKey] = useState(null);
+
+  const {
+    notifications,
+    unreadCount,
+    loading,
+    isConnected,
+    refreshNotifications,
+    markNotificationAsRead,
+    markAllNotificationsAsRead,
+    clearAllReadNotifications,
+    deleteNotification,
+    takeNotificationAction
+  } = useNotifications({ filter });
 
   const closeDropdown = useCallback(() => {
     setIsOpen(false);
@@ -54,53 +53,6 @@ const NotificationDropdown = () => {
     }
   }, [isMobile, unlockScroll]);
 
-
-  const normalizeNotification = useCallback((notification) => {
-    if (!notification) return null;
-    return {
-      ...notification,
-      id: notification.id || notification.notification_id || `temp_${Date.now()}`,
-      title: notification.title || 'Benachrichtigung',
-      content: notification.content || notification.body || notification.message || '',
-      created_at: notification.created_at || new Date().toISOString(),
-      icon: notification.icon || '/logo192.png'
-    };
-  }, []);
-
-  const loadUnreadCount = useCallback(async () => {
-    try {
-      const response = await getUnreadCount();
-      setUnreadCount(parseInt(response.data.total, 10) || 0);
-    } catch (error) {
-      console.error('Error loading unread count:', error);
-    }
-  }, []);
-
-  const loadNotifications = useCallback(async () => {
-    try {
-      setLoading(true);
-      const params =
-        filter === 'unread'
-          ? { is_read: false }
-          : filter !== 'all'
-          ? { type: filter }
-          : {};
-      const response = await getNotifications(params);
-      const list = Array.isArray(response.data.notifications)
-        ? response.data.notifications
-        : [];
-      setNotifications(list.map(normalizeNotification));
-    } catch (error) {
-      console.error('Error loading notifications:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [filter, normalizeNotification]);
-
-  useEffect(() => {
-    loadUnreadCount();
-    loadNotifications();
-  }, [loadUnreadCount, loadNotifications]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -114,22 +66,10 @@ const NotificationDropdown = () => {
   }, [closeDropdown]);
 
   useEffect(() => {
-    if (!socketNotifications || socketNotifications.length === 0) return;
-    const latest = normalizeNotification(socketNotifications[socketNotifications.length - 1]);
-    if (!latest) return;
-
-    setNotifications((prev) => {
-      const exists = prev.some((item) => item.id === latest.id);
-      return exists ? prev : [latest, ...prev];
-    });
-    setUnreadCount((prev) => prev + 1);
-  }, [socketNotifications, normalizeNotification]);
-
-  useEffect(() => {
     if (isOpen) {
-      loadNotifications();
+      refreshNotifications();
     }
-  }, [filter, isOpen, loadNotifications]);
+  }, [isOpen, refreshNotifications]);
 
   useEffect(() => {
     if (!isMobile) return undefined;
@@ -143,35 +83,26 @@ const NotificationDropdown = () => {
   const handleMarkAsRead = useCallback(async (notificationId) => {
     try {
       await markNotificationAsRead(notificationId);
-      setNotifications((prev) =>
-        prev.map((notification) =>
-          notification.id === notificationId ? { ...notification, is_read: true } : notification
-        )
-      );
-      loadUnreadCount();
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }
-  }, [loadUnreadCount]);
+  }, [markNotificationAsRead]);
 
   const handleMarkAllAsRead = useCallback(async () => {
     try {
       await markAllNotificationsAsRead();
-      setNotifications((prev) => prev.map((notification) => ({ ...notification, is_read: true })));
-      setUnreadCount(0);
     } catch (error) {
       console.error('Error marking notifications as read:', error);
     }
-  }, []);
+  }, [markAllNotificationsAsRead]);
 
   const handleClearAll = useCallback(async () => {
     try {
       await clearAllReadNotifications();
-      setNotifications((prev) => prev.filter((notification) => !notification.is_read));
     } catch (error) {
       console.error('Error clearing notifications:', error);
     }
-  }, []);
+  }, [clearAllReadNotifications]);
 
   const handleNotificationClick = useCallback(async (notification) => {
     if (!notification.is_read) {
@@ -188,12 +119,10 @@ const NotificationDropdown = () => {
   const handleDelete = useCallback(async (notificationId) => {
     try {
       await deleteNotification(notificationId);
-      setNotifications((prev) => prev.filter((notification) => notification.id !== notificationId));
-      loadUnreadCount();
     } catch (error) {
       console.error('Error deleting notification:', error);
     }
-  }, [loadUnreadCount]);
+  }, [deleteNotification]);
 
   const handleNotificationActionButton = useCallback(async (event, notification, action) => {
     event.stopPropagation();
@@ -203,20 +132,13 @@ const NotificationDropdown = () => {
     }
     setActionLoadingKey(actionKey);
     try {
-      await takeNotificationAction(notification.id, action.key, {
-        scheduleId: notification.metadata?.scheduleId
-      });
-      if (action.entAction && notification.metadata?.scheduleId) {
-        await respondToDisposalAction(notification.metadata.scheduleId, action.entAction);
-      }
-      loadNotifications();
-      loadUnreadCount();
+      await takeNotificationAction(notification, action);
     } catch (error) {
       console.error('Notification action error:', error);
     } finally {
       setActionLoadingKey(null);
     }
-  }, [actionLoadingKey, loadNotifications, loadUnreadCount]);
+  }, [actionLoadingKey, takeNotificationAction]);
 
   const getNotificationIcon = useCallback((type) => {
     const icons = {
@@ -241,6 +163,33 @@ const NotificationDropdown = () => {
     };
     return labels[type] || 'Info';
   }, []);
+
+  const formatStatusBadge = useCallback((value) => {
+    if (!value) return '';
+    return value
+      .toString()
+      .split(/[_\s]+/)
+      .map((segment) => {
+        const formatted = segment.trim();
+        return formatted ? `${formatted.charAt(0).toUpperCase()}${formatted.slice(1)}` : '';
+      })
+      .filter(Boolean)
+      .join(' ');
+  }, []);
+
+  const getBroadcastStatusLabel = useCallback((notification) => {
+    if (!notification) return 'Broadcast';
+    const metadata = notification.metadata || {};
+    if (metadata.status) return formatStatusBadge(metadata.status);
+    if (metadata.delivery_status) return formatStatusBadge(metadata.delivery_status);
+    if (metadata.delivered !== undefined) {
+      return metadata.delivered ? 'Zugestellt' : 'Ausstehend';
+    }
+    if (metadata.recipients) {
+      return `${metadata.recipients} Empfänger`;
+    }
+    return 'Broadcast';
+  }, [formatStatusBadge]);
 
   const formatTimestamp = useCallback((timestamp) => {
     if (!timestamp) return '';
@@ -424,6 +373,9 @@ const NotificationDropdown = () => {
                 {getBroadcastRecipientsLabel(broadcast) && (
                   <span>{getBroadcastRecipientsLabel(broadcast)}</span>
                 )}
+                <span className="notification-panel-broadcast__status">
+                  {getBroadcastStatusLabel(broadcast)}
+                </span>
               </div>
             </div>
           ))}

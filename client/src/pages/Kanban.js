@@ -40,6 +40,8 @@ const KanbanBoard = () => {
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createModalStatus, setCreateModalStatus] = useState('todo');
+  const [error, setError] = useState(null);
+  const [errorDetails, setErrorDetails] = useState(null);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -83,10 +85,22 @@ const KanbanBoard = () => {
   const loadTasks = async () => {
     try {
       setLoading(true);
+      setError(null);
+      setErrorDetails(null);
       const data = await fetchTasks();
       setTasks(data);
     } catch (error) {
       console.error('Error loading tasks:', error);
+      setError(
+        error.response?.data?.error ||
+          error.message ||
+          'Fehler beim Laden der Aufgaben'
+      );
+      setErrorDetails(
+        error.response?.status
+          ? `${error.response.status} ${error.response.statusText || ''}`.trim()
+          : error.message
+      );
       toast.error('Fehler beim Laden der Aufgaben');
     } finally {
       setLoading(false);
@@ -224,6 +238,41 @@ const KanbanBoard = () => {
   };
 
   const hasActiveFilters = searchQuery || filterUser || filterPriority;
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-96 px-4">
+        <div className="bg-white border border-red-200 rounded-2xl shadow-lg p-8 text-center max-w-md w-full">
+          <div className="flex items-center justify-center mb-3">
+            <AlertCircle className="w-8 h-8 text-red-500" />
+          </div>
+          <h2 className="text-xl font-semibold text-slate-900 mb-2">Kanban konnte nicht geladen werden</h2>
+          <p className="text-sm text-slate-500 mb-4">
+            {error}
+          </p>
+          {errorDetails && (
+            <p className="text-xs text-slate-400 italic mb-4">{errorDetails}</p>
+          )}
+          <div className="flex justify-center gap-3">
+            <button
+              type="button"
+              onClick={loadTasks}
+              className="px-4 py-2 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
+            >
+              Erneut versuchen
+            </button>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-semibold hover:bg-slate-50 transition"
+            >
+              Seite neu laden
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

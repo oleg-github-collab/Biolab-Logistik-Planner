@@ -767,4 +767,225 @@
     line-height: 1.5;
   }
 
+  /* ==========================================
+     MOBILE EVENT CALENDAR MODULE
+     ========================================== */
+
+  .mobile-event-calendar {
+    margin-top: 1.5rem;
+    background: #ffffff;
+    border-radius: 30px;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    padding: 18px;
+    box-shadow: 0 24px 50px rgba(15, 23, 42, 0.08);
+  }
+
+  .mobile-event-calendar__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .mobile-event-calendar__headline {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .mobile-event-calendar__label {
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    font-size: 11px;
+    color: #94a3b8;
+  }
+
+  .mobile-event-calendar__title {
+    margin: 2px 0 0;
+    font-size: 20px;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.02em;
+  }
+
+  .mobile-event-calendar__nav {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .mobile-event-calendar__nav button {
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
+    border: none;
+    background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+    color: #1e293b;
+    font-weight: 700;
+    box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+    transition: all 0.2s ease;
+  }
+
+  .mobile-event-calendar__nav button:active {
+    transform: scale(0.96);
+    box-shadow: 0 4px 10px rgba(15, 23, 42, 0.12);
+  }
+
+  .mobile-event-calendar__nav-today {
+    border-radius: 14px;
+    background: linear-gradient(135deg, #0ea5e9, #6366f1);
+    color: #ffffff;
+    padding: 8px 14px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .mobile-event-calendar__grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .mobile-event-calendar__day-card {
+    background: #f8fafc;
+    border-radius: 20px;
+    padding: 14px;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .mobile-event-calendar__day-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .mobile-event-calendar__day-label {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: #0f172a;
+    text-transform: capitalize;
+  }
+
+  .mobile-event-calendar__day-date {
+    margin: 0;
+    font-size: 13px;
+    color: #475569;
+  }
+
+  .mobile-event-calendar__day-badge {
+    background: rgba(14, 165, 233, 0.12);
+    color: #0369a1;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  .mobile-event-calendar__events {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 68px;
+  }
+
+  .mobile-event-calendar__events-empty {
+    font-size: 12px;
+    color: #94a3b8;
+    margin: 0;
+  }
+
+  .mobile-event-calendar__event {
+    display: flex;
+    flex-direction: column;
+    padding: 10px 12px;
+    border-radius: 16px;
+    border: 1px solid rgba(14, 165, 233, 0.25);
+    background: #ffffff;
+    gap: 2px;
+    text-align: left;
+  }
+
+  .mobile-event-calendar__event-time {
+    font-size: 12px;
+    font-weight: 600;
+    color: #0ea5e9;
+  }
+
+  .mobile-event-calendar__event-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .mobile-event-calendar__event-chip {
+    align-self: flex-start;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(14, 165, 233, 0.12);
+    color: #0c4a6e;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .mobile-event-calendar__actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .mobile-event-calendar__action {
+    border: 0;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #0ea5e9, #2563eb);
+    color: white;
+    padding: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    min-height: 44px;
+    box-shadow: 0 8px 18px rgba(37, 99, 235, 0.4);
+  }
+
+  .mobile-event-calendar__slots {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .mobile-event-calendar__slot {
+    border: 1px dashed rgba(15, 23, 42, 0.2);
+    border-radius: 12px;
+    background: #ffffff;
+    padding: 8px 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #0f172a;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 52px;
+    transition: all 0.2s ease;
+  }
+
+  .mobile-event-calendar__slot span:last-child {
+    font-size: 14px;
+    color: #0ea5e9;
+  }
+
+  .mobile-event-calendar__slot:active {
+    background: #eef2ff;
+    transform: translateY(1px);
+  }
+
 }

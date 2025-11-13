@@ -11,7 +11,20 @@ import api from './api';
 export const fetchTasks = async () => {
   try {
     const response = await api.get('/kanban/tasks');
-    return response.data;
+    const payload = response.data;
+    if (Array.isArray(payload)) {
+      return payload;
+    }
+
+    if (Array.isArray(payload?.tasks)) {
+      return payload.tasks;
+    }
+
+    if (Array.isArray(payload?.data)) {
+      return payload.data;
+    }
+
+    return [];
   } catch (error) {
     console.error('Error fetching tasks:', error);
     throw error;
