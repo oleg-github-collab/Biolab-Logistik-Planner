@@ -489,7 +489,8 @@ const NotificationDropdown = () => {
                 </button>
               </div>
             </button>
-        ))}
+          );
+        })}
       </div>
     );
   };
