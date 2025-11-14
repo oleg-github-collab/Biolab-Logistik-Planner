@@ -28,6 +28,7 @@ import {
   FileText,
   Forward
 } from 'lucide-react';
+import '../styles/messenger-enhanced.css';
 import { useAuth } from '../context/AuthContext';
 import { useWebSocketContext } from '../context/WebSocketContext';
 import { useMobile } from '../hooks/useMobile';
