@@ -245,7 +245,9 @@ const ArticleViewModal = ({
   onVote,
   onArticleUpdated,
   currentUserId,
-  currentUserRole
+  currentUserRole,
+  onVersionDiff,
+  diffLoadingVersion
 }) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [voting, setVoting] = useState(false);
@@ -473,14 +475,16 @@ const ArticleViewModal = ({
                           </p>
                         </div>
                       <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleVersionDiff(version.version_number)}
-                          disabled={diffLoadingVersion === version.version_number}
-                          className="text-xs px-3 py-1.5 rounded-md border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-60"
-                        >
-                          {diffLoadingVersion === version.version_number ? 'Lädt…' : 'Diff'}
-                        </button>
+                        {onVersionDiff && (
+                          <button
+                            type="button"
+                            onClick={() => onVersionDiff(version.version_number)}
+                            disabled={diffLoadingVersion === version.version_number}
+                            className="text-xs px-3 py-1.5 rounded-md border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                          >
+                            {diffLoadingVersion === version.version_number ? 'Lädt…' : 'Diff'}
+                          </button>
+                        )}
                         {canRestore && (
                           <button
                             type="button"
@@ -1893,6 +1897,8 @@ const KnowledgeBaseV3 = () => {
           onArticleUpdated={refreshSelectedArticle}
           currentUserId={currentUser?.id}
           currentUserRole={currentUser?.role}
+          onVersionDiff={handleVersionDiff}
+          diffLoadingVersion={diffLoadingVersion}
         />
       )}
 
