@@ -3,7 +3,7 @@ const { pool } = require('../config/database');
 const { auth } = require('../middleware/auth');
 const { getIO } = require('../websocket');
 const logger = require('../utils/logger');
-const { uploadArray } = require('../middleware/upload');
+const { uploadMultiple } = require('../services/fileService');
 
 const router = express.Router();
 
@@ -357,7 +357,7 @@ router.get('/tasks/:id/comments', auth, async (req, res) => {
 
 // @route   POST /api/kanban/tasks/:id/comments
 // @desc    Add comment to task with attachments
-router.post('/tasks/:id/comments', auth, uploadArray('attachments', 5), async (req, res) => {
+router.post('/tasks/:id/comments', auth, uploadMultiple('attachments', 5), async (req, res) => {
   try {
     const { id } = req.params;
     const commentText = req.body.comment_text || req.body.comment || '';
