@@ -38,14 +38,33 @@ const MobileEventCalendar = ({ events = [], onSlotSelect, onDaySelect, onEventCl
   const eventsByDay = useMemo(() => {
     const map = {};
     events.forEach((event) => {
-      const key = normalizeDayKey(event.start || event.start_date || new Date());
+      // Safely get event start date
+      let eventDate = event.start || event.start_date;
+      if (!eventDate) {
+        eventDate = new Date();
+      } else if (!(eventDate instanceof Date)) {
+        eventDate = new Date(eventDate);
+      }
+
+      // Validate date
+      if (isNaN(eventDate.getTime())) {
+        console.warn('Invalid event date:', event);
+        eventDate = new Date();
+      }
+
+      const key = normalizeDayKey(eventDate);
       if (!map[key]) {
         map[key] = [];
       }
       map[key].push(event);
     });
+
     Object.keys(map).forEach((key) => {
-      map[key].sort((a, b) => new Date(a.start) - new Date(b.start));
+      map[key].sort((a, b) => {
+        const aDate = new Date(a.start || a.start_date || new Date());
+        const bDate = new Date(b.start || b.start_date || new Date());
+        return aDate - bDate;
+      });
     });
     return map;
   }, [events]);
@@ -67,10 +86,18 @@ const MobileEventCalendar = ({ events = [], onSlotSelect, onDaySelect, onEventCl
   }, [onDaySelect]);
 
   const renderEventBadge = (event, index, fallbackKey) => {
+    // Safely parse dates
+    const safeStart = event.start instanceof Date ? event.start : (event.start ? new Date(event.start) : new Date());
+    const safeEnd = event.end instanceof Date ? event.end : (event.end ? new Date(event.end) : addMinutes(safeStart, 60));
+
+    // Validate dates
+    const validStart = isNaN(safeStart.getTime()) ? new Date() : safeStart;
+    const validEnd = isNaN(safeEnd.getTime()) ? addMinutes(validStart, 60) : safeEnd;
+
     const startTime = event.all_day
       ? 'Ganztägig'
-      : format(event.start || new Date(), 'HH:mm');
-    const endTime = event.all_day ? '' : ` – ${format(event.end || addMinutes(new Date(event.start || new Date()), 60), 'HH:mm')}`;
+      : format(validStart, 'HH:mm');
+    const endTime = event.all_day ? '' : ` – ${format(validEnd, 'HH:mm')}`;
 
     return (
       <button

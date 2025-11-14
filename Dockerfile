@@ -15,13 +15,13 @@ RUN cd client && npm ci
 # Copy application code
 COPY . .
 
-# Build client - v3.3 UI-FIX
-RUN echo "======================================== v3.3 UI-FIX ========================================" && \
-    echo "Building v3.3-UI-FIX (Solid Notification Backgrounds) at $(date)" && \
+# Build client - v3.4 STABLE
+RUN echo "======================================== v3.4 STABLE ========================================" && \
+    echo "Building v3.4-STABLE (Calendar Fix + Premium UI) at $(date)" && \
     echo "=============================================================================================="
 RUN cd client && CI=false GENERATE_SOURCEMAP=false DISABLE_ESLINT_PLUGIN=true npm run build
 RUN echo "=============================================================================================" && \
-    echo "✅ Build v3.3-UI-FIX complete!" && \
+    echo "✅ Build v3.4-STABLE complete!" && \
     ls -lh client/build/static/js/main.*.js && \
     echo "=============================================================================================" && \
     cat client/build/asset-manifest.json && \
