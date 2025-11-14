@@ -20,6 +20,9 @@
 @import './styles/mobile/mobile-modals.css';
 @import './styles/mobile/mobile-kanban.css';
 
+/* Premium Enhancements - MUST BE LAST for override priority */
+@import './styles/messenger-enhanced.css';
+
 @tailwind utilities;
 
 /* Notification Animation */
