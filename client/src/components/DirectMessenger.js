@@ -1695,12 +1695,12 @@ const DirectMessenger = () => {
                   <div className="messenger-desktop-header__avatar">
                     {selectedContact.name?.[0]?.toUpperCase() || '?'}
                   </div>
-                  <div className={`messenger-desktop-header__status ${isConnected ? 'online' : 'offline'}`}></div>
+                  <div className={`messenger-desktop-header__status ${selectedContact.online ? 'online' : 'offline'}`}></div>
                 </div>
                 <div className="messenger-desktop-header__contact-info">
                   <h3 className="messenger-desktop-header__name">{selectedContact.name}</h3>
                   <p className="messenger-desktop-header__status-text">
-                    {isConnected ? 'Online' : 'Offline'}
+                    {selectedContact.online ? 'Online' : 'Offline'}
                   </p>
                 </div>
               </div>
@@ -1979,14 +1979,14 @@ const DirectMessenger = () => {
             {selectedContact?.name || 'Chat auswählen'}
           </h3>
           <p className="messenger-mobile-header-enhanced__status">
-            {isConnected ? 'Online' : 'Offline'}
+            {selectedContact?.online ? 'Online' : 'Offline'}
           </p>
         </div>
         <div className="messenger-mobile-header-enhanced__avatar-wrapper">
           <div className="messenger-mobile-header-enhanced__avatar">
             {selectedContact?.name?.[0]?.toUpperCase() || user?.name?.[0]?.toUpperCase() || '?'}
           </div>
-          <div className={`messenger-mobile-header-enhanced__status-dot ${isConnected ? 'online' : 'offline'}`}></div>
+          <div className={`messenger-mobile-header-enhanced__status-dot ${selectedContact?.online ? 'online' : 'offline'}`}></div>
         </div>
       </div>
       {selectedContact && (
