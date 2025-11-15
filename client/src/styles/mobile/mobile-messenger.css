@@ -431,9 +431,16 @@
     padding-bottom: 80px;
   }
 
-  .messenger-mobile-list-mode,
-  .messenger-mobile-chat-mode {
+  .messenger-mobile-list-mode {
     min-height: 100vh;
+  }
+
+  .messenger-mobile-chat-mode {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
   }
 
   .messenger-mobile-list-view {
