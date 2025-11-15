@@ -77,11 +77,13 @@
     }
   }
 
-  /* Backdrop - Glassmorphism */
+  /* Backdrop - Solid dark overlay */
   .notification-backdrop {
     position: fixed;
     inset: 0;
-    background: #030812;
+    background: rgba(3, 8, 18, 0.85) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     z-index: 9998;
     opacity: 0;
     pointer-events: none;
@@ -89,46 +91,48 @@
   }
 
   .notification-backdrop.active {
-    opacity: 0.95;
+    opacity: 1 !important;
     pointer-events: all;
   }
 
-  /* Panel - Full screen with solid background */
+  /* Panel - Full screen with SOLID WHITE background */
   .notification-panel {
     position: fixed;
     top: 0;
     right: 0;
     bottom: 0;
     width: 100%;
-    background: #ffffff;
+    background: #ffffff !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
     z-index: 9999;
     display: flex;
     flex-direction: column;
     box-shadow:
-      -16px 0 48px rgba(15, 23, 42, 0.2),
-      -8px 0 24px rgba(15, 23, 42, 0.15),
-      0 0 0 1px rgba(15, 23, 42, 0.08);
+      -20px 0 60px rgba(15, 23, 42, 0.3),
+      -10px 0 30px rgba(15, 23, 42, 0.2),
+      0 0 0 1px rgba(15, 23, 42, 0.1);
     transform: translateX(100%);
     transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
     will-change: transform;
+    overflow: hidden;
   }
 
   .notification-panel.active {
     transform: translateX(0);
   }
 
-  /* Panel header - Ultra premium */
+  /* Panel header - Solid white background */
   .notification-panel-header {
     position: relative;
     padding: 28px 20px 20px;
     padding-top: calc(24px + env(safe-area-inset-top));
-    background: transparent;
+    background: #ffffff !important;
     border-bottom: 1px solid rgba(15, 23, 42, 0.1);
     display: flex;
     justify-content: space-between;
     align-items: center;
     flex-shrink: 0;
-    position: relative;
     color: #0f172a;
   }
 
@@ -385,13 +389,14 @@
     transform: translateY(-1px) scale(0.99);
   }
 
-  /* Notification list - Smooth scrolling */
+  /* Notification list - Smooth scrolling with white background */
   .notification-list {
     flex: 1;
     overflow-y: auto;
     padding: 20px 20px calc(20px + env(safe-area-inset-bottom)) 20px;
     scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
+    background: #ffffff !important;
   }
 
   .notification-panel__list {
@@ -400,6 +405,7 @@
     flex-direction: column;
     padding: 0 20px 24px;
     overflow-y: auto;
+    background: #ffffff !important;
   }
 
   /* Notification item - Complete redesign with stunning effects */

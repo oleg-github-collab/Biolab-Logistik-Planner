@@ -83,20 +83,14 @@
   .messenger-mobile-messages {
     flex: 1;
     min-height: 0;
-    overflow-y: auto;
+    overflow-y: auto !important;
+    overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
-    padding: 24px 18px 12px;
+    padding: 24px 18px 140px; /* Extra bottom padding for input */
     background: linear-gradient(180deg, #fdfdfd 0%, #eef2ff 100%);
     color: #0f172a;
-  }
-
-  .messenger-mobile-messages::before {
-    content: '';
-    position: absolute;
-    inset: auto 0 0 0;
-    height: 120px;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0));
-    pointer-events: none;
+    position: relative;
+    overscroll-behavior: contain;
   }
 
   .message-bubble {
