@@ -1682,40 +1682,44 @@ const DirectMessenger = () => {
       <div className="flex-1 flex flex-col bg-white min-h-0">
         {selectedContact ? (
           <>
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white shadow-sm">
-              <div className="flex items-center gap-3">
+            <div className="messenger-desktop-header">
+              <div className="messenger-desktop-header__left">
                 <button
                   onClick={() => setShowSidebar(true)}
-                  className="md:hidden p-2 hover:bg-slate-100 rounded-lg transition"
+                  className="messenger-desktop-header__menu-btn md:hidden"
+                  aria-label="Menü öffnen"
                 >
                   <Menu className="w-5 h-5" />
                 </button>
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold shadow-md">
-                  {selectedContact.name?.[0]?.toUpperCase() || '?'}
+                <div className="messenger-desktop-header__avatar-wrapper">
+                  <div className="messenger-desktop-header__avatar">
+                    {selectedContact.name?.[0]?.toUpperCase() || '?'}
+                  </div>
+                  <div className={`messenger-desktop-header__status ${isConnected ? 'online' : 'offline'}`}></div>
                 </div>
-                <div>
-                  <h3 className="font-bold text-slate-900">{selectedContact.name}</h3>
-                  <p className="text-xs text-slate-500">
+                <div className="messenger-desktop-header__contact-info">
+                  <h3 className="messenger-desktop-header__name">{selectedContact.name}</h3>
+                  <p className="messenger-desktop-header__status-text">
                     {isConnected ? 'Online' : 'Offline'}
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="messenger-desktop-header__actions">
                 <button
                   onClick={() => setShowSearch(true)}
-                  className="p-2 hover:bg-slate-100 rounded-lg transition"
+                  className="messenger-desktop-header__action-btn"
                   title="Nachrichten durchsuchen"
                 >
-                  <Search className="w-5 h-5 text-slate-600" />
+                  <Search className="w-5 h-5" />
+                  <span className="hidden lg:inline">Suchen</span>
                 </button>
                 <button
                   onClick={() => setShowContactNotes(!showContactNotes)}
-                  className={`p-2 rounded-lg transition ${
-                    showContactNotes ? 'bg-blue-100 text-blue-600' : 'hover:bg-slate-100 text-slate-600'
-                  }`}
+                  className={`messenger-desktop-header__action-btn ${showContactNotes ? 'active' : ''}`}
                   title="Kontaktnotizen"
                 >
                   <FileText className="w-5 h-5" />
+                  <span className="hidden lg:inline">Notizen</span>
                 </button>
               </div>
             </div>
@@ -1962,20 +1966,27 @@ const DirectMessenger = () => {
 
   const renderMobileChatView = () => (
     <div className="messenger-mobile-chat-mode">
-      <div className="messenger-mobile-header">
+      <div className="messenger-mobile-header-enhanced">
         <button
-          className="back-btn"
+          className="messenger-mobile-header-enhanced__back"
           onClick={() => setMobileMode('list')}
           aria-label="Zurück zu Kontakten"
         >
-          <ChevronLeft className="w-4 h-4" />
+          <ChevronLeft className="w-5 h-5" />
         </button>
-        <div className="contact-info">
-          <p className="contact-name">{selectedContact?.name || 'Chat auswählen'}</p>
-          <p className="contact-status">{isConnected ? 'Online' : 'Offline'}</p>
+        <div className="messenger-mobile-header-enhanced__info">
+          <h3 className="messenger-mobile-header-enhanced__name">
+            {selectedContact?.name || 'Chat auswählen'}
+          </h3>
+          <p className="messenger-mobile-header-enhanced__status">
+            {isConnected ? 'Online' : 'Offline'}
+          </p>
         </div>
-        <div className="avatar">
-          {selectedContact?.name?.[0]?.toUpperCase() || user?.name?.[0]?.toUpperCase() || '?'}
+        <div className="messenger-mobile-header-enhanced__avatar-wrapper">
+          <div className="messenger-mobile-header-enhanced__avatar">
+            {selectedContact?.name?.[0]?.toUpperCase() || user?.name?.[0]?.toUpperCase() || '?'}
+          </div>
+          <div className={`messenger-mobile-header-enhanced__status-dot ${isConnected ? 'online' : 'offline'}`}></div>
         </div>
       </div>
       {selectedContact && (
