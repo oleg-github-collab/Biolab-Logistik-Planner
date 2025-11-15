@@ -7,6 +7,7 @@ import {
   startOfWeek,
   isToday
 } from 'date-fns';
+import { safeParseDate, safeFormat, safeEventDates, formatTimeRange } from '../utils/dateHelpers';
 
 const QUICK_SLOTS = [
   { label: 'Früh', time: '08:00' },
@@ -38,21 +39,9 @@ const MobileEventCalendar = ({ events = [], onSlotSelect, onDaySelect, onEventCl
   const eventsByDay = useMemo(() => {
     const map = {};
     events.forEach((event) => {
-      // Safely get event start date
-      let eventDate = event.start || event.start_date;
-      if (!eventDate) {
-        eventDate = new Date();
-      } else if (!(eventDate instanceof Date)) {
-        eventDate = new Date(eventDate);
-      }
+      const { validStart } = safeEventDates(event);
+      const key = normalizeDayKey(validStart);
 
-      // Validate date
-      if (isNaN(eventDate.getTime())) {
-        console.warn('Invalid event date:', event);
-        eventDate = new Date();
-      }
-
-      const key = normalizeDayKey(eventDate);
       if (!map[key]) {
         map[key] = [];
       }
@@ -61,9 +50,9 @@ const MobileEventCalendar = ({ events = [], onSlotSelect, onDaySelect, onEventCl
 
     Object.keys(map).forEach((key) => {
       map[key].sort((a, b) => {
-        const aDate = new Date(a.start || a.start_date || new Date());
-        const bDate = new Date(b.start || b.start_date || new Date());
-        return aDate - bDate;
+        const { validStart: aStart } = safeEventDates(a);
+        const { validStart: bStart } = safeEventDates(b);
+        return aStart - bStart;
       });
     });
     return map;
@@ -86,18 +75,8 @@ const MobileEventCalendar = ({ events = [], onSlotSelect, onDaySelect, onEventCl
   }, [onDaySelect]);
 
   const renderEventBadge = (event, index, fallbackKey) => {
-    // Safely parse dates
-    const safeStart = event.start instanceof Date ? event.start : (event.start ? new Date(event.start) : new Date());
-    const safeEnd = event.end instanceof Date ? event.end : (event.end ? new Date(event.end) : addMinutes(safeStart, 60));
-
-    // Validate dates
-    const validStart = isNaN(safeStart.getTime()) ? new Date() : safeStart;
-    const validEnd = isNaN(safeEnd.getTime()) ? addMinutes(validStart, 60) : safeEnd;
-
-    const startTime = event.all_day
-      ? 'Ganztägig'
-      : format(validStart, 'HH:mm');
-    const endTime = event.all_day ? '' : ` – ${format(validEnd, 'HH:mm')}`;
+    const { validStart, validEnd } = safeEventDates(event);
+    const timeDisplay = formatTimeRange(validStart, validEnd, event.all_day);
 
     return (
       <button
@@ -107,8 +86,7 @@ const MobileEventCalendar = ({ events = [], onSlotSelect, onDaySelect, onEventCl
         className="mobile-event-calendar__event"
       >
         <div className="mobile-event-calendar__event-time">
-          {startTime}
-          {endTime}
+          {timeDisplay}
         </div>
         <p className="mobile-event-calendar__event-title">{event.title || 'Neuer Termin'}</p>
         {event.type && (

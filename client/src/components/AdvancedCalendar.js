@@ -881,30 +881,45 @@ const QuickCreatePopover = ({ anchor, date, slot, onClose, onConfirm, isMobile }
 const normaliseEvent = (event) => {
   const parseDate = (input) => {
     if (!input) return null;
-    if (input instanceof Date) return input;
+    if (input instanceof Date) {
+      return Number.isNaN(input.getTime()) ? null : input;
+    }
     if (typeof input === 'string') {
       const iso = input.includes('T') ? input : input.replace(' ', 'T');
       const parsed = new Date(iso);
-      return Number.isNaN(parsed.getTime()) ? parseISO(input) : parsed;
+      if (Number.isNaN(parsed.getTime())) {
+        try {
+          const parsedISO = parseISO(input);
+          return Number.isNaN(parsedISO.getTime()) ? null : parsedISO;
+        } catch {
+          return null;
+        }
+      }
+      return parsed;
     }
     return null;
   };
 
   const ensureDateTime = (dateValue, timeValue) => {
-    if (dateValue instanceof Date) return dateValue;
+    if (dateValue instanceof Date) {
+      return Number.isNaN(dateValue.getTime()) ? null : dateValue;
+    }
     if (!dateValue) return null;
 
     if (typeof dateValue === 'string' && dateValue.includes('T')) {
       const parsed = new Date(dateValue);
       if (!Number.isNaN(parsed.getTime())) return parsed;
+      return null;
     }
 
     if (typeof dateValue === 'string' && timeValue) {
-      return new Date(`${dateValue}T${timeValue}`);
+      const combined = new Date(`${dateValue}T${timeValue}`);
+      return Number.isNaN(combined.getTime()) ? null : combined;
     }
 
     if (typeof dateValue === 'string') {
-      return new Date(`${dateValue}T00:00:00`);
+      const withTime = new Date(`${dateValue}T00:00:00`);
+      return Number.isNaN(withTime.getTime()) ? null : withTime;
     }
 
     return null;
@@ -913,24 +928,28 @@ const normaliseEvent = (event) => {
   const start = ensureDateTime(event.start ?? event.start_date, event.start_time) ?? new Date();
   const end = ensureDateTime(event.end ?? event.end_date ?? event.start_date, event.end_time) ?? addMinutes(start, 60);
 
-  const allDay = event.allDay ?? event.all_day ?? differenceInMinutes(end, start) >= 24 * 60;
+  // Final validation - ensure both dates are valid
+  const validStart = Number.isNaN(start.getTime()) ? new Date() : start;
+  const validEnd = Number.isNaN(end.getTime()) ? addMinutes(validStart, 60) : end;
+
+  const allDay = event.allDay ?? event.all_day ?? differenceInMinutes(validEnd, validStart) >= 24 * 60;
   const type = event.type || event.category || 'Arbeit';
   const color = event.color || getEventColor(type);
   const textColor = getTextColor(color);
 
   return {
     ...event,
-    start,
-    end,
+    start: validStart,
+    end: validEnd,
     allDay,
     all_day: allDay,
-    start_date: event.start_date ?? format(start, 'yyyy-MM-dd'),
-    end_date: event.end_date ?? format(end, 'yyyy-MM-dd'),
-    start_time: event.start_time ?? (allDay ? '' : format(start, 'HH:mm')),
-    end_time: event.end_time ?? (allDay ? '' : format(end, 'HH:mm')),
+    start_date: event.start_date ?? format(validStart, 'yyyy-MM-dd'),
+    end_date: event.end_date ?? format(validEnd, 'yyyy-MM-dd'),
+    start_time: event.start_time ?? (allDay ? '' : format(validStart, 'HH:mm')),
+    end_time: event.end_time ?? (allDay ? '' : format(validEnd, 'HH:mm')),
     color,
     textColor,
-    durationMinutes: Math.max(30, differenceInMinutes(end, start))
+    durationMinutes: Math.max(30, differenceInMinutes(validEnd, validStart))
   };
 };
 
