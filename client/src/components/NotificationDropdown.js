@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import ReactDOM from 'react-dom';
 import {
   Bell,
   Check,
@@ -639,31 +640,39 @@ const NotificationDropdown = () => {
   );
 
   return (
-    <div className="relative" ref={dropdownRef}>
-      <button
-        onClick={() => setIsOpen((prev) => !prev)}
-        className={`relative ${isMobile ? 'notification-button' : 'p-2.5 text-slate-700 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all shadow-sm border border-slate-200 hover:border-blue-300'}`}
-        title={
-          isConnected
-            ? 'Benachrichtigungen'
-            : 'Verbindung getrennt – zeige gespeicherte Benachrichtigungen'
-        }
-      >
-        <Bell className="w-5 h-5 sm:w-5.5 sm:h-5.5" />
-        {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
-            {unreadCount > 99 ? '99+' : unreadCount}
-          </span>
-        )}
-        {!isConnected && unreadCount === 0 && (
-          <span className="absolute -top-1 -right-1 bg-yellow-400 text-gray-900 text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
-            !
-          </span>
-        )}
-      </button>
+    <>
+      <div className="relative" ref={dropdownRef}>
+        <button
+          onClick={() => setIsOpen((prev) => !prev)}
+          className={`relative ${isMobile ? 'notification-button' : 'p-2.5 text-slate-700 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all shadow-sm border border-slate-200 hover:border-blue-300'}`}
+          title={
+            isConnected
+              ? 'Benachrichtigungen'
+              : 'Verbindung getrennt – zeige gespeicherte Benachrichtigungen'
+          }
+        >
+          <Bell className="w-5 h-5 sm:w-5.5 sm:h-5.5" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
+          {!isConnected && unreadCount === 0 && (
+            <span className="absolute -top-1 -right-1 bg-yellow-400 text-gray-900 text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
+              !
+            </span>
+          )}
+        </button>
 
-      {isOpen && (isMobile ? mobilePanel : dropdownPanel)}
-    </div>
+        {isOpen && !isMobile && dropdownPanel}
+      </div>
+
+      {/* Mobile panel rendered via Portal to escape parent positioning */}
+      {isOpen && isMobile && typeof document !== 'undefined' && ReactDOM.createPortal(
+        mobilePanel,
+        document.body
+      )}
+    </>
   );
 };
 
