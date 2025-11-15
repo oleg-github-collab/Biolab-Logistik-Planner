@@ -18,6 +18,7 @@ import {
   isSameDay
 } from 'date-fns';
 import { de } from 'date-fns/locale';
+import { safeEventDates, formatTimeRange } from '../utils/dateHelpers';
 
 // Initialize moment with German locale
 moment.locale('de');
@@ -368,9 +369,8 @@ const CalendarView = ({
         ) : (
           upcomingEvents.map((event) => {
             const resource = event.resource || event;
-            const timeLabel = event.allDay
-              ? 'Ganztägig'
-              : `${format(event.start, 'HH:mm')} – ${format(event.end, 'HH:mm')}`;
+            const { validStart, validEnd } = safeEventDates(event);
+            const timeLabel = formatTimeRange(validStart, validEnd, event.allDay);
             const tagLabel = resource.type || resource.category || 'Termin';
             const titleLabel = event.title || 'Kalendertermin';
             return (

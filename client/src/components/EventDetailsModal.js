@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Play, Pause, X, ChevronLeft, ChevronRight, Share2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { safeParseDate, safeFormat } from '../utils/dateHelpers';
 
 const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplicate }) => {
   const navigate = useNavigate();
@@ -129,7 +130,7 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
     onClose();
   };
 
-  const eventDate = typeof normalizedEvent.date === 'string' ? new Date(normalizedEvent.date) : normalizedEvent.date;
+  const eventDate = safeParseDate(normalizedEvent.date || normalizedEvent.start || normalizedEvent.start_date);
 
   // Handle audio playback
   const toggleAudioPlayback = () => {
@@ -187,7 +188,7 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
                 {normalizedEvent.title}
               </h2>
               <p className="text-sm sm:text-base text-gray-600">
-                {format(eventDate, 'EEEE, dd. MMMM yyyy', { locale: de })}
+                {safeFormat(eventDate, 'EEEE, dd. MMMM yyyy', { locale: de, fallback: '—' })}
               </p>
             </div>
             <button
