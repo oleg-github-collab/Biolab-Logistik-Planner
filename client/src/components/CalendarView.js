@@ -39,6 +39,15 @@ const DragAndDropCalendar = withDragAndDrop(BigCalendar);
  * @param {Boolean} loading - Loading state
  * @param {Boolean} isMobile - Mobile view flag
  */
+const isValidDate = (value) => value instanceof Date && !Number.isNaN(value.getTime());
+const normalizeDate = (value, fallback = new Date()) => {
+  const candidate = value ? (value instanceof Date ? value : new Date(value)) : null;
+  if (isValidDate(candidate)) {
+    return candidate;
+  }
+  return fallback;
+};
+
 const CalendarView = ({
   events = [],
   onEventClick,
@@ -52,7 +61,10 @@ const CalendarView = ({
   isMobile = false
 }) => {
   const [view, setView] = useState(isMobile ? 'agenda' : 'month');
-  const [date, setDate] = useState(new Date());
+  const [date, setDate] = useState(() => new Date());
+  const setSafeDate = useCallback((value) => {
+    setDate(normalizeDate(value));
+  }, []);
   const [draggedEvent, setDraggedEvent] = useState(null);
 
   // Transform events for BigCalendar with proper date parsing
@@ -95,8 +107,14 @@ const CalendarView = ({
       .slice(0, 3);
   }, [calendarEvents]);
 
-  const heroWeekStart = useMemo(() => startOfWeek(date, { weekStartsOn: 1 }), [date]);
-  const heroWeekEnd = useMemo(() => endOfWeek(date, { weekStartsOn: 1 }), [date]);
+  const heroWeekStart = useMemo(
+    () => startOfWeek(normalizeDate(date), { weekStartsOn: 1 }),
+    [date]
+  );
+  const heroWeekEnd = useMemo(
+    () => endOfWeek(normalizeDate(date), { weekStartsOn: 1 }),
+    [date]
+  );
   const mobileWeekDays = useMemo(() => {
     const days = [];
     for (let i = 0; i < 7; i += 1) {
@@ -106,7 +124,12 @@ const CalendarView = ({
   }, [heroWeekStart]);
 
   const getEventsForDay = useCallback(
-    (day) => calendarEvents.filter((event) => isSameDay(event.start, day)),
+    (day) => {
+      if (!isValidDate(day)) return [];
+      return calendarEvents.filter(
+        (event) => isValidDate(event.start) && isSameDay(event.start, day)
+      );
+    },
     [calendarEvents]
   );
 
@@ -120,8 +143,8 @@ const CalendarView = ({
 
   const handleMobileDayFocus = useCallback((day) => {
     setView('day');
-    setDate(day);
-  }, []);
+    setSafeDate(day);
+  }, [setSafeDate]);
 
   const handleMobileQuickCreate = useCallback(() => {
     if (!onEventCreate) return;
@@ -217,15 +240,18 @@ const CalendarView = ({
   }, [onEventCreate, onSelectSlot]);
 
   // Handle navigation (prev/next/today)
-  const handleNavigate = useCallback((direction) => {
-    const unit = view === 'agenda' ? 'day' : view;
-    const nextDate = moment(date)[direction](1, unit).toDate();
-    setDate(nextDate);
-  }, [view, date]);
+  const handleNavigate = useCallback(
+    (direction) => {
+      const unit = view === 'agenda' ? 'day' : view;
+      const nextDate = moment(normalizeDate(date))[direction](1, unit).toDate();
+      setSafeDate(nextDate);
+    },
+    [view, date, setSafeDate]
+  );
 
   const handleToday = useCallback(() => {
-    setDate(new Date());
-  }, []);
+    setSafeDate(new Date());
+  }, [setSafeDate]);
 
   // Handle view change
   const handleViewChange = useCallback((newView) => {
@@ -233,14 +259,25 @@ const CalendarView = ({
   }, []);
 
   // Handle date change
-  const handleDateChange = useCallback((newDate) => {
-    setDate(newDate);
-  }, []);
+  const handleDateChange = useCallback(
+    (newDate) => {
+      setSafeDate(newDate);
+    },
+    [setSafeDate]
+  );
 
-  const heroWeekLabel = `${format(heroWeekStart, 'dd.MM')} – ${format(heroWeekEnd, 'dd.MM')}`;
+  const safeFormat = useCallback(
+    (value, fmt, options = {}) => (isValidDate(value) ? format(value, fmt, options) : '--'),
+    []
+  );
+
+  const heroWeekLabel = `${safeFormat(heroWeekStart, 'dd.MM')} – ${safeFormat(
+    heroWeekEnd,
+    'dd.MM'
+  )}`;
 
   const MobileCalendarHero = ({
-    days,
+    days = [],
     selectedDate,
     weekLabel,
     onPrev,
@@ -287,18 +324,22 @@ const CalendarView = ({
       </div>
 
       <div className="mobile-calendar-hero__days">
-        {days.map((day) => {
+        {days.filter(isValidDate).map((day) => {
           const dayEvents = getEventsForDay(day);
-          const isActiveDay = isSameDay(day, selectedDate);
+          const isActiveDay = isSameDay(day, normalizeDate(selectedDate));
           return (
             <button
               key={day.toISOString()}
               type="button"
               onClick={() => onDayFocus(day)}
-              className={`mobile-calendar-day-card ${isActiveDay ? 'mobile-calendar-day-card--active' : ''}`}
+              className={`mobile-calendar-day-card ${
+                isActiveDay ? 'mobile-calendar-day-card--active' : ''
+              }`}
             >
-              <span className="mobile-calendar-day-card__weekday">{format(day, 'EEE', { locale: de })}</span>
-              <span className="mobile-calendar-day-card__date">{format(day, 'dd')}</span>
+              <span className="mobile-calendar-day-card__weekday">
+                {safeFormat(day, 'EEE', { locale: de })}
+              </span>
+              <span className="mobile-calendar-day-card__date">{safeFormat(day, 'dd')}</span>
               <span className="mobile-calendar-day-card__count">{dayEvents.length} Termine</span>
             </button>
           );

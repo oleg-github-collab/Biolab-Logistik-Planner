@@ -137,6 +137,9 @@ export const linkTaskToMessage = (messageId, taskId, refType = 'mention') =>
 export const getFullMessage = (messageId) =>
   api.get(`/messages/${messageId}/full`);
 
+export const getUnreadMessagesCount = () =>
+  api.get('/messages/unread-count');
+
 // ============================================
 // TASK POOL APIs
 // ============================================
