@@ -1947,7 +1947,7 @@ const DirectMessenger = () => {
           onClick={() => setShowSearch(true)}
         >
           <Plus className="w-4 h-4 text-white" />
-          <span>Neue Nachricht</span>
+          <span>Nachrichten suchen</span>
         </button>
       </div>
       <ContactList
