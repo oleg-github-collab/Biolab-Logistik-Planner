@@ -18,32 +18,125 @@ const SmartTimeEntry = ({ onSave, initialData = null }) => {
 
   const [isListening, setIsListening] = useState(false);
   const [voiceText, setVoiceText] = useState('');
+  const [translatedText, setTranslatedText] = useState('');
   const recognitionRef = useRef(null);
+  const isListeningRef = useRef(false);
+  const restartTimeoutRef = useRef(null);
 
   // Initialize Speech Recognition
   useEffect(() => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = false;
-      recognitionRef.current.lang = 'de-DE';
+
+      // Налаштування для максимальної надійності
+      recognitionRef.current.continuous = true; // Постійне прослуховування
+      recognitionRef.current.interimResults = true; // Проміжні результати
+      recognitionRef.current.lang = ''; // Автоматичне розпізнавання будь-якої мови
+      recognitionRef.current.maxAlternatives = 1;
 
       recognitionRef.current.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
-        setVoiceText(transcript);
-        parseVoiceInput(transcript);
+        let finalTranscript = '';
+        let interimTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript + ' ';
+          } else {
+            interimTranscript += transcript;
+          }
+        }
+
+        if (finalTranscript) {
+          const text = finalTranscript.trim();
+          setVoiceText(text);
+          translateToGerman(text);
+        } else if (interimTranscript) {
+          setVoiceText(interimTranscript);
+        }
       };
 
       recognitionRef.current.onend = () => {
-        setIsListening(false);
+        // Автоматичний перезапуск якщо ще слухаємо
+        if (isListeningRef.current) {
+          restartTimeoutRef.current = setTimeout(() => {
+            try {
+              recognitionRef.current.start();
+            } catch (err) {
+              console.error('Restart error:', err);
+              setIsListening(false);
+              isListeningRef.current = false;
+            }
+          }, 100);
+        } else {
+          setIsListening(false);
+        }
       };
 
       recognitionRef.current.onerror = (event) => {
         console.error('Speech recognition error:', event.error);
-        setIsListening(false);
+
+        // Ігноруємо помилку "no-speech" і автоматично перезапускаємо
+        if (event.error === 'no-speech' && isListeningRef.current) {
+          restartTimeoutRef.current = setTimeout(() => {
+            try {
+              recognitionRef.current.start();
+            } catch (err) {
+              console.error('Restart after no-speech error:', err);
+            }
+          }, 100);
+        }
+        // Для інших помилок теж пробуємо перезапустити
+        else if (isListeningRef.current && event.error !== 'aborted') {
+          restartTimeoutRef.current = setTimeout(() => {
+            try {
+              recognitionRef.current.start();
+            } catch (err) {
+              console.error('Restart after error:', err);
+              setIsListening(false);
+              isListeningRef.current = false;
+            }
+          }, 500);
+        }
       };
     }
+
+    return () => {
+      if (restartTimeoutRef.current) {
+        clearTimeout(restartTimeoutRef.current);
+      }
+    };
   }, []);
+
+  // Translate and improve text to German using OpenAI
+  const translateToGerman = async (text) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/kb/translate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ text })
+      });
+
+      if (!response.ok) {
+        throw new Error('Translation failed');
+      }
+
+      const data = await response.json();
+      const germanText = data.translated;
+      setTranslatedText(germanText);
+      parseVoiceInput(germanText);
+    } catch (error) {
+      console.error('Translation error:', error);
+      // Якщо переклад не вдався, використовуємо оригінальний текст
+      setTranslatedText(text);
+      parseVoiceInput(text);
+    }
+  };
 
   // Parse voice input
   const parseVoiceInput = (text) => {
@@ -84,10 +177,37 @@ const SmartTimeEntry = ({ onSave, initialData = null }) => {
     }
 
     if (isListening) {
-      recognitionRef.current.stop();
+      isListeningRef.current = false;
+      if (restartTimeoutRef.current) {
+        clearTimeout(restartTimeoutRef.current);
+      }
+      try {
+        recognitionRef.current.stop();
+      } catch (err) {
+        console.error('Stop error:', err);
+      }
+      setIsListening(false);
     } else {
-      recognitionRef.current.start();
+      isListeningRef.current = true;
       setIsListening(true);
+      try {
+        recognitionRef.current.start();
+      } catch (err) {
+        console.error('Start error:', err);
+        // Якщо вже запущено, спочатку зупиняємо
+        if (err.name === 'InvalidStateError') {
+          try {
+            recognitionRef.current.stop();
+            setTimeout(() => {
+              recognitionRef.current.start();
+            }, 100);
+          } catch (retryErr) {
+            console.error('Retry start error:', retryErr);
+            setIsListening(false);
+            isListeningRef.current = false;
+          }
+        }
+      }
     }
   };
 
@@ -227,17 +347,24 @@ const SmartTimeEntry = ({ onSave, initialData = null }) => {
             <div className="bg-white rounded-lg p-3 mb-3">
               <p className="text-sm text-gray-600 mb-1">Erkannt:</p>
               <p className="text-gray-900 font-medium">{voiceText}</p>
+              {translatedText && translatedText !== voiceText && (
+                <>
+                  <p className="text-sm text-blue-600 mb-1 mt-2">Übersetzt:</p>
+                  <p className="text-blue-900 font-medium">{translatedText}</p>
+                </>
+              )}
             </div>
           )}
 
           <div className="text-xs text-gray-600 space-y-1">
-            <p className="font-medium">Beispiele:</p>
+            <p className="font-medium">💡 Sprechen Sie in beliebiger Sprache - automatische Übersetzung & Verbesserung:</p>
             <ul className="list-disc list-inside space-y-0.5 ml-2">
-              <li>"8 Stunden gearbeitet"</li>
-              <li>"Projekt Labor Analyse"</li>
-              <li>"Pause 30 Minuten"</li>
-              <li>"Überstunden 2 Stunden"</li>
+              <li>🇩🇪 "8 Stunden gearbeitet"</li>
+              <li>🇺🇦 "8 годин працював"</li>
+              <li>🇬🇧 "worked 8 hours"</li>
+              <li>🇵🇱 "pracowałem 8 godzin"</li>
             </ul>
+            <p className="mt-2 text-xs italic text-blue-600">Text wird automatisch korrigiert und professionell formuliert.</p>
           </div>
         </div>
       )}

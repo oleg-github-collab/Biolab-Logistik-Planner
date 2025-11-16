@@ -142,7 +142,61 @@ ALLE Texte müssen auf Deutsch sein, korrekt geschrieben und leicht verständlic
   return draft;
 };
 
+const translateToGerman = async (text) => {
+  const systemPrompt = `Du bist ein professioneller Redakteur für Labor- und Logistik-Dokumentation.
+
+DEINE AUFGABE:
+1. Übersetze den Text ins Deutsche (falls nötig)
+2. Korrigiere Rechtschreibung, Grammatik und Fachbegriffe
+3. Formuliere in einem klaren, lehrreichen, aber leicht verständlichen Stil
+4. Verwende korrekte Fachterminologie für Labor- und Logistikarbeit
+5. Schreibe so, als würdest du einen Kollegen einweisen
+
+STIL:
+- Freundlich und professionell
+- Präzise und konkret
+- Leicht verständlich, aber fachlich korrekt
+- Mit praktischen Details wo sinnvoll
+
+WICHTIG:
+- Korrigiere ALLE Rechtschreibfehler
+- Vervollständige unvollständige Sätze
+- Formatiere Fachbegriffe korrekt (z.B. "pH-Wert", "Labor", "Entsorgung")
+- Behalte die Kernaussage bei, aber verbessere die Formulierung
+- Gib NUR den überarbeiteten Text zurück, ohne Erklärungen`;
+
+  const response = await fetchFn(`${OPENAI_API_BASE}/chat/completions`, {
+    method: 'POST',
+    headers: buildHeaders(),
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      temperature: 0.3,
+      messages: [
+        {
+          role: 'system',
+          content: systemPrompt
+        },
+        {
+          role: 'user',
+          content: text
+        }
+      ]
+    })
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`OpenAI translation failed: ${response.status} ${body}`);
+  }
+
+  const payload = await response.json();
+  const translatedText = payload.choices?.[0]?.message?.content?.trim() || text;
+
+  return translatedText;
+};
+
 module.exports = {
   transcribeAudio,
-  createInstructionDraft
+  createInstructionDraft,
+  translateToGerman
 };

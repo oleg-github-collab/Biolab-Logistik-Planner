@@ -3,7 +3,7 @@ const fs = require('fs');
 const { pool } = require('../config/database');
 const { auth } = require('../middleware/auth');
 const { uploadSingle } = require('../services/fileService');
-const { transcribeAudio, createInstructionDraft } = require('../services/openaiService');
+const { transcribeAudio, createInstructionDraft, translateToGerman } = require('../services/openaiService');
 const { getIO } = require('../websocket');
 const logger = require('../utils/logger');
 
@@ -885,6 +885,30 @@ router.get('/articles/:id/versions/compare/:v1/:v2', auth, async (req, res) => {
   } catch (error) {
     logger.error('Error comparing versions:', error);
     res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// POST /api/kb/translate - Translate and improve text to German
+router.post('/translate', auth, async (req, res) => {
+  try {
+    const { text } = req.body;
+
+    if (!text || typeof text !== 'string' || text.trim().length === 0) {
+      return res.status(400).json({ error: 'Text ist erforderlich' });
+    }
+
+    const translatedText = await translateToGerman(text);
+
+    res.json({
+      original: text,
+      translated: translatedText
+    });
+  } catch (error) {
+    logger.error('Error translating text:', error);
+    res.status(500).json({
+      error: 'Übersetzungsfehler',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
