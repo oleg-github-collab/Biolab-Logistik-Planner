@@ -693,8 +693,19 @@ router.post('/articles/dictate', auth, uploadSingle('audio'), async (req, res) =
         path: req.file.path
       } : null
     });
+
+    // Check if it's an OpenAI API error
+    let errorMessage = 'Fehler beim Verarbeiten der Aufnahme';
+    if (error.message?.includes('OPENAI_API_KEY')) {
+      errorMessage = 'OpenAI API-Schlüssel nicht konfiguriert';
+    } else if (error.message?.includes('OpenAI')) {
+      errorMessage = `OpenAI Fehler: ${error.message}`;
+    } else if (error.message?.includes('fetch')) {
+      errorMessage = 'Netzwerkfehler beim Aufruf der OpenAI API';
+    }
+
     res.status(500).json({
-      error: 'Fehler beim Verarbeiten der Aufnahme',
+      error: errorMessage,
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   } finally {

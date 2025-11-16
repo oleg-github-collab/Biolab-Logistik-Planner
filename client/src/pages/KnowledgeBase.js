@@ -1550,11 +1550,19 @@ const KnowledgeBaseV3 = () => {
       toast.success('Diktat erfolgreich verarbeitet');
     } catch (error) {
       console.error('Error processing dictation:', error);
-      setDictationError(
-        error.response?.data?.error ||
-          error.message ||
-          'Diktat konnte nicht verarbeitet werden'
-      );
+      console.error('Error details:', {
+        response: error.response?.data,
+        status: error.response?.status,
+        message: error.message
+      });
+
+      const errorMessage = error.response?.data?.error ||
+        error.response?.data?.details ||
+        error.message ||
+        'Diktat konnte nicht verarbeitet werden';
+
+      setDictationError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setDictationLoading(false);
     }
