@@ -32,7 +32,8 @@ const SmartTimeEntry = ({ onSave, initialData = null }) => {
       // Налаштування для максимальної надійності
       recognitionRef.current.continuous = true; // Постійне прослуховування
       recognitionRef.current.interimResults = true; // Проміжні результати
-      recognitionRef.current.lang = ''; // Автоматичне розпізнавання будь-якої мови
+      // Browser автоматично визначить мову, якщо не вказано
+      // Можна також використовувати 'de-DE', 'en-US', 'uk-UA', 'pl-PL'
       recognitionRef.current.maxAlternatives = 1;
 
       recognitionRef.current.onresult = (event) => {
