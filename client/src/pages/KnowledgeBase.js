@@ -14,6 +14,7 @@ import {
   ThumbsUp,
   ThumbsDown,
   Eye,
+  MessageCircle,
   Calendar,
   User,
   Tag,
@@ -188,6 +189,14 @@ const ArticleCard = ({ article, onClick, canManage, onEdit, onStatusChange }) =>
       )}
 
       <div className="kb-article-card__stats">
+        <div className="flex items-center gap-1 text-sm text-gray-500">
+          <Eye size={14} />
+          <span>{article.view_count || 0}</span>
+        </div>
+        <div className="flex items-center gap-1 text-sm text-gray-500">
+          <MessageCircle size={14} />
+          <span>{article.comments_count || 0}</span>
+        </div>
         <div
           className={`flex items-center gap-1 text-sm ${
             article.user_vote === true ? 'text-green-600' : 'text-gray-500'
