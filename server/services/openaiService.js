@@ -27,9 +27,13 @@ const buildHeaders = (contentType = 'application/json') => {
 };
 
 const transcribeAudio = async (filePath, language = 'auto') => {
+  // Read file as buffer and create a proper File-like object
+  const fileBuffer = await fs.promises.readFile(filePath);
+  const fileBlob = new Blob([fileBuffer], { type: 'audio/webm' });
+
   const formData = new FormDataImpl();
   formData.set('model', 'whisper-1');
-  formData.set('file', fs.createReadStream(filePath));
+  formData.set('file', fileBlob, 'audio.webm');
 
   // Force German language for better accuracy
   if (language === 'de' || language === 'auto') {

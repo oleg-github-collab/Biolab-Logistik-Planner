@@ -491,17 +491,19 @@ body {
 
 @media (min-width: 1024px) {
   .contact-list {
-    flex: 0 0 360px;
-    min-width: 320px;
-    max-width: 380px;
+    flex: 0 0 320px;
+    min-width: 280px;
+    max-width: 340px;
+    width: 100%;
+    box-sizing: border-box;
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(244, 246, 255, 0.92));
-    border-radius: 32px;
-    padding: 28px;
+    border-radius: 28px;
+    padding: 22px;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 14px;
     border: 1px solid rgba(148, 163, 184, 0.35);
-    box-shadow: 0 20px 45px rgba(15, 23, 42, 0.12);
+    box-shadow: 0 18px 35px rgba(15, 23, 42, 0.12);
   }
 
   .contact-list--panel {
@@ -511,46 +513,47 @@ body {
   .contact-list__header {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
   }
 
   .contact-list__eyebrow {
     margin: 0;
-    font-size: 11px;
-    letter-spacing: 0.3em;
+    font-size: 10px;
+    letter-spacing: 0.35em;
     text-transform: uppercase;
     color: rgba(30, 64, 175, 0.8);
   }
 
   .contact-list__header h2 {
     margin: 0;
-    font-size: 24px;
+    font-size: 22px;
     color: #0f172a;
     font-weight: 700;
-    line-height: 1.2;
+    line-height: 1.25;
   }
 
   .contact-list__subheader {
     margin: 0;
-    font-size: 13px;
+    font-size: 12px;
     color: rgba(15, 23, 42, 0.6);
   }
 
   .contact-list__search {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     background: rgba(255, 255, 255, 0.9);
-    border-radius: 18px;
-    padding: 10px 14px;
-    border: 1px solid rgba(148, 163, 184, 0.4);
+    border-radius: 16px;
+    padding: 8px 12px;
+    border: 1px solid rgba(148, 163, 184, 0.35);
   }
 
   .contact-list__search input {
     flex: 1;
+    min-width: 0;
     border: none;
     outline: none;
-    font-size: 14px;
+    font-size: 13px;
     color: #0f172a;
     background: transparent;
   }
@@ -588,27 +591,30 @@ body {
   .contact-list__grid {
     flex: 1;
     overflow-y: auto;
+    min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    padding-right: 4px;
+    gap: 10px;
+    padding-right: 6px;
   }
 
   .contact-card {
     display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 18px;
-    border-radius: 24px;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px;
+    border-radius: 22px;
     background: rgba(255, 255, 255, 0.9);
     border: 1px solid rgba(148, 163, 184, 0.35);
     transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
-    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+    min-width: 0;
+    overflow: hidden;
   }
 
   .contact-card--active {
     border-color: rgba(59, 130, 246, 0.6);
-    box-shadow: 0 20px 40px rgba(59, 130, 246, 0.2);
+    box-shadow: 0 14px 32px rgba(59, 130, 246, 0.18);
   }
 
   .contact-card__avatar-ring {
@@ -618,41 +624,66 @@ body {
   }
 
   .contact-card__avatar {
-    width: 54px;
-    height: 54px;
-    border-radius: 18px;
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
     background: linear-gradient(135deg, #6366f1, #4f46e5);
     color: white;
     font-weight: 700;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 18px;
+    font-size: 16px;
   }
 
   .contact-card__body {
     flex: 1;
+    min-width: 0;
+  }
+
+  .contact-card__body-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
   }
 
   .contact-card__name {
-    font-size: 16px;
+    margin: 0;
+    font-size: 15px;
     font-weight: 700;
     color: #0f172a;
-    margin: 0;
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .contact-card__snippet {
-    margin: 4px 0 0;
-    font-size: 13px;
+    margin: 3px 0 0;
+    font-size: 12px;
     color: rgba(15, 23, 42, 0.6);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 
   .contact-card__meta {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 6px;
     text-align: right;
     font-size: 11px;
+    min-width: 0;
+    flex-shrink: 0;
+  }
+
+  .contact-card__time {
+    white-space: nowrap;
+    color: rgba(15, 23, 42, 0.55);
+    font-weight: 600;
   }
 
   .contact-card__email {
