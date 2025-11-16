@@ -602,6 +602,7 @@ body {
     display: flex;
     align-items: flex-start;
     gap: 12px;
+    width: 100%;
     padding: 14px;
     border-radius: 22px;
     background: rgba(255, 255, 255, 0.9);
@@ -610,6 +611,7 @@ body {
     box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
     min-width: 0;
     overflow: hidden;
+    max-width: 100%;
   }
 
   .contact-card--active {
@@ -646,6 +648,7 @@ body {
     align-items: center;
     justify-content: space-between;
     gap: 8px;
+    flex-wrap: wrap;
   }
 
   .contact-card__name {

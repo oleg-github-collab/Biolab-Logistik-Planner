@@ -43,6 +43,7 @@ import { getAssetUrl } from '../utils/media';
 import toast from 'react-hot-toast';
 import { useMobile } from '../hooks/useMobile';
 import VoiceRecorder from '../components/VoiceRecorder';
+import DictationArticleEditor from '../components/DictationArticleEditor';
 
 // Constants
 const ITEMS_PER_PAGE = 12;
@@ -1220,6 +1221,16 @@ const KnowledgeBaseV3 = () => {
   const [dictationError, setDictationError] = useState('');
   const [dictationPreview, setDictationPreview] = useState(null);
   const [dictationTranscript, setDictationTranscript] = useState('');
+  const [dictationEditMode, setDictationEditMode] = useState(false);
+  const [dictationArticleData, setDictationArticleData] = useState({
+    title: '',
+    summary: '',
+    content: '',
+    category_id: '',
+    tags: [],
+    media: [],
+    audioComments: []
+  });
   const [diffModalOpen, setDiffModalOpen] = useState(false);
   const [diffPayload, setDiffPayload] = useState(null);
   const [diffLoadingVersion, setDiffLoadingVersion] = useState(null);
@@ -1567,6 +1578,21 @@ const KnowledgeBaseV3 = () => {
       setDictationLoading(false);
     }
   }, [dictationLanguage]);
+
+  const handleOpenDictationEditor = useCallback(() => {
+    if (!dictationPreview) return;
+    const fallbackCategory = selectedCategory || categories[0]?.id || '';
+    setDictationArticleData({
+      title: dictationPreview.title || '',
+      summary: dictationPreview.summary || '',
+      content: dictationPreview.content || '',
+      category_id: fallbackCategory,
+      tags: [],
+      media: [],
+      audioComments: []
+    });
+    setDictationEditMode(true);
+  }, [dictationPreview, selectedCategory, categories]);
 
   const handleUseDictation = useCallback(async () => {
     if (!dictationPreview) return;
@@ -2024,17 +2050,24 @@ const KnowledgeBaseV3 = () => {
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
-                      onClick={handleUseDictation}
+                      onClick={handleOpenDictationEditor}
                       className="px-4 py-2 rounded-2xl bg-blue-600 text-white font-semibold text-sm shadow hover:bg-blue-700 transition"
                     >
-                      In Editor öffnen
+                      ✏️ Artikel bearbeiten
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleUseDictation}
+                      className="px-4 py-2 rounded-2xl bg-green-600 text-white font-semibold text-sm shadow hover:bg-green-700 transition"
+                    >
+                      ⚡ Schnell speichern
                     </button>
                     <button
                       type="button"
                       onClick={() => setDictationPreview(null)}
                       className="px-4 py-2 rounded-2xl bg-white text-slate-700 font-semibold text-sm border border-slate-200 hover:border-slate-400 transition"
                     >
-                      Nochmals diktieren
+                      🎤 Nochmals diktieren
                     </button>
                   </div>
                 </div>
@@ -2043,6 +2076,33 @@ const KnowledgeBaseV3 = () => {
           </div>
         </div>
       )}
+
+      {/* Dictation Article Editor */}
+      <DictationArticleEditor
+        isOpen={dictationEditMode}
+        onClose={() => setDictationEditMode(false)}
+        articleData={dictationArticleData}
+        onArticleDataChange={setDictationArticleData}
+        categories={categories}
+        onSave={async (data) => {
+          try {
+            const savedArticle = await handleSaveArticle({
+              ...data,
+              status: 'published'
+            });
+            if (savedArticle?.id) {
+              toast.success('Artikel erfolgreich gespeichert!');
+              setDictationEditMode(false);
+              setDictationPreview(null);
+              closeDictationModal();
+              fetchArticles();
+            }
+          } catch (error) {
+            toast.error('Fehler beim Speichern des Artikels');
+            console.error(error);
+          }
+        }}
+      />
     </div>
   </div>
 );
