@@ -648,23 +648,55 @@ router.post('/articles/dictate', auth, uploadSingle('audio'), async (req, res) =
     }
   };
 
-  if (!req.file) {
-    await cleanupFile();
-    return res.status(400).json({ error: 'Audiomaterial erforderlich' });
-  }
-
-  const languageHint = req.body.language || 'auto';
   try {
+    if (!req.file) {
+      logger.warn('No audio file uploaded for dictation', {
+        userId: req.user.id,
+        body: req.body
+      });
+      await cleanupFile();
+      return res.status(400).json({ error: 'Audiomaterial erforderlich' });
+    }
+
+    // Validate file exists and is readable
+    if (!fs.existsSync(req.file.path)) {
+      logger.error('Uploaded file does not exist', { filePath: req.file.path });
+      await cleanupFile();
+      return res.status(500).json({ error: 'Hochgeladene Datei nicht gefunden' });
+    }
+
+    const languageHint = req.body.language || 'auto';
+
+    logger.info('Processing dictation', {
+      userId: req.user.id,
+      fileName: req.file.originalname,
+      fileSize: req.file.size,
+      language: languageHint
+    });
+
     const transcript = await transcribeAudio(req.file.path, languageHint);
     const instructions = await createInstructionDraft(transcript);
+
     res.json({
       transcript,
       instructions,
       language: languageHint
     });
   } catch (error) {
-    logger.error('Error dictating KB article', { error: error.message });
-    res.status(500).json({ error: 'Fehler beim Verarbeiten der Aufnahme', details: error.message });
+    logger.error('Error dictating KB article', {
+      error: error.message,
+      stack: error.stack,
+      userId: req.user.id,
+      file: req.file ? {
+        name: req.file.originalname,
+        size: req.file.size,
+        path: req.file.path
+      } : null
+    });
+    res.status(500).json({
+      error: 'Fehler beim Verarbeiten der Aufnahme',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   } finally {
     await cleanupFile();
   }

@@ -171,6 +171,23 @@ router.delete('/:id', auth, async (req, res) => {
 // @desc    Clear all read notifications
 router.delete('/clear-all', auth, async (req, res) => {
   try {
+    // Check if notifications table exists
+    const tableCheck = await pool.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables
+        WHERE table_schema = 'public'
+        AND table_name = 'notifications'
+      );
+    `);
+
+    if (!tableCheck.rows[0].exists) {
+      logger.warn('Notifications table does not exist yet');
+      return res.json({
+        success: true,
+        deleted_count: 0
+      });
+    }
+
     // Delete all read notifications for the user
     // Use COALESCE to handle null is_read values as false
     const result = await pool.query(
@@ -186,8 +203,20 @@ router.delete('/clear-all', auth, async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('Error clearing notifications', error);
-    console.error('Clear notifications error details:', error);
+    logger.error('Error clearing notifications', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail
+    });
+
+    // If table doesn't exist, return success anyway
+    if (error.code === '42P01') {
+      return res.json({
+        success: true,
+        deleted_count: 0
+      });
+    }
+
     res.status(500).json({
       error: 'Serverfehler beim Löschen der Benachrichtigungen',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined

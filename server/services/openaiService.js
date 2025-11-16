@@ -13,7 +13,8 @@ if (!fetchFn || !FormDataImpl) {
 const getOpenAIKey = () => {
   const key = process.env.OPENAI_API_KEY;
   if (!key) {
-    throw new Error('OPENAI_API_KEY is not configured');
+    logger.error('OPENAI_API_KEY is not configured in environment variables');
+    throw new Error('OPENAI_API_KEY is not configured. Please add it to your environment variables.');
   }
   return key;
 };

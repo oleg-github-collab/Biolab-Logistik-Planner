@@ -34,17 +34,74 @@ api.interceptors.request.use(
   }
 );
 
+// Network retry configuration
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000; // 1 second base delay
+const SILENT_FAIL_ENDPOINTS = ['/messages/unread-count', '/notifications/unread-count'];
+
+// Exponential backoff retry logic
+const retryRequest = async (config, retryCount = 0) => {
+  try {
+    return await api.request(config);
+  } catch (error) {
+    const isNetworkError = !error.response && (
+      error.message?.includes('ERR_INTERNET_DISCONNECTED') ||
+      error.message?.includes('ERR_NETWORK_CHANGED') ||
+      error.message?.includes('Network Error')
+    );
+
+    if (isNetworkError && retryCount < MAX_RETRIES) {
+      const delay = RETRY_DELAY * Math.pow(2, retryCount);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return retryRequest(config, retryCount + 1);
+    }
+
+    throw error;
+  }
+};
+
 // Response interceptor for error handling
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    console.error('API Error:', {
-      url: error.config?.url,
-      method: error.config?.method,
-      status: error.response?.status,
-      data: error.response?.data,
-      message: error.message
-    });
+  async (error) => {
+    const isSilentEndpoint = SILENT_FAIL_ENDPOINTS.some(endpoint =>
+      error.config?.url?.includes(endpoint)
+    );
+
+    // For network errors on silent endpoints, just fail silently
+    if (isSilentEndpoint && !error.response) {
+      return Promise.reject(error);
+    }
+
+    // Log only non-network errors or important endpoints
+    if (error.response || !isSilentEndpoint) {
+      console.error('API Error:', {
+        url: error.config?.url,
+        method: error.config?.method,
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      });
+    }
+
+    // Retry on network errors
+    const isNetworkError = !error.response && (
+      error.message?.includes('ERR_INTERNET_DISCONNECTED') ||
+      error.message?.includes('ERR_NETWORK_CHANGED') ||
+      error.message?.includes('Network Error')
+    );
+
+    if (isNetworkError && !error.config.__retryCount) {
+      error.config.__retryCount = 0;
+    }
+
+    if (isNetworkError && error.config.__retryCount < MAX_RETRIES) {
+      error.config.__retryCount += 1;
+      const delay = RETRY_DELAY * Math.pow(2, error.config.__retryCount - 1);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return api.request(error.config);
+    }
+
     return Promise.reject(error);
   }
 );

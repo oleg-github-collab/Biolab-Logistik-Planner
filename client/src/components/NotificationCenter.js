@@ -86,7 +86,15 @@ const NotificationCenter = ({ socket, userId }) => {
 
   // Fetch unread count periodically
   useEffect(() => {
+    let retryCount = 0;
+    const MAX_RETRIES = 3;
+
     const fetchUnreadCount = async () => {
+      // Skip if offline
+      if (!navigator.onLine) {
+        return;
+      }
+
       try {
         const response = await fetch('/api/messages/unread-count', {
           headers: {
@@ -101,9 +109,20 @@ const NotificationCenter = ({ socket, userId }) => {
           if (data.unreadCount !== currentUnread) {
             setUnreadCount(prev => prev + (data.unreadCount - currentUnread));
           }
+          retryCount = 0; // Reset on success
         }
       } catch (error) {
-        console.error('Error fetching unread count:', error);
+        // Silently fail for network errors, don't spam console
+        if (error.message?.includes('Failed to fetch') || !navigator.onLine) {
+          retryCount++;
+          // Only log if we've failed multiple times
+          if (retryCount >= MAX_RETRIES) {
+            console.warn('Failed to fetch unread messages count after multiple retries');
+            retryCount = 0; // Reset
+          }
+        } else {
+          console.error('Failed to fetch unread messages count:', error);
+        }
       }
     };
 
