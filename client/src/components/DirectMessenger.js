@@ -1735,41 +1735,32 @@ const DirectMessenger = () => {
     const renderContactCard = (contact) => {
       const isSelected = selectedContact?.id === contact.id;
       const contactStory = storyMap?.[contact.id];
+      const unreadCount = contact.unreadCount || 0;
+
       return (
         <button
           key={contact.id}
           onClick={() => handleContactClick(contact)}
           className={`contact-card ${isSelected ? 'contact-card--active' : ''}`}
         >
-          <div
-            className={`contact-card__avatar-ring ${contactStory ? 'has-story' : ''} ${
-              contactStory && !contactStory.viewerHasSeen ? 'story-unread' : ''
-            }`}
-          >
-            <div className="contact-card__avatar">
-              {contact.name?.[0]?.toUpperCase() || contact.email?.[0]?.toUpperCase() || '?'}
+          <div className="relative">
+            <div
+              className={`contact-card__avatar-ring ${contactStory ? 'has-story' : ''} ${
+                contactStory && !contactStory.viewerHasSeen ? 'story-unread' : ''
+              }`}
+            >
+              <div className="contact-card__avatar">
+                {contact.name?.[0]?.toUpperCase() || contact.email?.[0]?.toUpperCase() || '?'}
+              </div>
             </div>
+            {unreadCount > 0 && (
+              <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[1.25rem] h-5 flex items-center justify-center px-1.5 shadow-lg">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </div>
+            )}
           </div>
           <div className="contact-card__body">
-            <div className="contact-card__body-top">
-              <p className="contact-card__name">{contact.name}</p>
-              {contact.unreadCount > 0 && (
-                <span className="contact-card__badge">{contact.unreadCount}</span>
-              )}
-            </div>
-            <p className="contact-card__snippet">
-              {contact.lastMessageSnippet}
-            </p>
-          </div>
-          <div className="contact-card__meta">
-            <span className="contact-card__time">
-              {contact.lastMessageTimeLabel || 'Noch keine Aktivität'}
-            </span>
-            <span
-              className={`contact-card__presence ${contact.online ? 'online' : 'offline'}`}
-            >
-              {contact.online ? 'Online' : 'Offline'}
-            </span>
+            <p className="contact-card__name">{contact.name}</p>
           </div>
         </button>
       );
@@ -1779,15 +1770,6 @@ const DirectMessenger = () => {
     const renderGroupChatCard = (groupThread) => {
       const isSelected = selectedThreadId === groupThread.id;
       const unreadCount = groupThread.unreadCount || 0;
-      const memberCount = groupThread.participantCount || 0;
-      const lastMessage = groupThread.lastMessage;
-      const timestamp = lastMessage?.createdAt || groupThread.updatedAt;
-
-      // Get last message text - try different fields
-      let lastMessageText = 'Keine Nachrichten';
-      if (lastMessage) {
-        lastMessageText = lastMessage.content || lastMessage.message || lastMessage.text || 'Neue Nachricht';
-      }
 
       return (
         <button
@@ -1795,32 +1777,20 @@ const DirectMessenger = () => {
           onClick={() => handleGroupChatClick(groupThread)}
           className={`contact-card ${isSelected ? 'contact-card--active' : ''}`}
         >
-          <div className="contact-card__avatar-ring">
-            <div className="contact-card__avatar bg-gradient-to-br from-blue-500 to-purple-600">
-              <Users className="w-6 h-6 text-white" />
+          <div className="relative">
+            <div className="contact-card__avatar-ring">
+              <div className="contact-card__avatar bg-gradient-to-br from-blue-500 to-purple-600">
+                <Users className="w-6 h-6 text-white" />
+              </div>
             </div>
+            {unreadCount > 0 && (
+              <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[1.25rem] h-5 flex items-center justify-center px-1.5 shadow-lg">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </div>
+            )}
           </div>
           <div className="contact-card__body">
-            <div className="contact-card__body-top">
-              <p className="contact-card__name">
-                {groupThread.name}
-              </p>
-              {unreadCount > 0 && (
-                <span className="contact-card__badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
-              )}
-            </div>
-            <p className="contact-card__snippet">
-              {lastMessageText}
-            </p>
-          </div>
-          <div className="contact-card__meta">
-            <span className="contact-card__time">
-              {formatContactTimestamp(timestamp) || '—'}
-            </span>
-            <div className="flex items-center gap-1 text-xs text-slate-400">
-              <Users className="w-3 h-3" />
-              <span>{memberCount}</span>
-            </div>
+            <p className="contact-card__name">{groupThread.name}</p>
           </div>
         </button>
       );
