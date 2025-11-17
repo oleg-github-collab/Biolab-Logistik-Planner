@@ -27,6 +27,7 @@ const {
 } = require('./services/entsorgungReminder');
 const { runPendingMigrations } = require('./utils/postgresMigrations');
 const { scheduleDeadlineReminders } = require('./utils/deadlineReminders');
+const botScheduler = require('./services/botScheduler');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -277,15 +278,22 @@ const startServer = async () => {
 
       try {
         scheduleDeadlineReminders(60); // Run every 60 minutes
-        logger.info('✅ Deadline and event reminders scheduled');
       } catch (deadlineError) {
         logger.error('Failed to initialize deadline reminders', { error: deadlineError.message });
       }
+
+      try {
+        await botScheduler.start();
+        logger.info('✅ BL_Bot scheduler initialized successfully');
+      } catch (botError) {
+        logger.error('Failed to initialize BL_Bot scheduler', { error: botError.message });
+      }
     });
 
+    logger.info('✅ Server started successfully');
   } catch (error) {
-    logger.error('Failed to start server', { error: error.message });
-    console.error('❌ Failed to start server:', error);
+    console.error('❌ Fatal server error:', error);
+    logger.error('Fatal server startup error', { error: error.message, stack: error.stack });
     process.exit(1);
   }
 };

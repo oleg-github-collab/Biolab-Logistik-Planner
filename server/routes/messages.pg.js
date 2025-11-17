@@ -3,6 +3,7 @@ const { pool } = require('../config/database');
 const { auth } = require('../middleware/auth');
 const { getIO, sendNotificationToUser } = require('../websocket');
 const logger = require('../utils/logger');
+const blBot = require('../services/blBot');
 const { getOnlineUsers } = require('../services/redisService');
 const { schemas, validate } = require('../validators');
 const {
@@ -970,6 +971,25 @@ const sendMessageHandler = async (req, res) => {
       conversationId: targetConversationId,
       recipientId: resolvedRecipientId
     });
+
+    // Check if message is sent to BL_Bot and process it
+    if (blBot.initialized && blBot.botUser) {
+      const isSentToBot = resolvedRecipientId === blBot.botUser.id || memberIds.includes(blBot.botUser.id);
+
+      if (isSentToBot && req.user.id !== blBot.botUser.id) {
+        // Process message with BL_Bot in background
+        setImmediate(async () => {
+          try {
+            const response = await blBot.processIncomingMessage(req.user.id, messageContent);
+            if (response) {
+              await blBot.sendMessage(req.user.id, response);
+            }
+          } catch (error) {
+            logger.error('Error processing BL_Bot message:', error);
+          }
+        });
+      }
+    }
 
     res.status(201).json({
       conversationId: targetConversationId,
