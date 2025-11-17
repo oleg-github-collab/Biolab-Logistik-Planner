@@ -191,10 +191,7 @@ const listUserConversations = async (userId) => {
            FROM messages m
           WHERE m.conversation_id = mc.id
             AND m.sender_id <> $1
-            AND (
-              my_members.last_read_at IS NULL
-              OR m.created_at > my_members.last_read_at
-            )
+            AND m.created_at > COALESCE(my_members.last_read_at, '1970-01-01'::timestamp)
        ) unread ON TRUE
        GROUP BY mc.id, my_members.role, my_members.last_read_at, my_members.is_muted,
                 last_message.id, last_message.message, last_message.message_type,
