@@ -233,18 +233,24 @@ const startServer = async () => {
     }
 
     // Initialize BL_Bot BEFORE starting server
+    console.log('='.repeat(80));
+    console.log('🤖 STARTING BL_BOT INITIALIZATION');
+    console.log('='.repeat(80));
     try {
-      console.log('🤖 Initializing BL_Bot scheduler...');
+      console.log('🤖 Step 1: Calling botScheduler.start()...');
       await botScheduler.start();
-      console.log('✅ BL_Bot scheduler initialized successfully');
+      console.log('✅ Step 2: BL_Bot scheduler initialized successfully');
       logger.info('✅ BL_Bot scheduler initialized successfully');
     } catch (botError) {
-      console.error('❌ Failed to initialize BL_Bot scheduler:', botError);
+      console.error('❌ CRITICAL: Failed to initialize BL_Bot scheduler');
+      console.error('Error message:', botError.message);
+      console.error('Error stack:', botError.stack);
       logger.error('Failed to initialize BL_Bot scheduler', {
         error: botError.message,
         stack: botError.stack
       });
     }
+    console.log('='.repeat(80));
 
     server.listen(PORT, '0.0.0.0', () => {
       console.log(`✅ Server running on port ${PORT}`);
