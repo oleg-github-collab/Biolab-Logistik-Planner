@@ -98,6 +98,12 @@ const DirectMessenger = () => {
   const [showContactNotes, setShowContactNotes] = useState(false);
   const [showForwardModal, setShowForwardModal] = useState(false);
   const [messageToForward, setMessageToForward] = useState(null);
+  const [showMembersModal, setShowMembersModal] = useState(false);
+  const [groupMembers, setGroupMembers] = useState([]);
+  const [mentionSuggestions, setMentionSuggestions] = useState([]);
+  const [showMentionSuggestions, setShowMentionSuggestions] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [cursorPosition, setCursorPosition] = useState(0);
   const [typingUsers, setTypingUsers] = useState({});
   const [showComposerActions, setShowComposerActions] = useState(false);
   const [showPinnedDrawer, setShowPinnedDrawer] = useState(false);
@@ -499,6 +505,154 @@ const DirectMessenger = () => {
       showError('Failed to load group chat: ' + (error?.message || 'Unknown error'));
     }
   }, [joinConversationRoom, loadMessages, isMobile]);
+
+  // Load group members
+  const loadGroupMembers = useCallback(async (conversationId) => {
+    if (!conversationId) return;
+
+    try {
+      const response = await fetch(`/api/messages/conversations/${conversationId}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch conversation details');
+
+      const data = await response.json();
+      if (data?.members && Array.isArray(data.members)) {
+        setGroupMembers(data.members);
+      }
+    } catch (error) {
+      console.error('Error loading group members:', error);
+    }
+  }, []);
+
+  // Load members when thread changes to group
+  useEffect(() => {
+    const currentThread = threads.find(t => t.id === selectedThreadId);
+    if (currentThread?.type === 'group') {
+      loadGroupMembers(selectedThreadId);
+    } else {
+      setGroupMembers([]);
+    }
+  }, [selectedThreadId, threads, loadGroupMembers]);
+
+  // Handle input change with @mention detection and typing indicator
+  const handleInputChange = useCallback((e) => {
+    const value = e.target.value;
+    const cursorPos = e.target.selectionStart;
+
+    setMessageInput(value);
+    setCursorPosition(cursorPos);
+
+    // Send typing indicator
+    if (value.trim()) {
+      sendTypingIndicator(true);
+
+      // Clear previous timeout
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+
+      // Stop typing indicator after 3 seconds of inactivity
+      typingTimeoutRef.current = setTimeout(() => {
+        sendTypingIndicator(false);
+      }, 3000);
+    } else {
+      sendTypingIndicator(false);
+    }
+
+    // Check for @ mention
+    const textBeforeCursor = value.substring(0, cursorPos);
+    const lastAtSymbol = textBeforeCursor.lastIndexOf('@');
+
+    if (lastAtSymbol !== -1) {
+      const afterAt = textBeforeCursor.substring(lastAtSymbol + 1);
+
+      // Check if we're still in mention mode (no space after @)
+      if (!afterAt.includes(' ')) {
+        const query = afterAt.toLowerCase();
+        setMentionQuery(query);
+
+        // Filter members by query
+        if (groupMembers.length > 0) {
+          const filtered = groupMembers.filter(member =>
+            member.name?.toLowerCase().includes(query) ||
+            member.email?.toLowerCase().includes(query)
+          ).slice(0, 5); // Limit to 5 suggestions
+
+          setMentionSuggestions(filtered);
+          setShowMentionSuggestions(filtered.length > 0);
+        }
+      } else {
+        setShowMentionSuggestions(false);
+      }
+    } else {
+      setShowMentionSuggestions(false);
+    }
+  }, [groupMembers, sendTypingIndicator]);
+
+  // Insert mention
+  const insertMention = useCallback((member) => {
+    const textBeforeCursor = messageInput.substring(0, cursorPosition);
+    const textAfterCursor = messageInput.substring(cursorPosition);
+    const lastAtSymbol = textBeforeCursor.lastIndexOf('@');
+
+    if (lastAtSymbol !== -1) {
+      const newText = textBeforeCursor.substring(0, lastAtSymbol) +
+                      `@${member.name} ` +
+                      textAfterCursor;
+      setMessageInput(newText);
+      setShowMentionSuggestions(false);
+      setMentionQuery('');
+    }
+  }, [messageInput, cursorPosition]);
+
+  // Highlight @mentions in message text
+  const highlightMentions = useCallback((text, isMine) => {
+    if (!text) return text;
+
+    const mentionRegex = /@([^\s]+)/g;
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = mentionRegex.exec(text)) !== null) {
+      // Add text before mention
+      if (match.index > lastIndex) {
+        parts.push(text.substring(lastIndex, match.index));
+      }
+
+      // Add highlighted mention
+      const mentionName = match[1];
+      const isMentionedUser = groupMembers.some(m => m.name === mentionName && m.user_id === user?.id);
+
+      parts.push(
+        <span
+          key={match.index}
+          className={`font-semibold ${
+            isMentionedUser
+              ? 'bg-yellow-200 text-yellow-900 px-1 rounded'
+              : isMine
+                ? 'text-blue-200'
+                : 'text-blue-600'
+          }`}
+        >
+          @{mentionName}
+        </span>
+      );
+
+      lastIndex = match.index + match[0].length;
+    }
+
+    // Add remaining text
+    if (lastIndex < text.length) {
+      parts.push(text.substring(lastIndex));
+    }
+
+    return parts.length > 0 ? parts : text;
+  }, [groupMembers, user]);
 
   const handleSendMessage = async (event) => {
     event?.preventDefault();
@@ -913,27 +1067,6 @@ const DirectMessenger = () => {
     [selectedThreadId, isConnected, user]
   );
 
-  const handleInputChange = useCallback((e) => {
-    const value = e.target.value;
-    setMessageInput(value);
-
-    // Send typing indicator
-    if (value.trim()) {
-      sendTypingIndicator(true);
-
-      // Clear previous timeout
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
-
-      // Stop typing indicator after 3 seconds of inactivity
-      typingTimeoutRef.current = setTimeout(() => {
-        sendTypingIndicator(false);
-      }, 3000);
-    } else {
-      sendTypingIndicator(false);
-    }
-  }, [sendTypingIndicator]);
 
   const highlightMessage = useCallback((messageId) => {
     if (!messageId) return;
@@ -1244,7 +1377,7 @@ const DirectMessenger = () => {
             />
           ) : (
             <p className={`${isMobile ? 'message-text' : 'text-sm whitespace-pre-wrap break-words'}`}>
-              {msg.message}
+              {highlightMentions(msg.message, isMine)}
             </p>
           )}
 
@@ -1850,6 +1983,16 @@ const DirectMessenger = () => {
                 ) : null}
               </div>
               <div className="messenger-desktop-header__actions">
+                {selectedThreadId && threads.find(t => t.id === selectedThreadId)?.type === 'group' && (
+                  <button
+                    onClick={() => setShowMembersModal(true)}
+                    className="messenger-desktop-header__action-btn"
+                    title="Gruppenmitglieder anzeigen"
+                  >
+                    <Users className="w-5 h-5" />
+                    <span className="hidden lg:inline">Mitglieder ({groupMembers.length})</span>
+                  </button>
+                )}
                 <button
                   onClick={() => setShowSearch(true)}
                   className="messenger-desktop-header__action-btn"
@@ -2125,21 +2268,46 @@ const DirectMessenger = () => {
         </button>
         <div className="messenger-mobile-header-enhanced__info">
           <h3 className="messenger-mobile-header-enhanced__name">
-            {selectedContact?.name || 'Chat auswählen'}
+            {selectedContact?.name || threads.find(t => t.id === selectedThreadId)?.name || 'Chat auswählen'}
           </h3>
           <p className="messenger-mobile-header-enhanced__status">
-            {selectedContact?.online ? 'Online' : 'Offline'}
+            {selectedContact
+              ? (selectedContact.online ? 'Online' : 'Offline')
+              : selectedThreadId && threads.find(t => t.id === selectedThreadId)?.type === 'group'
+                ? `${groupMembers.length} Mitglieder`
+                : 'Gruppe'}
           </p>
         </div>
         <div className="messenger-mobile-header-enhanced__avatar-wrapper">
-          <div className="messenger-mobile-header-enhanced__avatar">
-            {selectedContact?.name?.[0]?.toUpperCase() || user?.name?.[0]?.toUpperCase() || '?'}
+          <div className={`messenger-mobile-header-enhanced__avatar ${
+            !selectedContact && selectedThreadId && threads.find(t => t.id === selectedThreadId)?.type === 'group'
+              ? 'bg-gradient-to-br from-blue-500 to-purple-600'
+              : ''
+          }`}>
+            {selectedContact
+              ? (selectedContact.name?.[0]?.toUpperCase() || '?')
+              : selectedThreadId && threads.find(t => t.id === selectedThreadId)?.type === 'group'
+                ? <Users className="w-5 h-5 text-white" />
+                : (user?.name?.[0]?.toUpperCase() || '?')}
           </div>
-          <div className={`messenger-mobile-header-enhanced__status-dot ${selectedContact?.online ? 'online' : 'offline'}`}></div>
+          {selectedContact && (
+            <div className={`messenger-mobile-header-enhanced__status-dot ${selectedContact.online ? 'online' : 'offline'}`}></div>
+          )}
         </div>
       </div>
-      {selectedContact && (
+      {(selectedContact || (selectedThreadId && threads.find(t => t.id === selectedThreadId))) && (
         <div className="messenger-mobile-header-actions">
+          {selectedThreadId && threads.find(t => t.id === selectedThreadId)?.type === 'group' && (
+            <button
+              type="button"
+              onClick={() => setShowMembersModal(true)}
+              aria-label="Gruppenmitglieder"
+              title="Gruppenmitglieder"
+            >
+              <Users className="w-5 h-5" />
+              <span>Mitglieder</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setShowSearch(true)}
@@ -2627,6 +2795,100 @@ const DirectMessenger = () => {
           }}
           onSuccess={handleForwardSuccess}
         />
+      )}
+
+      {/* Group Members Modal */}
+      {showMembersModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[80vh] flex flex-col shadow-2xl">
+            <div className="p-6 border-b border-slate-200 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                  <Users className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">Gruppenmitglieder</h3>
+                  <p className="text-sm text-slate-500">{groupMembers.length} Mitglieder</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowMembersModal(false)}
+                className="p-2 hover:bg-slate-100 rounded-lg transition"
+              >
+                <X className="w-5 h-5 text-slate-600" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="space-y-3">
+                {groupMembers.map((member) => (
+                  <div
+                    key={member.user_id}
+                    className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 hover:border-blue-300 hover:bg-blue-50/50 transition"
+                  >
+                    <div className="relative">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg">
+                        {member.name?.[0]?.toUpperCase() || '?'}
+                      </div>
+                      {member.role && (
+                        <div className={`absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                          member.role === 'owner' ? 'bg-amber-500' :
+                          member.role === 'moderator' ? 'bg-blue-500' :
+                          'bg-slate-400'
+                        } text-white border-2 border-white`}>
+                          {member.role === 'owner' ? '👑' : member.role === 'moderator' ? '⭐' : '👤'}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-slate-900 truncate">{member.name}</p>
+                        {member.user_id === user?.id && (
+                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">Du</span>
+                        )}
+                      </div>
+                      <p className="text-sm text-slate-500 truncate">{member.email}</p>
+                      {member.role && (
+                        <p className="text-xs text-slate-400 mt-1 capitalize">
+                          {member.role === 'owner' ? 'Besitzer' :
+                           member.role === 'moderator' ? 'Moderator' :
+                           'Mitglied'}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mention Autocomplete */}
+      {showMentionSuggestions && mentionSuggestions.length > 0 && (
+        <div className="fixed bg-white border border-slate-200 rounded-xl shadow-2xl z-50 max-w-xs w-full"
+             style={{
+               bottom: '120px',
+               left: isMobile ? '20px' : 'auto',
+               right: isMobile ? '20px' : '400px'
+             }}>
+          <div className="p-2 space-y-1">
+            {mentionSuggestions.map((member) => (
+              <button
+                key={member.user_id}
+                onClick={() => insertMention(member)}
+                className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 transition text-left"
+              >
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold flex-shrink-0">
+                  {member.name?.[0]?.toUpperCase() || '?'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-slate-900 truncate text-sm">{member.name}</p>
+                  <p className="text-xs text-slate-500 truncate">@{member.name}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
       )}
     </>
   );
