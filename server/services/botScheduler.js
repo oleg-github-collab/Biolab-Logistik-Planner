@@ -23,13 +23,22 @@ class BotScheduler {
   async start() {
     if (this.isRunning) {
       logger.warn('BotScheduler is already running');
+      console.log('⚠️  BotScheduler is already running');
       return;
     }
 
+    console.log('🤖 Initializing BL_Bot...');
+    logger.info('Initializing BL_Bot...');
+
     // Initialize BL_Bot first
     const initialized = await blBot.initialize();
+
+    console.log('🤖 BL_Bot initialization result:', initialized);
+    logger.info('BL_Bot initialization result', { initialized });
+
     if (!initialized) {
       logger.error('❌ BL_Bot initialization failed, scheduler will not start');
+      console.error('❌ BL_Bot initialization failed, scheduler will not start');
       return;
     }
 

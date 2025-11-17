@@ -26,27 +26,47 @@ class BLBot {
    */
   async initialize() {
     try {
+      console.log('🔧 BL_Bot: Starting initialization...');
+
       // Initialize OpenAI
       if (!process.env.OPENAI_API_KEY) {
+        console.log('⚠️  BL_Bot: OPENAI_API_KEY not set, AI features will be disabled');
         logger.warn('⚠️  BL_Bot: OPENAI_API_KEY not set, AI features will be disabled');
       } else {
+        console.log('✅ BL_Bot: OPENAI_API_KEY found, initializing OpenAI...');
         this.openai = new OpenAI({
           apiKey: process.env.OPENAI_API_KEY
         });
+        console.log('✅ BL_Bot: OpenAI initialized');
       }
 
       // Get BL_Bot user from database
+      console.log('🔍 BL_Bot: Searching for bot user in database...');
       const result = await pool.query(
         `SELECT * FROM users WHERE email IN ('bl_bot@biolab.de', 'entsorgungsbot@biolab.de') AND is_system_user = true LIMIT 1`
       );
 
+      console.log('🔍 BL_Bot: Database query result:', {
+        rowCount: result.rows.length,
+        found: result.rows.length > 0
+      });
+
       if (result.rows.length === 0) {
+        console.error('❌ BL_Bot user not found in database. Run migration 050_rename_bot_to_bl_bot.sql');
         logger.error('❌ BL_Bot user not found in database. Run migration 050_rename_bot_to_bl_bot.sql');
         return false;
       }
 
       this.botUser = result.rows[0];
       this.initialized = true;
+
+      console.log('✅ BL_Bot initialized successfully', {
+        botId: this.botUser.id,
+        botName: this.botUser.name,
+        botEmail: this.botUser.email,
+        role: this.botUser.role,
+        aiEnabled: !!this.openai
+      });
 
       logger.info('✅ BL_Bot initialized successfully', {
         botId: this.botUser.id,
@@ -58,6 +78,7 @@ class BLBot {
 
       return true;
     } catch (error) {
+      console.error('❌ BL_Bot initialization failed:', error);
       logger.error('❌ BL_Bot initialization failed:', error);
       return false;
     }

@@ -283,10 +283,16 @@ const startServer = async () => {
       }
 
       try {
+        console.log('🤖 Initializing BL_Bot scheduler...');
         await botScheduler.start();
+        console.log('✅ BL_Bot scheduler initialized successfully');
         logger.info('✅ BL_Bot scheduler initialized successfully');
       } catch (botError) {
-        logger.error('Failed to initialize BL_Bot scheduler', { error: botError.message });
+        console.error('❌ Failed to initialize BL_Bot scheduler:', botError);
+        logger.error('Failed to initialize BL_Bot scheduler', {
+          error: botError.message,
+          stack: botError.stack
+        });
       }
     });
 
