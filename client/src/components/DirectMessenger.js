@@ -303,9 +303,19 @@ const DirectMessenger = () => {
     joinConversationRoom(selectedThreadId);
 
     const handleNewMessage = (data) => {
+      console.log('📨 [DirectMessenger] handleNewMessage called:', {
+        dataConversationId: data?.conversationId,
+        selectedThreadId,
+        hasMessage: !!data?.message,
+        willAdd: data?.conversationId === selectedThreadId && !!data?.message
+      });
+
       if (data?.conversationId === selectedThreadId && data?.message) {
+        console.log('✅ [DirectMessenger] Adding message to state');
         setMessages((prev) => Array.isArray(prev) ? [...prev, normalizeMessage(data.message)] : [normalizeMessage(data.message)]);
         setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 30);
+      } else {
+        console.log('❌ [DirectMessenger] Message NOT added - conversation mismatch or no message');
       }
     };
 
