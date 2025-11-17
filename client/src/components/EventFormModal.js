@@ -4,6 +4,8 @@ import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { X, Calendar, Clock, MapPin, Users, Image, Mic, AlertCircle, Repeat } from 'lucide-react';
 import VoiceRecorder from './VoiceRecorder';
+import toast from 'react-hot-toast';
+import { uploadAttachment } from '../utils/apiEnhanced';
 
 const EVENT_TYPES = [
   { value: 'Arbeit', label: 'Arbeit', color: '#0EA5E9' },
@@ -110,6 +112,9 @@ const EventFormModal = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAudioRecorder, setShowAudioRecorder] = useState(false);
   const [imagePreview, setImagePreview] = useState([]);
+  const [audioPreviewUrl, setAudioPreviewUrl] = useState(null);
+  const [isUploadingAudio, setIsUploadingAudio] = useState(false);
+  const [audioError, setAudioError] = useState('');
 
   // Initialize form data when event changes
   useEffect(() => {
@@ -134,6 +139,9 @@ const EventFormModal = ({
         recurring_end: normalizedRecurringEnd || '',
       });
       setShowRecurringOptions(Boolean(event.recurring));
+      setAudioPreviewUrl(null);
+      setAudioError('');
+      setIsUploadingAudio(false);
 
       // Load image previews
       if (event.attachments && Array.isArray(event.attachments)) {
@@ -173,6 +181,14 @@ const EventFormModal = ({
     }
   }, [event, mode, selectedDate]);
 
+  useEffect(() => {
+    return () => {
+      if (audioPreviewUrl) {
+        URL.revokeObjectURL(audioPreviewUrl);
+      }
+    };
+  }, [audioPreviewUrl]);
+
   // Handle form field changes
   const handleChange = useCallback((field, value) => {
     setFormData(prev => ({
@@ -188,6 +204,21 @@ const EventFormModal = ({
       }));
     }
   }, [errors]);
+
+  const appendAttachment = useCallback((attachment) => {
+    setFormData((prevForm) => ({
+      ...prevForm,
+      attachments: [...(prevForm.attachments || []), attachment]
+    }));
+  }, []);
+
+  const removeAttachmentByUrl = useCallback((url) => {
+    if (!url) return;
+    setFormData((prevForm) => ({
+      ...prevForm,
+      attachments: (prevForm.attachments || []).filter((item) => item.url !== url)
+    }));
+  }, []);
 
   // Add attendee
   const handleAddAttendee = useCallback(() => {
@@ -206,13 +237,40 @@ const EventFormModal = ({
   }, [formData.attendees, handleChange]);
 
   // Handle audio recording complete
-  const handleAudioRecording = useCallback((audioBlob) => {
-    // In a real implementation, you would upload this to your server
-    // For now, we'll create a temporary URL
-    const audioUrl = URL.createObjectURL(audioBlob);
-    handleChange('audio_url', audioUrl);
+  const handleAudioRecording = useCallback(async (audioBlob) => {
+    if (!audioBlob) return;
+    if (audioPreviewUrl) {
+      URL.revokeObjectURL(audioPreviewUrl);
+    }
+
+    const previewUrl = URL.createObjectURL(audioBlob);
+    setAudioPreviewUrl(previewUrl);
     setShowAudioRecorder(false);
-  }, [handleChange]);
+    setIsUploadingAudio(true);
+    setAudioError('');
+
+    const uploadForm = new FormData();
+    uploadForm.append('file', audioBlob, `event-audio-${Date.now()}.webm`);
+    uploadForm.append('context', 'calendar');
+
+    try {
+      const response = await uploadAttachment(uploadForm);
+      const uploaded = response.data;
+      appendAttachment(uploaded);
+      handleChange('audio_url', uploaded.url);
+      toast.success('Audio-Anweisung hinzugefügt');
+    } catch (error) {
+      console.error('Error uploading audio attachment', error);
+      setAudioError('Audio konnte nicht hochgeladen werden');
+      toast.error('Audio konnte nicht hochgeladen werden');
+    } finally {
+      setIsUploadingAudio(false);
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+      setAudioPreviewUrl(null);
+    }
+  }, [appendAttachment, audioPreviewUrl, handleChange, uploadAttachment]);
 
   // Handle photo upload
   const handlePhotoUpload = useCallback((e) => {
@@ -331,6 +389,8 @@ const EventFormModal = ({
       setIsSubmitting(false);
     }
   }, [formData, validateForm, onSave, onClose]);
+
+  const playbackAudioUrl = formData.audio_url || audioPreviewUrl;
 
   if (!isOpen) return null;
 
@@ -606,6 +666,7 @@ const EventFormModal = ({
             />
           </div>
 
+
           {/* Audio Recording */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
@@ -613,7 +674,7 @@ const EventFormModal = ({
               Audio-Anweisung
             </label>
 
-            {!showAudioRecorder && !formData.audio_url && (
+            {!showAudioRecorder && !playbackAudioUrl && !isUploadingAudio && (
               <button
                 type="button"
                 onClick={() => setShowAudioRecorder(true)}
@@ -628,7 +689,7 @@ const EventFormModal = ({
               <div>
                 <VoiceRecorder
                   onRecordingComplete={handleAudioRecording}
-                  existingAudioUrl={formData.audio_url}
+                  existingAudioUrl={playbackAudioUrl}
                 />
                 <button
                   type="button"
@@ -640,14 +701,22 @@ const EventFormModal = ({
               </div>
             )}
 
-            {formData.audio_url && !showAudioRecorder && (
+            {playbackAudioUrl && !showAudioRecorder && (
               <div className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-xl">
                 <div className="flex-1">
-                  <audio controls src={formData.audio_url} className="w-full" />
+                  <audio controls src={playbackAudioUrl} className="w-full" />
                 </div>
                 <button
                   type="button"
-                  onClick={() => handleChange('audio_url', null)}
+                  onClick={() => {
+                    const currentUrl = formData.audio_url;
+                    handleChange('audio_url', null);
+                    removeAttachmentByUrl(currentUrl);
+                    if (audioPreviewUrl) {
+                      URL.revokeObjectURL(audioPreviewUrl);
+                      setAudioPreviewUrl(null);
+                    }
+                  }}
                   className="p-2 text-red-600 hover:bg-red-100 rounded-lg"
                   title="Audio löschen"
                 >
@@ -655,6 +724,15 @@ const EventFormModal = ({
                 </button>
               </div>
             )}
+
+            {isUploadingAudio && (
+              <p className="text-sm text-gray-500 mt-2">Audio wird hochgeladen...</p>
+            )}
+
+            {audioError && (
+              <p className="text-sm text-red-600 mt-2">{audioError}</p>
+            )}
+          </div>
           </div>
 
           {/* Photo Upload */}

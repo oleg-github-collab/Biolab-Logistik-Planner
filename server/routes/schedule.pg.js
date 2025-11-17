@@ -353,10 +353,13 @@ function transformEventRow(row) {
   const attachments = normalizeAttachments(row.attachments);
   const tags = normalizeTags(row.tags);
   const attendees = normalizeAttendees(row.attendees);
+  const audioAttachment = attachments.find((file) => file?.type === 'audio' && file.url);
+  const audioUrl = audioAttachment ? audioAttachment.url : null;
 
   return {
     ...row,
     attachments,
+    audio_url: audioUrl,
     tags,
     attendees,
     all_day: parseBoolean(row.all_day, false),

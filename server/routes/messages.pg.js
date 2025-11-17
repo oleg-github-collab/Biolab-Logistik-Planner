@@ -748,7 +748,13 @@ router.get('/unread-count', auth, async (req, res) => {
       [req.user.id]
     );
 
-    res.json({ count: parseInt(result.rows[0].count) });
+    const unreadCount = parseInt(result.rows[0].count);
+
+    // Return both formats for compatibility
+    res.json({
+      count: unreadCount,
+      unreadCount: unreadCount
+    });
 
   } catch (error) {
     logger.error('Error fetching unread count', error);
