@@ -156,15 +156,8 @@ class BLBot {
         [userId]
       );
 
-      // Get recent audit log entries for this user
-      const auditLog = await pool.query(
-        `SELECT action, entity_type, changes, created_at
-         FROM audit_logs
-         WHERE user_id = $1
-         ORDER BY created_at DESC
-         LIMIT 10`,
-        [userId]
-      );
+      // Skip audit logs (table doesn't exist yet)
+      const auditLog = { rows: [] };
 
       console.log('✅ getUserContext successful:', {
         userName: user.rows[0].name,
@@ -178,7 +171,7 @@ class BLBot {
         events: events.rows,
         schedule: schedule.rows,
         workHistory: workHistory.rows,
-        auditLog: auditLog.rows
+        auditLog: []
       };
     } catch (error) {
       console.error('❌ Error getting user context:', error);
@@ -362,9 +355,6 @@ ${schedule.map(s => {
 
 **Arbeitszeit-Historie (letzte 4 Wochen):**
 ${workHistory.length > 0 ? workHistory.map(w => `- KW ${this.getWeekNumber(new Date(w.week_start))}: ${parseFloat(w.total_hours).toFixed(1)}h`).join('\n') : '- Keine Daten verfügbar'}
-
-**Letzte Aktivitäten:**
-${auditLog.length > 0 ? auditLog.slice(0, 5).map(a => `- ${a.action} ${a.entity_type} am ${new Date(a.created_at).toLocaleDateString('de-DE')}`).join('\n') : '- Keine Aktivitäten'}
 `;
 
     if (kbArticles.length > 0) {
