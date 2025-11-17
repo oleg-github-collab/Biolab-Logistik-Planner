@@ -283,7 +283,12 @@
     border-radius: 18px;
     padding: 12px 16px;
     max-width: 85%;
+    /* Prevent horizontal overflow from long URLs/text */
     word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    hyphens: auto;
+    white-space: pre-wrap;
   }
 
   /* My messages - aligned right with blue gradient */

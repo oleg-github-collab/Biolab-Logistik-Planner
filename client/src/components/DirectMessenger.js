@@ -1997,7 +1997,11 @@ const DirectMessenger = () => {
                       handleSendMessage();
                     }
                   }}
-                  placeholder="Nachricht schreiben..."
+                  placeholder={
+                    selectedThreadId && threads.find(t => t.id === selectedThreadId)?.type === 'group'
+                      ? "Nachricht schreiben... (Tipp: @BL_Bot für Hilfe)"
+                      : "Nachricht schreiben..."
+                  }
                   className="flex-1 px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
 
@@ -2237,7 +2241,11 @@ const DirectMessenger = () => {
                 type="text"
                 value={messageInput}
                 onChange={handleInputChange}
-                placeholder="Nachricht schreiben..."
+                placeholder={
+                  selectedThreadId && threads.find(t => t.id === selectedThreadId)?.type === 'group'
+                    ? "Nachricht... (@BL_Bot für Hilfe)"
+                    : "Nachricht schreiben..."
+                }
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
