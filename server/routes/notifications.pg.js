@@ -90,20 +90,32 @@ router.put('/:id/read', auth, async (req, res) => {
   try {
     const { id } = req.params;
 
+    // Handle localStorage-generated IDs (e.g., 'notif-1763341037144')
+    if (typeof id === 'string' && id.startsWith('notif-')) {
+      logger.debug('localStorage notification marked as read (client-side only)', { id, userId: req.user.id });
+      return res.json({ success: true, id, is_read: true, read_at: new Date() });
+    }
+
+    // Validate integer ID
+    const numericId = parseInt(id);
+    if (isNaN(numericId)) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+
     const result = await pool.query(
       `UPDATE notifications SET
         is_read = TRUE,
         read_at = CURRENT_TIMESTAMP
       WHERE id = $1 AND user_id = $2
       RETURNING *`,
-      [id, req.user.id]
+      [numericId, req.user.id]
     );
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Notification not found' });
     }
 
-    logger.info('Notification marked as read', { notificationId: id, userId: req.user.id });
+    logger.info('Notification marked as read', { notificationId: numericId, userId: req.user.id });
 
     res.json(result.rows[0]);
 
@@ -148,18 +160,30 @@ router.delete('/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
 
+    // Handle localStorage-generated IDs (e.g., 'notif-1763341037144')
+    if (typeof id === 'string' && id.startsWith('notif-')) {
+      logger.debug('localStorage notification deleted (client-side only)', { id, userId: req.user.id });
+      return res.json({ success: true, deleted_id: id });
+    }
+
+    // Validate integer ID
+    const numericId = parseInt(id);
+    if (isNaN(numericId)) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+
     const result = await pool.query(
       'DELETE FROM notifications WHERE id = $1 AND user_id = $2 RETURNING id',
-      [id, req.user.id]
+      [numericId, req.user.id]
     );
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Notification not found' });
     }
 
-    logger.info('Notification deleted', { notificationId: id, userId: req.user.id });
+    logger.info('Notification deleted', { notificationId: numericId, userId: req.user.id });
 
-    res.json({ success: true, deleted_id: id });
+    res.json({ success: true, deleted_id: numericId });
 
   } catch (error) {
     logger.error('Error deleting notification', error);
@@ -425,12 +449,25 @@ router.put('/:id/snooze', auth, async (req, res) => {
     const { id } = req.params;
     const { minutes = 60 } = req.body;
 
+    // Handle localStorage-generated IDs (e.g., 'notif-1763341037144')
+    if (typeof id === 'string' && id.startsWith('notif-')) {
+      logger.debug('localStorage notification snoozed (client-side only)', { id, userId: req.user.id, minutes });
+      const snoozedUntil = new Date(Date.now() + minutes * 60000);
+      return res.json({ success: true, id, snoozed_until: snoozedUntil });
+    }
+
+    // Validate integer ID
+    const numericId = parseInt(id);
+    if (isNaN(numericId)) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+
     const result = await pool.query(
       `UPDATE notifications SET
         snoozed_until = CURRENT_TIMESTAMP + INTERVAL '${minutes} minutes'
       WHERE id = $1 AND user_id = $2
       RETURNING *`,
-      [id, req.user.id]
+      [numericId, req.user.id]
     );
 
     if (result.rows.length === 0) {
@@ -441,10 +478,10 @@ router.put('/:id/snooze', auth, async (req, res) => {
     await pool.query(
       `INSERT INTO notification_actions (notification_id, user_id, action_type, action_metadata)
        VALUES ($1, $2, 'snooze', $3)`,
-      [id, req.user.id, JSON.stringify({ minutes })]
+      [numericId, req.user.id, JSON.stringify({ minutes })]
     );
 
-    logger.info('Notification snoozed', { notificationId: id, userId: req.user.id, minutes });
+    logger.info('Notification snoozed', { notificationId: numericId, userId: req.user.id, minutes });
     res.json(result.rows[0]);
 
   } catch (error) {
@@ -459,12 +496,24 @@ router.put('/:id/dismiss', auth, async (req, res) => {
   try {
     const { id } = req.params;
 
+    // Handle localStorage-generated IDs (e.g., 'notif-1763341037144')
+    if (typeof id === 'string' && id.startsWith('notif-')) {
+      logger.debug('localStorage notification dismissed (client-side only)', { id, userId: req.user.id });
+      return res.json({ success: true, id, dismissed_at: new Date() });
+    }
+
+    // Validate integer ID
+    const numericId = parseInt(id);
+    if (isNaN(numericId)) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+
     const result = await pool.query(
       `UPDATE notifications SET
         dismissed_at = CURRENT_TIMESTAMP
       WHERE id = $1 AND user_id = $2
       RETURNING *`,
-      [id, req.user.id]
+      [numericId, req.user.id]
     );
 
     if (result.rows.length === 0) {
@@ -475,10 +524,10 @@ router.put('/:id/dismiss', auth, async (req, res) => {
     await pool.query(
       `INSERT INTO notification_actions (notification_id, user_id, action_type)
        VALUES ($1, $2, 'dismiss')`,
-      [id, req.user.id]
+      [numericId, req.user.id]
     );
 
-    logger.info('Notification dismissed', { notificationId: id, userId: req.user.id });
+    logger.info('Notification dismissed', { notificationId: numericId, userId: req.user.id });
     res.json(result.rows[0]);
 
   } catch (error) {
@@ -494,6 +543,25 @@ router.put('/:id/action', auth, async (req, res) => {
     const { id } = req.params;
     const { action_type, metadata = {} } = req.body;
 
+    // Handle localStorage-generated IDs (e.g., 'notif-1763341037144')
+    if (typeof id === 'string' && id.startsWith('notif-')) {
+      logger.debug('localStorage notification action taken (client-side only)', { id, userId: req.user.id, action: action_type });
+      return res.json({
+        success: true,
+        id,
+        action_taken: action_type,
+        action_taken_at: new Date(),
+        is_read: true,
+        read_at: new Date()
+      });
+    }
+
+    // Validate integer ID
+    const numericId = parseInt(id);
+    if (isNaN(numericId)) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+
     const result = await pool.query(
       `UPDATE notifications SET
         action_taken = $3,
@@ -502,7 +570,7 @@ router.put('/:id/action', auth, async (req, res) => {
         read_at = COALESCE(read_at, CURRENT_TIMESTAMP)
       WHERE id = $1 AND user_id = $2
       RETURNING *`,
-      [id, req.user.id, action_type]
+      [numericId, req.user.id, action_type]
     );
 
     if (result.rows.length === 0) {
@@ -513,10 +581,10 @@ router.put('/:id/action', auth, async (req, res) => {
     await pool.query(
       `INSERT INTO notification_actions (notification_id, user_id, action_type, action_metadata)
        VALUES ($1, $2, $3, $4)`,
-      [id, req.user.id, action_type, metadata]
+      [numericId, req.user.id, action_type, metadata]
     );
 
-    logger.info('Notification action taken', { notificationId: id, userId: req.user.id, action: action_type });
+    logger.info('Notification action taken', { notificationId: numericId, userId: req.user.id, action: action_type });
     res.json(result.rows[0]);
 
   } catch (error) {
