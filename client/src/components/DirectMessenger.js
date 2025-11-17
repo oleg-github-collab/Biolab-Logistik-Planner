@@ -506,49 +506,53 @@ const DirectMessenger = () => {
     }
   }, [joinConversationRoom, loadMessages, isMobile]);
 
-  // Load group members
-  const loadGroupMembers = useCallback(async (conversationId) => {
-    if (!conversationId) return;
-
-    try {
-      const response = await fetch(`/api/messages/conversations/${conversationId}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      if (!response.ok) throw new Error('Failed to fetch conversation details');
-
-      const data = await response.json();
-      if (data?.members && Array.isArray(data.members)) {
-        setGroupMembers(data.members);
-      }
-    } catch (error) {
-      console.error('Error loading group members:', error);
-    }
-  }, []);
-
   // Load members when thread changes to group
   useEffect(() => {
     const currentThread = threads.find(t => t.id === selectedThreadId);
-    if (currentThread?.type === 'group') {
-      loadGroupMembers(selectedThreadId);
+    if (currentThread?.type === 'group' && selectedThreadId) {
+      // Load group members directly in useEffect
+      const loadMembers = async () => {
+        try {
+          const response = await fetch(`/api/messages/conversations/${selectedThreadId}`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+          });
+
+          if (!response.ok) throw new Error('Failed to fetch conversation details');
+
+          const data = await response.json();
+          if (data?.members && Array.isArray(data.members)) {
+            setGroupMembers(data.members);
+          }
+        } catch (error) {
+          console.error('Error loading group members:', error);
+        }
+      };
+
+      loadMembers();
     } else {
       setGroupMembers([]);
     }
-  }, [selectedThreadId, threads, loadGroupMembers]);
+  }, [selectedThreadId, threads]);
 
   // Handle input change with @mention detection and typing indicator
-  const handleInputChange = useCallback((e) => {
+  const handleInputChange = (e) => {
     const value = e.target.value;
     const cursorPos = e.target.selectionStart;
 
     setMessageInput(value);
     setCursorPosition(cursorPos);
 
-    // Send typing indicator
-    if (value.trim()) {
-      sendTypingIndicator(true);
+    // Send typing indicator using the memoized function
+    if (value.trim() && selectedThreadId && isConnected) {
+      if (window.socket) {
+        window.socket.emit('typing:start', {
+          conversationId: selectedThreadId,
+          userId: user?.id,
+          userName: user?.name
+        });
+      }
 
       // Clear previous timeout
       if (typingTimeoutRef.current) {
@@ -557,10 +561,18 @@ const DirectMessenger = () => {
 
       // Stop typing indicator after 3 seconds of inactivity
       typingTimeoutRef.current = setTimeout(() => {
-        sendTypingIndicator(false);
+        if (window.socket && selectedThreadId) {
+          window.socket.emit('typing:stop', {
+            conversationId: selectedThreadId,
+            userId: user?.id
+          });
+        }
       }, 3000);
-    } else {
-      sendTypingIndicator(false);
+    } else if (!value.trim() && window.socket && selectedThreadId) {
+      window.socket.emit('typing:stop', {
+        conversationId: selectedThreadId,
+        userId: user?.id
+      });
     }
 
     // Check for @ mention
@@ -576,7 +588,7 @@ const DirectMessenger = () => {
         setMentionQuery(query);
 
         // Filter members by query
-        if (groupMembers.length > 0) {
+        if (Array.isArray(groupMembers) && groupMembers.length > 0) {
           const filtered = groupMembers.filter(member =>
             member.name?.toLowerCase().includes(query) ||
             member.email?.toLowerCase().includes(query)
@@ -591,10 +603,10 @@ const DirectMessenger = () => {
     } else {
       setShowMentionSuggestions(false);
     }
-  }, [groupMembers, sendTypingIndicator]);
+  };
 
   // Insert mention
-  const insertMention = useCallback((member) => {
+  const insertMention = (member) => {
     const textBeforeCursor = messageInput.substring(0, cursorPosition);
     const textAfterCursor = messageInput.substring(cursorPosition);
     const lastAtSymbol = textBeforeCursor.lastIndexOf('@');
@@ -607,7 +619,7 @@ const DirectMessenger = () => {
       setShowMentionSuggestions(false);
       setMentionQuery('');
     }
-  }, [messageInput, cursorPosition]);
+  };
 
   // Highlight @mentions in message text
   const highlightMentions = (text, isMine) => {
