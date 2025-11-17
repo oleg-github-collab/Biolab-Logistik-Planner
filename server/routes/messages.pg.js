@@ -974,15 +974,31 @@ const sendMessageHandler = async (req, res) => {
 
     // Check if message is sent to BL_Bot and process it
     if (blBot.initialized && blBot.botUser) {
-      const isSentToBot = resolvedRecipientId === blBot.botUser.id || memberIds.includes(blBot.botUser.id);
+      const botId = blBot.botUser.id;
+      const isSentToBot = resolvedRecipientId === botId || memberIds.includes(botId);
+      const isFromBot = req.user.id === botId;
 
-      if (isSentToBot && req.user.id !== blBot.botUser.id) {
+      // In group conversations: only respond if @mentioned
+      // In direct conversations: always respond
+      const shouldRespond = !isFromBot && (
+        (resolvedRecipientId === botId) || // Direct message to bot
+        (conversation?.conversation_type === 'direct') || // Direct conversation
+        (mentionedUserIds && mentionedUserIds.includes(botId)) // @mentioned in group
+      );
+
+      if (isSentToBot && shouldRespond) {
         // Process message with BL_Bot in background
         setImmediate(async () => {
           try {
             const response = await blBot.processIncomingMessage(req.user.id, messageContent);
             if (response) {
-              await blBot.sendMessage(req.user.id, response);
+              // For group conversations, send to conversation
+              // For direct conversations, send to user
+              if (targetConversationId && conversation?.conversation_type !== 'direct') {
+                await blBot.sendMessageToConversation(targetConversationId, response);
+              } else {
+                await blBot.sendMessage(req.user.id, response);
+              }
             }
           } catch (error) {
             logger.error('Error processing BL_Bot message:', error);

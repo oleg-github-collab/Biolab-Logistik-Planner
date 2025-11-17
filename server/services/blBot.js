@@ -498,7 +498,7 @@ Schönes Wochenende! 🎉`;
   }
 
   /**
-   * Send message from BL_Bot to user
+   * Send message from BL_Bot to user (direct message)
    */
   async sendMessage(recipientId, message) {
     try {
@@ -530,6 +530,61 @@ Schönes Wochenende! 🎉`;
       logger.info('BL_Bot message sent', { recipientId, messageId: newMessage.id });
     } catch (error) {
       logger.error('Error sending BL_Bot message:', error);
+    }
+  }
+
+  /**
+   * Send message from BL_Bot to group conversation
+   */
+  async sendMessageToConversation(conversationId, message) {
+    try {
+      if (!this.initialized || !this.botUser) {
+        logger.error('BL_Bot not initialized');
+        return;
+      }
+
+      // Insert message into database
+      const result = await pool.query(
+        `INSERT INTO messages (sender_id, conversation_id, content, message_type, created_at)
+         VALUES ($1, $2, $3, 'text', NOW())
+         RETURNING *`,
+        [this.botUser.id, conversationId, message]
+      );
+
+      const newMessage = result.rows[0];
+
+      // Get conversation members
+      const members = await pool.query(
+        `SELECT user_id FROM message_conversation_members WHERE conversation_id = $1`,
+        [conversationId]
+      );
+
+      // Send via WebSocket to all conversation members
+      const io = getIO();
+      if (io) {
+        const payload = {
+          conversationId,
+          message: {
+            ...newMessage,
+            sender_name: this.botUser.name,
+            sender_photo: this.botUser.profile_photo
+          }
+        };
+
+        // Emit to conversation room
+        io.to(`conversation_${conversationId}`).emit('conversation:new_message', payload);
+
+        // Also emit to individual user rooms
+        members.rows.forEach(member => {
+          if (member.user_id !== this.botUser.id) {
+            io.to(`user_${member.user_id}`).emit('conversation:new_message', payload);
+          }
+        });
+      }
+
+      logger.info('BL_Bot message sent to conversation', { conversationId, messageId: newMessage.id });
+    } catch (error) {
+      logger.error('Error sending BL_Bot message to conversation:', error);
     }
   }
 
