@@ -3266,6 +3266,44 @@ body {
   color: #94a3b8;
 }
 
+.kb-mobile-fab-group {
+  position: fixed;
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0));
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  z-index: 45;
+}
+
+.kb-mobile-fab {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: #2563eb;
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.35);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.kb-mobile-fab:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px rgba(37, 99, 235, 0.4);
+}
+
+.kb-mobile-fab:focus-visible {
+  outline: 2px solid #93c5fd;
+  outline-offset: 2px;
+}
+
+.kb-mobile-fab--dictate {
+  background: #16a34a;
+}
+
 .calendar-mobile-toolbar__top {
   display: flex;
   align-items: center;

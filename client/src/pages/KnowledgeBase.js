@@ -259,6 +259,7 @@ const ArticleViewModal = ({
   onVersionDiff,
   diffLoadingVersion
 }) => {
+  const { isMobile } = useMobile();
   const [isDeleting, setIsDeleting] = useState(false);
   const [voting, setVoting] = useState(false);
   const [versions, setVersions] = useState([]);
@@ -359,216 +360,242 @@ const ArticleViewModal = ({
     }
   };
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-start justify-between p-6 border-b border-gray-200">
-          <div className="flex-1 mr-4">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              {article.title}
-            </h2>
-            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
-              <div className="flex items-center">
-                <User size={16} className="mr-1" />
-                <span>{article.author_name || 'Unbekannt'}</span>
-              </div>
+  const headerPadding = isMobile ? 'px-5 py-4' : 'px-6 py-4';
+  const bodyPadding = isMobile ? 'px-5 py-4' : 'px-6 py-6';
+  const footerPadding = isMobile ? 'px-5 py-4' : 'px-6 py-6';
+  const bodySpacing = isMobile ? 'space-y-5' : 'space-y-6';
+  const footerLayout = isMobile ? 'flex flex-col gap-3' : 'flex items-center justify-between';
+  const versionListClass = isMobile
+    ? 'mt-4 space-y-3 max-h-[35vh] overflow-y-auto pr-1'
+    : 'mt-4 space-y-3';
+  const bodyClassName = `${bodyPadding} ${bodySpacing} flex-1 overflow-y-auto ${isMobile ? 'max-h-[55vh]' : ''}`;
+
+  const modalContent = (
+    <div className="flex flex-col h-full">
+      <div className={`flex items-start justify-between ${headerPadding} border-b border-gray-200`}>
+        <div className="flex-1 mr-4">
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            {article.title}
+          </h2>
+          <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
             <div className="flex items-center">
-              <Calendar size={16} className="mr-1" />
-              <span>{formatDateTime(article.created_at)}</span>
+              <User size={16} className="mr-1" />
+              <span>{article.author_name || 'Unbekannt'}</span>
             </div>
-            <div className="flex items-center">
-              <Eye size={16} className="mr-1" />
-              <span>{article.views_count || 0} Aufrufe</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Layers size={16} className="text-gray-500" />
-              <span>
-                {article.version_count || 0} Version{article.version_count === 1 ? '' : 'en'}
+          <div className="flex items-center">
+            <Calendar size={16} className="mr-1" />
+            <span>{formatDateTime(article.created_at)}</span>
+          </div>
+          <div className="flex items-center">
+            <Eye size={16} className="mr-1" />
+            <span>{article.views_count || 0} Aufrufe</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Layers size={16} className="text-gray-500" />
+            <span>
+              {article.version_count || 0} Version{article.version_count === 1 ? '' : 'en'}
+            </span>
+          </div>
+            {article.category_name && (
+              <span
+                className="px-2 py-1 text-xs font-medium rounded-full text-white"
+                style={{ backgroundColor: article.category_color || '#6B7280' }}
+              >
+                {article.category_name}
               </span>
-            </div>
-              {article.category_name && (
-                <span
-                  className="px-2 py-1 text-xs font-medium rounded-full text-white"
-                  style={{ backgroundColor: article.category_color || '#6B7280' }}
-                >
-                  {article.category_name}
-                </span>
-              )}
+            )}
+          </div>
+        </div>
+        <button
+          onClick={onClose}
+          className="text-gray-400 hover:text-gray-600 transition-colors"
+        >
+          <X size={24} />
+        </button>
+      </div>
+
+      <div className={bodyClassName}>
+        {article.summary && (
+          <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 text-sm text-blue-900">
+            {article.summary}
+          </div>
+        )}
+
+        <div className="prose prose-sm max-w-none">
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            rehypePlugins={[rehypeHighlight]}
+          >
+            {article.content}
+          </ReactMarkdown>
+        </div>
+
+        {article.media && article.media.length > 0 && (
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">Medien</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {article.media.map((media) => (
+                <div key={media.id} className="border border-gray-200 rounded-xl p-3 bg-gray-50 space-y-2">
+                  {renderMediaPreview(media)}
+                  {media.caption && (
+                    <p className="text-xs text-gray-600">{media.caption}</p>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
+        )}
+
+        {article.tags && article.tags.length > 0 && (
+          <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-200">
+            <Tag size={16} className="text-gray-500 mr-2" />
+            {article.tags.map((tag, index) => (
+              <span
+                key={index}
+                className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-full"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+
+        <div className="pt-4 border-t border-gray-200">
           <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            type="button"
+            onClick={toggleVersions}
+            className="text-sm font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-2"
           >
-            <X size={24} />
+            <Layers size={16} />
+            {showVersions
+              ? 'Versionen ausblenden'
+              : `Versionen anzeigen (${versions.length || article.version_count || 0})`}
+          </button>
+
+          {showVersions && (
+            <div className={versionListClass}>
+              {versionsLoading ? (
+                <LoadingSpinner />
+              ) : versions.length === 0 ? (
+                <p className="text-sm text-gray-500">Keine Versionen verfügbar.</p>
+              ) : (
+                versions.map((version) => (
+                  <div
+                    key={version.id || version.version_number}
+                    className="flex items-center justify-between border border-gray-200 rounded-lg p-3 bg-white"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">
+                        Version {version.version_number}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {formatDateTime(version.created_at)} · {version.author_name || 'Unbekannt'}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {onVersionDiff && (
+                        <button
+                          type="button"
+                          onClick={() => onVersionDiff(version.version_number)}
+                          disabled={diffLoadingVersion === version.version_number}
+                          className="text-xs px-3 py-1.5 rounded-md border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                        >
+                          {diffLoadingVersion === version.version_number ? 'Lädt…' : 'Diff'}
+                        </button>
+                      )}
+                      {canRestore && (
+                        <button
+                          type="button"
+                          onClick={() => handleRestoreVersion(version.version_number)}
+                          className="text-xs px-3 py-1.5 rounded-md border border-blue-200 text-blue-700 hover:bg-blue-50"
+                        >
+                          Wiederherstellen
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className={`${footerLayout} ${footerPadding} border-t border-gray-200 bg-gray-50`}>
+        <div className="flex items-center space-x-2 flex-wrap">
+          <span className="text-sm text-gray-600">War dieser Artikel hilfreich?</span>
+          <button
+            onClick={() => handleVote(true)}
+            disabled={voting || article.user_vote === true}
+            className={`flex items-center space-x-1 px-3 py-2 rounded-md transition-colors ${
+              article.user_vote === true
+                ? 'bg-green-100 text-green-700'
+                : 'bg-gray-100 hover:bg-green-50 text-gray-700 hover:text-green-700'
+            } disabled:opacity-50`}
+          >
+            <ThumbsUp size={16} />
+            <span className="text-sm font-medium">{article.helpful_count || 0}</span>
+          </button>
+          <button
+            onClick={() => handleVote(false)}
+            disabled={voting || article.user_vote === false}
+            className={`flex items-center space-x-1 px-3 py-2 rounded-md transition-colors ${
+              article.user_vote === false
+                ? 'bg-red-100 text-red-700'
+                : 'bg-gray-100 hover:bg-red-50 text-gray-700 hover:text-red-700'
+            } disabled:opacity-50`}
+          >
+            <ThumbsDown size={16} />
+            <span className="text-sm font-medium">{article.not_helpful_count || 0}</span>
           </button>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {article.summary && (
-            <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 text-sm text-blue-900">
-              {article.summary}
-            </div>
-          )}
-
-          <div className="prose prose-sm max-w-none">
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              rehypePlugins={[rehypeHighlight]}
-            >
-              {article.content}
-            </ReactMarkdown>
-          </div>
-
-          {article.media && article.media.length > 0 && (
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">Medien</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {article.media.map((media) => (
-                  <div key={media.id} className="border border-gray-200 rounded-xl p-3 bg-gray-50 space-y-2">
-                    {renderMediaPreview(media)}
-                    {media.caption && (
-                      <p className="text-xs text-gray-600">{media.caption}</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {article.tags && article.tags.length > 0 && (
-            <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-200">
-              <Tag size={16} className="text-gray-500 mr-2" />
-              {article.tags.map((tag, index) => (
-                <span
-                  key={index}
-                  className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-full"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-          )}
-
-          <div className="pt-4 border-t border-gray-200">
+        <div className="flex items-center space-x-2 flex-wrap">
+          {canEdit && (
             <button
-              type="button"
-              onClick={toggleVersions}
-              className="text-sm font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-2"
+              onClick={() => onEdit(article)}
+              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
             >
-              <Layers size={16} />
-              {showVersions
-                ? 'Versionen ausblenden'
-                : `Versionen anzeigen (${versions.length || article.version_count || 0})`}
+              <Edit2 size={16} />
+              <span>Bearbeiten</span>
             </button>
-
-            {showVersions && (
-              <div className="mt-4 space-y-3">
-                {versionsLoading ? (
-                  <LoadingSpinner />
-                ) : versions.length === 0 ? (
-                  <p className="text-sm text-gray-500">Keine Versionen verfügbar.</p>
-                ) : (
-                  versions.map((version) => (
-                      <div
-                        key={version.id || version.version_number}
-                        className="flex items-center justify-between border border-gray-200 rounded-lg p-3 bg-white"
-                      >
-                        <div>
-                          <p className="text-sm font-semibold text-gray-900">
-                            Version {version.version_number}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {formatDateTime(version.created_at)} · {version.author_name || 'Unbekannt'}
-                          </p>
-                        </div>
-                      <div className="flex items-center gap-2">
-                        {onVersionDiff && (
-                          <button
-                            type="button"
-                            onClick={() => onVersionDiff(version.version_number)}
-                            disabled={diffLoadingVersion === version.version_number}
-                            className="text-xs px-3 py-1.5 rounded-md border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-60"
-                          >
-                            {diffLoadingVersion === version.version_number ? 'Lädt…' : 'Diff'}
-                          </button>
-                        )}
-                        {canRestore && (
-                          <button
-                            type="button"
-                            onClick={() => handleRestoreVersion(version.version_number)}
-                            className="text-xs px-3 py-1.5 rounded-md border border-blue-200 text-blue-700 hover:bg-blue-50"
-                          >
-                            Wiederherstellen
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
-          <div className="flex items-center space-x-4">
-            <span className="text-sm text-gray-600">War dieser Artikel hilfreich?</span>
+          )}
+          {canDelete && (
             <button
-              onClick={() => handleVote(true)}
-              disabled={voting || article.user_vote === true}
-              className={`flex items-center space-x-1 px-3 py-2 rounded-md transition-colors ${
-                article.user_vote === true
-                  ? 'bg-green-100 text-green-700'
-                  : 'bg-gray-100 hover:bg-green-50 text-gray-700 hover:text-green-700'
-              } disabled:opacity-50`}
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:opacity-50"
             >
-              <ThumbsUp size={16} />
-              <span className="text-sm font-medium">{article.helpful_count || 0}</span>
+              <Trash2 size={16} />
+              <span>{isDeleting ? 'Wird gelöscht...' : 'Löschen'}</span>
             </button>
-            <button
-              onClick={() => handleVote(false)}
-              disabled={voting || article.user_vote === false}
-              className={`flex items-center space-x-1 px-3 py-2 rounded-md transition-colors ${
-                article.user_vote === false
-                  ? 'bg-red-100 text-red-700'
-                  : 'bg-gray-100 hover:bg-red-50 text-gray-700 hover:text-red-700'
-              } disabled:opacity-50`}
-            >
-              <ThumbsDown size={16} />
-              <span className="text-sm font-medium">{article.not_helpful_count || 0}</span>
-            </button>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            {canEdit && (
-              <button
-                onClick={() => onEdit(article)}
-                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-              >
-                <Edit2 size={16} />
-                <span>Bearbeiten</span>
-              </button>
-            )}
-            {canDelete && (
-              <button
-                onClick={handleDelete}
-                disabled={isDeleting}
-                className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:opacity-50"
-              >
-                <Trash2 size={16} />
-                <span>{isDeleting ? 'Wird gelöscht...' : 'Löschen'}</span>
-              </button>
-            )}
-          </div>
+          )}
         </div>
       </div>
     </div>
   );
+
+  if (isMobile) {
+    return (
+      <div className="modal-base active" role="dialog" aria-modal="true">
+        <div className="backdrop active" />
+        <div className="bottom-sheet max-h-[90vh] w-full">
+          <div className="pull-handle" aria-hidden="true" />
+          {modalContent}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+        {modalContent}
+      </div>
+    </div>
+  );
 };
+
 
 // Article Editor Modal Component
 const ArticleEditorModal = ({ article, categories, allTags, onSave, onClose, onDraftSaved = () => {} }) => {
@@ -1656,6 +1683,122 @@ const KnowledgeBaseV3 = () => {
     }
   };
 
+  const dictationHeaderPadding = isMobile ? 'px-5 py-4' : 'px-6 py-4';
+  const dictationBodyClass = `${isMobile ? 'px-5 py-5' : 'px-6 py-6'} space-y-5 flex-1 overflow-y-auto`;
+  const dictationPanelOverlayClass = isMobile
+    ? 'modal-base active'
+    : 'fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4 py-8';
+  const dictationPanelClass = isMobile
+    ? 'bottom-sheet max-h-[90vh] w-full'
+    : 'bg-white rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden';
+  const dictationContent = (
+    <div className="flex flex-col h-full">
+      <div className={`flex items-center justify-between ${dictationHeaderPadding} border-b border-gray-200`}>
+        <div>
+          <p className="text-xs text-gray-500 uppercase tracking-[0.2em]">Voice Assistant</p>
+          <h3 className="text-xl font-bold text-slate-900">Artikel diktieren</h3>
+        </div>
+        <button onClick={closeDictationModal} className="text-gray-400 hover:text-gray-600">
+          <X size={20} />
+        </button>
+      </div>
+      <div className={dictationBodyClass}>
+        <div className="flex items-center gap-3">
+          <label className="text-sm font-semibold text-gray-700">Sprache</label>
+          <select
+            className="border border-gray-200 rounded-lg px-3 py-1 text-sm"
+            value={dictationLanguage}
+            onChange={(e) => setDictationLanguage(e.target.value)}
+          >
+            {DICTATION_LANGUAGES.map((lang) => (
+              <option key={lang.value} value={lang.value}>
+                {lang.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <VoiceRecorder
+          onRecordingComplete={handleDictationComplete}
+          existingAudioUrl={null}
+        />
+
+        {dictationLoading && (
+          <p className="text-sm text-gray-500">
+            Verarbeitung läuft... Bitte einen Moment warten.
+          </p>
+        )}
+
+        {dictationError && (
+          <p className="text-sm text-red-600">{dictationError}</p>
+        )}
+
+        {dictationPreview && (
+          <div className="space-y-3 border border-gray-100 rounded-2xl p-4 bg-slate-50">
+            <div className="flex items-center justify-between">
+              <h4 className="text-lg font-semibold text-slate-900">
+                {dictationPreview.title || 'Neue Anleitung'}
+              </h4>
+              <span className="text-xs uppercase text-blue-600 tracking-[0.2em]">
+                {dictationPreview.steps?.length || 0} Schritte
+              </span>
+            </div>
+            {dictationPreview.styleHint && (
+              <p className="text-xs text-blue-600 uppercase tracking-[0.3em]">
+                {dictationPreview.styleHint}
+              </p>
+            )}
+            <p className="text-sm text-slate-600">{dictationPreview.summary}</p>
+            <div className="space-y-2">
+              {(dictationPreview.steps || []).map((step, index) => (
+                <p key={`${step}-${index}`} className="text-sm text-slate-800">
+                  <span className="font-semibold">{index + 1}.</span> {step}
+                </p>
+              ))}
+            </div>
+            {dictationPreview.details && (
+              <div className="rounded-2xl border border-dashed border-slate-200 p-3 bg-white/70">
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-500 mb-1">
+                  Zusätzliche Hinweise
+                </p>
+                <p className="text-sm text-slate-700">{dictationPreview.details}</p>
+              </div>
+            )}
+            <div>
+              <p className="text-xs text-gray-500 uppercase tracking-wide">Transkript</p>
+              <pre className="max-h-32 overflow-y-auto text-xs text-slate-700 bg-white/70 rounded-xl p-3 border border-dashed border-slate-200">
+                {dictationTranscript || 'Transkript wird angezeigt, sobald die Aufnahme verarbeitet ist.'}
+              </pre>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleOpenDictationEditor}
+                className="px-4 py-2 rounded-2xl bg-blue-600 text-white font-semibold text-sm shadow hover:bg-blue-700 transition"
+              >
+                ✏️ Artikel bearbeiten
+              </button>
+              <button
+                type="button"
+                onClick={handleUseDictation}
+                className="px-4 py-2 rounded-2xl bg-green-600 text-white font-semibold text-sm shadow hover:bg-green-700 transition"
+              >
+                ⚡ Schnell speichern
+              </button>
+              <button
+                type="button"
+                onClick={() => setDictationPreview(null)}
+                className="px-4 py-2 rounded-2xl bg-white text-slate-700 font-semibold text-sm border border-slate-200 hover:border-slate-400 transition"
+              >
+                🎤 Nochmals diktieren
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div className="kb-page">
       <div className="kb-layout">
@@ -1961,118 +2104,32 @@ const KnowledgeBaseV3 = () => {
       <VersionDiffModal isOpen={diffModalOpen} onClose={handleCloseDiffModal} diff={diffPayload} />
 
       {/* Floating Action Button (Mobile) */}
-      <button
-        onClick={handleCreateArticle}
-        className="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors flex items-center justify-center z-40"
-      >
-        <Plus size={24} />
-      </button>
+      {isMobile && (
+        <div className="kb-mobile-fab-group">
+          <button
+            type="button"
+            onClick={handleCreateArticle}
+            className="kb-mobile-fab"
+            aria-label="Artikel erstellen"
+          >
+            <Plus size={24} />
+          </button>
+          <button
+            type="button"
+            onClick={openDictationModal}
+            className="kb-mobile-fab kb-mobile-fab--dictate"
+            aria-label="Artikel diktieren"
+          >
+            <Mic size={20} />
+          </button>
+        </div>
+      )}
       {isDictationModalOpen && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4 py-8">
-          <div className="bg-white rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-500 uppercase tracking-[0.2em]">Voice Assistant</p>
-                <h3 className="text-xl font-bold text-slate-900">Artikel diktieren</h3>
-              </div>
-              <button onClick={closeDictationModal} className="text-gray-400 hover:text-gray-600">
-                <X size={20} />
-              </button>
-            </div>
-            <div className="px-6 py-6 space-y-5">
-              <div className="flex items-center gap-3">
-                <label className="text-sm font-semibold text-gray-700">Sprache</label>
-                <select
-                  className="border border-gray-200 rounded-lg px-3 py-1 text-sm"
-                  value={dictationLanguage}
-                  onChange={(e) => setDictationLanguage(e.target.value)}
-                >
-                  {DICTATION_LANGUAGES.map((lang) => (
-                    <option key={lang.value} value={lang.value}>
-                      {lang.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <VoiceRecorder
-                onRecordingComplete={handleDictationComplete}
-                existingAudioUrl={null}
-              />
-
-              {dictationLoading && (
-                <p className="text-sm text-gray-500">
-                  Verarbeitung läuft... Bitte einen Moment warten.
-                </p>
-              )}
-
-              {dictationError && (
-                <p className="text-sm text-red-600">{dictationError}</p>
-              )}
-
-              {dictationPreview && (
-                <div className="space-y-3 border border-gray-100 rounded-2xl p-4 bg-slate-50">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-lg font-semibold text-slate-900">
-                      {dictationPreview.title || 'Neue Anleitung'}
-                    </h4>
-                    <span className="text-xs uppercase text-blue-600 tracking-[0.2em]">
-                      {dictationPreview.steps?.length || 0} Schritte
-                    </span>
-                  </div>
-                  {dictationPreview.styleHint && (
-                    <p className="text-xs text-blue-600 uppercase tracking-[0.3em]">
-                      {dictationPreview.styleHint}
-                    </p>
-                  )}
-                  <p className="text-sm text-slate-600">{dictationPreview.summary}</p>
-                  <div className="space-y-2">
-                    {(dictationPreview.steps || []).map((step, index) => (
-                      <p key={`${step}-${index}`} className="text-sm text-slate-800">
-                        <span className="font-semibold">{index + 1}.</span> {step}
-                      </p>
-                    ))}
-                  </div>
-                  {dictationPreview.details && (
-                    <div className="rounded-2xl border border-dashed border-slate-200 p-3 bg-white/70">
-                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500 mb-1">
-                        Zusätzliche Hinweise
-                      </p>
-                      <p className="text-sm text-slate-700">{dictationPreview.details}</p>
-                    </div>
-                  )}
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wide">Transkript</p>
-                    <pre className="max-h-32 overflow-y-auto text-xs text-slate-700 bg-white/70 rounded-xl p-3 border border-dashed border-slate-200">
-                      {dictationTranscript || 'Transkript wird angezeigt, sobald die Aufnahme verarbeitet ist.'}
-                    </pre>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={handleOpenDictationEditor}
-                      className="px-4 py-2 rounded-2xl bg-blue-600 text-white font-semibold text-sm shadow hover:bg-blue-700 transition"
-                    >
-                      ✏️ Artikel bearbeiten
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleUseDictation}
-                      className="px-4 py-2 rounded-2xl bg-green-600 text-white font-semibold text-sm shadow hover:bg-green-700 transition"
-                    >
-                      ⚡ Schnell speichern
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDictationPreview(null)}
-                      className="px-4 py-2 rounded-2xl bg-white text-slate-700 font-semibold text-sm border border-slate-200 hover:border-slate-400 transition"
-                    >
-                      🎤 Nochmals diktieren
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+        <div className={dictationPanelOverlayClass}>
+          {isMobile && <div className="backdrop active" aria-hidden="true" />}
+          <div className={`${dictationPanelClass} flex flex-col ${isMobile ? 'h-full' : ''}`}>
+            {isMobile && <div className="pull-handle" aria-hidden="true" />}
+            {dictationContent}
           </div>
         </div>
       )}
