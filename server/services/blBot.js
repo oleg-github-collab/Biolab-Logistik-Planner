@@ -519,37 +519,92 @@ Schönes Wochenende! 🎉`;
   }
 
   /**
-   * Send message from BL_Bot to user (direct message)
+   * Send message from BL_Bot to user (direct message via conversation)
    */
   async sendMessage(recipientId, message) {
     try {
       if (!this.initialized || !this.botUser) {
+        console.error('❌ BL_Bot not initialized');
         logger.error('BL_Bot not initialized');
         return;
       }
 
-      // Insert message into database
+      console.log('🤖 sendMessage called:', { recipientId, botId: this.botUser.id });
+
+      // Find or create direct conversation with user
+      const conversationQuery = await pool.query(
+        `SELECT mc.id, mc.conversation_type
+         FROM message_conversations mc
+         JOIN message_conversation_members mcm1 ON mc.id = mcm1.conversation_id
+         JOIN message_conversation_members mcm2 ON mc.id = mcm2.conversation_id
+         WHERE mc.conversation_type = 'direct'
+         AND mcm1.user_id = $1
+         AND mcm2.user_id = $2
+         LIMIT 1`,
+        [this.botUser.id, recipientId]
+      );
+
+      let conversationId;
+      if (conversationQuery.rows.length > 0) {
+        conversationId = conversationQuery.rows[0].id;
+        console.log('🤖 Found existing conversation:', conversationId);
+      } else {
+        // Create new conversation
+        const newConv = await pool.query(
+          `INSERT INTO message_conversations (conversation_type, created_by, created_at)
+           VALUES ('direct', $1, NOW())
+           RETURNING id`,
+          [this.botUser.id]
+        );
+        conversationId = newConv.rows[0].id;
+
+        // Add both users as members
+        await pool.query(
+          `INSERT INTO message_conversation_members (conversation_id, user_id, role, joined_at)
+           VALUES ($1, $2, 'member', NOW()), ($1, $3, 'member', NOW())`,
+          [conversationId, this.botUser.id, recipientId]
+        );
+        console.log('🤖 Created new conversation:', conversationId);
+      }
+
+      // Insert message into database using new schema
       const result = await pool.query(
-        `INSERT INTO messages (sender_id, receiver_id, content, is_read, created_at)
-         VALUES ($1, $2, $3, false, NOW())
+        `INSERT INTO messages (sender_id, conversation_id, message, message_type, created_at)
+         VALUES ($1, $2, $3, 'text', NOW())
          RETURNING *`,
-        [this.botUser.id, recipientId, message]
+        [this.botUser.id, conversationId, message]
       );
 
       const newMessage = result.rows[0];
+      console.log('🤖 Message inserted into DB:', newMessage.id);
 
-      // Send via WebSocket
+      // Update conversation timestamp
+      await pool.query(
+        `UPDATE message_conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+        [conversationId]
+      );
+
+      // Send via WebSocket using new event format
       const io = getIO();
       if (io) {
-        io.to(`user_${recipientId}`).emit('message:new', {
-          ...newMessage,
-          sender_name: this.botUser.name,
-          sender_photo: this.botUser.profile_photo
-        });
+        const payload = {
+          conversationId,
+          message: {
+            ...newMessage,
+            sender_name: this.botUser.name,
+            sender_photo: this.botUser.profile_photo
+          }
+        };
+
+        io.to(`conversation_${conversationId}`).emit('conversation:new_message', payload);
+        io.to(`user_${recipientId}`).emit('conversation:new_message', payload);
+        console.log('🤖 WebSocket events emitted');
       }
 
-      logger.info('BL_Bot message sent', { recipientId, messageId: newMessage.id });
+      console.log('✅ BL_Bot message sent successfully:', { conversationId, messageId: newMessage.id });
+      logger.info('BL_Bot message sent', { conversationId, recipientId, messageId: newMessage.id });
     } catch (error) {
+      console.error('❌ Error sending BL_Bot message:', error);
       logger.error('Error sending BL_Bot message:', error);
     }
   }
