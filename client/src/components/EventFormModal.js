@@ -733,7 +733,6 @@ const EventFormModal = ({
               <p className="text-sm text-red-600 mt-2">{audioError}</p>
             )}
           </div>
-          </div>
 
           {/* Photo Upload */}
           <div>
