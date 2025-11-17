@@ -1629,6 +1629,53 @@ const DirectMessenger = () => {
         </button>
       );
     };
+
+    // Render group chat card
+    const renderGroupChatCard = (groupThread) => {
+      const isSelected = selectedThreadId === groupThread.id;
+      const unreadCount = groupThread.unreadCount || 0;
+      const memberCount = groupThread.participantCount || 0;
+      const lastMessage = groupThread.lastMessage;
+      const timestamp = lastMessage?.createdAt || groupThread.updatedAt;
+
+      return (
+        <button
+          key={groupThread.id}
+          onClick={() => handleGroupChatClick(groupThread)}
+          className={`contact-card ${isSelected ? 'contact-card--active' : ''}`}
+        >
+          <div className="relative">
+            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg">
+              <Users className="w-7 h-7 text-white" />
+            </div>
+            {unreadCount > 0 && (
+              <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[1.5rem] h-6 flex items-center justify-center px-1.5 shadow-lg">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </div>
+            )}
+          </div>
+          <div className="contact-card__body">
+            <div className="contact-card__body-top">
+              <p className="contact-card__name font-semibold">
+                {groupThread.name}
+              </p>
+              <span className="text-xs text-gray-500">
+                {memberCount} {memberCount === 1 ? 'member' : 'members'}
+              </span>
+            </div>
+            <p className={`contact-card__snippet ${unreadCount > 0 ? 'font-medium text-gray-900' : ''}`}>
+              {lastMessage?.content || 'No messages yet'}
+            </p>
+          </div>
+          <div className="contact-card__meta">
+            <span className="contact-card__time">
+              {formatContactTimestamp(timestamp) || '—'}
+            </span>
+          </div>
+        </button>
+      );
+    };
+
     return (
       <div className={wrapperClass}>
         <div className="contact-list__header">
@@ -1685,31 +1732,59 @@ const DirectMessenger = () => {
             <div className="flex items-center justify-center h-32">
               <div className="animate-spin w-8 h-8 border-4 border-white border-t-transparent rounded-full" />
             </div>
-          ) : decoratedContacts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-32 text-slate-400 gap-2">
-              <Users className="w-12 h-12" />
-              <p>No contacts found</p>
-            </div>
           ) : (
             <>
-              {groupedContacts.unreadContacts.length > 0 && (
-                <div className="contact-group">
-                  <p className="contact-group__heading">Unbeantwortete Nachrichten</p>
+              {/* Group Chats Section */}
+              {groupThreads.length > 0 && (
+                <div className="contact-group mb-4">
+                  <p className="contact-group__heading flex items-center gap-2">
+                    <Users className="w-4 h-4" />
+                    <span>Group Chats</span>
+                    <span className="ml-auto text-xs bg-gradient-to-r from-blue-500 to-purple-600 text-white px-2 py-0.5 rounded-full font-semibold">
+                      {groupThreads.length}
+                    </span>
+                  </p>
                   <div className="contact-group__grid">
-                    {groupedContacts.unreadContacts.map((contact) => renderContactCard(contact))}
+                    {groupThreads.map(thread => renderGroupChatCard(thread))}
                   </div>
                 </div>
               )}
-              <div className="contact-group">
-                <p className="contact-group__heading">Alle Kontakte</p>
-                <div className="contact-group__grid">
-                  {groupedContacts.remainingContacts.length > 0 ? (
-                    groupedContacts.remainingContacts.map((contact) => renderContactCard(contact))
-                  ) : (
-                    <p className="contact-list__empty">Alle Kontakte sind auf dem aktuellen Stand.</p>
-                  )}
+
+              {/* Divider between groups and contacts */}
+              {groupThreads.length > 0 && decoratedContacts.length > 0 && (
+                <div className="border-t border-slate-200 my-4" />
+              )}
+
+              {/* Individual Contacts Sections */}
+              {decoratedContacts.length === 0 && groupThreads.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-32 text-slate-400 gap-2">
+                  <Users className="w-12 h-12" />
+                  <p>No conversations found</p>
                 </div>
-              </div>
+              ) : (
+                <>
+                  {groupedContacts.unreadContacts.length > 0 && (
+                    <div className="contact-group">
+                      <p className="contact-group__heading">Unbeantwortete Nachrichten</p>
+                      <div className="contact-group__grid">
+                        {groupedContacts.unreadContacts.map((contact) => renderContactCard(contact))}
+                      </div>
+                    </div>
+                  )}
+                  {decoratedContacts.length > 0 && (
+                    <div className="contact-group">
+                      <p className="contact-group__heading">Alle Kontakte</p>
+                      <div className="contact-group__grid">
+                        {groupedContacts.remainingContacts.length > 0 ? (
+                          groupedContacts.remainingContacts.map((contact) => renderContactCard(contact))
+                        ) : (
+                          <p className="contact-list__empty">Alle Kontakte sind auf dem aktuellen Stand.</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
             </>
           )}
         </div>
@@ -1730,7 +1805,7 @@ const DirectMessenger = () => {
       )}
 
       <div className="flex-1 flex flex-col bg-white min-h-0">
-        {selectedContact ? (
+        {selectedContact || selectedThreadId ? (
           <>
             <div className="messenger-desktop-header">
               <div className="messenger-desktop-header__left">
@@ -1741,18 +1816,38 @@ const DirectMessenger = () => {
                 >
                   <Menu className="w-5 h-5" />
                 </button>
-                <div className="messenger-desktop-header__avatar-wrapper">
-                  <div className="messenger-desktop-header__avatar">
-                    {selectedContact.name?.[0]?.toUpperCase() || '?'}
-                  </div>
-                  <div className={`messenger-desktop-header__status ${selectedContact.online ? 'online' : 'offline'}`}></div>
-                </div>
-                <div className="messenger-desktop-header__contact-info">
-                  <h3 className="messenger-desktop-header__name">{selectedContact.name}</h3>
-                  <p className="messenger-desktop-header__status-text">
-                    {selectedContact.online ? 'Online' : 'Offline'}
-                  </p>
-                </div>
+                {selectedContact ? (
+                  <>
+                    <div className="messenger-desktop-header__avatar-wrapper">
+                      <div className="messenger-desktop-header__avatar">
+                        {selectedContact.name?.[0]?.toUpperCase() || '?'}
+                      </div>
+                      <div className={`messenger-desktop-header__status ${selectedContact.online ? 'online' : 'offline'}`}></div>
+                    </div>
+                    <div className="messenger-desktop-header__contact-info">
+                      <h3 className="messenger-desktop-header__name">{selectedContact.name}</h3>
+                      <p className="messenger-desktop-header__status-text">
+                        {selectedContact.online ? 'Online' : 'Offline'}
+                      </p>
+                    </div>
+                  </>
+                ) : selectedThreadId && threads.find(t => t.id === selectedThreadId) ? (
+                  <>
+                    <div className="messenger-desktop-header__avatar-wrapper">
+                      <div className="messenger-desktop-header__avatar bg-gradient-to-br from-blue-500 to-purple-600">
+                        <Users className="w-6 h-6 text-white" />
+                      </div>
+                    </div>
+                    <div className="messenger-desktop-header__contact-info">
+                      <h3 className="messenger-desktop-header__name">
+                        {threads.find(t => t.id === selectedThreadId)?.name || 'Group Chat'}
+                      </h3>
+                      <p className="messenger-desktop-header__status-text">
+                        {threads.find(t => t.id === selectedThreadId)?.participantCount || 0} members
+                      </p>
+                    </div>
+                  </>
+                ) : null}
               </div>
               <div className="messenger-desktop-header__actions">
                 <button
