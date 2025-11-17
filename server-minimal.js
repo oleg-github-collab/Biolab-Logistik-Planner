@@ -17,6 +17,7 @@ const http = require('http');
 
 const { runPendingMigrations } = require('./server/utils/postgresMigrations');
 const { scheduleEntsorgungReminders, runEntsorgungReminderJob } = require('./server/services/entsorgungReminder');
+const botScheduler = require('./server/services/botScheduler');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -142,6 +143,21 @@ async function startServer() {
     console.error('⚠️  PostgreSQL migrations failed:', error.message);
     console.error('Continuing startup, but database schema may be outdated');
   }
+
+  // Initialize BL_Bot
+  console.log('='.repeat(80));
+  console.log('🤖 STARTING BL_BOT INITIALIZATION');
+  console.log('='.repeat(80));
+  try {
+    console.log('🤖 Step 1: Calling botScheduler.start()...');
+    await botScheduler.start();
+    console.log('✅ Step 2: BL_Bot scheduler initialized successfully');
+  } catch (botError) {
+    console.error('❌ CRITICAL: Failed to initialize BL_Bot scheduler');
+    console.error('Error message:', botError.message);
+    console.error('Error stack:', botError.stack);
+  }
+  console.log('='.repeat(80));
 
   server.listen(PORT, '0.0.0.0', () => {
     console.log('✅ Server running on port', PORT);
