@@ -593,6 +593,13 @@ Schönes Wochenende! 🎉`;
    */
   async processIncomingMessage(userId, message) {
     try {
+      logger.info('🤖 BL_Bot processing incoming message', {
+        userId,
+        message,
+        messageLength: message?.length,
+        openaiEnabled: !!this.openai
+      });
+
       if (!message || typeof message !== 'string') {
         return 'Bitte senden Sie eine gültige Nachricht.';
       }

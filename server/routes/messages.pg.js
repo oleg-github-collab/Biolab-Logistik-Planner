@@ -838,16 +838,29 @@ const sendMessageHandler = async (req, res) => {
   // Parse @mentions from message content
   let parsedMentionedUserIds = [...mentionedUserIds];
   if (messageContent && typeof messageContent === 'string') {
-    const mentionRegex = /@([^\s]+)/g;
+    // Improved regex: capture username, then remove trailing punctuation
+    const mentionRegex = /@([a-zA-Z0-9_]+)/g;
     const matches = messageContent.matchAll(mentionRegex);
     const mentionedNames = Array.from(matches, m => m[1]);
+
+    logger.info('Parsing @mentions from message', {
+      messageContent,
+      mentionedNames,
+      hasMatches: mentionedNames.length > 0
+    });
 
     if (mentionedNames.length > 0) {
       // Fetch user IDs for mentioned names
       const { rows: mentionedUsers } = await pool.query(
-        `SELECT id FROM users WHERE name = ANY($1::text[])`,
+        `SELECT id, name FROM users WHERE name = ANY($1::text[])`,
         [mentionedNames]
       );
+
+      logger.info('Found mentioned users in database', {
+        mentionedUsers,
+        foundCount: mentionedUsers.length
+      });
+
       parsedMentionedUserIds.push(...mentionedUsers.map(u => u.id));
       parsedMentionedUserIds = [...new Set(parsedMentionedUserIds)]; // Remove duplicates
     }
@@ -1004,6 +1017,17 @@ const sendMessageHandler = async (req, res) => {
         (conversation?.conversation_type === 'direct') || // Direct conversation
         (parsedMentionedUserIds && parsedMentionedUserIds.includes(botId)) // @mentioned in group
       );
+
+      logger.info('BL_Bot message check', {
+        botId,
+        isSentToBot,
+        isFromBot,
+        shouldRespond,
+        conversationType: conversation?.conversation_type,
+        resolvedRecipientId,
+        parsedMentionedUserIds,
+        messageContent
+      });
 
       if (isSentToBot && shouldRespond) {
         // Process message with BL_Bot in background
