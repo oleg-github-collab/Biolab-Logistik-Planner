@@ -834,6 +834,25 @@ const sendMessageHandler = async (req, res) => {
   const sanitizedContent = content ? content.replace(/<script[^>]*>.*?<\/script>/gi, '').trim() : null;
   const attachmentPayload = Array.isArray(attachments) ? attachments : [];
   const messageContent = sanitizedContent || gif || (attachmentPayload.length ? '[attachment]' : null);
+
+  // Parse @mentions from message content
+  let parsedMentionedUserIds = [...mentionedUserIds];
+  if (messageContent && typeof messageContent === 'string') {
+    const mentionRegex = /@([^\s]+)/g;
+    const matches = messageContent.matchAll(mentionRegex);
+    const mentionedNames = Array.from(matches, m => m[1]);
+
+    if (mentionedNames.length > 0) {
+      // Fetch user IDs for mentioned names
+      const { rows: mentionedUsers } = await pool.query(
+        `SELECT id FROM users WHERE name = ANY($1::text[])`,
+        [mentionedNames]
+      );
+      parsedMentionedUserIds.push(...mentionedUsers.map(u => u.id));
+      parsedMentionedUserIds = [...new Set(parsedMentionedUserIds)]; // Remove duplicates
+    }
+  }
+
   const client = await pool.connect();
 
   try {
@@ -897,7 +916,7 @@ const sendMessageHandler = async (req, res) => {
       attachments: attachmentPayload,
       metadata,
       quotedMessageId: Number.isInteger(normalizedQuotedId) ? normalizedQuotedId : null,
-      mentionedUserIds
+      mentionedUserIds: parsedMentionedUserIds
     });
 
     await client.query(
@@ -983,7 +1002,7 @@ const sendMessageHandler = async (req, res) => {
       const shouldRespond = !isFromBot && (
         (resolvedRecipientId === botId) || // Direct message to bot
         (conversation?.conversation_type === 'direct') || // Direct conversation
-        (mentionedUserIds && mentionedUserIds.includes(botId)) // @mentioned in group
+        (parsedMentionedUserIds && parsedMentionedUserIds.includes(botId)) // @mentioned in group
       );
 
       if (isSentToBot && shouldRespond) {
