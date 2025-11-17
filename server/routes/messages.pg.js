@@ -843,7 +843,7 @@ const sendMessageHandler = async (req, res) => {
     const matches = messageContent.matchAll(mentionRegex);
     const mentionedNames = Array.from(matches, m => m[1]);
 
-    logger.info('Parsing @mentions from message', {
+    console.log('📝 Parsing @mentions from message:', {
       messageContent,
       mentionedNames,
       hasMatches: mentionedNames.length > 0
@@ -856,7 +856,7 @@ const sendMessageHandler = async (req, res) => {
         [mentionedNames]
       );
 
-      logger.info('Found mentioned users in database', {
+      console.log('👥 Found mentioned users in database:', {
         mentionedUsers,
         foundCount: mentionedUsers.length
       });
@@ -1018,7 +1018,7 @@ const sendMessageHandler = async (req, res) => {
         (parsedMentionedUserIds && parsedMentionedUserIds.includes(botId)) // @mentioned in group
       );
 
-      logger.info('BL_Bot message check', {
+      console.log('🤖 BL_Bot message check:', {
         botId,
         isSentToBot,
         isFromBot,
@@ -1030,23 +1030,32 @@ const sendMessageHandler = async (req, res) => {
       });
 
       if (isSentToBot && shouldRespond) {
+        console.log('✅ BL_Bot will respond to this message');
         // Process message with BL_Bot in background
         setImmediate(async () => {
           try {
+            console.log('🤖 Calling blBot.processIncomingMessage...');
             const response = await blBot.processIncomingMessage(req.user.id, messageContent);
+            console.log('🤖 BL_Bot response received:', response ? 'YES' : 'NO');
             if (response) {
               // For group conversations, send to conversation
               // For direct conversations, send to user
               if (targetConversationId && conversation?.conversation_type !== 'direct') {
+                console.log('🤖 Sending to conversation:', targetConversationId);
                 await blBot.sendMessageToConversation(targetConversationId, response);
               } else {
+                console.log('🤖 Sending to user:', req.user.id);
                 await blBot.sendMessage(req.user.id, response);
               }
+              console.log('✅ BL_Bot message sent successfully');
             }
           } catch (error) {
+            console.error('❌ Error processing BL_Bot message:', error);
             logger.error('Error processing BL_Bot message:', error);
           }
         });
+      } else {
+        console.log('❌ BL_Bot will NOT respond (isSentToBot:', isSentToBot, 'shouldRespond:', shouldRespond, ')');
       }
     }
 

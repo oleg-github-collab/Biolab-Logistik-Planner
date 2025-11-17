@@ -614,7 +614,7 @@ Schönes Wochenende! 🎉`;
    */
   async processIncomingMessage(userId, message) {
     try {
-      logger.info('🤖 BL_Bot processing incoming message', {
+      console.log('🤖 BL_Bot processing incoming message', {
         userId,
         message,
         messageLength: message?.length,
