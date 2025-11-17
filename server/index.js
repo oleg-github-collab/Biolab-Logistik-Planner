@@ -232,6 +232,20 @@ const startServer = async () => {
       console.error('Continuing startup, but database schema may be outdated');
     }
 
+    // Initialize BL_Bot BEFORE starting server
+    try {
+      console.log('🤖 Initializing BL_Bot scheduler...');
+      await botScheduler.start();
+      console.log('✅ BL_Bot scheduler initialized successfully');
+      logger.info('✅ BL_Bot scheduler initialized successfully');
+    } catch (botError) {
+      console.error('❌ Failed to initialize BL_Bot scheduler:', botError);
+      logger.error('Failed to initialize BL_Bot scheduler', {
+        error: botError.message,
+        stack: botError.stack
+      });
+    }
+
     server.listen(PORT, '0.0.0.0', () => {
       console.log(`✅ Server running on port ${PORT}`);
       console.log(`Environment: ${process.env.NODE_ENV}`);
@@ -280,19 +294,6 @@ const startServer = async () => {
         scheduleDeadlineReminders(60); // Run every 60 minutes
       } catch (deadlineError) {
         logger.error('Failed to initialize deadline reminders', { error: deadlineError.message });
-      }
-
-      try {
-        console.log('🤖 Initializing BL_Bot scheduler...');
-        await botScheduler.start();
-        console.log('✅ BL_Bot scheduler initialized successfully');
-        logger.info('✅ BL_Bot scheduler initialized successfully');
-      } catch (botError) {
-        console.error('❌ Failed to initialize BL_Bot scheduler:', botError);
-        logger.error('Failed to initialize BL_Bot scheduler', {
-          error: botError.message,
-          stack: botError.stack
-        });
       }
     });
 
