@@ -7,7 +7,7 @@ SET
   name = 'BL_Bot',
   email = 'bl_bot@biolab.de',
   role = 'admin',
-  employment_type = 'System',
+  employment_type = 'Vollzeit',
   is_system_user = true,
   updated_at = CURRENT_TIMESTAMP
 WHERE email = 'entsorgungsbot@biolab.de';
