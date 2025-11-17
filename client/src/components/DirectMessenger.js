@@ -472,6 +472,34 @@ const DirectMessenger = () => {
     }
   };
 
+  // Handler for group chat selection
+  const handleGroupChatClick = useCallback(async (groupThread) => {
+    if (!groupThread?.id) {
+      showError('Group chat not found');
+      return;
+    }
+
+    try {
+      setSelectedContact(null); // Clear individual contact
+      setSelectedThreadId(groupThread.id);
+
+      // Join WebSocket room
+      if (joinConversationRoom) {
+        joinConversationRoom(groupThread.id);
+      }
+
+      // Load messages
+      await loadMessages(groupThread.id);
+
+      if (isMobile) {
+        setMobileMode('chat');
+      }
+    } catch (error) {
+      console.error('Error opening group chat:', error);
+      showError('Failed to load group chat: ' + (error?.message || 'Unknown error'));
+    }
+  }, [joinConversationRoom, loadMessages, isMobile]);
+
   const handleSendMessage = async (event) => {
     event?.preventDefault();
 
@@ -995,6 +1023,28 @@ const DirectMessenger = () => {
     });
     return map;
   }, [threads, user?.id]);
+
+  // Group threads (including General Chat)
+  const groupThreads = useMemo(() => {
+    if (!Array.isArray(threads) || threads.length === 0) return [];
+    return threads
+      .filter(thread => thread?.type === 'group')
+      .sort((a, b) => {
+        // Pin General Chat to top
+        if (a.name === 'General Chat') return -1;
+        if (b.name === 'General Chat') return 1;
+
+        // Sort by unread count
+        const aUnread = a.unreadCount || 0;
+        const bUnread = b.unreadCount || 0;
+        if (bUnread !== aUnread) return bUnread - aUnread;
+
+        // Then by last message time
+        const aTime = a.lastMessage?.createdAt || a.updatedAt;
+        const bTime = b.lastMessage?.createdAt || b.updatedAt;
+        return new Date(bTime) - new Date(aTime);
+      });
+  }, [threads]);
 
   const decoratedContacts = useMemo(
     () =>
