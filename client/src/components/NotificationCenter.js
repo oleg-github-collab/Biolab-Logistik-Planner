@@ -104,12 +104,9 @@ const NotificationCenter = ({ socket, userId }) => {
 
         if (response.ok) {
           const data = await response.json();
-          // Update unread count from server
-          const currentUnread = notifications.filter(n => !n.read && n.type === 'new_message').length;
-          if (data.unreadCount !== currentUnread) {
-            setUnreadCount(prev => prev + (data.unreadCount - currentUnread));
-          }
-          retryCount = 0; // Reset on success
+          const serverUnread = Number.isNaN(Number(data.unreadCount)) ? Number(data.count) : Number(data.unreadCount);
+          setUnreadCount(Math.max(0, serverUnread || 0));
+          retryCount = 0;
         }
       } catch (error) {
         // Silently fail for network errors, don't spam console

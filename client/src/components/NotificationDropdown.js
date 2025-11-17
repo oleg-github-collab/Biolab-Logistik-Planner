@@ -323,16 +323,27 @@ const NotificationDropdown = () => {
   }, [formatTimestamp, getNotificationIcon, handleNotificationClick, handleMarkAsRead, handleDelete, isMobile, loading, notifications]);
 
   const notificationStats = useMemo(() => {
-    const base = { pending: unreadCount, tasks: 0, alerts: 0 };
+    const stats = { pending: 0, tasks: 0, alerts: 0 };
     notifications.forEach((notification) => {
+      if (notification.is_read) {
+        return;
+      }
+      stats.pending += 1;
       if (notification.type === 'task_assigned') {
-        base.tasks += 1;
+        stats.tasks += 1;
       }
       if (['calendar_event', 'system', 'warning', 'broadcast'].includes(notification.type)) {
-        base.alerts += 1;
+        stats.alerts += 1;
       }
     });
-    return base;
+    return stats;
+  }, [notifications]);
+
+  useEffect(() => {
+    const unreadFromList = notifications.filter((notification) => !notification.is_read).length;
+    if (unreadFromList !== unreadCount) {
+      setUnreadCount(unreadFromList);
+    }
   }, [notifications, unreadCount]);
 
   const latestBroadcast = useMemo(() => {
