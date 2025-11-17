@@ -1,7 +1,7 @@
 // Minimal production server - only essential features
-// Updated: 2025-11-14 18:45 - Calendar Date Fix + Premium UI
+// Updated: 2025-11-17 22:20 - BL_Bot Integration + WebSocket Fix
 console.log('='.repeat(80));
-console.log('🚀 BIOLAB LOGISTIK PLANNER - SERVER v3.4-STABLE');
+console.log('🚀 BIOLAB LOGISTIK PLANNER - SERVER v3.5-BOT-ENABLED');
 console.log('='.repeat(80));
 console.log('Time:', new Date().toISOString());
 console.log('Node:', process.version);
