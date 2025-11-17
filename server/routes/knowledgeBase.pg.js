@@ -37,7 +37,7 @@ router.get('/categories', auth, async (req, res) => {
 // POST /api/kb/categories
 router.post('/categories', auth, async (req, res) => {
   try {
-    if (!['admin', 'superadmin'].includes(req.user.role)) {
+    if (req.user.role === 'observer') {
       return res.status(403).json({ error: 'Keine Berechtigung' });
     }
     const { name, description, icon, color, parent_category_id, display_order } = req.body;

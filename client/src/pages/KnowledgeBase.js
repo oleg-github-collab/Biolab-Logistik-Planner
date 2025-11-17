@@ -1261,6 +1261,8 @@ const KnowledgeBaseV3 = () => {
   const [diffModalOpen, setDiffModalOpen] = useState(false);
   const [diffPayload, setDiffPayload] = useState(null);
   const [diffLoadingVersion, setDiffLoadingVersion] = useState(null);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [newCategory, setNewCategory] = useState({ name: '', description: '', icon: 'book', color: '#2563eb' });
   const formatDictationPreview = useCallback((instructions = {}) => {
     const payload = instructions || {};
     const rawSteps = Array.isArray(payload.steps) ? payload.steps : [];
@@ -1671,6 +1673,29 @@ const KnowledgeBaseV3 = () => {
     setDiffPayload(null);
   }, []);
 
+  const handleCreateCategory = async () => {
+    if (!newCategory.name.trim()) {
+      toast.error('Bitte geben Sie einen Kategorienamen ein');
+      return;
+    }
+
+    try {
+      await api.post('/kb/categories', newCategory);
+      toast.success('Kategorie erfolgreich erstellt');
+      setShowCategoryModal(false);
+      setNewCategory({ name: '', description: '', icon: 'book', color: '#2563eb' });
+
+      // Refresh categories
+      const response = await api.get('/kb/categories');
+      setCategories(response.data);
+    } catch (error) {
+      console.error('Error creating category:', error);
+      toast.error(error.response?.data?.error || 'Fehler beim Erstellen der Kategorie');
+    }
+  };
+
+  const canCreateCategory = currentUser && currentUser.role !== 'observer';
+
   const handleCategorySelect = (categoryId) => {
     setSelectedCategory(categoryId === selectedCategory ? null : categoryId);
     setCurrentPage(1);
@@ -1827,8 +1852,17 @@ const KnowledgeBaseV3 = () => {
 
           {categories.length > 0 && (
             <>
-              <div className="kb-sidebar__section">
-                Kategorien
+              <div className="kb-sidebar__section flex items-center justify-between">
+                <span>Kategorien</span>
+                {canCreateCategory && (
+                  <button
+                    onClick={() => setShowCategoryModal(true)}
+                    className="text-blue-600 hover:text-blue-700"
+                    title="Neue Kategorie erstellen"
+                  >
+                    <Plus size={16} />
+                  </button>
+                )}
               </div>
               {categories.map(category => (
                 <button
@@ -2160,6 +2194,105 @@ const KnowledgeBaseV3 = () => {
           }
         }}
       />
+
+      {/* Category Creation Modal */}
+      {showCategoryModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-gray-900">Neue Kategorie erstellen</h3>
+              <button
+                onClick={() => {
+                  setShowCategoryModal(false);
+                  setNewCategory({ name: '', description: '', icon: 'book', color: '#2563eb' });
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Name *
+                </label>
+                <input
+                  type="text"
+                  value={newCategory.name}
+                  onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="z.B. Sicherheit"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Beschreibung
+                </label>
+                <textarea
+                  value={newCategory.description}
+                  onChange={(e) => setNewCategory({ ...newCategory, description: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  rows={3}
+                  placeholder="Optionale Beschreibung"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Icon
+                  </label>
+                  <select
+                    value={newCategory.icon}
+                    onChange={(e) => setNewCategory({ ...newCategory, icon: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="book">Buch</option>
+                    <option value="layers">Ebenen</option>
+                    <option value="file-text">Dokument</option>
+                    <option value="tag">Tag</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Farbe
+                  </label>
+                  <input
+                    type="color"
+                    value={newCategory.color}
+                    onChange={(e) => setNewCategory({ ...newCategory, color: e.target.value })}
+                    className="w-full h-10 px-2 py-1 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCategoryModal(false);
+                    setNewCategory({ name: '', description: '', icon: 'book', color: '#2563eb' });
+                  }}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+                >
+                  Abbrechen
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCreateCategory}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  Erstellen
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   </div>
 );

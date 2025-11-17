@@ -3,6 +3,7 @@ const { pool } = require('../config/database');
 const { auth } = require('../middleware/auth');
 const { getIO } = require('../websocket');
 const logger = require('../utils/logger');
+const auditLogger = require('../utils/auditLog');
 const { uploadMultiple } = require('../services/fileService');
 
 const router = express.Router();
@@ -150,6 +151,16 @@ router.post('/tasks', auth, async (req, res) => {
 
     await client.query('COMMIT');
 
+    // Audit log
+    auditLogger.logDataChange('create', req.user.id, 'kanban_task', task.id, {
+      title: task.title,
+      status: task.status,
+      priority: task.priority,
+      assigned_to: task.assigned_to,
+      category: task.category,
+      due_date: task.due_date
+    });
+
     // Broadcast via WebSocket
     const io = getIO();
     if (io) {
@@ -247,6 +258,15 @@ router.put('/tasks/:id', auth, async (req, res) => {
 
     const task = result.rows[0];
 
+    // Prepare audit log changes
+    const changes = {};
+    if (title !== undefined && title !== oldTask.rows[0].title) changes.title = { old: oldTask.rows[0].title, new: title };
+    if (status !== undefined && status !== oldTask.rows[0].status) changes.status = { old: oldTask.rows[0].status, new: status };
+    if (priority !== undefined && priority !== oldTask.rows[0].priority) changes.priority = { old: oldTask.rows[0].priority, new: priority };
+    if (assigned_to !== undefined && assigned_to !== oldTask.rows[0].assigned_to) changes.assigned_to = { old: oldTask.rows[0].assigned_to, new: assigned_to };
+    if (category !== undefined && category !== oldTask.rows[0].category) changes.category = { old: oldTask.rows[0].category, new: category };
+    if (due_date !== undefined && due_date !== oldTask.rows[0].due_date) changes.due_date = { old: oldTask.rows[0].due_date, new: due_date };
+
     // Handle waste items status sync if status changed
     if (status && status !== oldTask.rows[0].status) {
       if (status === 'done') {
@@ -269,6 +289,11 @@ router.put('/tasks/:id', auth, async (req, res) => {
     }
 
     await client.query('COMMIT');
+
+    // Audit log only if there were actual changes
+    if (Object.keys(changes).length > 0) {
+      auditLogger.logDataChange('update', req.user.id, 'kanban_task', parseInt(id), changes);
+    }
 
     // Broadcast via WebSocket
     const io = getIO();
@@ -314,7 +339,16 @@ router.delete('/tasks/:id', auth, async (req, res) => {
       return res.status(404).json({ error: 'Aufgabe nicht gefunden' });
     }
 
+    const deletedTask = result.rows[0];
+
     await client.query('COMMIT');
+
+    // Audit log
+    auditLogger.logDataChange('delete', req.user.id, 'kanban_task', parseInt(id), {
+      title: deletedTask.title,
+      status: deletedTask.status,
+      assigned_to: deletedTask.assigned_to
+    });
 
     // Broadcast via WebSocket
     const io = getIO();
@@ -396,6 +430,12 @@ router.post('/tasks/:id/comments', auth, uploadMultiple('attachments', 5), async
       LEFT JOIN users u ON tc.user_id = u.id
       WHERE tc.id = $1
     `, [commentId]);
+
+    // Audit log
+    auditLogger.logDataChange('create', req.user.id, 'kanban_comment', commentId, {
+      task_id: parseInt(id),
+      has_attachments: (req.files && req.files.length > 0)
+    });
 
     // Broadcast via WebSocket
     const io = getIO();
