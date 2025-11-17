@@ -154,43 +154,6 @@ router.put('/mark-all-read', auth, async (req, res) => {
   }
 });
 
-// @route   DELETE /api/notifications/:id
-// @desc    Delete notification
-router.delete('/:id', auth, async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    // Handle localStorage-generated IDs (e.g., 'notif-1763341037144')
-    if (typeof id === 'string' && id.startsWith('notif-')) {
-      logger.debug('localStorage notification deleted (client-side only)', { id, userId: req.user.id });
-      return res.json({ success: true, deleted_id: id });
-    }
-
-    // Validate integer ID
-    const numericId = parseInt(id);
-    if (isNaN(numericId)) {
-      return res.status(404).json({ error: 'Notification not found' });
-    }
-
-    const result = await pool.query(
-      'DELETE FROM notifications WHERE id = $1 AND user_id = $2 RETURNING id',
-      [numericId, req.user.id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Notification not found' });
-    }
-
-    logger.info('Notification deleted', { notificationId: numericId, userId: req.user.id });
-
-    res.json({ success: true, deleted_id: numericId });
-
-  } catch (error) {
-    logger.error('Error deleting notification', error);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
 // @route   DELETE /api/notifications/clear-all
 // @desc    Clear all read notifications
 router.delete('/clear-all', auth, async (req, res) => {
@@ -245,6 +208,43 @@ router.delete('/clear-all', auth, async (req, res) => {
       error: 'Serverfehler beim Löschen der Benachrichtigungen',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
+  }
+});
+
+// @route   DELETE /api/notifications/:id
+// @desc    Delete notification
+router.delete('/:id', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Handle localStorage-generated IDs (e.g., 'notif-1763341037144')
+    if (typeof id === 'string' && id.startsWith('notif-')) {
+      logger.debug('localStorage notification deleted (client-side only)', { id, userId: req.user.id });
+      return res.json({ success: true, deleted_id: id });
+    }
+
+    // Validate integer ID
+    const numericId = parseInt(id);
+    if (isNaN(numericId)) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+
+    const result = await pool.query(
+      'DELETE FROM notifications WHERE id = $1 AND user_id = $2 RETURNING id',
+      [numericId, req.user.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+
+    logger.info('Notification deleted', { notificationId: numericId, userId: req.user.id });
+
+    res.json({ success: true, deleted_id: numericId });
+
+  } catch (error) {
+    logger.error('Error deleting notification', error);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
