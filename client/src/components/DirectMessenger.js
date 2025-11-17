@@ -311,8 +311,15 @@ const DirectMessenger = () => {
       });
 
       if (data?.conversationId === selectedThreadId && data?.message) {
-        console.log('✅ [DirectMessenger] Adding message to state');
-        setMessages((prev) => Array.isArray(prev) ? [...prev, normalizeMessage(data.message)] : [normalizeMessage(data.message)]);
+        setMessages((prev) => {
+          // Check for duplicates
+          if (Array.isArray(prev) && prev.some(m => m?.id === data.message.id)) {
+            console.log('⚠️ [DirectMessenger] Duplicate message, skipping');
+            return prev;
+          }
+          console.log('✅ [DirectMessenger] Adding message to state');
+          return Array.isArray(prev) ? [...prev, normalizeMessage(data.message)] : [normalizeMessage(data.message)];
+        });
         setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 30);
       } else {
         console.log('❌ [DirectMessenger] Message NOT added - conversation mismatch or no message');

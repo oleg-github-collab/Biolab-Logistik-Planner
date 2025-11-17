@@ -132,16 +132,8 @@ const useWebSocket = () => {
           setOnlineUsers(prev => prev.filter(u => u.userId !== data.userId));
         });
 
-        // New message received
-        socket.on('new_message', (message) => {
-          setMessages(prev => {
-            // Avoid duplicates
-            if (prev.find(m => m.id === message.id)) {
-              return prev;
-            }
-            return [...prev, message];
-          });
-        });
+        // Old 'new_message' handler removed - now using conversation:new_message system
+        // Messages are handled by DirectMessenger via onConversationEvent('new_message')
 
         // Message sent confirmation
         socket.on('message_sent', (message) => {
