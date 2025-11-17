@@ -1,24 +1,45 @@
 -- Create General Chat group conversation
 -- This is a permanent group chat where all users are automatically added
 
--- Create the General Chat conversation
-INSERT INTO message_conversations (
-  name,
-  description,
-  conversation_type,
-  is_temporary,
-  created_at,
-  updated_at
-)
-VALUES (
-  'General Chat',
-  'Allgemeiner Team-Chat für alle Mitarbeiter und BL_Bot',
-  'group',
-  false,
-  CURRENT_TIMESTAMP,
-  CURRENT_TIMESTAMP
-)
-ON CONFLICT DO NOTHING;
+-- First, get or create BL_Bot user ID
+DO $$
+DECLARE
+  bot_user_id INTEGER;
+BEGIN
+  -- Get BL_Bot user ID
+  SELECT id INTO bot_user_id
+  FROM users
+  WHERE email IN ('bl_bot@biolab.de', 'entsorgungsbot@biolab.de')
+  AND is_system_user = true
+  LIMIT 1;
+
+  -- Create the General Chat conversation with BL_Bot as creator
+  IF bot_user_id IS NOT NULL THEN
+    INSERT INTO message_conversations (
+      name,
+      description,
+      conversation_type,
+      created_by,
+      is_temporary,
+      created_at,
+      updated_at
+    )
+    VALUES (
+      'General Chat',
+      'Allgemeiner Team-Chat für alle Mitarbeiter und BL_Bot',
+      'group',
+      bot_user_id,
+      false,
+      CURRENT_TIMESTAMP,
+      CURRENT_TIMESTAMP
+    )
+    ON CONFLICT DO NOTHING;
+
+    RAISE NOTICE '✅ General Chat conversation created by BL_Bot';
+  ELSE
+    RAISE EXCEPTION 'BL_Bot user not found! Please run migration 050 first.';
+  END IF;
+END $$;
 
 -- Add all existing users (including BL_Bot) to General Chat
 DO $$
@@ -52,7 +73,7 @@ BEGIN
       general_chat_id,
       u.id,
       CASE
-        WHEN u.role = 'superadmin' THEN 'admin'
+        WHEN u.role = 'superadmin' THEN 'moderator'
         ELSE 'member'
       END,
       CURRENT_TIMESTAMP,
@@ -66,8 +87,11 @@ BEGIN
       INSERT INTO messages (
         sender_id,
         conversation_id,
-        content,
+        message,
         message_type,
+        is_group,
+        read_status,
+        delivered_status,
         created_at
       )
       VALUES (
@@ -84,6 +108,9 @@ Hier können alle Teammitglieder kommunizieren und Informationen austauschen.
 
 Viel Erfolg beim Zusammenarbeiten! 🚀',
         'text',
+        true,
+        true,
+        true,
         CURRENT_TIMESTAMP
       );
     END IF;
@@ -117,7 +144,7 @@ BEGIN
       general_chat_id,
       NEW.id,
       CASE
-        WHEN NEW.role = 'superadmin' THEN 'admin'
+        WHEN NEW.role = 'superadmin' THEN 'moderator'
         ELSE 'member'
       END,
       CURRENT_TIMESTAMP,
