@@ -532,20 +532,23 @@
   .contact-group {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
+    margin-bottom: 24px;
   }
 
   .contact-group__heading {
-    font-size: 12px;
-    letter-spacing: 0.3em;
+    font-size: 11px;
+    letter-spacing: 0.05em;
     text-transform: uppercase;
-    color: rgba(15, 23, 42, 0.6);
+    color: rgba(15, 23, 42, 0.5);
+    font-weight: 600;
+    padding: 0 4px;
   }
 
   .contact-group__grid {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
   }
 
   .contact-list__empty {

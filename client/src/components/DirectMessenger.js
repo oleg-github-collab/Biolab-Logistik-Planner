@@ -1783,39 +1783,44 @@ const DirectMessenger = () => {
       const lastMessage = groupThread.lastMessage;
       const timestamp = lastMessage?.createdAt || groupThread.updatedAt;
 
+      // Get last message text - try different fields
+      let lastMessageText = 'Keine Nachrichten';
+      if (lastMessage) {
+        lastMessageText = lastMessage.content || lastMessage.message || lastMessage.text || 'Neue Nachricht';
+      }
+
       return (
         <button
           key={groupThread.id}
           onClick={() => handleGroupChatClick(groupThread)}
           className={`contact-card ${isSelected ? 'contact-card--active' : ''}`}
         >
-          <div className="relative">
-            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg">
-              <Users className="w-7 h-7 text-white" />
+          <div className="contact-card__avatar-ring">
+            <div className="contact-card__avatar bg-gradient-to-br from-blue-500 to-purple-600">
+              <Users className="w-6 h-6 text-white" />
             </div>
-            {unreadCount > 0 && (
-              <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[1.5rem] h-6 flex items-center justify-center px-1.5 shadow-lg">
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </div>
-            )}
           </div>
           <div className="contact-card__body">
             <div className="contact-card__body-top">
-              <p className="contact-card__name font-semibold">
+              <p className="contact-card__name">
                 {groupThread.name}
               </p>
-              <span className="text-xs text-gray-500">
-                {memberCount} {memberCount === 1 ? 'member' : 'members'}
-              </span>
+              {unreadCount > 0 && (
+                <span className="contact-card__badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+              )}
             </div>
-            <p className={`contact-card__snippet ${unreadCount > 0 ? 'font-medium text-gray-900' : ''}`}>
-              {lastMessage?.content || 'No messages yet'}
+            <p className="contact-card__snippet">
+              {lastMessageText}
             </p>
           </div>
           <div className="contact-card__meta">
             <span className="contact-card__time">
               {formatContactTimestamp(timestamp) || '—'}
             </span>
+            <div className="flex items-center gap-1 text-xs text-slate-400">
+              <Users className="w-3 h-3" />
+              <span>{memberCount}</span>
+            </div>
           </div>
         </button>
       );
