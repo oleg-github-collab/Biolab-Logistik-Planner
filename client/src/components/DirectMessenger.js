@@ -610,7 +610,7 @@ const DirectMessenger = () => {
   }, [messageInput, cursorPosition]);
 
   // Highlight @mentions in message text
-  const highlightMentions = useCallback((text, isMine) => {
+  const highlightMentions = (text, isMine) => {
     if (!text) return text;
 
     const mentionRegex = /@([^\s]+)/g;
@@ -626,7 +626,7 @@ const DirectMessenger = () => {
 
       // Add highlighted mention
       const mentionName = match[1];
-      const isMentionedUser = groupMembers.some(m => m.name === mentionName && m.user_id === user?.id);
+      const isMentionedUser = Array.isArray(groupMembers) && groupMembers.some(m => m.name === mentionName && m.user_id === user?.id);
 
       parts.push(
         <span
@@ -652,7 +652,7 @@ const DirectMessenger = () => {
     }
 
     return parts.length > 0 ? parts : text;
-  }, [groupMembers, user]);
+  };
 
   const handleSendMessage = async (event) => {
     event?.preventDefault();
