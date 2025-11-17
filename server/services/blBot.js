@@ -89,12 +89,18 @@ class BLBot {
    */
   async getUserContext(userId) {
     try {
+      console.log('📊 getUserContext called for userId:', userId);
       const user = await pool.query(
         `SELECT id, name, email, role, employment_type, weekly_hours_quota, created_at FROM users WHERE id = $1`,
         [userId]
       );
 
-      if (user.rows.length === 0) return null;
+      console.log('📊 User query result:', { rowCount: user.rows.length, found: user.rows.length > 0 });
+
+      if (user.rows.length === 0) {
+        console.error('❌ User not found in database');
+        return null;
+      }
 
       // Get ALL user's tasks (not limited to 20)
       const tasks = await pool.query(
@@ -160,6 +166,12 @@ class BLBot {
         [userId]
       );
 
+      console.log('✅ getUserContext successful:', {
+        userName: user.rows[0].name,
+        tasksCount: tasks.rows.length,
+        eventsCount: events.rows.length
+      });
+
       return {
         user: user.rows[0],
         tasks: tasks.rows,
@@ -169,6 +181,7 @@ class BLBot {
         auditLog: auditLog.rows
       };
     } catch (error) {
+      console.error('❌ Error getting user context:', error);
       logger.error('Error getting user context:', error);
       return null;
     }
