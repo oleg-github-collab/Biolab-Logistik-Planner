@@ -159,10 +159,39 @@ class BLBot {
       // Skip audit logs (table doesn't exist yet)
       const auditLog = { rows: [] };
 
+      // Get recent group chat messages (last 50 from all groups user is member of)
+      const groupMessages = await pool.query(
+        `SELECT m.id, m.message, m.created_at, m.sender_id,
+                u.name as sender_name,
+                mc.name as conversation_name, mc.id as conversation_id
+         FROM messages m
+         JOIN message_conversation_members mcm ON mcm.conversation_id = m.conversation_id
+         JOIN message_conversations mc ON mc.id = m.conversation_id
+         JOIN users u ON u.id = m.sender_id
+         WHERE mcm.user_id = $1
+         AND mc.conversation_type = 'group'
+         AND m.created_at >= CURRENT_TIMESTAMP - INTERVAL '7 days'
+         ORDER BY m.created_at DESC
+         LIMIT 50`,
+        [userId]
+      );
+
+      // Get user's recent notifications (last 20)
+      const notifications = await pool.query(
+        `SELECT id, type, title, message, is_read, created_at
+         FROM notifications
+         WHERE user_id = $1
+         ORDER BY created_at DESC
+         LIMIT 20`,
+        [userId]
+      );
+
       console.log('✅ getUserContext successful:', {
         userName: user.rows[0].name,
         tasksCount: tasks.rows.length,
-        eventsCount: events.rows.length
+        eventsCount: events.rows.length,
+        groupMessagesCount: groupMessages.rows.length,
+        notificationsCount: notifications.rows.length
       });
 
       return {
@@ -171,7 +200,9 @@ class BLBot {
         events: events.rows,
         schedule: schedule.rows,
         workHistory: workHistory.rows,
-        auditLog: []
+        auditLog: [],
+        groupMessages: groupMessages.rows,
+        notifications: notifications.rows
       };
     } catch (error) {
       console.error('❌ Error getting user context:', error);
@@ -317,7 +348,7 @@ class BLBot {
    * Build system prompt for AI with ethical guidelines
    */
   buildSystemPrompt(userContext, kbArticles) {
-    const { user, tasks, events, schedule, workHistory, auditLog } = userContext;
+    const { user, tasks, events, schedule, workHistory, auditLog, groupMessages, notifications } = userContext;
 
     let prompt = `Du bist BL_Bot, der intelligente und ethische KI-Assistent für Biolab Logistik Planner.
 
@@ -355,6 +386,18 @@ ${schedule.map(s => {
 
 **Arbeitszeit-Historie (letzte 4 Wochen):**
 ${workHistory.length > 0 ? workHistory.map(w => `- KW ${this.getWeekNumber(new Date(w.week_start))}: ${parseFloat(w.total_hours).toFixed(1)}h`).join('\n') : '- Keine Daten verfügbar'}
+
+**💬 Letzte Gruppen-Chat Nachrichten (letzte 7 Tage, ${groupMessages?.length || 0} gesamt):**
+${groupMessages && groupMessages.length > 0 ? groupMessages.slice(0, 15).map(m =>
+  `- [${m.conversation_name}] ${m.sender_name}: "${m.message.substring(0, 100)}${m.message.length > 100 ? '...' : ''}" (${new Date(m.created_at).toLocaleString('de-DE')})`
+).join('\n') : '- Keine Gruppennachrichten'}
+${groupMessages && groupMessages.length > 15 ? `\n... und ${groupMessages.length - 15} weitere Nachrichten` : ''}
+
+**🔔 Aktuelle Benachrichtigungen (${notifications?.length || 0} gesamt):**
+${notifications && notifications.length > 0 ? notifications.slice(0, 10).map(n =>
+  `- [${n.type}] ${n.is_read ? '✓' : '✗'} ${n.title}: ${n.message.substring(0, 80)}${n.message.length > 80 ? '...' : ''}`
+).join('\n') : '- Keine Benachrichtigungen'}
+${notifications && notifications.length > 10 ? `\n... und ${notifications.length - 10} weitere Benachrichtigungen` : ''}
 `;
 
     if (kbArticles.length > 0) {

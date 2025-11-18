@@ -26,7 +26,8 @@ import {
   Pin,
   Zap,
   FileText,
-  Forward
+  Forward,
+  Bot
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useWebSocketContext } from '../context/WebSocketContext';
@@ -1154,6 +1155,20 @@ const DirectMessenger = () => {
     setShowComposerActions((prev) => !prev);
   }, []);
 
+  const handleAskBot = useCallback(() => {
+    setMessageInput('@BL_Bot ');
+    setShowComposerActions(false);
+    // Focus on input after state update
+    setTimeout(() => {
+      const textarea = document.querySelector('.message-input');
+      if (textarea) {
+        textarea.focus();
+        // Move cursor to end
+        textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+      }
+    }, 0);
+  }, []);
+
   const filteredContacts = useMemo(
     () =>
       contacts.filter(
@@ -1375,16 +1390,16 @@ const DirectMessenger = () => {
           {/* Reply-to display */}
           {msg.metadata?.reply_to && (
             <div
-              className={`mb-2 px-3 py-2 rounded-lg border-l-4 ${
+              className={`mb-2 px-3 py-2 rounded-lg border-l-4 overflow-hidden ${
                 isMine
                   ? 'bg-blue-500/20 border-blue-300'
                   : 'bg-slate-100 border-slate-400'
               }`}
             >
-              <p className={`text-xs font-semibold ${isMine ? 'text-blue-100' : 'text-slate-600'}`}>
+              <p className={`text-xs font-semibold ${isMine ? 'text-blue-100' : 'text-slate-600'} truncate`}>
                 {msg.metadata.reply_to.sender_name}
               </p>
-              <p className={`text-xs ${isMine ? 'text-blue-200' : 'text-slate-500'} truncate`}>
+              <p className={`text-xs ${isMine ? 'text-blue-200' : 'text-slate-500'} line-clamp-2 break-words`}>
                 {msg.metadata.reply_to.message}
               </p>
             </div>
@@ -1727,10 +1742,10 @@ const DirectMessenger = () => {
               className={
                 isMobile
                   ? `flex w-full items-end gap-2 ${isMine ? 'justify-end' : 'justify-start'}`
-                  : 'relative max-w-[75%] lg:max-w-[60%]'
+                  : 'relative max-w-[75%] lg:max-w-[60%] min-w-0'
               }
             >
-              <div className={`relative ${isMobile ? 'max-w-[85%]' : 'w-full'}`}>
+              <div className={`relative ${isMobile ? 'max-w-[85%]' : 'w-full min-w-0 overflow-hidden'}`}>
                 {renderMessageContent(msg, isMine)}
               </div>
 
@@ -2448,6 +2463,16 @@ const DirectMessenger = () => {
                   {isRecording ? <StopCircle className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
                   Audio
                 </button>
+                {(() => {
+                  const currentThread = threads.find(t => t.id === selectedThreadId);
+                  const isGroupChat = currentThread?.type === 'group' || currentThread?.conversation_type === 'group';
+                  return isGroupChat ? (
+                    <button type="button" onClick={handleAskBot}>
+                      <Bot className="w-4 h-4" />
+                      Bot
+                    </button>
+                  ) : null;
+                })()}
               </div>
             )}
           </div>
