@@ -5,17 +5,16 @@ const { getIO } = require('../websocket');
 const auditLogger = require('../utils/auditLog');
 const logger = require('../utils/logger');
 const { schemas, validate } = require('../validators');
+const workingDaysService = require('../services/workingDaysService');
 
 const router = express.Router();
 
 // Helper functions
 const FLEXIBLE_TIME_REGEX = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
 
+// Use workingDaysService for Monday calculation (more reliable)
 function getMonday(d) {
-  d = new Date(d);
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  return new Date(d.setDate(diff));
+  return workingDaysService.getMonday(d);
 }
 
 function formatDateForDB(date) {
@@ -506,34 +505,63 @@ router.get('/hours-summary/:weekStart', auth, async (req, res) => {
 
     const weeklyQuota = parseFloat(userResult.rows[0].weekly_hours_quota);
 
-    // Get booked hours for this week
+    // Get expected hours for this week (adjusted for holidays)
+    const expectedHours = await workingDaysService.calculateExpectedHoursForWeek(weeklyQuota, weekStart);
+
+    // Get booked hours for this week (excluding weekends and public holidays)
     const scheduleResult = await pool.query(
-      `SELECT start_time, end_time, is_working, notes
+      `SELECT day_of_week, start_time, end_time, is_working, notes, week_start
        FROM weekly_schedules
        WHERE user_id = $1 AND week_start = $2`,
       [targetUserId, weekStart]
     );
 
+    // Get public holidays for this week
+    const monday = getMonday(weekStart);
+    const sunday = workingDaysService.getSunday(weekStart);
+    const holidays = await workingDaysService.getPublicHolidays(monday, sunday);
+
     let totalBooked = 0;
-    scheduleResult.rows.forEach(row => {
-      if (!row.is_working) return;
+    for (const row of scheduleResult.rows) {
+      if (!row.is_working) continue;
+
+      // Skip weekends (day_of_week: 0=Sunday, 6=Saturday)
+      if (row.day_of_week === 0 || row.day_of_week === 6) {
+        continue;
+      }
+
+      // Check if this day is a public holiday
+      const dayDate = new Date(row.week_start);
+      dayDate.setDate(dayDate.getDate() + row.day_of_week);
+      const dayDateStr = dayDate.toISOString().split('T')[0];
+
+      if (holidays.has(dayDateStr)) {
+        continue; // Skip public holidays
+      }
+
       const blocks = parseTimeBlocksFromNotes(
         row.notes,
         row.start_time ? row.start_time.substring(0, 5) : null,
         row.end_time ? row.end_time.substring(0, 5) : null
       );
       totalBooked += totalHoursFromBlocks(blocks);
-    });
+    }
 
-    const difference = totalBooked - weeklyQuota;
+    const difference = totalBooked - expectedHours;
     const status = difference === 0 ? 'exact' : (difference < 0 ? 'under' : 'over');
+
+    // Get working days count for info
+    const workingDays = await workingDaysService.getWorkingDaysInWeek(weekStart);
 
     res.json({
       weeklyQuota,
+      expectedHours, // Adjusted for public holidays
       totalBooked,
       difference,
       status,
-      weekStart
+      weekStart,
+      workingDaysCount: workingDays.length,
+      publicHolidaysCount: 5 - workingDays.length // Standard 5 working days minus actual
     });
 
   } catch (error) {

@@ -104,6 +104,8 @@ console.log('  ✓ auth');
 app.use('/api/auth', require('./routes/auth.pg'));
 console.log('  ✓ schedule');
 app.use('/api/schedule', require('./routes/schedule.pg'));
+console.log('  ✓ public-holidays');
+app.use('/api/public-holidays', require('./routes/publicHolidays.pg'));
 console.log('  ✓ messages');
 app.use('/api/messages', require('./routes/messages.pg'));
 console.log('  ✓ tasks');
