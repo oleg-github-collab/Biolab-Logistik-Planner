@@ -73,10 +73,11 @@ const Header = () => {
     setGlobalSearch('');
   };
 
-  const visibleNavItems = useMemo(
-    () => NAV_ITEMS.filter((item) => hasPermission(item.permission)),
-    [hasPermission]
-  );
+  const visibleNavItems = useMemo(() => {
+    if (!hasPermission) return NAV_ITEMS;
+    const filtered = NAV_ITEMS.filter((item) => hasPermission(item.permission));
+    return filtered.length ? filtered : NAV_ITEMS;
+  }, [hasPermission]);
 
   const mobileHighlightItems = useMemo(
     () => MOBILE_HIGHLIGHTS.filter((item) => hasPermission(item.permission)),

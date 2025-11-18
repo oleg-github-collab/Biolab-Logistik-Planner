@@ -86,6 +86,13 @@
   margin: 0 0 0.5rem 0;
 }
 
+.upload-buttons {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
 .upload-btn {
   display: inline-flex;
   align-items: center;
@@ -98,11 +105,22 @@
   cursor: pointer;
   transition: all 0.2s;
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  min-width: 140px;
+  justify-content: center;
 }
 
 .upload-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+}
+
+.upload-btn.camera-btn {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+}
+
+.upload-btn.camera-btn:hover {
+  box-shadow: 0 6px 16px rgba(139, 92, 246, 0.4);
 }
 
 .preview-container {

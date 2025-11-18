@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { X, Upload, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { X, Upload, Image as ImageIcon, Loader2, Camera } from 'lucide-react';
 import { uploadProfileStory } from '../utils/apiEnhanced';
 import '../styles/story-composer.css';
 
@@ -8,7 +8,12 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
   const [preview, setPreview] = useState(null);
   const [caption, setCaption] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
+  const [stream, setStream] = useState(null);
   const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
 
   const handleFileSelect = (event) => {
     const file = event.target.files?.[0];
@@ -71,6 +76,51 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+    if (cameraInputRef.current) {
+      cameraInputRef.current.value = '';
+    }
+  };
+
+  const handleCameraClick = () => {
+    // Mobile devices: use native camera input
+    if (cameraInputRef.current) {
+      cameraInputRef.current.click();
+    }
+  };
+
+  const stopCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
+    }
+    setShowCamera(false);
+  };
+
+  const handleCameraCapture = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+      showError?.('Nur Bilder und Videos sind erlaubt');
+      return;
+    }
+
+    // Validate file size (max 50MB)
+    const maxSize = 50 * 1024 * 1024;
+    if (file.size > maxSize) {
+      showError?.('Datei zu groß (max 50MB)');
+      return;
+    }
+
+    setSelectedFile(file);
+
+    // Create preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setPreview(e.target.result);
+    };
+    reader.readAsDataURL(file);
   };
 
   return (
@@ -92,20 +142,38 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
                 <p className="text-sm text-slate-500 mb-4">
                   Maximal 50MB • Bilder oder Videos
                 </p>
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="upload-btn"
-                >
-                  <Upload className="w-5 h-5 mr-2" />
-                  Datei auswählen
-                </button>
+                <div className="upload-buttons">
+                  <button
+                    type="button"
+                    onClick={handleCameraClick}
+                    className="upload-btn camera-btn"
+                  >
+                    <Camera className="w-5 h-5 mr-2" />
+                    Kamera
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="upload-btn"
+                  >
+                    <Upload className="w-5 h-5 mr-2" />
+                    Galerie
+                  </button>
+                </div>
               </div>
               <input
                 ref={fileInputRef}
                 type="file"
                 accept="image/*,video/*"
                 onChange={handleFileSelect}
+                className="hidden"
+              />
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*,video/*"
+                capture="environment"
+                onChange={handleCameraCapture}
                 className="hidden"
               />
             </div>
