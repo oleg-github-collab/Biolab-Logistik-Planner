@@ -7,6 +7,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import Header from './components/Header';
 import MobileBottomNav from './components/MobileBottomNav';
 import Footer from './components/Footer';
+import CookieConsent from './components/CookieConsent';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Messages from './pages/Messages';
@@ -285,6 +286,7 @@ const AppContent = () => {
           </main>
           <Footer />
           <MobileBottomNav />
+          <CookieConsent />
         </div>
       </Router>
     </ErrorBoundary>
