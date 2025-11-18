@@ -494,6 +494,10 @@
     background: linear-gradient(135deg, #a855f7, #ec4899);
   }
 
+  .story-chip__ring.add {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+  }
+
   .story-chip__avatar {
     width: 46px;
     height: 46px;

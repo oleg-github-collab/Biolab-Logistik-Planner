@@ -52,6 +52,7 @@ import {
 import GifPicker from './GifPicker';
 import TypingIndicator from './TypingIndicator';
 import MessageSearch from './MessageSearch';
+import StoryComposer from './StoryComposer';
 import QuickRepliesPanel from './QuickRepliesPanel';
 import ContactNotesPanel from './ContactNotesPanel';
 import MessageForwardModal from './MessageForwardModal';
@@ -110,6 +111,7 @@ const DirectMessenger = () => {
   const [showPinnedDrawer, setShowPinnedDrawer] = useState(false);
   const [mobileQuickReplies, setMobileQuickReplies] = useState([]);
   const [quickRepliesLoading, setQuickRepliesLoading] = useState(false);
+  const [showStoryComposer, setShowStoryComposer] = useState(false);
 
   const fileInputRef = useRef(null);
   const mediaRecorderRef = useRef(null);
@@ -1169,6 +1171,15 @@ const DirectMessenger = () => {
     }, 0);
   }, []);
 
+  const handleStoryCreated = useCallback(async () => {
+    try {
+      const storiesRes = await getStoriesFeed();
+      setStories(Array.isArray(storiesRes?.data?.stories) ? storiesRes.data.stories : []);
+    } catch (error) {
+      console.error('Error refreshing stories:', error);
+    }
+  }, []);
+
   const filteredContacts = useMemo(
     () =>
       contacts.filter(
@@ -1861,6 +1872,21 @@ const DirectMessenger = () => {
           </div>
 
         <div className="contact-list__stories">
+          {/* Add Story Button */}
+          <button
+            type="button"
+            onClick={() => setShowStoryComposer(true)}
+            className="story-chip story-chip--add"
+            aria-label="Story erstellen"
+          >
+            <div className="story-chip__ring add">
+              <div className="story-chip__avatar">
+                <Plus className="w-5 h-5" />
+              </div>
+            </div>
+            <span>Story</span>
+          </button>
+
           {storiesLoading ? (
             Array.from({ length: 3 }).map((_, idx) => (
               <div key={`story-skel-${idx}`} className="story-chip story-chip--skeleton" />
@@ -2918,6 +2944,17 @@ const DirectMessenger = () => {
             ))}
           </div>
         </div>
+      )}
+
+      {/* Story Composer Modal */}
+      {showStoryComposer && (
+        <StoryComposer
+          userId={user?.id}
+          onClose={() => setShowStoryComposer(false)}
+          onSuccess={handleStoryCreated}
+          showSuccess={showSuccess}
+          showError={showError}
+        />
       )}
     </>
   );

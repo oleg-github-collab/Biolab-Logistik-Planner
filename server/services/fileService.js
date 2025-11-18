@@ -48,7 +48,8 @@ async function ensureDirectories() {
     path.join(UPLOAD_DIR, 'documents'),
     path.join(UPLOAD_DIR, 'audio'),
     path.join(UPLOAD_DIR, 'thumbnails'),
-    path.join(UPLOAD_DIR, 'temp')
+    path.join(UPLOAD_DIR, 'temp'),
+    path.join(UPLOAD_DIR, 'stories')
   ];
 
   for (const dir of dirs) {
