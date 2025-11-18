@@ -149,11 +149,6 @@ const Header = () => {
 
   if (!state || !user) return null;
 
-  const hideHeader = isMobile && location.pathname.startsWith('/messages');
-  if (hideHeader) {
-    return null;
-  }
-
   return (
     <header className="top-nav-mobile bg-white/95 backdrop-blur border-b border-slate-100 sticky top-0 z-50 shadow-[0_2px_10px_rgba(15,23,42,0.04)]">
       <div className="max-w-full mx-auto px-3 sm:px-4 lg:px-6">
