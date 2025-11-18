@@ -166,7 +166,7 @@ const Header = () => {
           </Link>
 
           {/* Desktop Navigation - Dropdown Style */}
-          <nav className="hidden lg:flex items-center flex-1 justify-center max-w-4xl mx-4">
+          <nav className="hidden md:flex items-center flex-1 justify-center max-w-4xl mx-4">
             <div className="flex items-center gap-1 bg-white/70 border border-slate-100 rounded-2xl p-1 shadow-sm">
               {primaryNavItems.map((item) => {
                 const isActive = location.pathname === item.to;
@@ -175,14 +175,14 @@ const Header = () => {
                     key={item.to}
                     to={item.to}
                     className={`
-                      px-3 py-2 rounded-xl text-xs xl:text-sm font-semibold transition-all whitespace-nowrap tracking-wide
+                      px-3 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap tracking-wide flex items-center
                       ${isActive
                         ? 'bg-slate-900 text-white shadow-sm'
                         : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}
                     `}
                   >
                     <span className="mr-1.5">{item.icon}</span>
-                    <span className="hidden xl:inline">{t(item.labelKey)}</span>
+                    <span>{t(item.labelKey)}</span>
                   </Link>
                 );
               })}
@@ -192,7 +192,7 @@ const Header = () => {
                     onClick={() => setDesktopOverflowOpen((prev) => !prev)}
                     ref={overflowTriggerRef}
                     type="button"
-                    className="px-3 py-2 rounded-xl text-xs xl:text-sm font-semibold transition-all text-slate-600 hover:bg-white hover:text-slate-900 flex items-center gap-1"
+                    className="px-3 py-2 rounded-xl text-sm font-semibold transition-all text-slate-600 hover:bg-slate-50 hover:text-slate-900 flex items-center gap-1"
                     aria-haspopup="true"
                     aria-expanded={desktopOverflowOpen}
                   >
