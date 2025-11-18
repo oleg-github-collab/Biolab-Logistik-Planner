@@ -69,12 +69,12 @@ router.get('/articles', auth, async (req, res) => {
         c.name as category_name, c.color as category_color,
         COUNT(DISTINCT acm.id) as comments_count,
         COUNT(DISTINCT v.id) as version_count,
-        MAX(user_votes.is_helpful) as user_vote
+        MAX(user_feedback.is_helpful) as user_vote
       FROM kb_articles a
       LEFT JOIN users u ON a.author_id = u.id
       LEFT JOIN kb_categories c ON a.category_id = c.id
       LEFT JOIN kb_article_comments acm ON a.id = acm.article_id
-      LEFT JOIN kb_article_votes user_votes ON user_votes.article_id = a.id AND user_votes.user_id = ${userVotePlaceholder}
+      LEFT JOIN kb_article_feedback user_feedback ON user_feedback.article_id = a.id AND user_feedback.user_id = ${userVotePlaceholder}
       LEFT JOIN kb_article_versions v ON v.article_id = a.id
       WHERE a.status = $1
     `;
