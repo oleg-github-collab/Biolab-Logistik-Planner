@@ -9,14 +9,7 @@ const Footer = () => {
       <div className="footer-content">
         <p className="footer-credit">
           Made with <span className="footer-heart">❤️</span> by{' '}
-          <a
-            href="https://github.com/oleg-github-collab"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="footer-link"
-          >
-            Oleh Kaminskyi
-          </a>
+          <span className="footer-author">Oleh Kaminskyi</span>
         </p>
         <p className="footer-copy">
           © {currentYear} Biolab Logistik Planner

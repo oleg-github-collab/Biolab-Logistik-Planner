@@ -172,7 +172,7 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
                 ref={cameraInputRef}
                 type="file"
                 accept="image/*,video/*"
-                capture="environment"
+                capture
                 onChange={handleCameraCapture}
                 className="hidden"
               />
