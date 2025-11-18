@@ -498,6 +498,74 @@
     background: linear-gradient(135deg, #3b82f6, #2563eb);
   }
 
+  /* Premium Add Story Button */
+  .story-add-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+    min-width: 72px;
+  }
+
+  .story-add-btn:hover {
+    transform: translateY(-2px);
+  }
+
+  .story-add-btn:active {
+    transform: translateY(0);
+  }
+
+  .story-add-btn__circle {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    box-shadow:
+      0 4px 12px rgba(59, 130, 246, 0.3),
+      0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .story-add-btn__circle::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, transparent 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .story-add-btn:hover .story-add-btn__circle {
+    box-shadow:
+      0 6px 20px rgba(59, 130, 246, 0.4),
+      0 4px 8px rgba(0, 0, 0, 0.15);
+    transform: scale(1.05);
+  }
+
+  .story-add-btn:hover .story-add-btn__circle::before {
+    opacity: 1;
+  }
+
+  .story-add-btn__label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #1e293b;
+    text-align: center;
+    letter-spacing: 0.3px;
+  }
+
   .story-chip__avatar {
     width: 46px;
     height: 46px;

@@ -1876,15 +1876,13 @@ const DirectMessenger = () => {
           <button
             type="button"
             onClick={() => setShowStoryComposer(true)}
-            className="story-chip story-chip--add"
+            className="story-add-btn"
             aria-label="Story erstellen"
           >
-            <div className="story-chip__ring add">
-              <div className="story-chip__avatar">
-                <Plus className="w-5 h-5" />
-              </div>
+            <div className="story-add-btn__circle">
+              <Plus className="w-6 h-6" />
             </div>
-            <span>Story</span>
+            <span className="story-add-btn__label">Story</span>
           </button>
 
           {storiesLoading ? (
