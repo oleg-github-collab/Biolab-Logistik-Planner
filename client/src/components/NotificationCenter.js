@@ -128,7 +128,7 @@ const NotificationCenter = ({ socket, userId }) => {
     const interval = setInterval(fetchUnreadCount, 30000);
 
     return () => clearInterval(interval);
-  }, [notifications]);
+  }, []); // Remove 'notifications' dependency to prevent creating multiple intervals
 
   // Close dropdown when clicking outside
   useEffect(() => {
