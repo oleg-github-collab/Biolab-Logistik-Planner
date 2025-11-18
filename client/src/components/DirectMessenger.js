@@ -1796,6 +1796,10 @@ const DirectMessenger = () => {
                 {contact.name?.[0]?.toUpperCase() || contact.email?.[0]?.toUpperCase() || '?'}
               </div>
             </div>
+            {/* Online status indicator */}
+            {contact.online && (
+              <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white shadow-sm" />
+            )}
             {unreadCount > 0 && (
               <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[1.25rem] h-5 flex items-center justify-center px-1.5 shadow-lg">
                 {unreadCount > 99 ? '99+' : unreadCount}
