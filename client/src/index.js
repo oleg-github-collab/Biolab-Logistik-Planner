@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import './styles/calendar.css';
+import './styles/desktop-header.css';
 import App from './App';
 
 // CRITICAL: Setup global date format protection BEFORE any components load
