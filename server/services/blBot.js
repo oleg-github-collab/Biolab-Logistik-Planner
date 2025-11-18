@@ -13,12 +13,14 @@ const { pool } = require('../config/database');
 const { getIO } = require('../websocket');
 const logger = require('../utils/logger');
 const OpenAI = require('openai');
+const { setUserOnline } = require('./redisService');
 
 class BLBot {
   constructor() {
     this.botUser = null;
     this.openai = null;
     this.initialized = false;
+    this.onlineInterval = null;
   }
 
   /**
@@ -75,6 +77,9 @@ class BLBot {
         role: this.botUser.role,
         aiEnabled: !!this.openai
       });
+
+      // Set bot as always online
+      this.startOnlineHeartbeat();
 
       return true;
     } catch (error) {
@@ -1084,6 +1089,51 @@ Schönes Wochenende! 🎉`;
     d.setDate(d.getDate() + 4 - (d.getDay() || 7));
     const yearStart = new Date(d.getFullYear(), 0, 1);
     return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  }
+
+  /**
+   * Start heartbeat to keep bot always online
+   * Updates presence in Redis every 2 minutes (TTL is 5 minutes)
+   */
+  startOnlineHeartbeat() {
+    if (!this.botUser) {
+      logger.warn('Cannot start online heartbeat - bot user not initialized');
+      return;
+    }
+
+    // Set bot online immediately
+    setUserOnline(this.botUser.id, {
+      name: this.botUser.name,
+      isBot: true
+    }).catch(err => {
+      logger.warn('Failed to set bot online status', { error: err.message });
+    });
+
+    // Update every 2 minutes to keep online status fresh (TTL is 5 minutes)
+    this.onlineInterval = setInterval(() => {
+      setUserOnline(this.botUser.id, {
+        name: this.botUser.name,
+        isBot: true
+      }).catch(err => {
+        logger.warn('Failed to refresh bot online status', { error: err.message });
+      });
+    }, 2 * 60 * 1000); // Every 2 minutes
+
+    logger.info('🟢 BL_Bot online heartbeat started', {
+      botId: this.botUser.id,
+      interval: '2 minutes'
+    });
+  }
+
+  /**
+   * Stop online heartbeat
+   */
+  stopOnlineHeartbeat() {
+    if (this.onlineInterval) {
+      clearInterval(this.onlineInterval);
+      this.onlineInterval = null;
+      logger.info('BL_Bot online heartbeat stopped');
+    }
   }
 }
 

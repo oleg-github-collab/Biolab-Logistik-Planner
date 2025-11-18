@@ -6,6 +6,7 @@ const { deleteOldAvatar } = require('../config/cloudinary');
 const { getIO } = require('../websocket');
 const logger = require('../utils/logger');
 const storyService = require('../services/storyService');
+const { getOnlineUsers } = require('../services/redisService');
 
 const router = express.Router();
 
@@ -241,7 +242,7 @@ router.get('/contacts/all', auth, async (req, res) => {
       SELECT
         u.id, u.name, u.email, u.role, u.profile_photo,
         u.status, u.status_message, u.position_description,
-        u.last_seen_at, u.created_at
+        u.last_seen_at, u.created_at, u.is_system_user
       FROM users u
       WHERE u.is_active = TRUE AND u.id != $1
     `;
@@ -271,7 +272,24 @@ router.get('/contacts/all', auth, async (req, res) => {
 
     const result = await pool.query(query, params);
 
-    res.json(result.rows);
+    // Get online users from Redis
+    let onlineSet = new Set();
+    try {
+      const onlineUsers = await getOnlineUsers();
+      if (Array.isArray(onlineUsers) && onlineUsers.length > 0) {
+        onlineSet = new Set(onlineUsers.map(user => parseInt(user.userId, 10)));
+      }
+    } catch (redisError) {
+      logger.warn('Could not load online status from Redis', { error: redisError.message });
+    }
+
+    // Add online status to contacts
+    const contacts = result.rows.map((user) => ({
+      ...user,
+      online: user.is_system_user ? true : onlineSet.has(user.id) // System users (bots) always online
+    }));
+
+    res.json(contacts);
 
   } catch (error) {
     logger.error('Error fetching contacts', error);
