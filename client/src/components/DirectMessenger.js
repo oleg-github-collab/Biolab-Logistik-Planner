@@ -791,12 +791,12 @@ const DirectMessenger = () => {
         }
       }
 
-      if (newMessage) {
-        setMessages((prev) => Array.isArray(prev) ? [...prev, newMessage] : [newMessage]);
-        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 30);
-      } else {
+      // Don't add message to state here - WebSocket will handle it
+      // This prevents duplicate messages since server emits to conversation room
+      if (!newMessage) {
         await loadMessages(selectedThreadId);
       }
+      // Scroll will happen when WebSocket event adds the message
 
       setSelectedEvent(null);
     } catch (error) {
