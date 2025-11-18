@@ -1828,7 +1828,7 @@ const KnowledgeBaseV3 = () => {
     <div className="kb-page">
       <div className="kb-layout">
       {/* Sidebar */}
-      <div className="kb-sidebar hidden lg:flex lg:flex-col">
+      <div className="kb-sidebar hidden md:flex md:flex-col">
         <div className="kb-sidebar__header">
           <h2 className="kb-sidebar__title">
             <BookOpen className="mr-2" size={20} />
