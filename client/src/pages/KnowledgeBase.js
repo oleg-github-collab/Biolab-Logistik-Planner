@@ -65,9 +65,9 @@ const DICTATION_LANGUAGES = [
   { value: 'auto', label: 'Automatisch erkennen' },
   { value: 'de', label: 'Deutsch' },
   { value: 'en', label: 'Englisch' },
-  { value: 'es', label: 'Spanisch' },
-  { value: 'ru', label: 'Russisch' },
-  { value: 'uk', label: 'Ukrainisch' }
+  { value: 'uk', label: 'Ukrainisch' },
+  { value: 'pl', label: 'Polnisch' },
+  { value: 'tr', label: 'Türkisch' }
 ];
 
 // Category Icon Component

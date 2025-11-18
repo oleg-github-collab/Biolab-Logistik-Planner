@@ -154,7 +154,7 @@ router.get('/articles/:id', auth, async (req, res) => {
     );
 
     const voteResult = await client.query(
-      'SELECT is_helpful FROM kb_article_votes WHERE article_id = $1 AND user_id = $2',
+      'SELECT is_helpful FROM kb_article_feedback WHERE article_id = $1 AND user_id = $2',
       [id, req.user.id]
     );
 

@@ -8,8 +8,7 @@ const Footer = () => {
     <footer className="app-footer">
       <div className="footer-content">
         <p className="footer-credit">
-          Made with <span className="footer-heart">❤️</span> by{' '}
-          <span className="footer-author">Oleh Kaminskyi</span>
+          Made by <span className="footer-author">Oleh Kaminskyi</span>
         </p>
         <p className="footer-copy">
           © {currentYear} Biolab Logistik Planner
