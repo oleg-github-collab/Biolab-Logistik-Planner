@@ -412,7 +412,7 @@ router.post('/articles/:id/vote', auth, async (req, res) => {
     if (typeof is_helpful !== 'boolean') return res.status(400).json({ error: 'is_helpful muss Boolean sein' });
 
     await client.query(`
-      INSERT INTO kb_article_votes (article_id, user_id, is_helpful)
+      INSERT INTO kb_article_feedback (article_id, user_id, is_helpful)
       VALUES ($1, $2, $3) ON CONFLICT (article_id, user_id) DO UPDATE SET is_helpful = $3
     `, [id, req.user.id, is_helpful]);
 
@@ -420,7 +420,7 @@ router.post('/articles/:id/vote', auth, async (req, res) => {
       SELECT
         COUNT(*) FILTER (WHERE is_helpful = true) as helpful_count,
         COUNT(*) FILTER (WHERE is_helpful = false) as not_helpful_count
-      FROM kb_article_votes WHERE article_id = $1
+      FROM kb_article_feedback WHERE article_id = $1
     `, [id]);
 
     await client.query(`
