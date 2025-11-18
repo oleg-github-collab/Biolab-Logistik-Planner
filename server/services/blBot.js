@@ -624,7 +624,7 @@ Schönes Wochenende! 🎉`;
 
       // Insert message into database
       const result = await pool.query(
-        `INSERT INTO messages (sender_id, conversation_id, content, message_type, created_at)
+        `INSERT INTO messages (sender_id, conversation_id, message, message_type, created_at)
          VALUES ($1, $2, $3, 'text', NOW())
          RETURNING *`,
         [this.botUser.id, conversationId, message]
