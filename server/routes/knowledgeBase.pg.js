@@ -296,12 +296,12 @@ router.put('/articles/:id', auth, async (req, res) => {
       UPDATE kb_articles SET
         title = COALESCE($1, title), content = COALESCE($2, content),
         summary = COALESCE($3, summary), category_id = COALESCE($4, category_id),
-        tags = COALESCE($5::text[], tags), status = COALESCE($6, status),
+        tags = COALESCE($5::jsonb, tags), status = COALESCE($6, status),
         visibility = COALESCE($7, visibility), is_featured = COALESCE($8, is_featured),
         published_at = CASE WHEN $6 = 'published' AND published_at IS NULL THEN CURRENT_TIMESTAMP ELSE published_at END,
         updated_at = CURRENT_TIMESTAMP
       WHERE id = $9 RETURNING *
-    `, [title, content, articleExcerpt, category_id, tagsArray, status, visibility, featured, id]);
+    `, [title, content, articleExcerpt, category_id, tagsArray ? JSON.stringify(tagsArray) : null, status, visibility, featured, id]);
 
     // Handle tags - insert/update in kb_tags table
     if (Array.isArray(tagsArray) && tagsArray.length > 0) {
