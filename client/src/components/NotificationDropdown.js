@@ -339,12 +339,7 @@ const NotificationDropdown = () => {
     return stats;
   }, [notifications]);
 
-  useEffect(() => {
-    const unreadFromList = notifications.filter((notification) => !notification.is_read).length;
-    if (unreadFromList !== unreadCount) {
-      setUnreadCount(unreadFromList);
-    }
-  }, [notifications, unreadCount]);
+  // unreadCount is managed by useNotifications hook, no need to sync manually
 
   const latestBroadcast = useMemo(() => {
     return notifications.find((notification) => notification.type === 'broadcast');
