@@ -13,8 +13,40 @@ const {
   getAdminUserIds,
   autoCompleteBinsWithDoneTasks
 } = require('../services/kistenService');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
 const router = express.Router();
+
+// Configure multer for barcode image uploads
+const barcodeStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(__dirname, '../../uploads/barcodes');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
+    cb(null, `barcode-${uniqueSuffix}${path.extname(file.originalname)}`);
+  }
+});
+
+const uploadBarcode = multer({
+  storage: barcodeStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif|webp/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    if (mimetype && extname) {
+      return cb(null, true);
+    }
+    cb(new Error('Nur Bilddateien sind erlaubt (jpeg, jpg, png, gif, webp)'));
+  }
+}).single('barcodeImage');
 
 
 router.get('/', auth, async (req, res) => {
@@ -294,6 +326,115 @@ router.post('/:id/complete', auth, async (req, res) => {
   } catch (error) {
     await client.query('ROLLBACK');
     logger.error('Error completing storage bin', { error: error.message });
+    res.status(500).json({ error: 'Server error' });
+  } finally {
+    client.release();
+  }
+});
+
+// POST /api/kisten/:id/barcode - Upload barcode image for a storage bin
+router.post('/:id/barcode', auth, (req, res) => {
+  uploadBarcode(req, res, async (err) => {
+    if (err) {
+      logger.error('Barcode upload error', { error: err.message });
+      return res.status(400).json({ error: err.message });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'Kein Barcode-Bild hochgeladen' });
+    }
+
+    const { id } = req.params;
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      // Check if bin exists
+      const binResult = await client.query(
+        'SELECT * FROM storage_bins WHERE id = $1',
+        [id]
+      );
+
+      if (binResult.rows.length === 0) {
+        // Delete uploaded file if bin doesn't exist
+        fs.unlinkSync(req.file.path);
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Kiste nicht gefunden' });
+      }
+
+      const bin = binResult.rows[0];
+
+      // Delete old barcode image if exists
+      if (bin.barcode_image_path) {
+        const oldPath = path.join(__dirname, '../../uploads/barcodes', path.basename(bin.barcode_image_path));
+        if (fs.existsSync(oldPath)) {
+          fs.unlinkSync(oldPath);
+        }
+      }
+
+      // Update bin with new barcode image path
+      const imagePath = `/uploads/barcodes/${req.file.filename}`;
+      await client.query(
+        'UPDATE storage_bins SET barcode_image_path = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+        [imagePath, id]
+      );
+
+      await client.query('COMMIT');
+
+      logger.info('Barcode image uploaded', {
+        binId: id,
+        code: bin.code,
+        imagePath,
+        userId: req.user.id
+      });
+
+      res.json({
+        success: true,
+        barcode_image_path: imagePath,
+        message: 'Barcode-Bild erfolgreich hochgeladen'
+      });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      // Delete uploaded file on error
+      if (req.file && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+      logger.error('Error saving barcode image', { error: error.message });
+      res.status(500).json({ error: 'Server error' });
+    } finally {
+      client.release();
+    }
+  });
+});
+
+// GET /api/kisten/by-date/:date - Get storage bins by disposal date with barcode images
+router.get('/by-date/:date', auth, async (req, res) => {
+  const { date } = req.params;
+  const client = await pool.connect();
+
+  try {
+    const result = await client.query(`
+      SELECT
+        sb.*,
+        u.name as created_by_name,
+        ce.title as calendar_title
+      FROM storage_bins sb
+      LEFT JOIN users u ON sb.created_by = u.id
+      LEFT JOIN calendar_events ce ON sb.calendar_event_id = ce.id
+      WHERE sb.keep_until = $1
+        AND sb.status = 'pending'
+      ORDER BY sb.created_at DESC
+    `, [date]);
+
+    const bins = result.rows.map(bin => ({
+      ...bin,
+      has_barcode: !!bin.barcode_image_path
+    }));
+
+    res.json({ bins });
+  } catch (error) {
+    logger.error('Error fetching bins by date', { error: error.message, date });
     res.status(500).json({ error: 'Server error' });
   } finally {
     client.release();

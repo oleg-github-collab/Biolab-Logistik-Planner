@@ -25,10 +25,12 @@ import {
   RefreshCcw,
   ArrowUpRight,
   Copy,
-  ShieldCheck
+  ShieldCheck,
+  Eye
 } from 'lucide-react';
 import { getStorageBins, createStorageBins, completeStorageBin } from '../utils/apiEnhanced';
 import { showError, showSuccess } from '../utils/toast';
+import BarcodeViewer from './BarcodeViewer';
 
 const formatDate = (value, withTime = false) => {
   if (!value) return '-';
@@ -89,6 +91,8 @@ const KistenManager = () => {
   const [detectorSupported, setDetectorSupported] = useState(false);
   const [cameraError, setCameraError] = useState('');
   const [processingId, setProcessingId] = useState(null);
+  const [barcodeViewerOpen, setBarcodeViewerOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(null);
 
   const videoRef = useRef(null);
   const detectorRef = useRef(null);
@@ -788,6 +792,17 @@ const KistenManager = () => {
                     <div className="flex flex-wrap items-center gap-3">
                       <button
                         type="button"
+                        onClick={() => {
+                          setSelectedDate(bin.keep_until);
+                          setBarcodeViewerOpen(true);
+                        }}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
+                      >
+                        <Eye className="w-4 h-4" />
+                        Codes zeigen
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => handleComplete(bin.id)}
                         disabled={processingId === bin.id}
                         className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white font-semibold hover:bg-emerald-700 transition disabled:opacity-60"
@@ -913,6 +928,16 @@ const KistenManager = () => {
           )}
         </section>
       </div>
+
+      {/* Barcode Viewer Modal */}
+      <BarcodeViewer
+        isOpen={barcodeViewerOpen}
+        onClose={() => {
+          setBarcodeViewerOpen(false);
+          setSelectedDate(null);
+        }}
+        date={selectedDate}
+      />
     </div>
   );
 };
