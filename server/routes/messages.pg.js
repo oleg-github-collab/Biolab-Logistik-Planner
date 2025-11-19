@@ -478,6 +478,15 @@ router.get('/conversations/:conversationId/messages', auth, async (req, res) => 
 
     const messages = await enrichMessages(client, messagesResult.rows);
 
+    // Emit WebSocket event to update unread counts in real-time
+    const io = getIO();
+    if (io) {
+      io.to(`user_${req.user.id}`).emit('message:read', {
+        conversationId,
+        userId: req.user.id
+      });
+    }
+
     res.json(messages);
   } catch (error) {
     logger.error('Error fetching conversation messages', error);
@@ -682,6 +691,15 @@ router.post('/conversations/:conversationId/read', auth, async (req, res) => {
           WHERE conversation_id = $1 AND receiver_id = $2 AND read_status = false`,
         [conversationId, req.user.id]
       );
+    }
+
+    // Emit WebSocket event to update unread counts in real-time
+    const io = getIO();
+    if (io) {
+      io.to(`user_${req.user.id}`).emit('message:read', {
+        conversationId,
+        userId: req.user.id
+      });
     }
 
     res.json({ success: true });
@@ -1031,12 +1049,27 @@ const sendMessageHandler = async (req, res) => {
 
       if (isSentToBot && shouldRespond) {
         console.log('✅ BL_Bot will respond to this message');
+
+        // Show typing indicator immediately
+        io.to(`conversation_${targetConversationId}`).emit('typing:start', {
+          conversationId: targetConversationId,
+          userId: 1, // BL_Bot user ID
+          userName: 'BL_Bot'
+        });
+
         // Process message with BL_Bot in background
         setImmediate(async () => {
           try {
             console.log('🤖 Calling blBot.processIncomingMessage...');
             const response = await blBot.processIncomingMessage(req.user.id, messageContent);
             console.log('🤖 BL_Bot response received:', response ? 'YES' : 'NO');
+
+            // Stop typing indicator
+            io.to(`conversation_${targetConversationId}`).emit('typing:stop', {
+              conversationId: targetConversationId,
+              userId: 1
+            });
+
             if (response) {
               // For group conversations, send to conversation
               // For direct conversations, send to user
@@ -1052,6 +1085,12 @@ const sendMessageHandler = async (req, res) => {
           } catch (error) {
             console.error('❌ Error processing BL_Bot message:', error);
             logger.error('Error processing BL_Bot message:', error);
+
+            // Stop typing indicator on error
+            io.to(`conversation_${targetConversationId}`).emit('typing:stop', {
+              conversationId: targetConversationId,
+              userId: 1
+            });
           }
         });
       } else {

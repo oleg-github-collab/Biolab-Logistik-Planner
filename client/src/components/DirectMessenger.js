@@ -399,11 +399,22 @@ const DirectMessenger = () => {
       }
     };
 
+    const handleMessageRead = (data) => {
+      if (data?.conversationId) {
+        setThreads(prev => prev.map(thread =>
+          thread.id === data.conversationId
+            ? { ...thread, unreadCount: 0 }
+            : thread
+        ));
+      }
+    };
+
     const unsubscribeNewMessage = onConversationEvent('new_message', handleNewMessage);
     const unsubscribeReaction = onConversationEvent('message:reaction', handleMessageReaction);
     const unsubscribePin = onConversationEvent('message:pin', handleMessagePin);
     const unsubscribeTyping = onConversationEvent('typing:start', handleUserTyping);
     const unsubscribeStopTyping = onConversationEvent('typing:stop', handleUserStopTyping);
+    const unsubscribeMessageRead = onConversationEvent('message:read', handleMessageRead);
 
     return () => {
       unsubscribeNewMessage();
@@ -411,6 +422,7 @@ const DirectMessenger = () => {
       unsubscribePin();
       unsubscribeTyping();
       unsubscribeStopTyping();
+      unsubscribeMessageRead();
     };
   }, [selectedThreadId, isConnected, joinConversationRoom, onConversationEvent, normalizeMessage, user]);
 
