@@ -2175,6 +2175,26 @@ const DirectMessenger = () => {
                       <Mic className="w-5 h-5 text-slate-600" />
                     )}
                   </button>
+                  {selectedThreadId && threads.find(t => t.id === selectedThreadId)?.type === 'group' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMessageInput((prev) => prev + '@BL_Bot ');
+                        // Focus the input after insertion
+                        setTimeout(() => {
+                          const input = document.querySelector('input[type="text"][placeholder*="Nachricht"]');
+                          if (input) {
+                            input.focus();
+                            input.setSelectionRange(input.value.length, input.value.length);
+                          }
+                        }, 0);
+                      }}
+                      className="p-3 hover:bg-blue-50 rounded-xl transition border border-blue-200"
+                      title="Bot erwähnen"
+                    >
+                      <Bot className="w-5 h-5 text-blue-600" />
+                    </button>
+                  )}
                 </div>
 
                 <input

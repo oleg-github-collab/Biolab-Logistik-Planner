@@ -183,7 +183,7 @@ class BLBot {
 
       // Get user's recent notifications (last 20)
       const notifications = await pool.query(
-        `SELECT id, type, title, message, is_read, created_at
+        `SELECT id, type, title, content, is_read, created_at
          FROM notifications
          WHERE user_id = $1
          ORDER BY created_at DESC
