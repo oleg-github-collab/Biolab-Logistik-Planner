@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { getStorageBins, createStorageBins, completeStorageBin } from '../utils/apiEnhanced';
 import { showError, showSuccess } from '../utils/toast';
+import { playSuccessBeep } from '../utils/soundEffects';
 import BarcodeViewer from './BarcodeViewer';
 
 const formatDate = (value, withTime = false) => {
@@ -153,6 +154,8 @@ const KistenManager = () => {
       if (prev.includes(normalized)) {
         return prev;
       }
+      // Play success beep sound
+      playSuccessBeep();
       showSuccess(`Code erfasst: ${normalized}`);
       return [...prev, normalized];
     });
