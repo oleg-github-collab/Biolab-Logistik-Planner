@@ -85,50 +85,39 @@ const NotificationCenter = ({ socket, userId }) => {
   }, [socket, addNotification]);
 
   // Fetch unread count periodically
+  const fetchUnreadCount = useCallback(async () => {
+    // Skip if offline
+    if (!navigator.onLine) {
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/messages/unread-count', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const serverUnread = Number.isNaN(Number(data.unreadCount)) ? Number(data.count) : Number(data.unreadCount);
+        setUnreadCount(Math.max(0, serverUnread || 0));
+      }
+    } catch (error) {
+      // Silently fail for network errors, don't spam console
+      if (!error.message?.includes('Failed to fetch') && navigator.onLine) {
+        console.error('Failed to fetch unread messages count:', error);
+      }
+    }
+  }, []);
+
   useEffect(() => {
-    let retryCount = 0;
-    const MAX_RETRIES = 3;
-
-    const fetchUnreadCount = async () => {
-      // Skip if offline
-      if (!navigator.onLine) {
-        return;
-      }
-
-      try {
-        const response = await fetch('/api/messages/unread-count', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          const serverUnread = Number.isNaN(Number(data.unreadCount)) ? Number(data.count) : Number(data.unreadCount);
-          setUnreadCount(Math.max(0, serverUnread || 0));
-          retryCount = 0;
-        }
-      } catch (error) {
-        // Silently fail for network errors, don't spam console
-        if (error.message?.includes('Failed to fetch') || !navigator.onLine) {
-          retryCount++;
-          // Only log if we've failed multiple times
-          if (retryCount >= MAX_RETRIES) {
-            console.warn('Failed to fetch unread messages count after multiple retries');
-            retryCount = 0; // Reset
-          }
-        } else {
-          console.error('Failed to fetch unread messages count:', error);
-        }
-      }
-    };
-
     // Fetch initially and then every 30 seconds
     fetchUnreadCount();
     const interval = setInterval(fetchUnreadCount, 30000);
 
     return () => clearInterval(interval);
-  }, []); // Remove 'notifications' dependency to prevent creating multiple intervals
+  }, [fetchUnreadCount]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
