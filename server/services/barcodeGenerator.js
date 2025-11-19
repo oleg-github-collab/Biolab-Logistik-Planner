@@ -1,5 +1,4 @@
 const QRCode = require('qrcode');
-const { createCanvas } = require('canvas');
 const fs = require('fs');
 const path = require('path');
 const logger = require('../utils/logger');
@@ -11,48 +10,39 @@ const logger = require('../utils/logger');
  * @returns {Promise<string>} - Path to the generated QR code image
  */
 async function generateBarcodeImage(code, outputPath) {
-  return new Promise(async (resolve, reject) => {
-    try {
-      // Create canvas
-      const canvas = createCanvas(400, 400);
-
-      // Generate QR code on canvas
-      await QRCode.toCanvas(canvas, code, {
-        width: 400,
-        margin: 2,
-        color: {
-          dark: '#000000',
-          light: '#ffffff'
-        },
-        errorCorrectionLevel: 'H' // High error correction for better scanning
-      });
-
-      // Ensure directory exists
-      const dir = path.dirname(outputPath);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-
-      // Save to file
-      const buffer = canvas.toBuffer('image/png');
-      fs.writeFileSync(outputPath, buffer);
-
-      logger.info('QR code generated successfully', {
-        code,
-        outputPath,
-        size: buffer.length
-      });
-
-      resolve(outputPath);
-    } catch (error) {
-      logger.error('Error generating QR code', {
-        code,
-        outputPath,
-        error: error.message
-      });
-      reject(error);
+  try {
+    // Ensure directory exists
+    const dir = path.dirname(outputPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
     }
-  });
+
+    // Generate QR code and save directly to file
+    await QRCode.toFile(outputPath, code, {
+      width: 400,
+      margin: 2,
+      color: {
+        dark: '#000000',
+        light: '#ffffff'
+      },
+      errorCorrectionLevel: 'H', // High error correction for better scanning
+      type: 'png'
+    });
+
+    logger.info('QR code generated successfully', {
+      code,
+      outputPath
+    });
+
+    return outputPath;
+  } catch (error) {
+    logger.error('Error generating QR code', {
+      code,
+      outputPath,
+      error: error.message
+    });
+    throw error;
+  }
 }
 
 /**
