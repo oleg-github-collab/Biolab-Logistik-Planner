@@ -273,33 +273,55 @@ const EventFormModal = ({
   }, [appendAttachment, audioPreviewUrl, handleChange, uploadAttachment]);
 
   // Handle photo upload
-  const handlePhotoUpload = useCallback((e) => {
-    const files = Array.from(e.target.files);
+  const handlePhotoUpload = useCallback(async (event) => {
+    const files = Array.from(event.target.files || []);
+    if (!files.length) return;
 
-    files.forEach(file => {
-      if (file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const newAttachment = {
-            type: 'image',
-            url: reader.result,
-            filename: file.name,
-            file: file
-          };
-
-          setImagePreview(prev => [...prev, newAttachment]);
-          handleChange('attachments', [...formData.attachments, newAttachment]);
-        };
-        reader.readAsDataURL(file);
+    const previews = [];
+    for (const file of files) {
+      if (!file.type.startsWith('image/')) {
+        continue;
       }
-    });
-  }, [formData.attachments, handleChange]);
+
+      const maxSize = 20 * 1024 * 1024;
+      if (file.size > maxSize) {
+        toast.error('Bild zu groß (max. 20MB)');
+        continue;
+      }
+
+      const formDataUpload = new FormData();
+      formDataUpload.append('file', file);
+      formDataUpload.append('context', 'calendar');
+
+      try {
+        const response = await uploadAttachment(formDataUpload);
+        const uploaded = response.data;
+        appendAttachment(uploaded);
+        previews.push(uploaded);
+      } catch (error) {
+        console.error('Error uploading photo attachment', error);
+        toast.error('Foto konnte nicht hochgeladen werden');
+      }
+    }
+
+    if (previews.length) {
+      setImagePreview((prev) => [...prev, ...previews]);
+    }
+    if (event.target) {
+      event.target.value = '';
+    }
+  }, [appendAttachment]);
 
   // Remove photo
   const handleRemovePhoto = useCallback((index) => {
-    setImagePreview(prev => prev.filter((_, i) => i !== index));
-    handleChange('attachments', formData.attachments.filter((_, i) => i !== index));
-  }, [formData.attachments, handleChange]);
+    setImagePreview((prev) => {
+      const removed = prev[index];
+      if (removed?.url) {
+        removeAttachmentByUrl(removed.url);
+      }
+      return prev.filter((_, i) => i !== index);
+    });
+  }, [removeAttachmentByUrl]);
 
   // Validate form
   const validateForm = useCallback(() => {
