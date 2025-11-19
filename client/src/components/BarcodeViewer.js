@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, ChevronLeft, ChevronRight, Upload, Camera } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Upload } from 'lucide-react';
 import api from '../utils/apiEnhanced';
-import { showError, showSuccess } from '../utils/toast';
+import { showError } from '../utils/toast';
 import '../styles/barcodeViewer.css';
 
 const BarcodeViewer = ({ isOpen, onClose, date }) => {
   const [bins, setBins] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
 
@@ -173,35 +172,10 @@ const BarcodeViewer = ({ isOpen, onClose, date }) => {
                 ) : (
                   <div className="barcode-placeholder">
                     <Upload size={64} className="text-gray-400 mb-4" />
-                    <p className="text-gray-400 mb-4">Kein Barcode-Bild vorhanden</p>
-
-                    {/* Upload options */}
-                    <div className="barcode-upload-buttons">
-                      <label className="barcode-upload-btn">
-                        <Camera size={20} />
-                        <span>Foto aufnehmen</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          capture="environment"
-                          onChange={(e) => handleCameraCapture(e, currentBin.id)}
-                          className="hidden"
-                          disabled={uploading}
-                        />
-                      </label>
-
-                      <label className="barcode-upload-btn">
-                        <Upload size={20} />
-                        <span>Bild hochladen</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => handleFileSelect(e, currentBin.id)}
-                          className="hidden"
-                          disabled={uploading}
-                        />
-                      </label>
-                    </div>
+                    <p className="text-gray-400 mb-4">Barcode wird automatisch generiert</p>
+                    <p className="text-sm text-gray-500">
+                      Bitte warten Sie einen Moment...
+                    </p>
                   </div>
                 )}
               </div>

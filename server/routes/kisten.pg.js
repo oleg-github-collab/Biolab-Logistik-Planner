@@ -13,6 +13,7 @@ const {
   getAdminUserIds,
   autoCompleteBinsWithDoneTasks
 } = require('../services/kistenService');
+const { generateStorageBinBarcode, deleteBarcodeImage } = require('../services/barcodeGenerator');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -205,6 +206,32 @@ router.post('/', auth, async (req, res) => {
 
     await client.query('COMMIT');
 
+    // Auto-generate barcodes for all processed bins
+    for (const entry of processedBins) {
+      try {
+        const barcodePath = await generateStorageBinBarcode(entry.code);
+
+        // Update bin with barcode path
+        await pool.query(
+          'UPDATE storage_bins SET barcode_image_path = $1 WHERE id = $2',
+          [barcodePath, entry.bin.id]
+        );
+
+        logger.info('Barcode auto-generated for storage bin', {
+          binId: entry.bin.id,
+          code: entry.code,
+          barcodePath
+        });
+      } catch (barcodeError) {
+        logger.error('Failed to generate barcode for storage bin', {
+          binId: entry.bin.id,
+          code: entry.code,
+          error: barcodeError.message
+        });
+        // Continue processing other bins even if one fails
+      }
+    }
+
     const binsResponse = await enrichStorageBins();
 
     // Notifications and bot messages after commit
@@ -365,12 +392,9 @@ router.post('/:id/barcode', auth, (req, res) => {
 
       const bin = binResult.rows[0];
 
-      // Delete old barcode image if exists
+      // Delete old barcode image if exists (use service function)
       if (bin.barcode_image_path) {
-        const oldPath = path.join(__dirname, '../../uploads/barcodes', path.basename(bin.barcode_image_path));
-        if (fs.existsSync(oldPath)) {
-          fs.unlinkSync(oldPath);
-        }
+        deleteBarcodeImage(bin.barcode_image_path);
       }
 
       // Update bin with new barcode image path
