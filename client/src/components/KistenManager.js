@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import { getStorageBins, createStorageBins, completeStorageBin } from '../utils/apiEnhanced';
 import { showError, showSuccess } from '../utils/toast';
-import { playSuccessBeep } from '../utils/soundEffects';
+import { playSuccessBeep, playErrorBeep } from '../utils/soundEffects';
 import BarcodeViewer from './BarcodeViewer';
 
 const formatDate = (value, withTime = false) => {
@@ -207,11 +207,13 @@ const KistenManager = () => {
 
   const startScanning = async () => {
     if (!detectorSupported) {
+      playErrorBeep();
       showError('Der Browser unterstützt keine QR-Code-Erkennung. Bitte Codes manuell eingeben.');
       return;
     }
 
     if (!navigator.mediaDevices?.getUserMedia) {
+      playErrorBeep();
       showError('Keine Kamera verfügbar.');
       return;
     }
@@ -244,6 +246,7 @@ const KistenManager = () => {
       frameRef.current = requestAnimationFrame(detectLoop);
     } catch (error) {
       console.error('Kamera konnte nicht gestartet werden', error);
+      playErrorBeep();
       setCameraError(error?.message || 'Kamera konnte nicht gestartet werden.');
       stopScanning();
     }

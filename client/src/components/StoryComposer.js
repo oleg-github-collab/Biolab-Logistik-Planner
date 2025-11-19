@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { X, Upload, Image as ImageIcon, Loader2, Camera } from 'lucide-react';
 import { uploadProfileStory } from '../utils/apiEnhanced';
 import '../styles/story-composer.css';
@@ -10,6 +10,7 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
   const [uploading, setUploading] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [stream, setStream] = useState(null);
+  const [cameraError, setCameraError] = useState('');
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
   const videoRef = useRef(null);
@@ -81,9 +82,25 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
     }
   };
 
-  const handleCameraClick = () => {
-    // Mobile devices: use native camera input
-    if (cameraInputRef.current) {
+  const handleCameraClick = async () => {
+    setCameraError('');
+    if (navigator.mediaDevices?.getUserMedia) {
+      try {
+        const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        setStream(mediaStream);
+        setShowCamera(true);
+        if (videoRef.current) {
+          videoRef.current.srcObject = mediaStream;
+          videoRef.current.play().catch(() => {});
+        }
+      } catch (error) {
+        console.error('Camera error:', error);
+        setCameraError('Kamera kann nicht gestartet werden. Bitte Berechtigungen prüfen.');
+        if (cameraInputRef.current) {
+          cameraInputRef.current.click();
+        }
+      }
+    } else if (cameraInputRef.current) {
       cameraInputRef.current.click();
     }
   };
@@ -95,6 +112,14 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
     }
     setShowCamera(false);
   };
+
+  useEffect(() => {
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [stream]);
 
   const handleCameraCapture = (event) => {
     const file = event.target.files?.[0];
@@ -136,6 +161,43 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
         <div className="story-composer-body">
           {!preview ? (
             <div className="upload-area">
+              {showCamera && (
+                <div className="camera-preview">
+                  <video ref={videoRef} className="camera-video" autoPlay muted playsInline />
+                  <div className="camera-actions">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!videoRef.current || !canvasRef.current) return;
+                        const video = videoRef.current;
+                        const canvas = canvasRef.current;
+                        const width = video.videoWidth || 640;
+                        const height = video.videoHeight || 480;
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(video, 0, 0, width, height);
+                        canvas.toBlob((blob) => {
+                          if (!blob) return;
+                          const file = new File([blob], `story-${Date.now()}.png`, { type: 'image/png' });
+                          setSelectedFile(file);
+                          const reader = new FileReader();
+                          reader.onload = (e) => setPreview(e.target.result);
+                          reader.readAsDataURL(file);
+                        }, 'image/png');
+                        stopCamera();
+                      }}
+                      className="camera-capture-btn"
+                    >
+                      Foto aufnehmen
+                    </button>
+                    <button type="button" onClick={stopCamera} className="camera-close-btn">
+                      Abbrechen
+                    </button>
+                  </div>
+                  <canvas ref={canvasRef} className="hidden" />
+                </div>
+              )}
               <div className="upload-prompt">
                 <ImageIcon className="w-16 h-16 text-slate-400 mb-4" />
                 <h3>Foto oder Video auswählen</h3>
@@ -160,6 +222,9 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
                     Galerie
                   </button>
                 </div>
+                {cameraError && (
+                  <p className="text-xs text-red-500 mt-2 text-center">{cameraError}</p>
+                )}
               </div>
               <input
                 ref={fileInputRef}
