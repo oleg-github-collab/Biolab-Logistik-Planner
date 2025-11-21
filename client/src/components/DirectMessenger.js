@@ -112,8 +112,11 @@ const DirectMessenger = () => {
   const [mobileQuickReplies, setMobileQuickReplies] = useState([]);
   const [quickRepliesLoading, setQuickRepliesLoading] = useState(false);
   const [showStoryComposer, setShowStoryComposer] = useState(false);
+  const [longPressMenuMessage, setLongPressMenuMessage] = useState(null);
+  const [longPressMenuPosition, setLongPressMenuPosition] = useState({ x: 0, y: 0 });
 
   const fileInputRef = useRef(null);
+  const longPressTimerRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const recordingChunksRef = useRef([]);
   const recordingStreamRef = useRef(null);
@@ -1038,6 +1041,31 @@ const DirectMessenger = () => {
     setReplyToMessage(message);
   }, []);
 
+  // Long press handlers for mobile
+  const handleLongPressStart = useCallback((e, msg) => {
+    if (!isMobile) return;
+
+    const touch = e.touches ? e.touches[0] : e;
+    longPressTimerRef.current = setTimeout(() => {
+      setLongPressMenuMessage(msg);
+      setLongPressMenuPosition({
+        x: touch.clientX,
+        y: touch.clientY
+      });
+    }, 500); // 500ms for long press
+  }, [isMobile]);
+
+  const handleLongPressEnd = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
+  const closeLongPressMenu = useCallback(() => {
+    setLongPressMenuMessage(null);
+  }, []);
+
   const cancelReply = useCallback(() => {
     setReplyToMessage(null);
   }, []);
@@ -1388,6 +1416,9 @@ const DirectMessenger = () => {
         className="relative group"
         onMouseEnter={() => setHoveredMessage(msg.id)}
         onMouseLeave={() => setHoveredMessage(null)}
+        onTouchStart={(e) => handleLongPressStart(e, msg)}
+        onTouchEnd={handleLongPressEnd}
+        onTouchMove={handleLongPressEnd}
       >
         {/* Message bubble with pinned highlight */}
         <div
@@ -1599,57 +1630,10 @@ const DirectMessenger = () => {
               </span>
             )}
           </div>
-          {isMobile && (
-            <div className="mobile-message-action-toolbar">
-              <button
-                type="button"
-                className={`mobile-message-action-btn ${isReactionToolbarOpen ? 'active' : ''}`}
-                onClick={() => setShowReactionPicker(isReactionToolbarOpen ? null : msg.id)}
-                title="Reagieren"
-              >
-                <Smile className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                className="mobile-message-action-btn"
-                onClick={() => handleReplyTo(msg)}
-                title="Antworten"
-              >
-                <Reply className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                className="mobile-message-action-btn"
-                onClick={() => handleForwardMessage(msg)}
-                title="Weiterleiten"
-              >
-                <Forward className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                className={`mobile-message-action-btn ${isPinned ? 'active' : ''}`}
-                onClick={() => handlePinMessage(msg)}
-                title={isPinned ? 'Entfestigen' : 'Anpinnen'}
-              >
-                <Pin className="w-4 h-4" />
-              </button>
-              {isMine && (
-                <button
-                  type="button"
-                  className="mobile-message-action-btn text-red-600 hover:text-red-800"
-                  onClick={() => handleDeleteMessage(msg.id)}
-                  title="Löschen"
-                  style={{ '--action-color': '#dc2626' }}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-          )}
         </div>
 
         {/* Desktop action buttons - positioned outside bubble on hover */}
-        {(isHovered || showReactionPicker === msg.id) && (
+        {!isMobile && (isHovered || showReactionPicker === msg.id) && (
           <div
             className={`absolute top-0 ${
               isMine ? 'left-0 -translate-x-full pr-3' : 'right-0 translate-x-full pl-3'
@@ -1723,6 +1707,90 @@ const DirectMessenger = () => {
                   {emoji}
                 </button>
               ))}
+            </div>
+          </>
+        )}
+
+        {/* Mobile long-press context menu */}
+        {isMobile && longPressMenuMessage?.id === msg.id && (
+          <>
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 z-[10000] bg-black/20"
+              onClick={closeLongPressMenu}
+            />
+            {/* Context menu */}
+            <div
+              className="fixed z-[10001] bg-white rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+              style={{
+                top: `${longPressMenuPosition.y}px`,
+                left: `${longPressMenuPosition.x}px`,
+                transform: 'translate(-50%, -50%)',
+                minWidth: '200px'
+              }}
+            >
+              <div className="py-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowReactionPicker(msg.id);
+                    closeLongPressMenu();
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left text-slate-700 hover:bg-slate-50 active:bg-slate-100 transition-colors"
+                >
+                  <Smile className="w-5 h-5 text-blue-500" />
+                  <span className="font-medium">Reagieren</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleReplyTo(msg);
+                    closeLongPressMenu();
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left text-slate-700 hover:bg-slate-50 active:bg-slate-100 transition-colors"
+                >
+                  <Reply className="w-5 h-5 text-green-500" />
+                  <span className="font-medium">Antworten</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleForwardMessage(msg);
+                    closeLongPressMenu();
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left text-slate-700 hover:bg-slate-50 active:bg-slate-100 transition-colors"
+                >
+                  <Forward className="w-5 h-5 text-purple-500" />
+                  <span className="font-medium">Weiterleiten</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handlePinMessage(msg);
+                    closeLongPressMenu();
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left text-slate-700 hover:bg-slate-50 active:bg-slate-100 transition-colors"
+                >
+                  <Pin className={`w-5 h-5 ${isPinned ? 'text-yellow-500' : 'text-slate-400'}`} />
+                  <span className="font-medium">{isPinned ? 'Entfestigen' : 'Anpinnen'}</span>
+                </button>
+                {isMine && (
+                  <>
+                    <div className="h-px bg-slate-200 my-1" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleDeleteMessage(msg.id);
+                        closeLongPressMenu();
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-left text-red-600 hover:bg-red-50 active:bg-red-100 transition-colors"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                      <span className="font-medium">Löschen</span>
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           </>
         )}
