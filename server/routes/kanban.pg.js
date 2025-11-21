@@ -453,10 +453,26 @@ router.post('/tasks/:id/comments', auth, uploadMultiple('attachments', 5), async
 });
 
 // @route   GET /api/kanban/tasks/:id/activity
-// @desc    Get task activity log (placeholder - table doesn't exist)
+// @desc    Get task activity log entries
 router.get('/tasks/:id/activity', auth, async (req, res) => {
-  // Activity log table doesn't exist, return empty array
-  res.json([]);
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query(
+      `
+      SELECT tal.*, u.name as user_name, u.profile_photo as user_photo
+      FROM task_activity_log tal
+      LEFT JOIN users u ON tal.user_id = u.id
+      WHERE tal.task_id = $1
+      ORDER BY tal.created_at DESC
+      `,
+      [id]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    logger.error('Error fetching task activity log:', error);
+    res.status(500).json({ error: 'Serverfehler beim Laden der Aktivität' });
+  }
 });
 
 module.exports = router;

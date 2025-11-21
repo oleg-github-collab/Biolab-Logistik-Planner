@@ -1644,11 +1644,11 @@ const DirectMessenger = () => {
         </div>
 
         {/* Desktop action buttons - positioned outside bubble on hover */}
-        {!isMobile && (isHovered || showReactionPicker === msg.id) && (
+        {(isHovered || showReactionPicker === msg.id) && (
           <div
             className={`absolute top-0 ${
               isMine ? 'left-0 -translate-x-full pr-3' : 'right-0 translate-x-full pl-3'
-            } flex items-center gap-2`}
+            } flex items-center gap-2 z-50`}
           >
             <button
               onClick={() => setShowReactionPicker(showReactionPicker === msg.id ? null : msg.id)}
