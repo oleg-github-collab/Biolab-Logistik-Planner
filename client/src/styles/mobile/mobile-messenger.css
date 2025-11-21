@@ -236,7 +236,7 @@
     overflow-y: auto !important;
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
-    padding: 20px 14px 140px;
+    padding: 20px 14px calc(140px + env(safe-area-inset-bottom, 0));
     background: linear-gradient(180deg, #fdfdfd 0%, #eef2ff 100%);
     color: #0f172a;
     position: relative;
@@ -464,9 +464,11 @@
 
   .contact-list__stories {
     display: flex;
-    flex-wrap: wrap;
     gap: 10px;
     padding-bottom: 4px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
   }
 
   .story-chip {
@@ -480,6 +482,32 @@
     border: 1px solid rgba(255, 255, 255, 0.5);
     min-width: 64px;
     color: inherit;
+  }
+
+  .story-chip.new {
+    background: rgba(59, 130, 246, 0.1);
+  }
+
+  .story-chip.seen {
+    opacity: 0.8;
+  }
+
+  .story-chip__name {
+    font-size: 10px;
+    text-align: center;
+    color: #0f172a;
+    text-transform: none;
+    max-width: 70px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .story-chip__meta {
+    font-size: 9px;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
   }
 
   .story-chip__ring {
@@ -578,6 +606,10 @@
     align-items: center;
     justify-content: center;
     font-weight: 700;
+  }
+
+  .story-chip {
+    scroll-snap-align: start;
   }
 
   .story-chip span {

@@ -1974,22 +1974,42 @@ const DirectMessenger = () => {
             <span className="story-add-btn__label">Story</span>
           </button>
 
-          {storiesLoading ? (
-            Array.from({ length: 3 }).map((_, idx) => (
-              <div key={`story-skel-${idx}`} className="story-chip story-chip--skeleton" />
-            ))
-          ) : (
-            storyEntries.map((story) => (
-              <button key={story.id} type="button" onClick={() => onStoryOpen(story.id)} className="story-chip">
-                <div className={`story-chip__ring ${story.viewerHasSeen ? 'seen' : ''}`}>
-                  <div className="story-chip__avatar">
-                    {story.userName?.charAt(0)?.toUpperCase() || '?'}
+            {storiesLoading ? (
+              Array.from({ length: 3 }).map((_, idx) => (
+                <div key={`story-skel-${idx}`} className="story-chip story-chip--skeleton" />
+              ))
+            ) : (
+              storyEntries.map((story) => (
+                <button
+                  key={story.id}
+                  type="button"
+                  onClick={() => onStoryOpen(story.id)}
+                  className={`story-chip ${story.viewerHasSeen ? 'seen' : 'new'}`}
+                  aria-label={`Story von ${story.userName || 'Team'}${
+                    story.viewerHasSeen ? ', bereits gesehen' : ', neu'
+                  }`}
+                  title={`${story.userName || 'Story'} - ${story.viewerHasSeen ? 'bereits angesehen' : 'neu'}`}
+                >
+                  <div
+                    className={`story-chip__ring ${story.viewerHasSeen ? 'seen' : 'has-story'}`}
+                    aria-hidden="true"
+                  >
+                    <div className="story-chip__avatar">
+                      {story.userName?.charAt(0)?.toUpperCase() || '?'}
+                    </div>
                   </div>
-                </div>
-                <span>{story.userName || 'Story'}</span>
-              </button>
-            ))
-          )}
+                  <span className="story-chip__name">{story.userName || 'Story'}</span>
+                  <small className="story-chip__meta">
+                    {(() => {
+                      const timestamp = story.updatedAt || story.createdAt;
+                      return timestamp
+                        ? formatDistanceToNow(new Date(timestamp), { addSuffix: true, locale: de })
+                        : 'vor kurzem';
+                    })()}
+                  </small>
+                </button>
+              ))
+            )}
         </div>
 
         <div className="contact-list__grid">
