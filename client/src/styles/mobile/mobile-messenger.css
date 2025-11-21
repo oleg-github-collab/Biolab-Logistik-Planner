@@ -50,8 +50,11 @@
     align-items: center;
     gap: 12px;
     flex-shrink: 0;
-    z-index: 10;
-    position: relative;
+    z-index: 100;
+    position: sticky;
+    top: 0;
+    left: 0;
+    right: 0;
   }
 
   .messenger-mobile-header-enhanced::before {
@@ -191,6 +194,9 @@
     background: #ffffff;
     box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
     flex-wrap: wrap;
+    position: sticky;
+    top: 74px;
+    z-index: 99;
   }
 
   .messenger-mobile-header-actions button {

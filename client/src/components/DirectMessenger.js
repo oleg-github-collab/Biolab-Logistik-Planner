@@ -1381,8 +1381,8 @@ const DirectMessenger = () => {
     return (
       <div
         className="relative group"
-        onMouseEnter={() => !isMobile && setHoveredMessage(msg.id)}
-        onMouseLeave={() => !isMobile && setHoveredMessage(null)}
+        onMouseEnter={() => setHoveredMessage(msg.id)}
+        onMouseLeave={() => setHoveredMessage(null)}
       >
         {/* Message bubble with pinned highlight */}
         <div
