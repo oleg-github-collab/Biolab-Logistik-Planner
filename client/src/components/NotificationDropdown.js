@@ -570,12 +570,12 @@ const NotificationDropdown = () => {
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[9998]"
+        className="fixed inset-0 bg-black/50 backdrop-blur-md z-[10990]"
         onClick={closeDropdown}
       />
 
       {/* Panel */}
-      <div className="fixed inset-x-0 bottom-0 top-0 bg-white z-[9999] flex flex-col">
+      <div className="fixed inset-0 bg-white z-[11000] flex flex-col min-h-screen">
         {/* Header - sticky */}
         <div className="sticky top-0 z-10 bg-white border-b border-slate-200 px-4 py-4 flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-3">
@@ -648,7 +648,7 @@ const NotificationDropdown = () => {
         {renderBroadcastHighlights('mobile')}
 
         {/* List - scrollable */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 min-h-0 overflow-y-auto">
           {renderMobileNotificationList()}
         </div>
 

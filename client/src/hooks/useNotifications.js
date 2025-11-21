@@ -49,6 +49,11 @@ export const useNotifications = ({ filter = 'all' } = {}) => {
   const [loading, setLoading] = useState(false);
   const lastNotificationIdRef = useRef(null);
 
+  useEffect(() => {
+    const unread = notifications.filter((item) => !item.is_read).length;
+    setUnreadCount(unread);
+  }, [notifications]);
+
   const updateNotificationsState = useCallback((updater) => {
     setNotifications((prev) => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
@@ -171,7 +176,6 @@ export const useNotifications = ({ filter = 'all' } = {}) => {
       return merged;
     });
 
-    setUnreadCount((prev) => prev + normalized.filter((item) => !item.is_read).length);
   }, [socketNotifications, updateNotificationsState]);
 
   const markAsRead = useCallback(async (notificationId) => {

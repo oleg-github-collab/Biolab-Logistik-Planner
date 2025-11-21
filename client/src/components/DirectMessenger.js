@@ -118,6 +118,7 @@ const DirectMessenger = () => {
   const recordingChunksRef = useRef([]);
   const recordingStreamRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const shouldAutoScrollRef = useRef(true);
   const typingTimeoutRef = useRef(null);
 
   // Simple debounce utility
@@ -297,7 +298,11 @@ const DirectMessenger = () => {
   }, [location.state, location.pathname, navigate]);
 
   useEffect(() => {
+    if (!shouldAutoScrollRef.current) {
+      return;
+    }
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    shouldAutoScrollRef.current = false;
   }, [messages]);
 
   useEffect(() => {
@@ -314,6 +319,7 @@ const DirectMessenger = () => {
       });
 
       if (data?.conversationId === selectedThreadId && data?.message) {
+        shouldAutoScrollRef.current = true;
         setMessages((prev) => {
           // Check for duplicates
           if (Array.isArray(prev) && prev.some(m => m?.id === data.message.id)) {
@@ -323,7 +329,6 @@ const DirectMessenger = () => {
           console.log('✅ [DirectMessenger] Adding message to state');
           return Array.isArray(prev) ? [...prev, normalizeMessage(data.message)] : [normalizeMessage(data.message)];
         });
-        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 30);
       } else {
         console.log('❌ [DirectMessenger] Message NOT added - conversation mismatch or no message');
       }
@@ -435,8 +440,8 @@ const DirectMessenger = () => {
     try {
       const response = await getConversationMessages(threadId);
       const msgs = Array.isArray(response?.data) ? response.data : [];
+      shouldAutoScrollRef.current = true;
       setMessages(msgs.map((msg) => normalizeMessage(msg)));
-      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
     } catch (error) {
       console.error('Error loading messages:', error);
       showError('Fehler beim Laden der Nachrichten');
