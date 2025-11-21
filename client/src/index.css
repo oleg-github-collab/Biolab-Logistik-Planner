@@ -3088,6 +3088,26 @@ body {
   border-color: #0f172a;
 }
 
+@media (max-width: 1023px) {
+  .kb-mobile-categories {
+    background: rgba(15, 23, 42, 0.04);
+    border-radius: 18px;
+    padding: 0.65rem 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .kb-mobile-category {
+    flex: 0 0 auto;
+    padding: 0.45rem 1.05rem;
+    font-size: 0.8rem;
+    border-radius: 999px;
+  }
+
+  .kb-mobile-fab-group {
+    bottom: calc(104px + env(safe-area-inset-bottom, 0));
+  }
+}
+
 .kb-active-filters {
   display: flex;
   flex-wrap: wrap;

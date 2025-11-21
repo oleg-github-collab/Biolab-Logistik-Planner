@@ -1979,36 +1979,50 @@ const DirectMessenger = () => {
                 <div key={`story-skel-${idx}`} className="story-chip story-chip--skeleton" />
               ))
             ) : (
-              storyEntries.map((story) => (
-                <button
-                  key={story.id}
-                  type="button"
-                  onClick={() => onStoryOpen(story.id)}
-                  className={`story-chip ${story.viewerHasSeen ? 'seen' : 'new'}`}
-                  aria-label={`Story von ${story.userName || 'Team'}${
-                    story.viewerHasSeen ? ', bereits gesehen' : ', neu'
-                  }`}
-                  title={`${story.userName || 'Story'} - ${story.viewerHasSeen ? 'bereits angesehen' : 'neu'}`}
-                >
-                  <div
-                    className={`story-chip__ring ${story.viewerHasSeen ? 'seen' : 'has-story'}`}
-                    aria-hidden="true"
+              storyEntries.map((story) => {
+                const preview = story.mediaUrl ? getAssetUrl(story.mediaUrl) : null;
+                const timestamp = story.updatedAt || story.createdAt;
+                return (
+                  <button
+                    key={story.id}
+                    type="button"
+                    onClick={() => onStoryOpen(story.id)}
+                    className={`story-chip ${story.viewerHasSeen ? 'seen' : 'new'}`}
+                    aria-label={`Story von ${story.userName || 'Team'}${
+                      story.viewerHasSeen ? ', bereits gesehen' : ', neu'
+                    }`}
+                    title={`${story.userName || 'Story'} - ${
+                      story.viewerHasSeen ? 'bereits angesehen' : 'neu'
+                    }`}
                   >
-                    <div className="story-chip__avatar">
-                      {story.userName?.charAt(0)?.toUpperCase() || '?'}
+                    <div
+                      className={`story-chip__ring ${story.viewerHasSeen ? 'seen' : 'has-story'}`}
+                      aria-hidden="true"
+                    >
+                      <div
+                        className="story-chip__avatar"
+                        style={
+                          preview
+                            ? {
+                                backgroundImage: `url(${preview})`,
+                                backgroundSize: 'cover',
+                                backgroundPosition: 'center'
+                              }
+                            : undefined
+                        }
+                      >
+                        {!preview && (story.userName?.charAt(0)?.toUpperCase() || '?')}
+                      </div>
                     </div>
-                  </div>
-                  <span className="story-chip__name">{story.userName || 'Story'}</span>
-                  <small className="story-chip__meta">
-                    {(() => {
-                      const timestamp = story.updatedAt || story.createdAt;
-                      return timestamp
+                    <span className="story-chip__name">{story.userName || 'Story'}</span>
+                    <small className="story-chip__meta">
+                      {timestamp
                         ? formatDistanceToNow(new Date(timestamp), { addSuffix: true, locale: de })
-                        : 'vor kurzem';
-                    })()}
-                  </small>
-                </button>
-              ))
+                        : 'vor kurzem'}
+                    </small>
+                  </button>
+                );
+              })
             )}
         </div>
 

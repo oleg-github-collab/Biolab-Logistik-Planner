@@ -231,12 +231,14 @@
   }
 
   .messenger-mobile-messages {
+    --messenger-input-offset: calc(200px + env(safe-area-inset-bottom, 0));
     flex: 1;
     min-height: 0;
     overflow-y: auto !important;
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
-    padding: 20px 14px calc(140px + env(safe-area-inset-bottom, 0));
+    padding: 20px 14px var(--messenger-input-offset);
+    scroll-padding-bottom: var(--messenger-input-offset);
     background: linear-gradient(180deg, #fdfdfd 0%, #eef2ff 100%);
     color: #0f172a;
     position: relative;
