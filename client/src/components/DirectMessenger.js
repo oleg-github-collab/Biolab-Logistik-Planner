@@ -1768,7 +1768,7 @@ const DirectMessenger = () => {
                   : 'relative max-w-[75%] lg:max-w-[60%] min-w-0'
               }
             >
-              <div className={`relative ${isMobile ? 'max-w-[85%]' : 'w-full min-w-0 overflow-hidden'}`}>
+              <div className={`relative ${isMobile ? 'max-w-[85%]' : 'w-full min-w-0 overflow-visible'}`}>
                 {renderMessageContent(msg, isMine)}
               </div>
 
@@ -2557,13 +2557,16 @@ const DirectMessenger = () => {
   );
 
   const renderMobileLayout = () => {
-    if (mobileMode === 'list' || !selectedContact) {
+    const isChatMode = mobileMode === 'chat' && (selectedContact || selectedThreadId);
+
+    if (!isChatMode) {
       return (
         <div className="messenger-mobile-container messenger-mobile-list-mode">
           {renderMobileContactListView()}
         </div>
       );
     }
+
     return (
       <div className="messenger-mobile-container messenger-mobile-chat-mode">
         {renderMobileChatView()}
