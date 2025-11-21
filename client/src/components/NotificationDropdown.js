@@ -570,14 +570,13 @@ const NotificationDropdown = () => {
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-md z-[10990]"
+        className="notification-mobile-backdrop"
         onClick={closeDropdown}
       />
 
       {/* Panel */}
-      <div className="fixed inset-0 bg-white z-[11000] flex flex-col min-h-screen">
-        {/* Header - sticky */}
-        <div className="sticky top-0 z-10 bg-white border-b border-slate-200 px-4 py-4 flex items-center justify-between shadow-sm">
+      <div className="notification-mobile-panel">
+        <div className="notification-mobile-header">
           <div className="flex items-center gap-3">
             <Bell className="w-5 h-5 text-blue-600" />
             <div>
@@ -596,65 +595,62 @@ const NotificationDropdown = () => {
           </button>
         </div>
 
-        {/* Filters - sticky */}
-        <div className="sticky top-[73px] z-10 bg-white border-b border-slate-200 px-4 py-3 flex gap-2 overflow-x-auto">
-          {FILTERS.map((item) => (
-            <button
-              key={item.value}
-              type="button"
-              onClick={() => onFilterChange(item.value)}
-              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition ${
-                filter === item.value
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
-                  : 'bg-slate-100 text-slate-700 active:bg-slate-200'
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
+        <div className="notification-mobile-body">
+          <div className="notification-mobile-filters">
+            {FILTERS.map((item) => (
+              <button
+                key={item.value}
+                type="button"
+                onClick={() => onFilterChange(item.value)}
+                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition ${
+                  filter === item.value
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
+                    : 'bg-slate-100 text-slate-700 active:bg-slate-200'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
 
-        <div className="px-4 py-3">
-          <div className="grid grid-cols-3 gap-2 text-center text-xs font-semibold text-gray-500">
-            <div className="rounded-xl bg-blue-50 py-2">
-              <p className="text-base font-bold text-gray-900">{notificationStats.pending}</p>
-              <p>Ungelesen</p>
+          <div className="notification-mobile-stats">
+            <div className="grid grid-cols-3 gap-2 text-center text-xs font-semibold text-gray-500">
+              <div className="rounded-xl bg-blue-50 py-2">
+                <p className="text-base font-bold text-gray-900">{notificationStats.pending}</p>
+                <p>Ungelesen</p>
+              </div>
+              <div className="rounded-xl bg-emerald-50 py-2">
+                <p className="text-base font-bold text-gray-900">{notificationStats.tasks}</p>
+                <p>Aufgaben</p>
+              </div>
+              <div className="rounded-xl bg-amber-50 py-2">
+                <p className="text-base font-bold text-gray-900">{notificationStats.alerts}</p>
+                <p>Termine/System</p>
+              </div>
             </div>
-            <div className="rounded-xl bg-emerald-50 py-2">
-              <p className="text-base font-bold text-gray-900">{notificationStats.tasks}</p>
-              <p>Aufgaben</p>
+          </div>
+
+          {unreadCount > 0 && (
+            <div className="notification-mobile-actionbar">
+              <button
+                type="button"
+                onClick={handleMarkAllAsRead}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 text-white font-medium active:bg-blue-700"
+              >
+                <CheckCheck className="w-5 h-5" />
+                Alle als gelesen markieren
+              </button>
             </div>
-            <div className="rounded-xl bg-amber-50 py-2">
-              <p className="text-base font-bold text-gray-900">{notificationStats.alerts}</p>
-              <p>Termine/System</p>
-            </div>
+          )}
+
+          <div className="notification-mobile-body__list">
+            {renderBroadcastHighlights('mobile')}
+            {renderMobileNotificationList()}
           </div>
         </div>
 
-        {/* Action bar */}
-        {unreadCount > 0 && (
-          <div className="px-4 py-3 bg-blue-50 border-b border-blue-100">
-            <button
-              type="button"
-              onClick={handleMarkAllAsRead}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 text-white font-medium active:bg-blue-700"
-            >
-              <CheckCheck className="w-5 h-5" />
-            Alle als gelesen markieren
-            </button>
-          </div>
-        )}
-
-        {renderBroadcastHighlights('mobile')}
-
-        {/* List - scrollable */}
-        <div className="flex-1 min-h-0 overflow-y-auto">
-          {renderMobileNotificationList()}
-        </div>
-
-        {/* Bottom action */}
-        {notifications.some(n => n.is_read) && (
-          <div className="sticky bottom-0 bg-white border-t border-slate-200 px-4 py-3 shadow-lg">
+        {notifications.some((n) => n.is_read) && (
+          <div className="notification-mobile-footer">
             <button
               type="button"
               onClick={handleClearAll}

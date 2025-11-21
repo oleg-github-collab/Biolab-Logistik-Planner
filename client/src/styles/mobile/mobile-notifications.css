@@ -620,3 +620,82 @@
     color: white;
     box-shadow: 0 6px 18px rgba(59, 130, 246, 0.25);
   }
+@media (max-width: 1023px) {
+
+  .notification-mobile-backdrop {
+    position: fixed !important;
+    inset: 0 !important;
+    background: rgba(3, 8, 18, 0.85) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 10990 !important;
+  }
+
+  .notification-mobile-panel {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 11000 !important;
+    background: #ffffff !important;
+    display: flex !important;
+    flex-direction: column !important;
+    pointer-events: all !important;
+  }
+
+  .notification-mobile-header {
+    padding: 24px 20px 14px;
+    padding-top: calc(24px + env(safe-area-inset-top, 0));
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    z-index: 5;
+  }
+
+  .notification-mobile-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 0 16px;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+  }
+
+  .notification-mobile-filters {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 6px;
+    position: sticky;
+    top: 0;
+    background: #ffffff;
+    z-index: 5;
+  }
+
+  .notification-mobile-stats {
+    padding: 0 10px;
+  }
+
+  .notification-mobile-actionbar {
+    padding: 0 10px;
+  }
+
+  .notification-mobile-body__list {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-bottom: 12px;
+  }
+
+  .notification-mobile-footer {
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0));
+    border-top: 1px solid #e2e8f0;
+    background: #ffffff;
+  }
+}

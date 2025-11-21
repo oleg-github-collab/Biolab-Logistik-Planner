@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { useWebSocketContext } from '../context/WebSocketContext';
 import {
   getNotifications,
@@ -45,14 +45,9 @@ const persistNotifications = (items = []) => {
 export const useNotifications = ({ filter = 'all' } = {}) => {
   const { notifications: socketNotifications, isConnected } = useWebSocketContext();
   const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [remoteUnreadCount, setRemoteUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const lastNotificationIdRef = useRef(null);
-
-  useEffect(() => {
-    const unread = notifications.filter((item) => !item.is_read).length;
-    setUnreadCount(unread);
-  }, [notifications]);
 
   const updateNotificationsState = useCallback((updater) => {
     setNotifications((prev) => {
@@ -62,6 +57,13 @@ export const useNotifications = ({ filter = 'all' } = {}) => {
       return limited;
     });
   }, []);
+
+  const computedUnreadCount = useMemo(
+    () => notifications.filter((item) => !item.is_read).length,
+    [notifications]
+  );
+
+  const unreadCount = Math.max(remoteUnreadCount, computedUnreadCount);
 
   const hydrateCache = useCallback(() => {
     if (typeof window === 'undefined') return;
@@ -78,7 +80,9 @@ export const useNotifications = ({ filter = 'all' } = {}) => {
       const limited = normalized.slice(0, CACHE_LIMIT);
 
       setNotifications(limited);
-      setUnreadCount(limited.filter((item) => !item.is_read).length);
+      setRemoteUnreadCount((prev) =>
+        Math.max(prev, limited.filter((item) => !item.is_read).length)
+      );
       if (limited.length) {
         lastNotificationIdRef.current = limited[0].id;
       }
@@ -126,7 +130,7 @@ export const useNotifications = ({ filter = 'all' } = {}) => {
     try {
       const response = await getUnreadCount();
       const count = parseInt(response.data?.total, 10) || 0;
-      setUnreadCount(count);
+      setRemoteUnreadCount(count);
     } catch (error) {
       console.error('Error loading unread notification count:', error);
     }
@@ -186,30 +190,31 @@ export const useNotifications = ({ filter = 'all' } = {}) => {
           notification.id === notificationId ? { ...notification, is_read: true } : notification
         )
       );
-      setUnreadCount((prev) => Math.max(0, prev - 1));
+      await loadUnreadCount();
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }
-  }, [updateNotificationsState]);
+  }, [updateNotificationsState, loadUnreadCount]);
 
   const markAllAsRead = useCallback(async () => {
     try {
       await markAllNotificationsAsRead();
       updateNotificationsState((prev) => prev.map((notification) => ({ ...notification, is_read: true })));
-      setUnreadCount(0);
+      await loadUnreadCount();
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
     }
-  }, [updateNotificationsState]);
+  }, [updateNotificationsState, loadUnreadCount]);
 
   const clearRead = useCallback(async () => {
     try {
       await clearAllReadNotifications();
       updateNotificationsState((prev) => prev.filter((notification) => !notification.is_read));
+      await loadUnreadCount();
     } catch (error) {
       console.error('Error clearing read notifications:', error);
     }
-  }, [updateNotificationsState]);
+  }, [updateNotificationsState, loadUnreadCount]);
 
   const removeNotification = useCallback(async (notificationId) => {
     try {

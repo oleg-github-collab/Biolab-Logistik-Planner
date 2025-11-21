@@ -764,6 +764,19 @@
     min-height: 100vh;
   }
 
+  .messenger-mobile-container,
+  .messenger-mobile-chat-mode,
+  .messenger-mobile-list-mode {
+    position: relative;
+    z-index: 10;
+  }
+
+  .messenger-mobile-list-view {
+    position: relative;
+    overflow-y: auto;
+    max-height: calc(100vh - 120px);
+  }
+
   .messenger-mobile-chat-mode {
     display: flex;
     flex-direction: column;
