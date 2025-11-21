@@ -2798,6 +2798,12 @@ body {
     #f8fafc;
 }
 
+@media (max-width: 1023px) {
+  .kb-page {
+    padding-bottom: 80px;
+  }
+}
+
 .kb-layout {
   display: flex;
   flex-direction: column;
