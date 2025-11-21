@@ -1999,19 +1999,16 @@ const DirectMessenger = () => {
                       className={`story-chip__ring ${story.viewerHasSeen ? 'seen' : 'has-story'}`}
                       aria-hidden="true"
                     >
-                      <div
-                        className="story-chip__avatar"
-                        style={
-                          preview
-                            ? {
-                                backgroundImage: `url(${preview})`,
-                                backgroundSize: 'cover',
-                                backgroundPosition: 'center'
-                              }
-                            : undefined
-                        }
-                      >
-                        {!preview && (story.userName?.charAt(0)?.toUpperCase() || '?')}
+                      <div className="story-chip__avatar" aria-hidden={!preview}>
+                        {preview ? (
+                          <img
+                            src={preview}
+                            alt={`${story.userName || 'Story'} media`}
+                            className="story-chip__avatar-img"
+                          />
+                        ) : (
+                          <span>{story.userName?.charAt(0)?.toUpperCase() || '?'}</span>
+                        )}
                       </div>
                     </div>
                     <span className="story-chip__name">{story.userName || 'Story'}</span>

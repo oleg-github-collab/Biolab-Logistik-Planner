@@ -3071,7 +3071,11 @@ body {
   display: flex;
   gap: 0.5rem;
   overflow-x: auto;
-  padding: 0.75rem 0 0.25rem;
+  padding: 0.85rem 0.85rem 0.35rem;
+  margin-top: 0.25rem;
+  background: rgba(15, 23, 42, 0.04);
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
 }
 
 .kb-mobile-category {
@@ -3080,6 +3084,8 @@ body {
   padding: 0.35rem 0.9rem;
   font-size: 0.78rem;
   color: #475569;
+  background: #ffffff;
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
 }
 
 .kb-mobile-category.active {
@@ -3295,7 +3301,7 @@ body {
 .kb-mobile-fab-group {
   position: fixed;
   right: 16px;
-  bottom: calc(16px + env(safe-area-inset-bottom, 0));
+  bottom: calc(136px + env(safe-area-inset-bottom, 0));
   display: flex;
   flex-direction: column;
   gap: 0.75rem;

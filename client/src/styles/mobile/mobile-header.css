@@ -64,7 +64,7 @@
     background: rgba(15, 23, 42, 0.65);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    z-index: 100090;
+    z-index: 300250;
     animation: fadeInBackdrop 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
   }
 
@@ -73,7 +73,7 @@
     background: rgba(15, 23, 42, 0.65) !important;
     backdrop-filter: blur(16px) !important;
     -webkit-backdrop-filter: blur(16px) !important;
-    z-index: 100090 !important; /* Під меню але над всім іншим */
+    z-index: 300250 !important; /* Під меню але над всім іншим */
   }
 
   @keyframes fadeInBackdrop {
@@ -97,7 +97,7 @@
     left: 10vw !important;
     background: linear-gradient(180deg, #ffffff 0%, #fafbfc 50%, #f8fafc 100%);
     box-shadow: -16px 0 80px rgba(15, 23, 42, 0.3);
-    z-index: 100100 !important; /* Вище від всього включно з білим полем Kanban */
+    z-index: 300300 !important; /* Вище від всього включно з білим полем Kanban */
     display: flex !important;
     flex-direction: column !important;
     height: 100vh !important;

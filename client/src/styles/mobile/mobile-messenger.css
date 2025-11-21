@@ -610,6 +610,13 @@
     font-weight: 700;
   }
 
+  .story-chip__avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 12px;
+  }
+
   .story-chip {
     scroll-snap-align: start;
   }
