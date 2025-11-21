@@ -394,99 +394,111 @@ const NotificationDropdown = () => {
   const renderMobileNotificationList = () => {
     if (loading) {
       return (
-        <div className="notification-list">
-          <div className="notification-empty">
-            <div className="w-10 h-10 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-3" />
-            <p className="text-sm font-semibold text-blue-600">Lade Benachrichtigungen…</p>
-            <p className="text-xs text-blue-300">Bitte einen Moment Geduld</p>
-          </div>
+        <div className="flex flex-col items-center justify-center py-20 px-4">
+          <div className="w-12 h-12 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mb-4" />
+          <p className="text-sm font-medium text-slate-600">Wird geladen...</p>
         </div>
       );
     }
 
     if (!notifications.length) {
       return (
-        <div className="notification-list">
-          <div className="notification-empty">
-            <Bell className="w-16 h-16 text-slate-300 mb-4" />
-            <h3 className="text-base font-semibold text-slate-600">Keine Benachrichtigungen</h3>
-            <p className="text-sm text-slate-400">Bleiben Sie informiert, sobald neue Meldungen eintreffen.</p>
+        <div className="flex flex-col items-center justify-center py-20 px-4">
+          <div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center mb-4">
+            <Bell className="w-10 h-10 text-slate-400" />
           </div>
+          <h3 className="text-lg font-semibold text-slate-900 mb-2">Keine Benachrichtigungen</h3>
+          <p className="text-sm text-slate-500 text-center">
+            Du bist auf dem neuesten Stand!
+          </p>
         </div>
       );
     }
 
     return (
-      <div className="notification-list">
+      <div className="divide-y divide-slate-100">
         {notifications.map((notification) => {
           const displayMessage = notification.content?.trim()
             ? notification.content
             : notification.title;
           return (
-            <button
-              type="button"
+            <div
               key={notification.id}
-              onClick={() => handleNotificationClick(notification)}
-              className={`notification-item ${notification.is_read ? '' : 'unread'}`}
+              className={`px-4 py-4 ${notification.is_read ? 'bg-white' : 'bg-blue-50/50'}`}
             >
-              <div className="notification-item-icon">
-                {getNotificationIcon(notification.type)}
-              </div>
-              <div className="notification-item-content">
-                <p className="notification-item-title">{notification.title}</p>
-                <p className="notification-item-message line-clamp-2">{displayMessage}</p>
-                <div className="notification-item-time">
-                  <span>{formatTimestamp(notification.created_at)}</span>
-                  {!notification.is_read && (
-                    <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-600 text-[10px] font-semibold uppercase tracking-wide">
-                      Neu
-                    </span>
+              <div className="flex gap-3">
+                {/* Icon */}
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                  notification.is_read ? 'bg-slate-100' : 'bg-blue-100'
+                }`}>
+                  {getNotificationIcon(notification.type)}
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-slate-900 mb-1 line-clamp-2">
+                    {notification.title}
+                  </p>
+                  {displayMessage !== notification.title && (
+                    <p className="text-sm text-slate-600 mb-2 line-clamp-2">
+                      {displayMessage}
+                    </p>
+                  )}
+                  <p className="text-xs text-slate-400">
+                    {formatTimestamp(notification.created_at)}
+                  </p>
+
+                  {/* Actions */}
+                  {notification.metadata?.actions?.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      {notification.metadata.actions.map((action) => {
+                        const isLoading = actionLoadingKey === `${notification.id}-${action.key}`;
+                        return (
+                          <button
+                            key={action.key}
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleNotificationActionButton(event, notification, action);
+                            }}
+                            disabled={isLoading}
+                            className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium active:bg-blue-700 disabled:opacity-50"
+                          >
+                            {isLoading ? 'Lädt...' : action.label || 'Aktion'}
+                          </button>
+                        );
+                      })}
+                    </div>
                   )}
                 </div>
-                {notification.metadata?.actions?.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    {notification.metadata.actions.map((action) => {
-                      const isLoading = actionLoadingKey === `${notification.id}-${action.key}`;
-                      return (
-                        <button
-                          key={action.key}
-                          type="button"
-                          onClick={(event) => handleNotificationActionButton(event, notification, action)}
-                          disabled={isLoading}
-                          className="text-[11px] px-3 py-1 rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition disabled:opacity-60"
-                        >
-                          {isLoading ? 'Wird gesendet…' : action.label || 'Aktion'}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-              <div className="flex flex-col items-end gap-2">
-                {!notification.is_read && (
+
+                {/* Action buttons */}
+                <div className="flex flex-col gap-2">
+                  {!notification.is_read && (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handleMarkAsRead(notification.id);
+                      }}
+                      className="w-8 h-8 flex items-center justify-center rounded-lg bg-green-100 text-green-600 active:bg-green-200"
+                    >
+                      <Check className="w-4 h-4" />
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={(event) => {
                       event.stopPropagation();
-                      handleMarkAsRead(notification.id);
+                      handleDelete(notification.id);
                     }}
-                    className="notification-item-action"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg bg-red-100 text-red-600 active:bg-red-200"
                   >
-                    <Check className="w-4 h-4" />
+                    <Trash2 className="w-4 h-4" />
                   </button>
-                )}
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    handleDelete(notification.id);
-                  }}
-                  className="notification-item-action"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                </div>
               </div>
-            </button>
+            </div>
           );
         })}
       </div>
@@ -556,91 +568,84 @@ const NotificationDropdown = () => {
 
   const mobilePanel = (
     <>
-      <div className="notification-backdrop active" onClick={closeDropdown} />
-      <div className="notification-panel active" role="dialog" aria-modal="true">
-        <div className="notification-panel-header">
-          <div className="notification-panel-header__main">
-            <h3>Benachrichtigungen</h3>
-            <p>Alle wichtigen Meldungen im Blick</p>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[9998]"
+        onClick={closeDropdown}
+      />
+
+      {/* Panel */}
+      <div className="fixed inset-x-0 bottom-0 top-0 bg-white z-[9999] flex flex-col">
+        {/* Header - sticky */}
+        <div className="sticky top-0 z-10 bg-white border-b border-slate-200 px-4 py-4 flex items-center justify-between shadow-sm">
+          <div className="flex items-center gap-3">
+            <Bell className="w-5 h-5 text-blue-600" />
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">Benachrichtigungen</h2>
+              <p className="text-xs text-slate-500">
+                {unreadCount > 0 ? `${unreadCount} neu` : 'Alles gelesen'}
+              </p>
+            </div>
           </div>
           <button
             type="button"
             onClick={closeDropdown}
-            className="notification-panel-close"
-            aria-label="Schließen"
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-slate-100 text-slate-600 active:bg-slate-200"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="notification-panel-hero">
-          <div>
-            <p className="notification-panel-hero__label">Broadcast</p>
-            <h4 className="notification-panel-hero__title">
-              {notificationStats.pending > 0 ? `${notificationStats.pending} ungelesene${notificationStats.pending > 1 ? ' Notifications' : ''}` : 'Alles gelesen'}
-            </h4>
-            <p className="notification-panel-hero__subtitle">
-              Live-Updates wurden zuletzt vor {notificationStats.pending ? 'kurzem' : 'wenigen Minuten'} synchronisiert.
-            </p>
-            {heroMessage && (
-              <p className="notification-panel-hero__description">{heroMessage}</p>
-            )}
-          </div>
-          <button
-            type="button"
-            className="notification-panel-hero__button"
-            onClick={handleMarkAllAsRead}
-            disabled={unreadCount === 0}
-          >
-            <CheckCheck className="w-4 h-4" />
-            Alle lesen
-          </button>
-        </div>
-
-        {renderBroadcastHighlights()}
-
-        <div className="notification-filters px-0">
+        {/* Filters - sticky */}
+        <div className="sticky top-[73px] z-10 bg-white border-b border-slate-200 px-4 py-3 flex gap-2 overflow-x-auto">
           {FILTERS.map((item) => (
             <button
               key={item.value}
               type="button"
               onClick={() => onFilterChange(item.value)}
-              className={`notification-filter-tab ${filter === item.value ? 'active' : ''}`}
+              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition ${
+                filter === item.value
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
+                  : 'bg-slate-100 text-slate-700 active:bg-slate-200'
+              }`}
             >
               {item.label}
             </button>
           ))}
         </div>
 
-        <div className="grid grid-cols-3 gap-3 px-4 py-2 text-center text-xs text-gray-500">
-          <div className="rounded-2xl bg-blue-50/80 px-2 py-2">
-            <p className="text-[10px] uppercase tracking-wide text-blue-500">Ungelesen</p>
-            <p className="text-sm font-semibold text-slate-900">{notificationStats.pending}</p>
+        {/* Action bar */}
+        {unreadCount > 0 && (
+          <div className="px-4 py-3 bg-blue-50 border-b border-blue-100">
+            <button
+              type="button"
+              onClick={handleMarkAllAsRead}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 text-white font-medium active:bg-blue-700"
+            >
+              <CheckCheck className="w-5 h-5" />
+              Alle als gelesen markieren
+            </button>
           </div>
-          <div className="rounded-2xl bg-emerald-50/80 px-2 py-2">
-            <p className="text-[10px] uppercase tracking-wide text-emerald-600">Aufgaben</p>
-            <p className="text-sm font-semibold text-slate-900">{notificationStats.tasks}</p>
-          </div>
-          <div className="rounded-2xl bg-amber-50/80 px-2 py-2">
-            <p className="text-[10px] uppercase tracking-wide text-amber-600">System</p>
-            <p className="text-sm font-semibold text-slate-900">{notificationStats.alerts}</p>
-          </div>
-        </div>
+        )}
 
-        <div className="px-4 py-3 flex gap-2">
-          <button
-            type="button"
-            onClick={handleClearAll}
-            className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 rounded-2xl text-xs font-semibold uppercase tracking-wide bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
-          >
-            <Trash2 className="w-4 h-4" />
-            Aufräumen
-          </button>
-        </div>
-
-        <div className="notification-panel__list">
+        {/* List - scrollable */}
+        <div className="flex-1 overflow-y-auto">
           {renderMobileNotificationList()}
         </div>
+
+        {/* Bottom action */}
+        {notifications.some(n => n.is_read) && (
+          <div className="sticky bottom-0 bg-white border-t border-slate-200 px-4 py-3 shadow-lg">
+            <button
+              type="button"
+              onClick={handleClearAll}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-50 text-red-600 font-medium active:bg-red-100"
+            >
+              <Trash2 className="w-5 h-5" />
+              Gelesene löschen
+            </button>
+          </div>
+        )}
       </div>
     </>
   );
