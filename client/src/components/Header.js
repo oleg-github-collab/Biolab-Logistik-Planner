@@ -75,7 +75,7 @@ const Header = () => {
 
   const visibleNavItems = useMemo(() => {
     if (!hasPermission) return NAV_ITEMS;
-    const filtered = NAV_ITEMS.filter((item) => hasPermission(item.permission));
+    const filtered = NAV_ITEMS.filter((item) => !item.permission || hasPermission(item.permission));
     return filtered.length ? filtered : NAV_ITEMS;
   }, [hasPermission]);
 
