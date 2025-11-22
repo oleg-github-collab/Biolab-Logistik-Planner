@@ -3088,6 +3088,59 @@ body {
   box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
 }
 
+@media (max-width: 1023px) {
+  .kb-mobile-category-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+  }
+
+  .kb-mobile-category-card {
+    border-radius: 20px;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    padding: 12px;
+    background: #f9fafb;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 16px 30px rgba(15, 23, 42, 0.08);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+
+  .kb-mobile-category-card.active {
+    border-color: #2563eb;
+    background: linear-gradient(135deg, #e0f2fe, #f1f5f9);
+    transform: translateY(-2px);
+    box-shadow: 0 18px 32px rgba(59, 130, 246, 0.25);
+  }
+
+  .kb-mobile-category-card__icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 16px;
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .kb-mobile-category-card__label {
+    margin: 0;
+    font-weight: 600;
+    color: #0f172a;
+    font-size: 0.9rem;
+  }
+
+  .kb-mobile-category-card__count {
+    font-size: 0.7rem;
+    color: #475569;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+}
+
 .kb-mobile-category.active {
   background: #0f172a;
   color: white;

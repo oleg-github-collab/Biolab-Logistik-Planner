@@ -1982,16 +1982,37 @@ const KnowledgeBaseV3 = () => {
             ))}
           </div>
 
-          {isMobile && categories.length > 0 && (
-            <div className="kb-mobile-categories">
+          {isMobile && (
+            <div className="kb-mobile-category-grid">
+              <button
+                type="button"
+                onClick={() => handleCategorySelect(null)}
+                className={`kb-mobile-category-card ${selectedCategory === null ? 'active' : ''}`}
+              >
+                <div className="kb-mobile-category-card__icon">
+                  <Layers size={18} />
+                </div>
+                <div>
+                  <p className="kb-mobile-category-card__label">Alle Artikel</p>
+                  <span className="kb-mobile-category-card__count">{articles.length} Artikel</span>
+                </div>
+              </button>
               {categories.map((category) => (
                 <button
-                  type="button"
                   key={category.id}
+                  type="button"
                   onClick={() => handleCategorySelect(category.id)}
-                  className={`kb-mobile-category ${selectedCategory === category.id ? 'active' : ''}`}
+                  className={`kb-mobile-category-card ${selectedCategory === category.id ? 'active' : ''}`}
                 >
-                  {category.name}
+                  <div className="kb-mobile-category-card__icon">
+                    <CategoryIcon icon={category.icon} color={category.color} />
+                  </div>
+                  <div>
+                    <p className="kb-mobile-category-card__label">{category.name}</p>
+                    <span className="kb-mobile-category-card__count">
+                      {category.articles_count || 0} Artikel
+                    </span>
+                  </div>
                 </button>
               ))}
             </div>
