@@ -32,6 +32,7 @@ const NotificationDropdown = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [filter, setFilter] = useState('all');
   const dropdownRef = useRef(null);
+  const mobilePanelRef = useRef(null);
   const [actionLoadingKey, setActionLoadingKey] = useState(null);
 
   const {
@@ -57,14 +58,19 @@ const NotificationDropdown = () => {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        closeDropdown();
+      const clickedInsideDropdown = dropdownRef.current && dropdownRef.current.contains(event.target);
+      const clickedInsideMobilePanel =
+        mobilePanelRef.current && mobilePanelRef.current.contains(event.target);
+
+      if (clickedInsideDropdown || clickedInsideMobilePanel) {
+        return;
       }
+      closeDropdown();
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [closeDropdown]);
+  }, [closeDropdown, mobilePanelRef]);
 
   useEffect(() => {
     if (isOpen) {
@@ -569,7 +575,7 @@ const NotificationDropdown = () => {
   );
 
   const mobilePanel = (
-    <div className="fixed inset-0 z-[99999] flex flex-col">
+    <div ref={mobilePanelRef} className="fixed inset-0 z-[99999] flex flex-col">
       {/* Backdrop - NO onClick to prevent closing */}
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm -z-10" />
 

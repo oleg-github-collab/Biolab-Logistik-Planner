@@ -3,6 +3,8 @@ import { X, Upload, Image as ImageIcon, Loader2, Camera } from 'lucide-react';
 import { uploadProfileStory } from '../utils/apiEnhanced';
 import '../styles/story-composer.css';
 
+const MAX_FILE_SIZE = 50 * 1024 * 1024;
+
 const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -10,37 +12,77 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
   const [uploading, setUploading] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [stream, setStream] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
   const [cameraError, setCameraError] = useState('');
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
 
-  const handleFileSelect = (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const formatFileSize = (size) => {
+    if (!size) return 'Unbekannt';
+    if (size >= 1024 * 1024) {
+      return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+    }
+    if (size >= 1024) {
+      return `${(size / 1024).toFixed(1)} KB`;
+    }
+    return `${size} B`;
+  };
 
-    // Validate file type
+  const getFileTypeLabel = (file) => {
+    if (!file?.type) return 'Unbekannt';
+    return file.type.startsWith('video/') ? 'Video' : 'Bild';
+  };
+
+  const handleFileProcessing = (file) => {
+    if (!file) return false;
     if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
       showError?.('Nur Bilder und Videos sind erlaubt');
-      return;
+      return false;
     }
-
-    // Validate file size (max 50MB)
-    const maxSize = 50 * 1024 * 1024;
-    if (file.size > maxSize) {
+    if (file.size > MAX_FILE_SIZE) {
       showError?.('Datei zu groß (max 50MB)');
-      return;
+      return false;
     }
 
     setSelectedFile(file);
-
-    // Create preview
     const reader = new FileReader();
     reader.onload = (e) => {
       setPreview(e.target.result);
     };
     reader.readAsDataURL(file);
+    return true;
+  };
+
+  const handleDragEnter = (event) => {
+    event.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragOver = (event) => {
+    event.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (event) => {
+    event.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (event) => {
+    event.preventDefault();
+    setIsDragging(false);
+    handleFileProcessing(event.dataTransfer?.files?.[0]);
+  };
+
+  const handleFileSelect = (event) => {
+    setIsDragging(false);
+    const file = event.target.files?.[0];
+    const accepted = handleFileProcessing(file);
+    if (!accepted && fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleUpload = async () => {
@@ -80,6 +122,7 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
     if (cameraInputRef.current) {
       cameraInputRef.current.value = '';
     }
+    setIsDragging(false);
   };
 
   const handleCameraClick = async () => {
@@ -122,31 +165,14 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
   }, [stream]);
 
   const handleCameraCapture = (event) => {
+    setIsDragging(false);
     const file = event.target.files?.[0];
     if (!file) return;
-
-    // Validate file type
-    if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
-      showError?.('Nur Bilder und Videos sind erlaubt');
-      return;
-    }
-
-    // Validate file size (max 50MB)
-    const maxSize = 50 * 1024 * 1024;
-    if (file.size > maxSize) {
-      showError?.('Datei zu groß (max 50MB)');
-      return;
-    }
-
-    setSelectedFile(file);
-
-    // Create preview
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      setPreview(e.target.result);
-    };
-    reader.readAsDataURL(file);
+    handleFileProcessing(file);
   };
+
+  const hasPreview = Boolean(preview);
+  const dragHint = isDragging ? 'Lass los, um hochzuladen' : 'Oder Datei hierher ziehen';
 
   return (
     <div className="story-composer-overlay" onClick={onClose}>
@@ -159,8 +185,14 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
         </div>
 
         <div className="story-composer-body">
-          {!preview ? (
-            <div className="upload-area">
+          {!hasPreview ? (
+            <div
+              className={`upload-area${isDragging ? ' dragging' : ''}`}
+              onDragEnter={handleDragEnter}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
               {showCamera && (
                 <div className="camera-preview">
                   <video ref={videoRef} className="camera-video" autoPlay muted playsInline />
@@ -201,9 +233,10 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
               <div className="upload-prompt">
                 <ImageIcon className="w-16 h-16 text-slate-400 mb-4" />
                 <h3>Foto oder Video auswählen</h3>
-                <p className="text-sm text-slate-500 mb-4">
+                <p className="text-sm text-slate-500 mb-2">
                   Maximal 50MB • Bilder oder Videos
                 </p>
+                <p className="story-composer-drag-hint mb-4">{dragHint}</p>
                 <div className="upload-buttons">
                   <button
                     type="button"
@@ -226,56 +259,91 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
                   <p className="text-xs text-red-500 mt-2 text-center">{cameraError}</p>
                 )}
               </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*,video/*"
-                onChange={handleFileSelect}
-                className="hidden"
-              />
-              <input
-                ref={cameraInputRef}
-                type="file"
-                accept="image/*,video/*"
-                capture
-                onChange={handleCameraCapture}
-                className="hidden"
-              />
             </div>
           ) : (
-            <div className="preview-container">
-              <div className="preview-media">
-                {selectedFile?.type.startsWith('image/') ? (
-                  <img src={preview} alt="Preview" className="preview-image" />
-                ) : (
-                  <video src={preview} controls className="preview-video" />
-                )}
-                <button
-                  type="button"
-                  onClick={handleRemovePreview}
-                  className="remove-preview-btn"
-                  aria-label="Entfernen"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+            <div className="story-composer-grid">
+              <div className="story-composer-preview-column">
+                <div className="preview-media">
+                  {selectedFile?.type.startsWith('image/') ? (
+                    <img src={preview} alt="Preview" className="preview-image" />
+                  ) : (
+                    <video src={preview} controls className="preview-video" />
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleRemovePreview}
+                    className="remove-preview-btn"
+                    aria-label="Entfernen"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="story-composer-preview-actions">
+                  <div>
+                    <p className="story-composer-preview-label">Datei</p>
+                    <p className="story-composer-preview-info">
+                      {selectedFile?.name || 'Unbekannt'}
+                      <span className="story-composer-preview-meta">
+                        {getFileTypeLabel(selectedFile)} · {formatFileSize(selectedFile?.size)}
+                      </span>
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="story-composer-link-btn"
+                  >
+                    Datei ersetzen
+                  </button>
+                </div>
+                <div className="story-composer-preview-hint">
+                  <p>Bereit für vertikale Formate und schnelle Ausspielung.</p>
+                </div>
               </div>
-
-              <div className="caption-input-container">
-                <textarea
-                  value={caption}
-                  onChange={(e) => setCaption(e.target.value)}
-                  placeholder="Schreibe eine Beschreibung... (optional)"
-                  className="caption-input"
-                  maxLength={200}
-                  rows={3}
-                />
-                <div className="caption-counter">
-                  {caption.length}/200
+              <div className="story-composer-editor-column">
+                <div className="story-composer-editor-section">
+                  <p className="story-composer-editor-label">Beschreibung</p>
+                  <div className="caption-input-container">
+                    <textarea
+                      value={caption}
+                      onChange={(e) => setCaption(e.target.value)}
+                      placeholder="Schreibe eine Beschreibung... (optional)"
+                      className="caption-input"
+                      maxLength={200}
+                      rows={3}
+                    />
+                    <div className="caption-counter">
+                      {caption.length}/200
+                    </div>
+                  </div>
+                </div>
+                <div className="story-composer-editor-section story-composer-editor-notes">
+                  <p className="story-composer-editor-label">Tipps & Hinweise</p>
+                  <ul>
+                    <li>Empfohlene Auflösung: 1080 × 1920 Pixel für maximale Klarheit.</li>
+                    <li>Videos unter 60 Sekunden laden schneller und wirken flüssiger.</li>
+                    <li>Stories bleiben 24 Stunden sichtbar – nutze deshalb prägnante Aussagen.</li>
+                  </ul>
                 </div>
               </div>
             </div>
           )}
         </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,video/*"
+          onChange={handleFileSelect}
+          className="hidden"
+        />
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*,video/*"
+          capture
+          onChange={handleCameraCapture}
+          className="hidden"
+        />
 
         <div className="story-composer-footer">
           <button

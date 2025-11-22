@@ -1325,7 +1325,13 @@ const DirectMessenger = () => {
   const selectedUserStories = useMemo(() => {
     if (selectedStoryIndex === null || !stories[selectedStoryIndex]) return [];
     const userId = stories[selectedStoryIndex].userId;
-    return stories.filter(s => s.userId === userId);
+    return stories
+      .filter((s) => s.userId === userId)
+      .sort(
+        (a, b) =>
+          new Date(a.createdAt || a.updatedAt || 0).getTime() -
+          new Date(b.createdAt || b.updatedAt || 0).getTime()
+      );
   }, [stories, selectedStoryIndex]);
 
   const selectedStory = useMemo(() => {
@@ -1335,8 +1341,13 @@ const DirectMessenger = () => {
 
   const selectedStoryIndexInUserStories = useMemo(() => {
     if (!selectedStory || selectedUserStories.length === 0) return 0;
-    return selectedUserStories.findIndex(s => s.id === selectedStory.id);
+    const foundIndex = selectedUserStories.findIndex((s) => s.id === selectedStory.id);
+    return foundIndex >= 0 ? foundIndex : 0;
   }, [selectedStory, selectedUserStories]);
+
+  const hasPreviousStory = selectedStoryIndex !== null && selectedStoryIndex > 0;
+  const hasNextStory = selectedStoryIndex !== null && selectedStoryIndex < stories.length - 1;
+  const showStoryNavigation = hasPreviousStory || hasNextStory;
 
   const handleStoryOpen = useCallback(
     (storyId) => {
@@ -1353,30 +1364,19 @@ const DirectMessenger = () => {
   }, []);
 
   const handleStoryNext = useCallback(() => {
-    if (selectedUserStories.length === 0 || selectedStoryIndexInUserStories === -1) return;
-    const nextIndexInUserStories = selectedStoryIndexInUserStories + 1;
-    if (nextIndexInUserStories >= selectedUserStories.length) {
-      // Close viewer when reaching end
+    if (selectedStoryIndex === null) return;
+    const nextIndex = selectedStoryIndex + 1;
+    if (nextIndex >= stories.length) {
       setSelectedStoryIndex(null);
       return;
     }
-    const nextStory = selectedUserStories[nextIndexInUserStories];
-    const nextIndex = stories.findIndex(s => s.id === nextStory.id);
-    if (nextIndex !== -1) {
-      setSelectedStoryIndex(nextIndex);
-    }
-  }, [selectedUserStories, selectedStoryIndexInUserStories, stories]);
+    setSelectedStoryIndex(nextIndex);
+  }, [selectedStoryIndex, stories.length]);
 
   const handleStoryPrev = useCallback(() => {
-    if (selectedUserStories.length === 0 || selectedStoryIndexInUserStories === -1) return;
-    const prevIndexInUserStories = selectedStoryIndexInUserStories - 1;
-    if (prevIndexInUserStories < 0) return; // Can't go before first story
-    const prevStory = selectedUserStories[prevIndexInUserStories];
-    const prevIndex = stories.findIndex(s => s.id === prevStory.id);
-    if (prevIndex !== -1) {
-      setSelectedStoryIndex(prevIndex);
-    }
-  }, [selectedUserStories, selectedStoryIndexInUserStories, stories]);
+    if (selectedStoryIndex === null || selectedStoryIndex <= 0) return;
+    setSelectedStoryIndex(selectedStoryIndex - 1);
+  }, [selectedStoryIndex]);
 
   useEffect(() => {
     if (selectedStoryIndex === null) return;
@@ -2973,16 +2973,16 @@ const DirectMessenger = () => {
           {/* Media */}
           <div className="flex-1 flex items-center justify-center px-4 relative">
             {/* Tap Areas for Navigation */}
-            {selectedUserStories.length > 1 && (
+            {showStoryNavigation && (
               <>
-                {selectedStoryIndexInUserStories > 0 && (
+                {hasPreviousStory && (
                   <button
                     onClick={handleStoryPrev}
                     className="absolute left-0 top-0 bottom-0 w-1/3 z-10 active:bg-white/10 transition-colors"
                     aria-label="Vorherige Story"
                   />
                 )}
-                {selectedStoryIndexInUserStories < selectedUserStories.length - 1 && (
+                {hasNextStory && (
                   <button
                     onClick={handleStoryNext}
                     className="absolute right-0 top-0 bottom-0 w-1/3 z-10 active:bg-white/10 transition-colors"
@@ -3018,11 +3018,14 @@ const DirectMessenger = () => {
           )}
 
           {/* Navigation Buttons */}
-          {selectedUserStories.length > 1 && (
-            <div className="flex items-center justify-between px-4 pb-6 bg-gradient-to-t from-black/60 to-transparent" style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0))' }}>
+          {showStoryNavigation && (
+            <div
+              className="flex items-center justify-between px-4 pb-6 bg-gradient-to-t from-black/60 to-transparent"
+              style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0))' }}
+            >
               <button
                 onClick={handleStoryPrev}
-                disabled={selectedStoryIndexInUserStories === 0}
+                disabled={!hasPreviousStory}
                 className="flex items-center gap-2 px-5 py-3 rounded-full bg-white/20 backdrop-blur-md text-white font-medium active:bg-white/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <ChevronLeft className="w-5 h-5" />
@@ -3033,7 +3036,7 @@ const DirectMessenger = () => {
               </div>
               <button
                 onClick={handleStoryNext}
-                disabled={selectedStoryIndexInUserStories === selectedUserStories.length - 1}
+                disabled={!hasNextStory}
                 className="flex items-center gap-2 px-5 py-3 rounded-full bg-white/20 backdrop-blur-md text-white font-medium active:bg-white/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <span className="text-sm">Weiter</span>

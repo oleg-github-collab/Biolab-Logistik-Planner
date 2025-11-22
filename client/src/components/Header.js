@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import ReactDOM from 'react-dom';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import usePermissions from '../hooks/usePermissions';
@@ -36,6 +37,7 @@ const Header = () => {
   const [globalSearch, setGlobalSearch] = useState('');
   const [desktopOverflowOpen, setDesktopOverflowOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [mobileMenuPortalRoot, setMobileMenuPortalRoot] = useState(null);
   const searchInputRef = useRef(null);
   const overflowMenuRef = useRef(null);
   const overflowTriggerRef = useRef(null);
@@ -109,6 +111,17 @@ const Header = () => {
   }, [location.pathname]);
 
   useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+    const portalRoot = document.createElement('div');
+    portalRoot.className = 'mobile-menu-portal-root';
+    document.body.appendChild(portalRoot);
+    setMobileMenuPortalRoot(portalRoot);
+    return () => {
+      document.body.removeChild(portalRoot);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!desktopOverflowOpen) return undefined;
 
     const handleClickAway = (event) => {
@@ -151,9 +164,10 @@ const Header = () => {
   if (!state || !user) return null;
 
   return (
-    <header className="top-nav-mobile bg-white/95 backdrop-blur border-b border-slate-100 sticky top-0 z-50 shadow-[0_2px_10px_rgba(15,23,42,0.04)]">
-      <div className="max-w-full mx-auto px-3 sm:px-4 lg:px-6">
-        <div className="flex justify-between items-center py-3 min-h-[56px]">
+    <>
+      <header className="top-nav-mobile bg-white/95 backdrop-blur border-b border-slate-100 sticky top-0 z-50 shadow-[0_2px_10px_rgba(15,23,42,0.04)]">
+        <div className="max-w-full mx-auto px-3 sm:px-4 lg:px-6">
+          <div className="flex justify-between items-center py-3 min-h-[56px]">
 
           {/* Logo & Brand */}
           <Link to="/dashboard" className="flex items-center gap-3 flex-shrink-0 mobile-touch-feedback">
@@ -302,159 +316,158 @@ const Header = () => {
               </svg>
             </button>
           </div>
+        </div>
       </div>
-    </div>
-
-      {/* Compact mobile spacer */}
+      </header>
       {!mobileMenuOpen && <div className="lg:hidden border-b border-slate-100" />}
+      {mobileMenuPortalRoot && mobileMenuOpen &&
+        ReactDOM.createPortal(
+          <>
+            <div
+              className="mobile-menu-backdrop lg:hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm"
+              onClick={() => setMobileMenuOpen(false)}
+            />
+            <div className="mobile-menu-drawer lg:hidden fixed inset-y-0 right-0 w-72 max-w-[90vw] bg-white text-slate-900 shadow-2xl animate-slideInRight safe-top safe-bottom border-l border-slate-200">
+              <div className="h-full flex flex-col">
+                <div className="flex items-center justify-between px-4 py-4 border-b border-slate-200">
+                  <h3 className="text-base font-semibold text-slate-800">Menü</h3>
+                  <button
+                    onClick={() => setMobileMenuOpen(false)}
+                    type="button"
+                    className="p-2 rounded-full hover:bg-slate-100 transition"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
 
-      {/* Enhanced Mobile Menu - Native-like Drawer */}
-      {mobileMenuOpen && (
-        <>
-          <div
-            className="mobile-menu-backdrop lg:hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm"
-            onClick={() => setMobileMenuOpen(false)}
-          />
-          <div className="mobile-menu-drawer lg:hidden fixed inset-y-0 right-0 w-72 max-w-[90vw] bg-white text-slate-900 shadow-2xl animate-slideInRight safe-top safe-bottom border-l border-slate-200">
-            <div className="h-full flex flex-col">
-              <div className="flex items-center justify-between px-4 py-4 border-b border-slate-200">
-                <h3 className="text-base font-semibold text-slate-800">Menü</h3>
-                <button
-                  onClick={() => setMobileMenuOpen(false)}
-                  type="button"
-                  className="p-2 rounded-full hover:bg-slate-100 transition"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-
-              {/* User Info Card */}
-              <div className="md:hidden m-4 mb-0 p-4 rounded-2xl border border-slate-100 bg-slate-50 text-slate-900">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full overflow-hidden bg-white flex items-center justify-center ring-2 ring-white shadow">
-                    {profilePhotoUrl ? (
-                      <img
-                        src={profilePhotoUrl}
-                        alt={user.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-xl font-bold text-slate-800">
-                        {user.name.charAt(0).toUpperCase()}
-                      </span>
-                    )}
+                {/* User Info Card */}
+                <div className="md:hidden m-4 mb-0 p-4 rounded-2xl border border-slate-100 bg-slate-50 text-slate-900">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full overflow-hidden bg-white flex items-center justify-center ring-2 ring-white shadow">
+                      {profilePhotoUrl ? (
+                        <img
+                          src={profilePhotoUrl}
+                          alt={user.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-xl font-bold text-slate-800">
+                          {user.name.charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-slate-900">{user.name}</p>
+                      <p className="text-xs text-slate-500">{getRoleLabel(user.role)}</p>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-slate-900">{user.name}</p>
-                    <p className="text-xs text-slate-500">{getRoleLabel(user.role)}</p>
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <Link
+                      to="/profile/me"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="text-xs font-semibold px-3 py-2 rounded-lg bg-white text-slate-800 text-center border border-slate-200 hover:bg-slate-100 transition"
+                    >
+                      Profil öffnen
+                    </Link>
+                    <button
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        handleLogout();
+                      }}
+                      className="text-xs font-semibold px-3 py-2 rounded-lg bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 transition"
+                    >
+                      Abmelden
+                    </button>
                   </div>
                 </div>
-                <div className="mt-4 grid grid-cols-2 gap-2">
-                  <Link
-                    to="/profile/me"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="text-xs font-semibold px-3 py-2 rounded-lg bg-white text-slate-800 text-center border border-slate-200 hover:bg-slate-100 transition"
-                  >
-                    Profil öffnen
-                  </Link>
+
+                {/* Navigation Items - List Style */}
+                <div className="flex-1 overflow-y-auto mobile-scroll-container">
+                  <div className="px-4 py-4 space-y-4">
+                    <form onSubmit={handleGlobalSearch}>
+                      <div className="relative">
+                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="search"
+                          value={globalSearch}
+                          onChange={(e) => setGlobalSearch(e.target.value)}
+                          placeholder={searchPlaceholder}
+                          autoComplete="off"
+                          className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 focus:border-slate-400 focus:ring-2 focus:ring-slate-200 transition bg-white"
+                        />
+                      </div>
+                    </form>
+
+                    {mobileHighlightItems.length > 0 && (
+                      <div className="space-y-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">Schnellzugriffe</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {mobileHighlightItems.map((item) => (
+                            <Link
+                              key={item.to}
+                              to={item.to}
+                              onClick={() => setMobileMenuOpen(false)}
+                              className="flex flex-col gap-1 rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-3 shadow-sm"
+                            >
+                              <span className="text-xl">{item.emoji}</span>
+                              <span className="text-sm font-semibold text-slate-900">{item.label}</span>
+                              <span className="text-[11px] text-slate-500">{item.description}</span>
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="space-y-1">
+                      {visibleNavItems.map((item) => {
+                        const isActive = location.pathname === item.to;
+                        return (
+                          <Link
+                            key={item.to}
+                            to={item.to}
+                            onClick={() => setMobileMenuOpen(false)}
+                            className={`flex items-center gap-3 px-3 py-3 rounded-xl border transition-all ${
+                              isActive
+                                ? 'border-slate-900 text-slate-900 bg-slate-100'
+                                : 'bg-white border-slate-200 text-slate-700 hover:border-slate-400'
+                            }`}
+                          >
+                            <span className="text-xl">{item.icon}</span>
+                            <div className="flex-1 text-left">
+                              <p className="text-sm font-semibold">{t(item.labelKey)}</p>
+                              <p className="text-[11px] text-slate-400">
+                                {isActive ? 'Aktive Ansicht' : 'Tippen zum Öffnen'}
+                              </p>
+                            </div>
+                            {isActive && <div className="w-2 h-2 bg-slate-900 rounded-full" />}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="px-4 pb-5 pt-4 border-t border-slate-200 bg-white">
                   <button
                     onClick={() => {
                       setMobileMenuOpen(false);
-                      handleLogout();
+                      navigate('/users');
                     }}
-                    className="text-xs font-semibold px-3 py-2 rounded-lg bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 transition"
+                    type="button"
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-slate-800 text-slate-800 font-semibold hover:bg-slate-50 transition"
                   >
-                    Abmelden
+                    <span>Team & Admin</span>
+                    <span aria-hidden>→</span>
                   </button>
                 </div>
               </div>
-
-              {/* Navigation Items - List Style */}
-              <div className="flex-1 overflow-y-auto mobile-scroll-container">
-                <div className="px-4 py-4 space-y-4">
-                <form onSubmit={handleGlobalSearch}>
-                  <div className="relative">
-                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="search"
-                      value={globalSearch}
-                      onChange={(e) => setGlobalSearch(e.target.value)}
-                      placeholder={searchPlaceholder}
-                      autoComplete="off"
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 focus:border-slate-400 focus:ring-2 focus:ring-slate-200 transition bg-white"
-                    />
-                  </div>
-                </form>
-
-                {mobileHighlightItems.length > 0 && (
-                  <div className="space-y-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">Schnellzugriffe</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      {mobileHighlightItems.map((item) => (
-                        <Link
-                          key={item.to}
-                          to={item.to}
-                          onClick={() => setMobileMenuOpen(false)}
-                          className="flex flex-col gap-1 rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-3 shadow-sm"
-                        >
-                          <span className="text-xl">{item.emoji}</span>
-                          <span className="text-sm font-semibold text-slate-900">{item.label}</span>
-                          <span className="text-[11px] text-slate-500">{item.description}</span>
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="space-y-1">
-                  {visibleNavItems.map((item) => {
-                    const isActive = location.pathname === item.to;
-                    return (
-                      <Link
-                        key={item.to}
-                        to={item.to}
-                        onClick={() => setMobileMenuOpen(false)}
-                        className={`flex items-center gap-3 px-3 py-3 rounded-xl border transition-all ${
-                          isActive
-                            ? 'border-slate-900 text-slate-900 bg-slate-100'
-                            : 'bg-white border-slate-200 text-slate-700 hover:border-slate-400'
-                        }`}
-                      >
-                        <span className="text-xl">{item.icon}</span>
-                        <div className="flex-1 text-left">
-                          <p className="text-sm font-semibold">{t(item.labelKey)}</p>
-                          <p className="text-[11px] text-slate-400">
-                            {isActive ? 'Aktive Ansicht' : 'Tippen zum Öffnen'}
-                          </p>
-                        </div>
-                        {isActive && <div className="w-2 h-2 bg-slate-900 rounded-full" />}
-                      </Link>
-                    );
-                  })}
-                </div>
-                </div>
-              </div>
-
-              <div className="px-4 pb-5 pt-4 border-t border-slate-200 bg-white">
-                <button
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    navigate('/users');
-                  }}
-                  type="button"
-                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-slate-800 text-slate-800 font-semibold hover:bg-slate-50 transition"
-                >
-                  <span>Team & Admin</span>
-                  <span aria-hidden>→</span>
-                </button>
-              </div>
             </div>
-          </div>
-        </>
-      )}
-    </header>
+          </>,
+          mobileMenuPortalRoot
+        )}
+    </>
   );
 };
 
