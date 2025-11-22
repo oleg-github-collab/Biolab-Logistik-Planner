@@ -2208,7 +2208,7 @@ const DirectMessenger = () => {
               </div>
             )}
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50">
+            <div className="messenger-desktop-messages p-6 space-y-4 bg-slate-50">
               {renderMessages()}
 
               {/* Typing Indicators */}
@@ -2920,33 +2920,44 @@ const DirectMessenger = () => {
         </div>
       )}
       {selectedStory && (
-        <div className="fixed inset-0 z-[300200] bg-black flex flex-col">
+      <div className="fixed inset-0 z-[300200] bg-black flex flex-col relative">
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-4 bg-gradient-to-b from-black/80 to-transparent" style={{ paddingTop: 'calc(1rem + env(safe-area-inset-top, 0))' }}>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold">
-                {selectedStory.userName?.charAt(0)?.toUpperCase() || '?'}
+            <div className="flex items-center justify-between px-4 py-4 bg-gradient-to-b from-black/80 to-transparent relative" style={{ paddingTop: 'calc(1rem + env(safe-area-inset-top, 0))' }}>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold">
+                  {selectedStory.userName?.charAt(0)?.toUpperCase() || '?'}
+                </div>
+                <div>
+                  <p className="font-bold text-white text-base">{selectedStory.userName}</p>
+                  {selectedStory.createdAt && (
+                    <p className="text-xs text-white/60">
+                      {formatDistanceToNow(new Date(selectedStory.createdAt), {
+                        addSuffix: true,
+                        locale: de
+                      })}
+                    </p>
+                  )}
+                </div>
               </div>
-              <div>
-                <p className="font-bold text-white text-base">{selectedStory.userName}</p>
-                {selectedStory.createdAt && (
-                  <p className="text-xs text-white/60">
-                    {formatDistanceToNow(new Date(selectedStory.createdAt), {
-                      addSuffix: true,
-                      locale: de
-                    })}
-                  </p>
-                )}
-              </div>
+              <button
+                onClick={handleStoryClose}
+                className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 active:bg-white/30 transition-colors relative z-50"
+                type="button"
+              >
+                <X className="w-6 h-6 text-white" />
+              </button>
             </div>
-            <button
-              onClick={handleStoryClose}
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 active:bg-white/30 transition-colors relative z-50"
-              type="button"
-            >
-              <X className="w-6 h-6 text-white" />
-            </button>
-          </div>
+
+            <div className="story-viewer-extra-close">
+              <button
+                type="button"
+                onClick={handleStoryClose}
+                className="story-viewer-close-btn"
+              >
+                <X className="w-4 h-4" />
+                <span>Schließen</span>
+              </button>
+            </div>
 
           {/* Progress Bars */}
           {selectedUserStories.length > 1 && (

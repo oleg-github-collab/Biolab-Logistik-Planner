@@ -220,6 +220,18 @@
   flex-shrink: 0;
 }
 
+.messenger-desktop-messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  scroll-padding-bottom: calc(160px + env(safe-area-inset-bottom, 0));
+  padding-bottom: calc(180px + env(safe-area-inset-bottom, 0));
+  padding-right: 0.5rem;
+  transition: padding 0.25s ease;
+}
+
 /* ==========================================
    CONTACT LIST - DESKTOP & MOBILE
    ========================================== */
