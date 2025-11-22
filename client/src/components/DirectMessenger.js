@@ -2208,7 +2208,7 @@ const DirectMessenger = () => {
               </div>
             )}
 
-            <div className="messenger-desktop-messages p-6 space-y-4 bg-slate-50">
+            <div className="messenger-desktop-messages bg-slate-50">
               {renderMessages()}
 
               {/* Typing Indicators */}
