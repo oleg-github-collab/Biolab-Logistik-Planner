@@ -1716,12 +1716,12 @@ const DirectMessenger = () => {
           <>
             {/* Backdrop */}
             <div
-              className="fixed inset-0 z-[10000] bg-black/20"
+              className="fixed inset-0 z-[300100] bg-black/20"
               onClick={closeLongPressMenu}
             />
             {/* Context menu */}
             <div
-              className="fixed z-[10001] bg-white rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+              className="fixed z-[300150] bg-white rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
               style={{
                 top: `${longPressMenuPosition.y}px`,
                 left: `${longPressMenuPosition.x}px`,
@@ -2767,7 +2767,7 @@ const DirectMessenger = () => {
 
       {/* Contact Picker Modal for Event Sharing */}
       {showContactPicker && pendingEventShare && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center px-4 py-6">
+        <div className="fixed inset-0 z-[300100] flex items-center justify-center px-4 py-6">
           <div
             className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
             onClick={() => {
@@ -2843,7 +2843,7 @@ const DirectMessenger = () => {
       {isMobile ? renderMobileLayout() : renderDesktopLayout()}
 
       {isMobile && showPinnedDrawer && (
-        <div className="fixed inset-0 z-[65] bg-slate-900/70 backdrop-blur-sm flex flex-col justify-end">
+        <div className="fixed inset-0 z-[300100] bg-slate-900/70 backdrop-blur-sm flex flex-col justify-end">
           <div className="bg-white rounded-t-3xl p-5 shadow-2xl max-h-[75vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <div>
@@ -2897,7 +2897,7 @@ const DirectMessenger = () => {
         </div>
       )}
       {selectedStory && (
-        <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex flex-col">
+        <div className="fixed inset-0 z-[300200] bg-black/80 backdrop-blur-sm flex flex-col">
           <div className="flex items-center justify-between px-4 py-3 text-white">
             <div>
               <p className="font-semibold text-lg">{selectedStory.userName}</p>
