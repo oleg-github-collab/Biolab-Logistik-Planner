@@ -1321,13 +1321,22 @@ const DirectMessenger = () => {
     };
   }, [decoratedContacts]);
 
-  const selectedStory = useMemo(
-    () =>
-      selectedStoryIndex !== null && stories[selectedStoryIndex]
-        ? stories[selectedStoryIndex]
-        : null,
-    [selectedStoryIndex, stories]
-  );
+  // Get stories for currently selected user
+  const selectedUserStories = useMemo(() => {
+    if (selectedStoryIndex === null || !stories[selectedStoryIndex]) return [];
+    const userId = stories[selectedStoryIndex].userId;
+    return stories.filter(s => s.userId === userId);
+  }, [stories, selectedStoryIndex]);
+
+  const selectedStory = useMemo(() => {
+    if (selectedStoryIndex === null || !stories[selectedStoryIndex]) return null;
+    return stories[selectedStoryIndex];
+  }, [selectedStoryIndex, stories]);
+
+  const selectedStoryIndexInUserStories = useMemo(() => {
+    if (!selectedStory || selectedUserStories.length === 0) return 0;
+    return selectedUserStories.findIndex(s => s.id === selectedStory.id);
+  }, [selectedStory, selectedUserStories]);
 
   const handleStoryOpen = useCallback(
     (storyId) => {
@@ -1344,16 +1353,30 @@ const DirectMessenger = () => {
   }, []);
 
   const handleStoryNext = useCallback(() => {
-    if (stories.length === 0 || selectedStoryIndex === null) return;
-    const nextIndex = (selectedStoryIndex + 1) % stories.length;
-    setSelectedStoryIndex(nextIndex);
-  }, [selectedStoryIndex, stories.length]);
+    if (selectedUserStories.length === 0 || selectedStoryIndexInUserStories === -1) return;
+    const nextIndexInUserStories = selectedStoryIndexInUserStories + 1;
+    if (nextIndexInUserStories >= selectedUserStories.length) {
+      // Close viewer when reaching end
+      setSelectedStoryIndex(null);
+      return;
+    }
+    const nextStory = selectedUserStories[nextIndexInUserStories];
+    const nextIndex = stories.findIndex(s => s.id === nextStory.id);
+    if (nextIndex !== -1) {
+      setSelectedStoryIndex(nextIndex);
+    }
+  }, [selectedUserStories, selectedStoryIndexInUserStories, stories]);
 
   const handleStoryPrev = useCallback(() => {
-    if (stories.length === 0 || selectedStoryIndex === null) return;
-    const prevIndex = (selectedStoryIndex - 1 + stories.length) % stories.length;
-    setSelectedStoryIndex(prevIndex);
-  }, [selectedStoryIndex, stories.length]);
+    if (selectedUserStories.length === 0 || selectedStoryIndexInUserStories === -1) return;
+    const prevIndexInUserStories = selectedStoryIndexInUserStories - 1;
+    if (prevIndexInUserStories < 0) return; // Can't go before first story
+    const prevStory = selectedUserStories[prevIndexInUserStories];
+    const prevIndex = stories.findIndex(s => s.id === prevStory.id);
+    if (prevIndex !== -1) {
+      setSelectedStoryIndex(prevIndex);
+    }
+  }, [selectedUserStories, selectedStoryIndexInUserStories, stories]);
 
   useEffect(() => {
     if (selectedStoryIndex === null) return;
@@ -2925,18 +2948,18 @@ const DirectMessenger = () => {
           </div>
 
           {/* Progress Bars */}
-          {stories.length > 1 && (
+          {selectedUserStories.length > 1 && (
             <div className="flex gap-1 px-4 pb-2">
-              {stories.map((_, index) => (
+              {selectedUserStories.map((_, index) => (
                 <div
                   key={index}
                   className="h-1 flex-1 rounded-full bg-white/30 overflow-hidden"
                 >
                   <div
                     className={`h-full bg-white transition-all duration-300 ${
-                      index < selectedStoryIndex
+                      index < selectedStoryIndexInUserStories
                         ? 'w-full'
-                        : index === selectedStoryIndex
+                        : index === selectedStoryIndexInUserStories
                         ? 'w-full animate-pulse'
                         : 'w-0'
                     }`}
@@ -2948,6 +2971,26 @@ const DirectMessenger = () => {
 
           {/* Media */}
           <div className="flex-1 flex items-center justify-center px-4 relative">
+            {/* Tap Areas for Navigation */}
+            {selectedUserStories.length > 1 && (
+              <>
+                {selectedStoryIndexInUserStories > 0 && (
+                  <button
+                    onClick={handleStoryPrev}
+                    className="absolute left-0 top-0 bottom-0 w-1/3 z-10 active:bg-white/10 transition-colors"
+                    aria-label="Vorherige Story"
+                  />
+                )}
+                {selectedStoryIndexInUserStories < selectedUserStories.length - 1 && (
+                  <button
+                    onClick={handleStoryNext}
+                    className="absolute right-0 top-0 bottom-0 w-1/3 z-10 active:bg-white/10 transition-colors"
+                    aria-label="Nächste Story"
+                  />
+                )}
+              </>
+            )}
+
             {selectedStory.mediaType?.startsWith('video') ? (
               <video
                 src={getAssetUrl(selectedStory.mediaUrl)}
@@ -2974,22 +3017,22 @@ const DirectMessenger = () => {
           )}
 
           {/* Navigation Buttons */}
-          {stories.length > 1 && (
+          {selectedUserStories.length > 1 && (
             <div className="flex items-center justify-between px-4 pb-6 bg-gradient-to-t from-black/60 to-transparent" style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0))' }}>
               <button
                 onClick={handleStoryPrev}
-                disabled={selectedStoryIndex === 0}
+                disabled={selectedStoryIndexInUserStories === 0}
                 className="flex items-center gap-2 px-5 py-3 rounded-full bg-white/20 backdrop-blur-md text-white font-medium active:bg-white/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <ChevronLeft className="w-5 h-5" />
                 <span className="text-sm">Zurück</span>
               </button>
               <div className="text-white/60 text-sm font-medium">
-                {selectedStoryIndex + 1} / {stories.length}
+                {selectedStoryIndexInUserStories + 1} / {selectedUserStories.length}
               </div>
               <button
                 onClick={handleStoryNext}
-                disabled={selectedStoryIndex === stories.length - 1}
+                disabled={selectedStoryIndexInUserStories === selectedUserStories.length - 1}
                 className="flex items-center gap-2 px-5 py-3 rounded-full bg-white/20 backdrop-blur-md text-white font-medium active:bg-white/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <span className="text-sm">Weiter</span>

@@ -711,8 +711,7 @@ const NotificationDropdown = () => {
                 return (
                   <div
                     key={notification.id}
-                    onClick={() => handleNotificationClick(notification)}
-                    className={`flex gap-3 px-4 py-4 active:bg-slate-50 transition-colors ${
+                    className={`flex gap-3 px-4 py-4 transition-colors ${
                       notification.is_read ? 'bg-white' : 'bg-blue-50/50'
                     }`}
                   >
@@ -723,8 +722,11 @@ const NotificationDropdown = () => {
                       {getNotificationIcon(notification.type)}
                     </div>
 
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
+                    {/* Content - clickable area */}
+                    <div
+                      className="flex-1 min-w-0 cursor-pointer active:opacity-70 transition-opacity"
+                      onClick={() => handleNotificationClick(notification)}
+                    >
                       <div className="flex items-center gap-2 text-[10px] uppercase tracking-wide text-slate-400 mb-1">
                         <span>{getNotificationLabel(notification.type)}</span>
                         {!notification.is_read && <span className="text-blue-600 font-semibold">Neu</span>}

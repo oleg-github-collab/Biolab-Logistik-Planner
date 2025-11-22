@@ -29,7 +29,7 @@ const Messages = () => {
   return (
     <div
       className="fixed inset-x-0 bottom-0 bg-slate-50 px-4 py-4 lg:px-6"
-      style={{ top: `${topOffset}px` }}
+      style={{ top: `${topOffset}px`, zIndex: 1 }}
     >
       <DirectMessenger />
     </div>
