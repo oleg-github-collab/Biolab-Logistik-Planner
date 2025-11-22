@@ -233,10 +233,9 @@ const NotificationDropdown = () => {
           return (
             <li
               key={notification.id}
-              onClick={() => handleNotificationClick(notification)}
               className={`flex items-start gap-3 p-4 transition ${
                 notification.is_read ? 'bg-white' : 'bg-blue-50'
-              } ${isMobile ? 'active:bg-blue-100' : 'hover:bg-gray-50 cursor-pointer'}`}
+              }`}
             >
               <div className="flex-shrink-0">
                 <div
@@ -248,7 +247,10 @@ const NotificationDropdown = () => {
                 </div>
               </div>
 
-              <div className="flex-1 min-w-0">
+              <div
+                className="flex-1 min-w-0 cursor-pointer hover:opacity-80 active:opacity-70 transition-opacity"
+                onClick={() => handleNotificationClick(notification)}
+              >
                 <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-gray-400">
                   <span>{getNotificationLabel(notification.type)}</span>
                   {!notification.is_read && <span className="text-blue-600 font-semibold">Neu</span>}
