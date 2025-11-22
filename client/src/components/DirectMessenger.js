@@ -2941,7 +2941,8 @@ const DirectMessenger = () => {
             </div>
             <button
               onClick={handleStoryClose}
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 active:bg-white/30 transition-colors"
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 active:bg-white/30 transition-colors relative z-50"
+              type="button"
             >
               <X className="w-6 h-6 text-white" />
             </button>
