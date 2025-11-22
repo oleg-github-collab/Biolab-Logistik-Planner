@@ -116,6 +116,7 @@ const DirectMessenger = () => {
   const [longPressMenuPosition, setLongPressMenuPosition] = useState({ x: 0, y: 0 });
 
   const fileInputRef = useRef(null);
+  const mobileInputRef = useRef(null);
   const longPressTimerRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const recordingChunksRef = useRef([]);
@@ -433,6 +434,28 @@ const DirectMessenger = () => {
       unsubscribeMessageRead();
     };
   }, [selectedThreadId, isConnected, joinConversationRoom, onConversationEvent, normalizeMessage, user]);
+
+  useEffect(() => {
+    if (!isMobile || mobileMode !== 'chat') {
+      return undefined;
+    }
+
+    const updateInputHeight = () => {
+      const element = mobileInputRef.current;
+      if (!element) return;
+      const { height } = element.getBoundingClientRect();
+      document.documentElement.style.setProperty(
+        '--messenger-input-height',
+        `${Math.ceil(height)}px`
+      );
+    };
+
+    updateInputHeight();
+    window.addEventListener('resize', updateInputHeight);
+    return () => {
+      window.removeEventListener('resize', updateInputHeight);
+    };
+  }, [isMobile, mobileMode, showComposerActions]);
 
   const loadMessages = useCallback(async (threadId) => {
     if (!threadId) {
@@ -2599,7 +2622,7 @@ const DirectMessenger = () => {
         </div>
       )}
       {renderMobileQuickReplies()}
-      <form onSubmit={handleSendMessage} className="messenger-mobile-input">
+      <form ref={mobileInputRef} onSubmit={handleSendMessage} className="messenger-mobile-input">
         <div className="flex items-end gap-2 w-full">
           <div className="flex-1">
             <div className="input-wrapper">
