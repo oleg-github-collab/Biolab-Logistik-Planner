@@ -2897,62 +2897,119 @@ const DirectMessenger = () => {
         </div>
       )}
       {selectedStory && (
-        <div className="fixed inset-0 z-[300200] bg-black/80 backdrop-blur-sm flex flex-col">
-          <div className="flex items-center justify-between px-4 py-3 text-white">
-            <div>
-              <p className="font-semibold text-lg">{selectedStory.userName}</p>
-              {selectedStory.createdAt && (
-                <p className="text-xs text-white/70">
-                  {formatDistanceToNow(new Date(selectedStory.createdAt), {
-                    addSuffix: true,
-                    locale: de
-                  })}
-                </p>
-              )}
+        <div className="fixed inset-0 z-[300200] bg-black flex flex-col">
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-4 bg-gradient-to-b from-black/80 to-transparent" style={{ paddingTop: 'calc(1rem + env(safe-area-inset-top, 0))' }}>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold">
+                {selectedStory.userName?.charAt(0)?.toUpperCase() || '?'}
+              </div>
+              <div>
+                <p className="font-bold text-white text-base">{selectedStory.userName}</p>
+                {selectedStory.createdAt && (
+                  <p className="text-xs text-white/60">
+                    {formatDistanceToNow(new Date(selectedStory.createdAt), {
+                      addSuffix: true,
+                      locale: de
+                    })}
+                  </p>
+                )}
+              </div>
             </div>
             <button
               onClick={handleStoryClose}
-              className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition"
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 active:bg-white/30 transition-colors"
             >
-              <X className="w-5 h-5" />
+              <X className="w-6 h-6 text-white" />
             </button>
           </div>
-          <div className="flex-1 flex items-center justify-center px-4">
+
+          {/* Progress Bars */}
+          {stories.length > 1 && (
+            <div className="flex gap-1 px-4 pb-2">
+              {stories.map((_, index) => (
+                <div
+                  key={index}
+                  className="h-1 flex-1 rounded-full bg-white/30 overflow-hidden"
+                >
+                  <div
+                    className={`h-full bg-white transition-all duration-300 ${
+                      index < selectedStoryIndex
+                        ? 'w-full'
+                        : index === selectedStoryIndex
+                        ? 'w-full animate-pulse'
+                        : 'w-0'
+                    }`}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Media */}
+          <div className="flex-1 flex items-center justify-center px-4 relative">
+            {/* Navigation Tap Areas */}
+            {stories.length > 1 && (
+              <>
+                <button
+                  onClick={handleStoryPrev}
+                  className="absolute left-0 top-0 bottom-0 w-1/3 z-10"
+                  aria-label="Vorherige Story"
+                />
+                <button
+                  onClick={handleStoryNext}
+                  className="absolute right-0 top-0 bottom-0 w-1/3 z-10"
+                  aria-label="Nächste Story"
+                />
+              </>
+            )}
+
             {selectedStory.mediaType?.startsWith('video') ? (
               <video
                 src={getAssetUrl(selectedStory.mediaUrl)}
                 controls
                 autoPlay
-                className="max-h-[70vh] max-w-full rounded-3xl shadow-2xl"
+                className="max-h-[75vh] max-w-full rounded-2xl shadow-2xl"
               />
             ) : (
               <img
                 src={getAssetUrl(selectedStory.mediaUrl)}
                 alt={selectedStory.caption || 'Story'}
-                className="max-h-[70vh] max-w-full rounded-3xl shadow-2xl object-contain"
+                className="max-h-[75vh] max-w-full rounded-2xl shadow-2xl object-contain"
               />
             )}
           </div>
+
+          {/* Caption */}
           {selectedStory.caption && (
-            <div className="px-5 pb-4 text-sm text-white/80">
-              {selectedStory.caption}
+            <div className="px-6 py-4 bg-gradient-to-t from-black/80 to-transparent">
+              <p className="text-sm text-white text-center leading-relaxed">
+                {selectedStory.caption}
+              </p>
             </div>
           )}
+
+          {/* Navigation Buttons */}
           {stories.length > 1 && (
-            <div className="flex items-center justify-between px-5 pb-6">
+            <div className="flex items-center justify-between px-4 pb-6 bg-gradient-to-t from-black/60 to-transparent" style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0))' }}>
               <button
                 onClick={handleStoryPrev}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-white/10 text-white/80 hover:bg-white/20 transition"
+                disabled={selectedStoryIndex === 0}
+                className="flex items-center gap-2 px-5 py-3 rounded-full bg-white/20 backdrop-blur-md text-white font-medium active:bg-white/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                <ChevronLeft className="w-4 h-4" />
-                Zurück
+                <ChevronLeft className="w-5 h-5" />
+                <span className="text-sm">Zurück</span>
               </button>
+              <div className="text-white/60 text-sm font-medium">
+                {selectedStoryIndex + 1} / {stories.length}
+              </div>
               <button
                 onClick={handleStoryNext}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-white/10 text-white/80 hover:bg-white/20 transition"
+                disabled={selectedStoryIndex === stories.length - 1}
+                className="flex items-center gap-2 px-5 py-3 rounded-full bg-white/20 backdrop-blur-md text-white font-medium active:bg-white/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                Weiter
-                <ChevronRight className="w-4 h-4" />
+                <span className="text-sm">Weiter</span>
+                <ChevronRight className="w-5 h-5" />
               </button>
             </div>
           )}

@@ -568,64 +568,243 @@ const NotificationDropdown = () => {
 
   const mobilePanel = (
     <>
-      <div className="notification-modal-overlay" onClick={closeDropdown} />
-      <div className="notification-modal">
-        <header className="notification-modal__header">
-          <div>
-            <p className="notification-modal__eyebrow">Benachrichtigungen</p>
-            <p className="notification-modal__count">
-              {unreadCount > 0 ? `${unreadCount} neue Meldungen` : 'Alles gelesen'}
-            </p>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[99998]"
+        onClick={closeDropdown}
+      />
+
+      {/* Panel */}
+      <div className="fixed inset-0 bg-white z-[99999] flex flex-col">
+        {/* Header */}
+        <div className="flex-shrink-0 px-4 py-4 border-b border-slate-200 bg-white" style={{ paddingTop: 'calc(1rem + env(safe-area-inset-top, 0))' }}>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <Bell className="w-6 h-6 text-blue-600" />
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">Benachrichtigungen</h2>
+                <p className="text-xs text-slate-500">
+                  {unreadCount > 0 ? `${unreadCount} ungelesen` : 'Alles gelesen'}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={closeDropdown}
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-slate-100 text-slate-600 active:bg-slate-200 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={closeDropdown}
-            className="notification-modal__close"
-            aria-label="Schließen"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </header>
 
-        <div className="notification-modal__filters">
-          {FILTERS.map((item) => (
-            <button
-              key={item.value}
-              type="button"
-              onClick={() => onFilterChange(item.value)}
-              className={`notification-modal__filter ${filter === item.value ? 'active' : ''}`}
-            >
-              {item.label}
-            </button>
-          ))}
+          {/* Filter Pills */}
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+            {FILTERS.map((item) => (
+              <button
+                key={item.value}
+                type="button"
+                onClick={() => onFilterChange(item.value)}
+                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
+                  filter === item.value
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
+                    : 'bg-slate-100 text-slate-700 active:bg-slate-200'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {renderBroadcastHighlights('mobile')}
-
-        <div className="notification-modal__list">
-          {renderMobileNotificationList()}
+        {/* Stats Cards */}
+        <div className="flex-shrink-0 grid grid-cols-3 gap-3 px-4 py-3 bg-slate-50 border-b border-slate-200">
+          <div className="text-center py-3 bg-white rounded-xl border border-slate-200">
+            <p className="text-2xl font-bold text-slate-900">{notificationStats.pending}</p>
+            <p className="text-xs text-slate-500 mt-1">Ungelesen</p>
+          </div>
+          <div className="text-center py-3 bg-white rounded-xl border border-slate-200">
+            <p className="text-2xl font-bold text-slate-900">{notificationStats.tasks}</p>
+            <p className="text-xs text-slate-500 mt-1">Aufgaben</p>
+          </div>
+          <div className="text-center py-3 bg-white rounded-xl border border-slate-200">
+            <p className="text-2xl font-bold text-slate-900">{notificationStats.alerts}</p>
+            <p className="text-xs text-slate-500 mt-1">Termine</p>
+          </div>
         </div>
 
-        <div className="notification-modal__actions">
-          {unreadCount > 0 && (
-            <button
-              type="button"
-              onClick={handleMarkAllAsRead}
-              className="notification-modal__primary"
-            >
-              <CheckCheck className="w-4 h-4" />
-              Alles als gelesen markieren
-            </button>
-          )}
-          {notifications.some((n) => n.is_read) && (
-            <button
-              type="button"
-              onClick={handleClearAll}
-              className="notification-modal__ghost"
-            >
-              <Trash2 className="w-4 h-4" />
-              Gelesene löschen
-            </button>
+        {/* Broadcast Section */}
+        {broadcastHighlights.length > 0 && (
+          <div className="flex-shrink-0 px-4 py-3 bg-slate-50 border-b border-slate-200">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Massenmeldungen</p>
+              <span className="text-xs text-slate-400">{broadcastHighlights.length}</span>
+            </div>
+            <div className="space-y-2">
+              {broadcastHighlights.map((broadcast) => (
+                <div
+                  key={broadcast.id || broadcast.notification_id || broadcast.created_at}
+                  onClick={() => handleNotificationClick(broadcast)}
+                  className="bg-white rounded-xl p-3 border border-slate-200 active:bg-slate-50 transition-colors"
+                >
+                  <p className="text-sm font-semibold text-slate-900 mb-1 line-clamp-1">{broadcast.title}</p>
+                  <p className="text-xs text-slate-600 mb-2 line-clamp-2">{broadcast.content || heroMessage}</p>
+                  <div className="flex items-center gap-2 text-xs text-slate-400">
+                    <span>{formatTimestamp(broadcast.created_at)}</span>
+                    {getBroadcastRecipientsLabel(broadcast) && (
+                      <>
+                        <span>•</span>
+                        <span>{getBroadcastRecipientsLabel(broadcast)}</span>
+                      </>
+                    )}
+                    <span className="ml-auto px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full font-medium">
+                      {getBroadcastStatusLabel(broadcast)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Action Bar */}
+        {(unreadCount > 0 || notifications.some(n => n.is_read)) && (
+          <div className="flex-shrink-0 flex gap-2 px-4 py-3 bg-slate-50 border-b border-slate-200">
+            {unreadCount > 0 && (
+              <button
+                type="button"
+                onClick={handleMarkAllAsRead}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 text-white font-medium active:bg-blue-700 transition-colors shadow-lg shadow-blue-600/30"
+              >
+                <CheckCheck className="w-4 h-4" />
+                <span className="text-sm">Alle als gelesen</span>
+              </button>
+            )}
+            {notifications.some(n => n.is_read) && (
+              <button
+                type="button"
+                onClick={handleClearAll}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-50 text-red-600 font-medium active:bg-red-100 transition-colors border border-red-200"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span className="text-sm">Gelesene löschen</span>
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Notification List */}
+        <div className="flex-1 overflow-y-auto" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0)' }}>
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-20">
+              <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4" />
+              <p className="text-sm font-medium text-slate-600">Wird geladen...</p>
+            </div>
+          ) : !notifications.length ? (
+            <div className="flex flex-col items-center justify-center py-20 px-4">
+              <div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center mb-4">
+                <Bell className="w-10 h-10 text-slate-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900 mb-2">Keine Benachrichtigungen</h3>
+              <p className="text-sm text-slate-500 text-center">Du bist auf dem neuesten Stand!</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {notifications.map((notification) => {
+                const displayMessage = notification.content?.trim() ? notification.content : notification.title;
+                return (
+                  <div
+                    key={notification.id}
+                    onClick={() => handleNotificationClick(notification)}
+                    className={`flex gap-3 px-4 py-4 active:bg-slate-50 transition-colors ${
+                      notification.is_read ? 'bg-white' : 'bg-blue-50/50'
+                    }`}
+                  >
+                    {/* Icon */}
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      notification.is_read ? 'bg-slate-100' : 'bg-blue-100'
+                    }`}>
+                      {getNotificationIcon(notification.type)}
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 text-[10px] uppercase tracking-wide text-slate-400 mb-1">
+                        <span>{getNotificationLabel(notification.type)}</span>
+                        {!notification.is_read && <span className="text-blue-600 font-semibold">Neu</span>}
+                      </div>
+                      <p className="text-sm font-semibold text-slate-900 mb-1 line-clamp-2">
+                        {notification.title}
+                      </p>
+                      {displayMessage !== notification.title && (
+                        <p className="text-sm text-slate-600 mb-2 line-clamp-2">
+                          {displayMessage}
+                        </p>
+                      )}
+
+                      {/* Action Buttons */}
+                      {notification.metadata?.actions?.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {notification.metadata.actions.map((action) => {
+                            const isLoading = actionLoadingKey === `${notification.id}-${action.key}`;
+                            const variant =
+                              action.variant === 'primary'
+                                ? 'bg-blue-600 text-white border-transparent active:bg-blue-700'
+                                : action.variant === 'danger'
+                                ? 'bg-red-600 text-white border-transparent active:bg-red-700'
+                                : 'bg-white text-slate-700 border border-slate-200 active:bg-slate-50';
+                            return (
+                              <button
+                                key={action.key}
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleNotificationActionButton(event, notification, action);
+                                }}
+                                disabled={isLoading}
+                                className={`text-xs px-3 py-1.5 rounded-full font-semibold transition-colors ${variant} disabled:opacity-50`}
+                              >
+                                {isLoading ? 'Lädt...' : action.label || 'Aktion'}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-2 text-xs text-slate-400 mt-2">
+                        <span>{formatTimestamp(notification.created_at)}</span>
+                        {!notification.is_read && <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
+                      </div>
+                    </div>
+
+                    {/* Quick Actions */}
+                    <div className="flex flex-col gap-2">
+                      {!notification.is_read && (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleMarkAsRead(notification.id);
+                          }}
+                          className="w-8 h-8 flex items-center justify-center rounded-lg bg-green-100 text-green-600 active:bg-green-200 transition-colors"
+                        >
+                          <Check className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleDelete(notification.id);
+                        }}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg bg-red-100 text-red-600 active:bg-red-200 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       </div>
