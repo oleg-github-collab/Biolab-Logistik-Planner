@@ -111,9 +111,9 @@ const NotificationDropdown = () => {
     }
     if (notification.action_url) {
       window.location.href = notification.action_url;
-    }
-    if (isMobile) {
-      closeDropdown();
+      if (isMobile) {
+        closeDropdown();
+      }
     }
   }, [closeDropdown, handleMarkAsRead, isMobile]);
 
