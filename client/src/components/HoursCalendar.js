@@ -290,11 +290,11 @@ const HoursCalendar = () => {
       </header>
 
       <section className="border-b border-slate-200/80 px-4 sm:px-6 py-4 bg-white/70 backdrop-blur">
-        <div className={`flex ${isMobile ? 'flex-col gap-3' : 'items-center justify-between'}`}>
-          <div className="flex items-center gap-2">
+        <div className={`flex ${isMobile ? 'flex-col gap-4' : 'items-center justify-between gap-4'}`}>
+          <div className="flex items-center gap-3 flex-wrap rounded-2xl border border-slate-200/80 bg-white/80 backdrop-blur px-3 py-2 shadow-sm shadow-slate-200/60">
             <button
               onClick={() => shiftWeek(-7)}
-              className="inline-flex items-center justify-center w-10 h-10 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 transition disabled:opacity-60"
+              className="inline-flex items-center justify-center w-11 h-11 rounded-2xl border border-amber-300 bg-white text-amber-600 shadow-sm transition hover:bg-amber-50 disabled:opacity-60"
               disabled={saving}
               aria-label="Vorherige Woche"
             >
@@ -302,9 +302,12 @@ const HoursCalendar = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
+            <span className="flex-1 min-w-[120px] text-center text-xs font-semibold tracking-[0.4em] uppercase text-slate-500 whitespace-nowrap">
+              Diese Woche
+            </span>
             <button
               onClick={() => shiftWeek(7)}
-              className="inline-flex items-center justify-center w-10 h-10 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 transition disabled:opacity-60"
+              className="inline-flex items-center justify-center w-11 h-11 rounded-2xl border border-transparent bg-gradient-to-br from-blue-500 to-sky-600 text-white shadow-xl transition hover:translate-y-0.5 hover:shadow-2xl disabled:opacity-60"
               disabled={saving}
               aria-label="Nächste Woche"
             >
@@ -314,7 +317,7 @@ const HoursCalendar = () => {
             </button>
           </div>
 
-          <div className="flex-1 text-center">
+          <div className="flex-1 text-center order-last sm:order-none">
             <div className="text-lg font-semibold text-slate-800">
               {formatDate(currentWeekStart)} – {formatDate(weekEnd)}
             </div>

@@ -1727,31 +1727,35 @@ const KnowledgeBaseV3 = () => {
           <X size={20} />
         </button>
       </div>
-      <div className={dictationBodyClass}>
-        <div className="flex items-center gap-3">
-          <label className="text-sm font-semibold text-gray-700">Sprache</label>
-          <select
-            className="border border-gray-200 rounded-lg px-3 py-1 text-sm"
-            value={dictationLanguage}
-            onChange={(e) => setDictationLanguage(e.target.value)}
-          >
-            {DICTATION_LANGUAGES.map((lang) => (
-              <option key={lang.value} value={lang.value}>
-                {lang.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        <div className={dictationBodyClass}>
+          <div className="flex items-center gap-3">
+            <label className="text-sm font-semibold text-gray-700">Sprache</label>
+            <select
+              className="border border-gray-200 rounded-lg px-3 py-1 text-sm"
+              value={dictationLanguage}
+              onChange={(e) => setDictationLanguage(e.target.value)}
+            >
+              {DICTATION_LANGUAGES.map((lang) => (
+                <option key={lang.value} value={lang.value}>
+                  {lang.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        <VoiceRecorder
-          onRecordingComplete={handleDictationComplete}
-          existingAudioUrl={null}
-        />
+          <VoiceRecorder
+            onRecordingComplete={handleDictationComplete}
+            existingAudioUrl={null}
+          />
 
-        {dictationLoading && (
-          <p className="text-sm text-gray-500">
-            Verarbeitung läuft... Bitte einen Moment warten.
-          </p>
+          <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.4em] text-slate-400">
+            <span>Powered by Kaminskyi AI</span>
+          </div>
+
+          {dictationLoading && (
+            <p className="text-sm text-gray-500">
+              Verarbeitung läuft... Bitte einen Moment warten.
+            </p>
         )}
 
         {dictationError && (
