@@ -2948,34 +2948,18 @@ const DirectMessenger = () => {
 
           {/* Media */}
           <div className="flex-1 flex items-center justify-center px-4 relative">
-            {/* Navigation Tap Areas */}
-            {stories.length > 1 && (
-              <>
-                <button
-                  onClick={handleStoryPrev}
-                  className="absolute left-0 top-0 bottom-0 w-1/3 z-10"
-                  aria-label="Vorherige Story"
-                />
-                <button
-                  onClick={handleStoryNext}
-                  className="absolute right-0 top-0 bottom-0 w-1/3 z-10"
-                  aria-label="Nächste Story"
-                />
-              </>
-            )}
-
             {selectedStory.mediaType?.startsWith('video') ? (
               <video
                 src={getAssetUrl(selectedStory.mediaUrl)}
                 controls
                 autoPlay
-                className="max-h-[75vh] max-w-full rounded-2xl shadow-2xl"
+                className="max-h-[75vh] max-w-full rounded-2xl shadow-2xl relative z-20"
               />
             ) : (
               <img
                 src={getAssetUrl(selectedStory.mediaUrl)}
                 alt={selectedStory.caption || 'Story'}
-                className="max-h-[75vh] max-w-full rounded-2xl shadow-2xl object-contain"
+                className="max-h-[75vh] max-w-full rounded-2xl shadow-2xl object-contain relative z-20"
               />
             )}
           </div>
