@@ -809,7 +809,7 @@
   .messenger-mobile-chat-mode,
   .messenger-mobile-list-mode {
     position: relative;
-    z-index: 10;
+    z-index: auto;
   }
 
   .messenger-mobile-list-view {

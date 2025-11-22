@@ -567,15 +567,12 @@ const NotificationDropdown = () => {
   );
 
   const mobilePanel = (
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[99998]"
-        onClick={closeDropdown}
-      />
+    <div className="fixed inset-0 z-[99999] flex flex-col">
+      {/* Backdrop - NO onClick to prevent closing */}
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm -z-10" />
 
       {/* Panel */}
-      <div className="fixed inset-0 bg-white z-[99999] flex flex-col">
+      <div className="relative bg-white flex-1 flex flex-col">
         {/* Header */}
         <div className="flex-shrink-0 px-4 py-4 border-b border-slate-200 bg-white" style={{ paddingTop: 'calc(1rem + env(safe-area-inset-top, 0))' }}>
           <div className="flex items-center justify-between mb-4">
@@ -808,7 +805,7 @@ const NotificationDropdown = () => {
           )}
         </div>
       </div>
-    </>
+    </div>
   );
 
   return (
