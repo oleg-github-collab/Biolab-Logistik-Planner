@@ -190,7 +190,24 @@ const addStory = async ({ userId, file, caption, isCloudinary = false }) => {
     mediaUrl = file.path; // Full Cloudinary URL
     mediaPath = file.path; // Store URL as path for reference
   } else {
-    const relativePath = file.path.replace(path.join(__dirname, '..'), '').replace(/\\/g, '/');
+    // Extract relative path from absolute filesystem path
+    // file.path is like: /app/uploads/images/123.png or /Users/.../server/uploads/images/123.png
+    // We need: /uploads/images/123.png
+    let relativePath = file.path;
+
+    // Remove server directory prefix
+    const serverDir = path.join(__dirname, '..');
+    if (relativePath.startsWith(serverDir)) {
+      relativePath = relativePath.substring(serverDir.length);
+    }
+
+    // Also handle Railway production paths like /app/uploads/...
+    if (relativePath.startsWith('/app/uploads/')) {
+      relativePath = relativePath.substring(4); // Remove '/app' prefix
+    }
+
+    // Normalize path separators and ensure leading slash
+    relativePath = relativePath.replace(/\\/g, '/');
     mediaUrl = relativePath.startsWith('/') ? relativePath : `/${relativePath}`;
     mediaPath = file.path;
   }
