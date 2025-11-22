@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback, useState } from 'react';
+import React, { useMemo, useCallback, useState, useEffect } from 'react';
 import {
   addDays,
   addMinutes,
@@ -21,7 +21,14 @@ const SLOT_LIMIT = 4;
 
 const normalizeDayKey = (date) => format(date, 'yyyy-MM-dd');
 
-const MobileEventCalendar = ({ events = [], onSlotSelect, onDaySelect, onEventClick }) => {
+const MobileEventCalendar = ({
+  events = [],
+  onSlotSelect,
+  onDaySelect,
+  onEventClick,
+  onWeekChange,
+  onDayOpen
+}) => {
   const [weekOffset, setWeekOffset] = useState(0);
 
   const baseWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
@@ -74,6 +81,11 @@ const MobileEventCalendar = ({ events = [], onSlotSelect, onDaySelect, onEventCl
     onDaySelect({ start });
   }, [onDaySelect]);
 
+  useEffect(() => {
+    if (!onWeekChange) return;
+    onWeekChange(weekStart, weekEnd);
+  }, [weekStart, weekEnd, onWeekChange]);
+
   const renderEventBadge = (event, index, fallbackKey) => {
     const { validStart, validEnd } = safeEventDates(event);
     const timeDisplay = formatTimeRange(validStart, validEnd, event.all_day);
@@ -106,11 +118,27 @@ const MobileEventCalendar = ({ events = [], onSlotSelect, onDaySelect, onEventCl
           </h2>
         </div>
         <div className="mobile-event-calendar__nav">
-          <button type="button" onClick={() => setWeekOffset((prev) => prev - 1)}>←</button>
-          <button type="button" onClick={() => setWeekOffset(0)} className="mobile-event-calendar__nav-today">
+          <button
+            type="button"
+            className="mobile-event-calendar__nav-button mobile-event-calendar__nav-prev"
+            onClick={() => setWeekOffset((prev) => prev - 1)}
+          >
+            ←
+          </button>
+          <button
+            type="button"
+            onClick={() => setWeekOffset(0)}
+            className="mobile-event-calendar__nav-today"
+          >
             Diese Woche
           </button>
-          <button type="button" onClick={() => setWeekOffset((prev) => prev + 1)}>→</button>
+          <button
+            type="button"
+            className="mobile-event-calendar__nav-button mobile-event-calendar__nav-next"
+            onClick={() => setWeekOffset((prev) => prev + 1)}
+          >
+            →
+          </button>
         </div>
       </header>
 
@@ -137,16 +165,28 @@ const MobileEventCalendar = ({ events = [], onSlotSelect, onDaySelect, onEventCl
                     </p>
                   )}
               </div>
-              <div className="mobile-event-calendar__actions">
-                <button
-                  type="button"
-                  onClick={() => handleDayQuickCreate(day)}
-                  className="mobile-event-calendar__action"
-                >
-                  + Tag öffnen
-                </button>
-                <div className="mobile-event-calendar__slots">
-                  {QUICK_SLOTS.map((slot) => (
+          <div className="mobile-event-calendar__actions">
+            <div className="mobile-event-calendar__action-group">
+              <button
+                type="button"
+                onClick={() => onDayOpen ? onDayOpen(day) : handleDayQuickCreate(day)}
+                className="mobile-event-calendar__action mobile-event-calendar__action--primary"
+              >
+                Tag öffnen
+              </button>
+              <span className="mobile-event-calendar__event-count">
+                {dayEvents.length} Termin{dayEvents.length === 1 ? '' : 'e'}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleDayQuickCreate(day)}
+              className="mobile-event-calendar__action mobile-event-calendar__action--outline"
+            >
+              + Termin anlegen
+            </button>
+            <div className="mobile-event-calendar__slots">
+              {QUICK_SLOTS.map((slot) => (
                     <button
                       type="button"
                       key={`${key}-${slot.time}`}

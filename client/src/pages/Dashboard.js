@@ -20,7 +20,7 @@ import {
   getEventColor
 } from '../utils/calendarApi';
 import { createAbsenceEvent } from '../utils/api';
-import { format, addDays, addMinutes, startOfWeek, endOfWeek, formatISO } from 'date-fns';
+import { format, addDays, addMinutes, startOfDay, startOfWeek, endOfWeek, formatISO } from 'date-fns';
 
 // Helper functions moved to calendarApi.js - using transformApiEventToUi and transformUiEventToApi
 
@@ -197,6 +197,48 @@ const Dashboard = () => {
   const handleRangeChange = useCallback((range) => {
     setEventRange(range);
   }, []);
+
+  const handleMobileWeekChange = useCallback((weekStartDate, weekEndDate) => {
+    if (!weekStartDate || !weekEndDate) return;
+
+    setEventRange((prev) => {
+      const sameStart = prev?.start && prev.start.getTime() === weekStartDate.getTime();
+      const sameEnd = prev?.end && prev.end.getTime() === weekEndDate.getTime();
+      if (sameStart && sameEnd && prev?.view === 'week') {
+        return prev;
+      }
+      return {
+        start: weekStartDate,
+        end: weekEndDate,
+        view: 'week'
+      };
+    });
+
+    setActiveTab('calendar');
+    setSelectedDate(weekStartDate);
+  }, [setEventRange, setActiveTab, setSelectedDate]);
+
+  const handleMobileDayOpen = useCallback((day) => {
+    if (!day) return;
+    const start = startOfDay(day);
+    const end = addDays(start, 1);
+
+    setEventRange((prev) => {
+      const sameStart = prev?.start && prev.start.getTime() === start.getTime();
+      const sameEnd = prev?.end && prev.end.getTime() === end.getTime();
+      if (sameStart && sameEnd && prev?.view === 'day') {
+        return prev;
+      }
+      return {
+        start,
+        end,
+        view: 'day'
+      };
+    });
+
+    setActiveTab('calendar');
+    setSelectedDate(start);
+  }, [setEventRange, setActiveTab, setSelectedDate]);
 
   // Handle event click (opens details modal)
   const handleEventClick = useCallback((event) => {
@@ -497,6 +539,8 @@ const Dashboard = () => {
                 onSlotSelect={handleCalendarEventCreate}
                 onDaySelect={(day) => handleCalendarEventCreate({ start: day })}
                 onEventClick={handleEventClick}
+                onWeekChange={handleMobileWeekChange}
+                onDayOpen={handleMobileDayOpen}
               />
             ) : (
               <CalendarView

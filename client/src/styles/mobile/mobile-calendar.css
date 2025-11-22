@@ -812,39 +812,56 @@
   .mobile-event-calendar__nav {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 12px;
   }
 
-  .mobile-event-calendar__nav button {
-    width: 36px;
-    height: 36px;
-    border-radius: 12px;
-    border: none;
-    background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
-    color: #1e293b;
+  .mobile-event-calendar__nav-button {
+    width: 44px;
+    height: 44px;
+    border-radius: 16px;
+    border: 2px solid transparent;
+    background: #ffffff;
     font-weight: 700;
-    box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+    font-size: 18px;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
     transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
-  .mobile-event-calendar__nav button:hover {
-    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+  .mobile-event-calendar__nav-button:hover {
     transform: translateY(-1px);
+    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.15);
   }
 
-  .mobile-event-calendar__nav button:active {
-    transform: scale(0.96);
-    box-shadow: 0 4px 10px rgba(15, 23, 42, 0.12);
+  .mobile-event-calendar__nav-button:active {
+    transform: scale(0.97);
+  }
+
+  .mobile-event-calendar__nav-prev {
+    border-color: #f97316;
+    color: #f97316;
+  }
+
+  .mobile-event-calendar__nav-next {
+    background: linear-gradient(135deg, #0ea5e9, #2563eb);
+    color: #ffffff;
+    border-color: transparent;
+    box-shadow: 0 12px 30px rgba(37, 99, 235, 0.4);
   }
 
   .mobile-event-calendar__nav-today {
-    border-radius: 14px;
-    background: linear-gradient(135deg, #0ea5e9, #6366f1);
-    color: #ffffff;
-    padding: 8px 14px;
+    border-radius: 28px;
+    background: rgba(14, 165, 233, 0.1);
+    color: #0c4a6e;
+    padding: 8px 18px;
     font-size: 12px;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.4em;
+    font-weight: 700;
+    border: 1px solid rgba(14, 165, 233, 0.35);
+    backdrop-filter: blur(10px);
   }
 
   .mobile-event-calendar__grid {
@@ -944,21 +961,56 @@
   .mobile-event-calendar__actions {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
   }
 
   .mobile-event-calendar__action {
     border: 0;
-    border-radius: 14px;
-    background: linear-gradient(135deg, #0ea5e9, #2563eb);
-    color: white;
-    padding: 10px;
+    border-radius: 16px;
+    padding: 10px 14px;
     font-size: 13px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.2em;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
     min-height: 44px;
-    box-shadow: 0 8px 18px rgba(37, 99, 235, 0.4);
+  }
+
+  .mobile-event-calendar__action--primary {
+    background: #ffffff;
+    color: #0f172a;
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    box-shadow: 0 8px 28px rgba(15, 23, 42, 0.1);
+  }
+
+  .mobile-event-calendar__action--primary:hover {
+    transform: translateY(-1px);
+  }
+
+  .mobile-event-calendar__action--outline {
+    background: rgba(59, 130, 246, 0.08);
+    color: #0ea5e9;
+    border: 1px dashed rgba(14, 165, 233, 0.6);
+  }
+
+  .mobile-event-calendar__action--outline:hover {
+    background: rgba(59, 130, 246, 0.15);
+  }
+
+  .mobile-event-calendar__action-group {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .mobile-event-calendar__event-count {
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    color: #64748b;
   }
 
   .mobile-event-calendar__slots {
