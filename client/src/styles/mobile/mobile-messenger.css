@@ -458,6 +458,7 @@
   }
 
   .contact-list__header {
+    flex-shrink: 0;
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -489,6 +490,7 @@
   }
 
   .contact-list__search {
+    flex-shrink: 0;
     display: flex;
     gap: 6px;
     background: white;
@@ -507,6 +509,7 @@
   }
 
   .contact-list__stories {
+    flex-shrink: 0;
     display: flex;
     gap: 10px;
     padding-bottom: 4px;
@@ -685,7 +688,7 @@
     flex-direction: column;
     gap: 12px;
     padding-right: 6px;
-    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0));
+    padding-bottom: calc(100px + env(safe-area-inset-bottom, 0));
   }
 
   .contact-group {
@@ -872,12 +875,13 @@
     flex-direction: column;
     gap: 16px;
     padding: 24px 16px;
-    padding-bottom: calc(100px + env(safe-area-inset-bottom, 0));
+    padding-bottom: 24px;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
 
   .messenger-mobile-list-header {
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: space-between;
