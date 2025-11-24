@@ -36,7 +36,9 @@ const MobileBottomNav = () => {
     return () => clearInterval(interval);
   }, []);
 
-  if (['/login', '/first-setup'].includes(pathname)) {
+  const shouldHideNav = ['/login', '/first-setup'].includes(pathname) || pathname.startsWith('/messages');
+
+  if (shouldHideNav) {
     return null;
   }
 
