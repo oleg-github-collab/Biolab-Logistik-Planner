@@ -36,17 +36,19 @@
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    width: 54px !important;
-    height: 54px !important;
-    min-width: 54px !important;
-    border-radius: 16px !important;
-    background: linear-gradient(135deg, #fef3c7, #fde68a) !important;
-    border: 2px solid #f59e0b !important;
-    color: #b45309 !important;
+    width: 56px !important;
+    height: 56px !important;
+    min-width: 56px !important;
+    max-width: 56px !important;
+    flex-shrink: 0 !important;
+    border-radius: 50% !important;
+    background: linear-gradient(135deg, #ffffff 0%, #fef3c7 100%) !important;
+    border: 3px solid #f59e0b !important;
+    color: #ea580c !important;
     box-shadow:
-      0 4px 14px rgba(245, 158, 11, 0.25),
-      0 1px 3px rgba(0, 0, 0, 0.08),
-      inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+      0 6px 20px rgba(245, 158, 11, 0.3),
+      0 2px 6px rgba(0, 0, 0, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.5) !important;
     transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
     cursor: pointer !important;
     -webkit-tap-highlight-color: transparent;
@@ -106,17 +108,19 @@
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    width: 54px !important;
-    height: 54px !important;
-    min-width: 54px !important;
-    border-radius: 16px !important;
+    width: 56px !important;
+    height: 56px !important;
+    min-width: 56px !important;
+    max-width: 56px !important;
+    flex-shrink: 0 !important;
+    border-radius: 50% !important;
     background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
-    border: 2px solid transparent !important;
+    border: 3px solid #1e40af !important;
     color: #ffffff !important;
     box-shadow:
-      0 4px 14px rgba(37, 99, 235, 0.35),
-      0 1px 3px rgba(0, 0, 0, 0.12),
-      inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+      0 6px 20px rgba(37, 99, 235, 0.4),
+      0 2px 6px rgba(0, 0, 0, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
     transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
     cursor: pointer !important;
     -webkit-tap-highlight-color: transparent;
@@ -194,20 +198,23 @@
   section span.flex-1,
   section span[class*="tracking"] {
     flex: 1 !important;
-    min-width: 140px !important;
+    min-width: 160px !important;
+    max-width: 240px !important;
     text-align: center !important;
-    font-size: 13px !important;
-    font-weight: 800 !important;
-    letter-spacing: 0.15em !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.08em !important;
     text-transform: uppercase !important;
     color: #1e293b !important;
-    padding: 0 12px !important;
-    background: linear-gradient(135deg, #3b82f6, #8b5cf6, #ec4899);
-    -webkit-background-clip: text !important;
-    -webkit-text-fill-color: transparent !important;
-    background-clip: text !important;
+    padding: 12px 20px !important;
+    background: linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%) !important;
+    border-radius: 999px !important;
+    border: 2px solid #3b82f6 !important;
     white-space: nowrap !important;
-    line-height: 1.4 !important;
+    line-height: 1.5 !important;
+    box-shadow:
+      0 4px 14px rgba(59, 130, 246, 0.15),
+      inset 0 1px 0 rgba(255, 255, 255, 0.5) !important;
   }
 
   /* ==========================================
@@ -255,17 +262,17 @@
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    gap: 14px !important;
-    padding: 16px 18px !important;
-    background: linear-gradient(135deg, #ffffff, #fefefe) !important;
-    border-radius: 22px !important;
-    border: 1px solid rgba(15, 23, 42, 0.06) !important;
+    gap: 16px !important;
+    padding: 18px 20px !important;
+    background: linear-gradient(135deg, #ffffff 0%, #fafafa 100%) !important;
+    border-radius: 26px !important;
+    border: 1px solid rgba(15, 23, 42, 0.08) !important;
     box-shadow:
-      0 8px 30px rgba(15, 23, 42, 0.06),
-      0 2px 8px rgba(0, 0, 0, 0.03) !important;
+      0 10px 40px rgba(15, 23, 42, 0.08),
+      0 3px 10px rgba(0, 0, 0, 0.04) !important;
     margin: 0 !important;
-    width: 100% !important;
-    max-width: 400px !important;
+    width: auto !important;
+    max-width: 520px !important;
     margin-left: auto !important;
     margin-right: auto !important;
   }
@@ -366,26 +373,28 @@
   section button[aria-label="Nächste Woche"],
   button[aria-label="Previous Week"],
   button[aria-label="Next Week"] {
-    width: 60px !important;
-    height: 60px !important;
-    min-width: 60px !important;
-    border-radius: 18px !important;
+    width: 64px !important;
+    height: 64px !important;
+    min-width: 64px !important;
+    max-width: 64px !important;
   }
 
   section button svg {
-    width: 26px !important;
-    height: 26px !important;
+    width: 28px !important;
+    height: 28px !important;
   }
 
   section span.flex-1 {
-    min-width: 160px !important;
-    font-size: 14px !important;
+    min-width: 180px !important;
+    max-width: 260px !important;
+    font-size: 15px !important;
+    padding: 14px 24px !important;
   }
 
   section div.flex.items-center.gap-3 {
-    gap: 18px !important;
-    padding: 20px 24px !important;
-    max-width: 480px !important;
+    gap: 20px !important;
+    padding: 22px 28px !important;
+    max-width: 600px !important;
   }
 
 }
@@ -400,26 +409,30 @@
   section button[aria-label="Nächste Woche"],
   button[aria-label="Previous Week"],
   button[aria-label="Next Week"] {
-    width: 48px !important;
-    height: 48px !important;
-    min-width: 48px !important;
-    border-radius: 14px !important;
+    width: 52px !important;
+    height: 52px !important;
+    min-width: 52px !important;
+    max-width: 52px !important;
+    border-width: 2px !important;
   }
 
   section button svg {
-    width: 20px !important;
-    height: 20px !important;
+    width: 22px !important;
+    height: 22px !important;
   }
 
   section span.flex-1 {
-    min-width: 100px !important;
-    font-size: 11px !important;
-    letter-spacing: 0.12em !important;
+    min-width: 140px !important;
+    max-width: 180px !important;
+    font-size: 12px !important;
+    letter-spacing: 0.06em !important;
+    padding: 10px 16px !important;
   }
 
   section div.flex.items-center.gap-3 {
-    gap: 10px !important;
-    padding: 12px 14px !important;
+    gap: 12px !important;
+    padding: 14px 16px !important;
+    max-width: 440px !important;
   }
 
 }
