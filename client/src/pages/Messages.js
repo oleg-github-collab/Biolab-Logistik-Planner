@@ -26,12 +26,20 @@ const Messages = () => {
     };
   }, []);
 
+  const containerStyle = {
+    top: `${topOffset}px`,
+    height: `calc(100vh - ${topOffset}px)`,
+    zIndex: 1
+  };
+
   return (
     <div
-      className="fixed inset-x-0 bottom-0 bg-slate-50 px-4 py-4 lg:px-6"
-      style={{ top: `${topOffset}px`, zIndex: 1 }}
+      className="fixed inset-x-0 bottom-0 bg-slate-50 px-4 py-4 lg:px-6 overflow-hidden"
+      style={containerStyle}
     >
-      <DirectMessenger />
+      <div className="h-full w-full">
+        <DirectMessenger />
+      </div>
     </div>
   );
 };
