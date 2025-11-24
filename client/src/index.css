@@ -27,6 +27,7 @@
 @import './styles/mobile-perfect-scrolling.css';
 @import './styles/ubersicht-buttons-premium.css';
 @import './styles/calendar-sync-perfect.css';
+@import './styles/week-selector-premium.css';
 
 @tailwind utilities;
 

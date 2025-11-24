@@ -1,0 +1,425 @@
+/* ==========================================
+   WEEK SELECTOR PREMIUM - ÜBERSICHT
+   Преміум дизайн кнопок вибору тижня
+   ========================================== */
+
+@media (max-width: 1023px) {
+
+  /* ==========================================
+     WEEK NAVIGATION CONTAINER
+     ========================================== */
+
+  .week-nav-container {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 12px !important;
+    padding: 16px !important;
+    background: linear-gradient(135deg, #ffffff, #f8fafc) !important;
+    border-radius: 20px !important;
+    box-shadow:
+      0 4px 20px rgba(15, 23, 42, 0.08),
+      0 1px 4px rgba(0, 0, 0, 0.04) !important;
+    border: 1px solid rgba(15, 23, 42, 0.06) !important;
+    margin: 0 auto !important;
+    max-width: 100% !important;
+  }
+
+  /* ==========================================
+     WEEK NAVIGATION BUTTONS
+     ========================================== */
+
+  /* Previous Week Button */
+  section button[aria-label="Vorherige Woche"],
+  button[aria-label="Previous Week"] {
+    position: relative !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 54px !important;
+    height: 54px !important;
+    min-width: 54px !important;
+    border-radius: 16px !important;
+    background: linear-gradient(135deg, #fef3c7, #fde68a) !important;
+    border: 2px solid #f59e0b !important;
+    color: #b45309 !important;
+    box-shadow:
+      0 4px 14px rgba(245, 158, 11, 0.25),
+      0 1px 3px rgba(0, 0, 0, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+    cursor: pointer !important;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    user-select: none;
+  }
+
+  section button[aria-label="Vorherige Woche"]::before,
+  button[aria-label="Previous Week"]::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: 18px;
+    padding: 2px;
+    background: linear-gradient(135deg, #fbbf24, #f59e0b, #d97706);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  section button[aria-label="Vorherige Woche"]:hover,
+  button[aria-label="Previous Week"]:hover {
+    transform: translateY(-3px) translateX(-2px) !important;
+    box-shadow:
+      0 8px 24px rgba(245, 158, 11, 0.35),
+      0 2px 6px rgba(0, 0, 0, 0.1) !important;
+    border-color: #d97706 !important;
+  }
+
+  section button[aria-label="Vorherige Woche"]:hover::before,
+  button[aria-label="Previous Week"]:hover::before {
+    opacity: 1;
+  }
+
+  section button[aria-label="Vorherige Woche"]:active,
+  button[aria-label="Previous Week"]:active {
+    transform: translateY(-1px) translateX(-1px) scale(0.96) !important;
+    box-shadow:
+      0 3px 12px rgba(245, 158, 11, 0.3),
+      inset 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+  }
+
+  section button[aria-label="Vorherige Woche"] svg,
+  button[aria-label="Previous Week"] svg {
+    width: 24px !important;
+    height: 24px !important;
+    stroke-width: 2.5 !important;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+  }
+
+  /* Next Week Button */
+  section button[aria-label="Nächste Woche"],
+  button[aria-label="Next Week"] {
+    position: relative !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 54px !important;
+    height: 54px !important;
+    min-width: 54px !important;
+    border-radius: 16px !important;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+    border: 2px solid transparent !important;
+    color: #ffffff !important;
+    box-shadow:
+      0 4px 14px rgba(37, 99, 235, 0.35),
+      0 1px 3px rgba(0, 0, 0, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+    cursor: pointer !important;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    user-select: none;
+    overflow: hidden;
+  }
+
+  section button[aria-label="Nächste Woche"]::before,
+  button[aria-label="Next Week"]::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), transparent);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  section button[aria-label="Nächste Woche"]::after,
+  button[aria-label="Next Week"]::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+  }
+
+  section button[aria-label="Nächste Woche"]:hover,
+  button[aria-label="Next Week"]:hover {
+    transform: translateY(-3px) translateX(2px) !important;
+    background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%) !important;
+    box-shadow:
+      0 10px 32px rgba(37, 99, 235, 0.45),
+      0 4px 12px rgba(0, 0, 0, 0.15) !important;
+  }
+
+  section button[aria-label="Nächste Woche"]:hover::before,
+  button[aria-label="Next Week"]:hover::before {
+    opacity: 1;
+  }
+
+  section button[aria-label="Nächste Woche"]:active,
+  button[aria-label="Next Week"]:active {
+    transform: translateY(-1px) translateX(1px) scale(0.96) !important;
+    box-shadow:
+      0 4px 16px rgba(37, 99, 235, 0.35),
+      inset 0 2px 4px rgba(0, 0, 0, 0.15) !important;
+  }
+
+  section button[aria-label="Nächste Woche"]:active::after,
+  button[aria-label="Next Week"]:active::after {
+    width: 200px;
+    height: 200px;
+  }
+
+  section button[aria-label="Nächste Woche"] svg,
+  button[aria-label="Next Week"] svg {
+    width: 24px !important;
+    height: 24px !important;
+    stroke-width: 2.5 !important;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+    z-index: 1;
+  }
+
+  /* ==========================================
+     WEEK LABEL
+     ========================================== */
+
+  section span.flex-1.min-w-\\[120px\\],
+  .week-label,
+  section span[class*="tracking-[0.4em]"] {
+    flex: 1 !important;
+    min-width: 140px !important;
+    text-align: center !important;
+    font-size: 13px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.15em !important;
+    text-transform: uppercase !important;
+    color: #1e293b !important;
+    padding: 0 12px !important;
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6, #ec4899);
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
+    white-space: nowrap !important;
+    line-height: 1.4 !important;
+  }
+
+  /* ==========================================
+     DISABLED STATE
+     ========================================== */
+
+  section button[aria-label="Vorherige Woche"]:disabled,
+  section button[aria-label="Nächste Woche"]:disabled,
+  button[aria-label="Previous Week"]:disabled,
+  button[aria-label="Next Week"]:disabled {
+    opacity: 0.4 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+    pointer-events: none !important;
+    filter: grayscale(0.5) !important;
+  }
+
+  /* ==========================================
+     LOADING STATE
+     ========================================== */
+
+  section button[disabled] svg {
+    animation: button-pulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes button-pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.4;
+    }
+  }
+
+  /* ==========================================
+     RESPONSIVE WRAPPER FIX
+     ========================================== */
+
+  section.border-b.border-slate-200\\/80 {
+    padding: 16px 12px !important;
+    background: transparent !important;
+  }
+
+  section div.flex.items-center.gap-3.flex-wrap {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 14px !important;
+    padding: 16px 18px !important;
+    background: linear-gradient(135deg, #ffffff, #fefefe) !important;
+    border-radius: 22px !important;
+    border: 1px solid rgba(15, 23, 42, 0.06) !important;
+    box-shadow:
+      0 8px 30px rgba(15, 23, 42, 0.06),
+      0 2px 8px rgba(0, 0, 0, 0.03) !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 400px !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+
+  /* ==========================================
+     ANIMATION ENHANCEMENTS
+     ========================================== */
+
+  @keyframes slide-in-left {
+    from {
+      transform: translateX(-20px);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes slide-in-right {
+    from {
+      transform: translateX(20px);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  section button[aria-label="Vorherige Woche"] {
+    animation: slide-in-left 0.4s ease-out;
+  }
+
+  section button[aria-label="Nächste Woche"] {
+    animation: slide-in-right 0.4s ease-out;
+  }
+
+  /* ==========================================
+     GLOW EFFECT ON HOVER
+     ========================================== */
+
+  @keyframes glow-amber {
+    0%, 100% {
+      box-shadow:
+        0 4px 14px rgba(245, 158, 11, 0.25),
+        0 0 0 0 rgba(245, 158, 11, 0.4);
+    }
+    50% {
+      box-shadow:
+        0 4px 14px rgba(245, 158, 11, 0.25),
+        0 0 20px 8px rgba(245, 158, 11, 0.2);
+    }
+  }
+
+  @keyframes glow-blue {
+    0%, 100% {
+      box-shadow:
+        0 4px 14px rgba(37, 99, 235, 0.35),
+        0 0 0 0 rgba(37, 99, 235, 0.4);
+    }
+    50% {
+      box-shadow:
+        0 4px 14px rgba(37, 99, 235, 0.35),
+        0 0 24px 10px rgba(37, 99, 235, 0.3);
+    }
+  }
+
+  section button[aria-label="Vorherige Woche"]:hover {
+    animation: glow-amber 2s ease-in-out infinite;
+  }
+
+  section button[aria-label="Nächste Woche"]:hover {
+    animation: glow-blue 2s ease-in-out infinite;
+  }
+
+  /* ==========================================
+     ACCESSIBILITY FOCUS STATES
+     ========================================== */
+
+  section button[aria-label="Vorherige Woche"]:focus-visible,
+  section button[aria-label="Nächste Woche"]:focus-visible,
+  button[aria-label="Previous Week"]:focus-visible,
+  button[aria-label="Next Week"]:focus-visible {
+    outline: 3px solid #3b82f6 !important;
+    outline-offset: 4px !important;
+  }
+
+}
+
+/* ==========================================
+   TABLET OPTIMIZATIONS
+   ========================================== */
+
+@media (min-width: 768px) and (max-width: 1023px) {
+
+  section button[aria-label="Vorherige Woche"],
+  section button[aria-label="Nächste Woche"],
+  button[aria-label="Previous Week"],
+  button[aria-label="Next Week"] {
+    width: 60px !important;
+    height: 60px !important;
+    min-width: 60px !important;
+    border-radius: 18px !important;
+  }
+
+  section button svg {
+    width: 26px !important;
+    height: 26px !important;
+  }
+
+  section span.flex-1 {
+    min-width: 160px !important;
+    font-size: 14px !important;
+  }
+
+  section div.flex.items-center.gap-3 {
+    gap: 18px !important;
+    padding: 20px 24px !important;
+    max-width: 480px !important;
+  }
+
+}
+
+/* ==========================================
+   SMALL PHONES
+   ========================================== */
+
+@media (max-width: 375px) {
+
+  section button[aria-label="Vorherige Woche"],
+  section button[aria-label="Nächste Woche"],
+  button[aria-label="Previous Week"],
+  button[aria-label="Next Week"] {
+    width: 48px !important;
+    height: 48px !important;
+    min-width: 48px !important;
+    border-radius: 14px !important;
+  }
+
+  section button svg {
+    width: 20px !important;
+    height: 20px !important;
+  }
+
+  section span.flex-1 {
+    min-width: 100px !important;
+    font-size: 11px !important;
+    letter-spacing: 0.12em !important;
+  }
+
+  section div.flex.items-center.gap-3 {
+    gap: 10px !important;
+    padding: 12px 14px !important;
+  }
+
+}
