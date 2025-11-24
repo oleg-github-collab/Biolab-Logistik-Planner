@@ -801,12 +801,12 @@ const QuickCreatePopover = ({ anchor, date, slot, onClose, onConfirm, isMobile }
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-slate-900/30 backdrop-blur-[1px]" onClick={onClose} />
+      <div className="fixed inset-0 bg-slate-900/30 backdrop-blur-[1px]" style={{zIndex: 50000}} onClick={onClose} />
       <div
-        className={`fixed z-50 rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl ${
+        className={`fixed rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl ${
           isMobile ? 'max-h-[80vh] overflow-y-auto' : ''
         }`}
-        style={style}
+        style={{...style, zIndex: 50001}}
       >
         <form onSubmit={handleSubmit} className="space-y-3">
         <div>
