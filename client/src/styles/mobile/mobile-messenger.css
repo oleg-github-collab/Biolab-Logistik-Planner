@@ -6,6 +6,20 @@
 @media (max-width: 1023px) {
 
   /* ==========================================
+     MESSENGER PAGE CONTAINER
+     Головний контейнер від Messages.js
+     ========================================== */
+
+  .messenger-page-container {
+    /* Забираємо всі глобальні padding/margin */
+    padding: 0 !important;
+    margin: 0 !important;
+    /* Забезпечуємо правильну висоту */
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  /* ==========================================
      MESSENGER CONTAINER - FULL FIXED VIEWPORT
      Має бути ізольований від глобальних правил
      ========================================== */

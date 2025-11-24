@@ -34,12 +34,10 @@ const Messages = () => {
 
   return (
     <div
-      className="fixed inset-x-0 bottom-0 bg-slate-50 px-4 py-4 lg:px-6 overflow-hidden"
+      className="fixed inset-x-0 bottom-0 bg-white overflow-hidden messenger-page-container"
       style={containerStyle}
     >
-      <div className="h-full w-full">
-        <DirectMessenger />
-      </div>
+      <DirectMessenger />
     </div>
   );
 };

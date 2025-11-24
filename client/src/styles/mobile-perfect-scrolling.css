@@ -212,6 +212,21 @@
   }
 
   /* ==========================================
+     MESSENGER PAGE SPECIFIC FIX
+     ========================================== */
+
+  .messenger-page-container {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Виключення для messenger з main padding */
+  main:has(.messenger-page-container) {
+    padding-bottom: 0 !important;
+    overflow: hidden !important;
+  }
+
+  /* ==========================================
      HEADER FIX
      ========================================== */
 
