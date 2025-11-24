@@ -6,15 +6,35 @@
 @media (max-width: 1023px) {
 
   /* ==========================================
+     PREVENT BODY SCROLL WHEN MESSENGER OPEN
+     ========================================== */
+
+  body:has(.messenger-mobile-container) {
+    overflow: hidden !important;
+    position: fixed !important;
+    width: 100% !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+  }
+
+  /* ==========================================
      MESSENGER CONTAINER
      ========================================== */
 
   .messenger-mobile-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
     display: flex;
     flex-direction: column;
+    width: 100vw;
     height: 100vh;
     height: 100dvh;
     background: #fafbfc;
+    z-index: 1000;
+    overflow: hidden;
   }
 
   /* ==========================================
