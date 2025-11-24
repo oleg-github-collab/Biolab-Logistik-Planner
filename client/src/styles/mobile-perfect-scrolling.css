@@ -11,39 +11,25 @@
 
   html {
     height: 100%;
-    height: 100vh;
-    height: 100dvh;
-    overflow: hidden !important;
-    position: fixed !important;
+    min-height: 100vh;
     width: 100% !important;
   }
 
   body {
     height: 100%;
-    height: 100vh;
-    height: 100dvh;
-    overflow: hidden !important;
-    position: fixed !important;
+    min-height: 100vh;
     width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
-    overscroll-behavior: none !important;
+    overscroll-behavior-y: contain !important;
     -webkit-overflow-scrolling: touch !important;
   }
 
   #root {
-    height: 100%;
-    height: 100vh;
-    height: 100dvh;
+    min-height: 100vh;
     width: 100%;
-    position: fixed !important;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
     display: flex;
     flex-direction: column;
-    overflow: hidden !important;
   }
 
   /* ==========================================
@@ -56,9 +42,7 @@
     flex: 1 1 auto;
     display: flex;
     flex-direction: column;
-    min-height: 0 !important;
-    height: 100%;
-    overflow: hidden !important;
+    min-height: 0;
   }
 
   /* ==========================================
@@ -67,11 +51,9 @@
 
   /* Головний wrapper */
   .min-h-screen {
-    min-height: unset !important;
-    height: 100% !important;
+    min-height: 100vh !important;
     display: flex !important;
     flex-direction: column !important;
-    overflow: hidden !important;
   }
 
   /* Main content area */
