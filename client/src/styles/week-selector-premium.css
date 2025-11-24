@@ -190,9 +190,9 @@
      WEEK LABEL
      ========================================== */
 
-  section span.flex-1.min-w-\\[120px\\],
   .week-label,
-  section span[class*="tracking-[0.4em]"] {
+  section span.flex-1,
+  section span[class*="tracking"] {
     flex: 1 !important;
     min-width: 140px !important;
     text-align: center !important;
@@ -246,7 +246,7 @@
      RESPONSIVE WRAPPER FIX
      ========================================== */
 
-  section.border-b.border-slate-200\\/80 {
+  section.border-b {
     padding: 16px 12px !important;
     background: transparent !important;
   }
