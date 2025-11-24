@@ -286,7 +286,7 @@ const KanbanBoard = () => {
   }
 
   return (
-    <div className="flex flex-col bg-slate-50 mobile-kanban-container">
+    <div className="flex flex-col min-h-screen mobile-kanban-container" style={{background: 'linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%)'}}
       {/* Header */}
       <div className="bg-white border-b border-slate-200 lg:px-6 px-3 py-4 flex-shrink-0">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">

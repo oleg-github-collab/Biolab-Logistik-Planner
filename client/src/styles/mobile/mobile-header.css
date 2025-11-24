@@ -64,7 +64,7 @@
     background: rgba(15, 23, 42, 0.65);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    z-index: 999998;
+    z-index: 10001;
     animation: fadeInBackdrop 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
   }
 
@@ -73,7 +73,7 @@
     background: rgba(15, 23, 42, 0.65) !important;
     backdrop-filter: blur(16px) !important;
     -webkit-backdrop-filter: blur(16px) !important;
-    z-index: 999998 !important; /* Під меню але над всім іншим */
+    z-index: 10001 !important;
   }
 
   @keyframes fadeInBackdrop {
@@ -87,34 +87,34 @@
     }
   }
 
-  /* FULLSCREEN DRAWER - Right side slide-in with 90vw */
+  /* FULLSCREEN DRAWER - Slide-in from right */
   .mobile-menu-drawer,
   .lg\:hidden.fixed.inset-y-0 {
     position: fixed !important;
     top: 0 !important;
     right: 0 !important;
     bottom: 0 !important;
-    left: 10vw !important;
+    left: auto !important;
+    width: 85vw !important;
+    max-width: 400px !important;
     background: linear-gradient(180deg, #ffffff 0%, #fafbfc 50%, #f8fafc 100%);
     box-shadow: -16px 0 80px rgba(15, 23, 42, 0.3);
-    z-index: 999999 !important; /* Вище від всього включно з білим полем Kanban */
+    z-index: 10002 !important;
     display: flex !important;
     flex-direction: column !important;
     height: 100vh !important;
     height: 100dvh !important;
     overflow: hidden !important;
-    animation: slideInRightFullscreen 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    border-radius: 0;
-    overflow: hidden;
-    width: 100vw !important;
-    left: 0 !important;
+    animation: slideInRightFullscreen 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    border-radius: 24px 0 0 24px;
   }
 
-  /* Tailwind class override for drawer - FULL SCREEN */
+  /* Tailwind class override for drawer */
   .lg\:hidden.fixed.inset-y-0.right-0 {
-    left: 0 !important;
-    width: 100vw !important;
-    border-radius: 0 !important;
+    left: auto !important;
+    width: 85vw !important;
+    max-width: 400px !important;
+    border-radius: 24px 0 0 24px !important;
   }
 
   @keyframes slideInRightFullscreen {
