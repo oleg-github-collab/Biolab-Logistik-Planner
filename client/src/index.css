@@ -23,6 +23,11 @@
 /* Premium Enhancements - MUST BE LAST for override priority */
 @import './styles/messenger-enhanced.css';
 
+/* Perfect Mobile Enhancements - Priority Order Matters */
+@import './styles/mobile-perfect-scrolling.css';
+@import './styles/ubersicht-buttons-premium.css';
+@import './styles/calendar-sync-perfect.css';
+
 @tailwind utilities;
 
 /* Notification Animation */

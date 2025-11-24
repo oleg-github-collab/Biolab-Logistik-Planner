@@ -1,0 +1,414 @@
+/* ==========================================
+   ÜBERSICHT BUTTONS - PREMIUM DESIGN
+   Професійний дизайн кнопок для вкладки Übersicht
+   ========================================== */
+
+@media (max-width: 1023px) {
+
+  /* ==========================================
+     БАЗОВІ КНОПКИ ÜBERSICHT
+     ========================================== */
+
+  .ubersicht-btn,
+  .overview-btn,
+  .dashboard-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 56px !important;
+    min-width: 120px !important;
+    padding: 16px 24px !important;
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.01em;
+    border-radius: 16px !important;
+    border: none !important;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+    text-decoration: none !important;
+    white-space: normal !important;
+    word-wrap: break-word !important;
+    word-break: break-word !important;
+    line-height: 1.3 !important;
+    text-align: center !important;
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    user-select: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  /* Ripple effect */
+  .ubersicht-btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.5);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+  }
+
+  .ubersicht-btn:active::before {
+    width: 300px;
+    height: 300px;
+  }
+
+  /* ==========================================
+     PRIMARY BUTTONS
+     ========================================== */
+
+  .ubersicht-btn-primary,
+  .btn-primary {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+    color: #ffffff !important;
+    box-shadow:
+      0 4px 14px rgba(37, 99, 235, 0.25),
+      0 1px 3px rgba(0, 0, 0, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  }
+
+  .ubersicht-btn-primary:hover {
+    background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%) !important;
+    transform: translateY(-2px);
+    box-shadow:
+      0 8px 20px rgba(37, 99, 235, 0.35),
+      0 2px 4px rgba(0, 0, 0, 0.08) !important;
+  }
+
+  .ubersicht-btn-primary:active {
+    transform: translateY(0) scale(0.98);
+    box-shadow:
+      0 2px 8px rgba(37, 99, 235, 0.25),
+      inset 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+  }
+
+  /* ==========================================
+     SECONDARY BUTTONS
+     ========================================== */
+
+  .ubersicht-btn-secondary,
+  .btn-secondary {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%) !important;
+    color: #1e293b !important;
+    border: 2px solid rgba(15, 23, 42, 0.08) !important;
+    box-shadow:
+      0 4px 12px rgba(0, 0, 0, 0.04),
+      0 1px 2px rgba(0, 0, 0, 0.06) !important;
+  }
+
+  .ubersicht-btn-secondary:hover {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%) !important;
+    border-color: rgba(15, 23, 42, 0.15) !important;
+    transform: translateY(-1px);
+    box-shadow:
+      0 6px 16px rgba(0, 0, 0, 0.08),
+      0 2px 4px rgba(0, 0, 0, 0.06) !important;
+  }
+
+  .ubersicht-btn-secondary:active {
+    transform: translateY(0) scale(0.98);
+    background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%) !important;
+    box-shadow:
+      0 2px 6px rgba(0, 0, 0, 0.06),
+      inset 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+  }
+
+  /* ==========================================
+     SUCCESS BUTTONS
+     ========================================== */
+
+  .ubersicht-btn-success,
+  .btn-success {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+    color: #ffffff !important;
+    box-shadow:
+      0 4px 14px rgba(16, 185, 129, 0.25),
+      0 1px 3px rgba(0, 0, 0, 0.08) !important;
+  }
+
+  .ubersicht-btn-success:hover {
+    background: linear-gradient(135deg, #34d399 0%, #10b981 100%) !important;
+    transform: translateY(-2px);
+    box-shadow:
+      0 8px 20px rgba(16, 185, 129, 0.35),
+      0 2px 4px rgba(0, 0, 0, 0.08) !important;
+  }
+
+  .ubersicht-btn-success:active {
+    transform: translateY(0) scale(0.98);
+    box-shadow:
+      0 2px 8px rgba(16, 185, 129, 0.25),
+      inset 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+  }
+
+  /* ==========================================
+     WARNING BUTTONS
+     ========================================== */
+
+  .ubersicht-btn-warning,
+  .btn-warning {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+    color: #ffffff !important;
+    box-shadow:
+      0 4px 14px rgba(245, 158, 11, 0.25),
+      0 1px 3px rgba(0, 0, 0, 0.08) !important;
+  }
+
+  .ubersicht-btn-warning:hover {
+    background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%) !important;
+    transform: translateY(-2px);
+    box-shadow:
+      0 8px 20px rgba(245, 158, 11, 0.35),
+      0 2px 4px rgba(0, 0, 0, 0.08) !important;
+  }
+
+  .ubersicht-btn-warning:active {
+    transform: translateY(0) scale(0.98);
+    box-shadow:
+      0 2px 8px rgba(245, 158, 11, 0.25),
+      inset 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+  }
+
+  /* ==========================================
+     DANGER BUTTONS
+     ========================================== */
+
+  .ubersicht-btn-danger,
+  .btn-danger {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+    color: #ffffff !important;
+    box-shadow:
+      0 4px 14px rgba(239, 68, 68, 0.25),
+      0 1px 3px rgba(0, 0, 0, 0.08) !important;
+  }
+
+  .ubersicht-btn-danger:hover {
+    background: linear-gradient(135deg, #f87171 0%, #ef4444 100%) !important;
+    transform: translateY(-2px);
+    box-shadow:
+      0 8px 20px rgba(239, 68, 68, 0.35),
+      0 2px 4px rgba(0, 0, 0, 0.08) !important;
+  }
+
+  .ubersicht-btn-danger:active {
+    transform: translateY(0) scale(0.98);
+    box-shadow:
+      0 2px 8px rgba(239, 68, 68, 0.25),
+      inset 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+  }
+
+  /* ==========================================
+     GHOST BUTTONS
+     ========================================== */
+
+  .ubersicht-btn-ghost,
+  .btn-ghost {
+    background: transparent !important;
+    color: #3b82f6 !important;
+    border: 2px solid #3b82f6 !important;
+    box-shadow: none !important;
+  }
+
+  .ubersicht-btn-ghost:hover {
+    background: rgba(59, 130, 246, 0.08) !important;
+    border-color: #2563eb !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15) !important;
+  }
+
+  .ubersicht-btn-ghost:active {
+    transform: translateY(0) scale(0.98);
+    background: rgba(59, 130, 246, 0.15) !important;
+  }
+
+  /* ==========================================
+     ICON BUTTONS
+     ========================================== */
+
+  .ubersicht-btn-icon,
+  .btn-icon {
+    min-width: 56px !important;
+    width: 56px !important;
+    height: 56px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .ubersicht-btn-icon svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  /* ==========================================
+     BUTTON GROUPS
+     ========================================== */
+
+  .ubersicht-btn-group,
+  .btn-group {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+  }
+
+  .ubersicht-btn-group .ubersicht-btn {
+    flex: 1 1 auto;
+    min-width: 140px !important;
+  }
+
+  /* ==========================================
+     FLOATING ACTION BUTTON
+     ========================================== */
+
+  .ubersicht-fab,
+  .fab {
+    position: fixed !important;
+    bottom: 90px !important;
+    right: 20px !important;
+    width: 64px !important;
+    height: 64px !important;
+    border-radius: 50% !important;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+    color: #ffffff !important;
+    box-shadow:
+      0 6px 20px rgba(37, 99, 235, 0.35),
+      0 2px 8px rgba(0, 0, 0, 0.12) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    z-index: 100;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+  }
+
+  .ubersicht-fab:hover {
+    transform: translateY(-4px) scale(1.05);
+    box-shadow:
+      0 10px 30px rgba(37, 99, 235, 0.45),
+      0 4px 12px rgba(0, 0, 0, 0.15) !important;
+  }
+
+  .ubersicht-fab:active {
+    transform: translateY(-2px) scale(1);
+    box-shadow:
+      0 4px 16px rgba(37, 99, 235, 0.35),
+      0 2px 6px rgba(0, 0, 0, 0.12) !important;
+  }
+
+  /* ==========================================
+     LOADING STATE
+     ========================================== */
+
+  .ubersicht-btn-loading,
+  .btn-loading {
+    position: relative;
+    color: transparent !important;
+    pointer-events: none;
+  }
+
+  .ubersicht-btn-loading::after {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    top: 50%;
+    left: 50%;
+    margin-left: -10px;
+    margin-top: -10px;
+    border: 2px solid #ffffff;
+    border-radius: 50%;
+    border-top-color: transparent;
+    animation: spinner 0.6s linear infinite;
+  }
+
+  @keyframes spinner {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* ==========================================
+     DISABLED STATE
+     ========================================== */
+
+  .ubersicht-btn:disabled,
+  .ubersicht-btn[disabled],
+  .btn:disabled {
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+    pointer-events: none !important;
+  }
+
+  /* ==========================================
+     SMALL BUTTONS
+     ========================================== */
+
+  .ubersicht-btn-sm,
+  .btn-sm {
+    min-height: 44px !important;
+    padding: 12px 20px !important;
+    font-size: 14px !important;
+  }
+
+  /* ==========================================
+     LARGE BUTTONS
+     ========================================== */
+
+  .ubersicht-btn-lg,
+  .btn-lg {
+    min-height: 64px !important;
+    padding: 20px 32px !important;
+    font-size: 18px !important;
+    font-weight: 800 !important;
+    border-radius: 20px !important;
+  }
+
+  /* ==========================================
+     FULL WIDTH BUTTONS
+     ========================================== */
+
+  .ubersicht-btn-block,
+  .btn-block {
+    display: flex !important;
+    width: 100% !important;
+  }
+
+}
+
+/* ==========================================
+   TABLET SPECIFIC
+   ========================================== */
+
+@media (min-width: 768px) and (max-width: 1023px) {
+
+  .ubersicht-btn,
+  .overview-btn,
+  .dashboard-btn {
+    min-height: 60px !important;
+    padding: 18px 28px !important;
+    font-size: 17px !important;
+    border-radius: 18px !important;
+  }
+
+  .ubersicht-btn-group {
+    gap: 16px;
+  }
+
+  .ubersicht-fab {
+    width: 72px !important;
+    height: 72px !important;
+    bottom: 100px !important;
+    right: 24px !important;
+  }
+
+}
