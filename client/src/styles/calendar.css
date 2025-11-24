@@ -113,6 +113,72 @@
   }
 }
 
+/* ==========================================
+   EVENT DETAILS MODAL - DESKTOP / GLOBAL
+   ========================================== */
+
+.modal-backdrop-mobile {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  z-index: 12000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(1rem, 2vw, 2rem);
+  overflow-y: auto;
+  animation: fadeInBackdrop 0.25s ease;
+}
+
+.modal-backdrop-mobile .modal-bottom-sheet {
+  width: min(640px, 100%);
+  max-width: 720px;
+  max-height: 90vh;
+  background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
+  border-radius: 28px;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.25);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  animation: slideUpModal 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.modal-backdrop-mobile .modal-bottom-sheet::before {
+  content: '';
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 48px;
+  height: 5px;
+  background: linear-gradient(90deg, #cbd5e1, #94a3b8, #cbd5e1);
+  border-radius: 999px;
+  opacity: 0.7;
+}
+
+@keyframes fadeInBackdrop {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUpModal {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
 /* Loading States */
 .loading-skeleton {
   background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
