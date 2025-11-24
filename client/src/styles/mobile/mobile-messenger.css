@@ -11,9 +11,6 @@
      ========================================== */
 
   .messenger-mobile-container {
-    /* КРИТИЧНО: Ізоляція від mobile-perfect-scrolling.css */
-    all: initial !important;
-
     /* Базові стилі */
     position: fixed !important;
     top: 0 !important;
@@ -26,16 +23,18 @@
     height: 100dvh !important;
     max-height: 100vh !important;
     max-height: 100dvh !important;
+    min-height: 100vh !important;
+    min-height: 100dvh !important;
 
     /* Layout */
     display: flex !important;
     flex-direction: column !important;
 
     /* Appearance */
-    background: #fafbfc !important;
+    background: linear-gradient(180deg, #fafbfc 0%, #f0f4ff 100%) !important;
 
     /* Positioning */
-    z-index: 9999 !important;
+    z-index: 1 !important;
 
     /* Overflow */
     overflow: hidden !important;
@@ -47,11 +46,8 @@
     /* Box model */
     box-sizing: border-box !important;
 
-    /* Заборона на трансформації від mobile-perfect-scrolling.css */
-    transform: none !important;
-    -webkit-transform: none !important;
-    -webkit-backface-visibility: visible !important;
-    -webkit-perspective: none !important;
+    /* Performance */
+    -webkit-overflow-scrolling: touch !important;
   }
 
   /* Відновлення базових стилів для дітей messenger */
