@@ -15,6 +15,8 @@
     width: 100% !important;
     min-height: 100vh !important;
     min-height: 100dvh !important;
+    height: 100vh !important;
+    height: 100dvh !important;
 
     /* Layout */
     display: flex !important;
@@ -26,7 +28,9 @@
     /* Spacing */
     margin: 0 !important;
     padding: 0 !important;
-    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0)) !important;
+
+    /* Overflow */
+    overflow: hidden !important;
 
     /* Box model */
     box-sizing: border-box !important;
@@ -409,25 +413,25 @@
   }
 
   .contact-list {
-    flex: 1 1 0%;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
     gap: 10px;
     padding: 0;
   }
 
   .contact-list--panel {
-    flex: 1 1 0%;
-    min-height: 0;
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
     width: 100%;
     max-width: 100%;
     background: transparent;
     border-radius: 0;
     padding: 0;
     gap: 10px;
-    display: flex;
-    flex-direction: column;
+    display: flex !important;
+    flex-direction: column !important;
     box-shadow: none;
   }
 
@@ -661,15 +665,16 @@
   }
 
   .contact-list__grid {
-    flex: 1 1 0%;
-    min-height: 0;
-    overflow-y: auto;
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
     min-width: 0;
-    display: flex;
-    flex-direction: column;
+    display: flex !important;
+    flex-direction: column !important;
     gap: 12px;
     padding-right: 6px;
-    padding-bottom: calc(100px + env(safe-area-inset-bottom, 0));
+    padding-bottom: 20px;
+    -webkit-overflow-scrolling: touch !important;
   }
 
   .contact-group {
@@ -850,11 +855,15 @@
   }
 
   .messenger-mobile-list-view {
-    display: flex;
-    flex-direction: column;
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
     gap: 16px;
     padding: 24px 16px;
-    padding-bottom: 24px;
+    padding-bottom: calc(100px + env(safe-area-inset-bottom, 0));
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
   }
 
   .messenger-mobile-list-header {
