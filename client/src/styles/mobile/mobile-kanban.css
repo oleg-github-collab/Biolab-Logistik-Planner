@@ -27,13 +27,14 @@
 
   /* Columns wrapper */
   .mobile-kanban-columns {
-    min-height: calc(100vh - 200px);
+    min-height: 100%;
+    height: auto;
     align-items: flex-start;
   }
 
   /* Individual columns - auto height */
   .mobile-kanban-columns > div {
-    min-height: 400px;
+    min-height: 300px;
     height: auto !important;
     max-height: none !important;
   }
