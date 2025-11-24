@@ -289,7 +289,7 @@ router.get('/contacts/all', auth, async (req, res) => {
       online: user.is_system_user ? true : onlineSet.has(user.id) // System users (bots) always online
     }));
 
-    res.json(contacts);
+    res.json({ data: contacts });
 
   } catch (error) {
     logger.error('Error fetching contacts', error);

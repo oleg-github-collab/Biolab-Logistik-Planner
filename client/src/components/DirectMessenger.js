@@ -227,25 +227,33 @@ const DirectMessenger = () => {
       try {
         setLoading(true);
         setStoriesLoading(true);
+        console.log('🔍 [DirectMessenger] Starting to load contacts, threads, and stories...');
         const [contactsRes, threadsRes, storiesRes] = await Promise.all([
           getAllContacts().catch(err => {
-            console.error('Error loading contacts:', err);
+            console.error('❌ Error loading contacts:', err);
             return { data: [] };
           }),
           getMessageThreads().catch(err => {
-            console.error('Error loading threads:', err);
+            console.error('❌ Error loading threads:', err);
             return { data: [] };
           }),
           getStoriesFeed().catch(err => {
-            console.error('Error loading stories:', err);
+            console.error('❌ Error loading stories:', err);
             return { data: { stories: [] } };
           })
         ]);
+        console.log('📦 [DirectMessenger] API Responses:', {
+          contactsRes,
+          contactsData: contactsRes?.data,
+          contactsCount: Array.isArray(contactsRes?.data) ? contactsRes.data.length : 0,
+          threadsCount: Array.isArray(threadsRes?.data) ? threadsRes.data.length : 0,
+          storiesCount: Array.isArray(storiesRes?.data?.stories) ? storiesRes.data.stories.length : 0
+        });
         setContacts(Array.isArray(contactsRes?.data) ? contactsRes.data : []);
         setThreads(Array.isArray(threadsRes?.data) ? threadsRes.data : []);
         setStories(Array.isArray(storiesRes?.data?.stories) ? storiesRes.data.stories : []);
       } catch (error) {
-        console.error('Error loading data:', error);
+        console.error('❌ Error loading data:', error);
         showError('Fehler beim Laden der Daten');
         setContacts([]);
         setThreads([]);
@@ -1906,6 +1914,17 @@ const DirectMessenger = () => {
     const totalContacts = contacts.length;
     const onlineContacts = contacts.filter((contact) => contact.online).length;
     const filteredCount = filteredContacts.length;
+
+    console.log('📋 [ContactList] Rendering with:', {
+      totalContacts,
+      onlineContacts,
+      filteredCount,
+      contacts,
+      filteredContacts,
+      decoratedContacts: decoratedContacts.length,
+      groupThreads: groupThreads.length,
+      loading
+    });
     const renderContactCard = (contact) => {
       const isSelected = selectedContact?.id === contact.id;
       const contactStory = storyMap?.[contact.id];
