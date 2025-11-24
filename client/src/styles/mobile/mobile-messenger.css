@@ -417,22 +417,25 @@
     min-height: 0 !important;
     display: flex !important;
     flex-direction: column !important;
-    gap: 10px;
-    padding: 0;
+    gap: 0 !important;
+    padding: 0 16px !important;
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0)) !important;
+    overflow: hidden !important;
   }
 
   .contact-list--panel {
     flex: 1 1 0% !important;
     min-height: 0 !important;
-    width: 100%;
-    max-width: 100%;
-    background: transparent;
-    border-radius: 0;
-    padding: 0;
-    gap: 10px;
+    width: 100% !important;
+    max-width: 100% !important;
+    background: transparent !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    gap: 0 !important;
     display: flex !important;
     flex-direction: column !important;
-    box-shadow: none;
+    box-shadow: none !important;
+    overflow: hidden !important;
   }
 
   .contact-list--overlay {
@@ -494,13 +497,14 @@
   }
 
   .contact-list__stories {
-    flex-shrink: 0;
-    display: flex;
-    gap: 10px;
-    padding-bottom: 4px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scroll-snap-type: x proximity;
+    flex-shrink: 0 !important;
+    display: flex !important;
+    gap: 10px !important;
+    padding: 8px 0 12px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    scroll-snap-type: x proximity !important;
   }
 
   .story-chip {
@@ -668,12 +672,14 @@
     flex: 1 1 0% !important;
     min-height: 0 !important;
     overflow-y: auto !important;
-    min-width: 0;
+    overflow-x: hidden !important;
+    min-width: 0 !important;
     display: flex !important;
     flex-direction: column !important;
-    gap: 12px;
-    padding-right: 6px;
-    padding-bottom: 20px;
+    gap: 12px !important;
+    padding-right: 6px !important;
+    padding-bottom: 20px !important;
+    padding-top: 8px !important;
     -webkit-overflow-scrolling: touch !important;
   }
 
@@ -859,19 +865,20 @@
     min-height: 0 !important;
     display: flex !important;
     flex-direction: column !important;
-    gap: 16px;
-    padding: 24px 16px;
-    padding-bottom: calc(100px + env(safe-area-inset-bottom, 0));
-    overflow-y: auto !important;
+    gap: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
     -webkit-overflow-scrolling: touch !important;
   }
 
   .messenger-mobile-list-header {
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
+    flex-shrink: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 8px !important;
+    padding: 20px 16px 12px !important;
+    background: transparent !important;
   }
 
   .messenger-mobile-list-header h2 {

@@ -790,14 +790,31 @@ const QuickCreatePopover = ({ anchor, date, slot, onClose, onConfirm, isMobile }
     return { left, top, width };
   };
 
-  const style = isMobile
-    ? {
+  const getMobilePosition = () => {
+    if (typeof window === 'undefined' || !anchor?.x || !anchor?.y) {
+      return {
         left: '50%',
         top: '50%',
         transform: 'translate(-50%, -50%)',
         width: 'min(92vw, 360px)'
-      }
-    : getDesktopPosition();
+      };
+    }
+
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const width = Math.min(viewportWidth * 0.92, 360);
+    const height = 400; // Approximate modal height
+    const anchorX = anchor.x;
+    const anchorY = anchor.y;
+
+    // Position near click but keep on screen
+    const left = Math.max(16, Math.min(anchorX - width / 2, viewportWidth - width - 16));
+    const top = Math.max(16, Math.min(anchorY + 20, viewportHeight - height - 16));
+
+    return { left, top, width };
+  };
+
+  const style = isMobile ? getMobilePosition() : getDesktopPosition();
 
   return (
     <>

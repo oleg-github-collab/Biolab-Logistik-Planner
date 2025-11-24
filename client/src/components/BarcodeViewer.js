@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { X, ChevronLeft, ChevronRight, Upload } from 'lucide-react';
 import api from '../utils/apiEnhanced';
-import { showError } from '../utils/toast';
+import { showError, showSuccess } from '../utils/toast';
 import '../styles/barcodeViewer.css';
 
 const BarcodeViewer = ({ isOpen, onClose, date }) => {
   const [bins, setBins] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
 
