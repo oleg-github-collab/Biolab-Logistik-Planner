@@ -50,9 +50,8 @@
     -webkit-overflow-scrolling: touch !important;
   }
 
-  /* Відновлення базових стилів для дітей messenger */
+  /* Базові стилі для дітей messenger */
   .messenger-mobile-container * {
-    all: revert;
     box-sizing: border-box;
   }
 
