@@ -15,6 +15,7 @@
 @import './styles/mobile/mobile-planner.css';
 @import './styles/mobile/mobile-notifications.css';
 @import './styles/mobile/mobile-messenger.css';
+@import './styles/mobile/mobile-messenger-fix.css'; /* Виправлення месенджера */
 @import './styles/mobile/mobile-forms.css';
 @import './styles/mobile/mobile-toast.css';
 @import './styles/mobile/mobile-admin.css';
@@ -28,6 +29,9 @@
 @import './styles/mobile-perfect-scrolling.css';
 @import './styles/ubersicht-buttons-premium.css';
 @import './styles/calendar-sync-perfect.css';
+
+/* Ultra Responsive Design System - Maximum Device & Browser Compatibility */
+@import './styles/ultra-responsive.css';
 
 @tailwind utilities;
 

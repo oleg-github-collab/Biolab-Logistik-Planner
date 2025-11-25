@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useWebSocketContext } from '../context/WebSocketContext';
 import CalendarView from '../components/CalendarView';
-import MobileEventCalendar from '../components/MobileEventCalendar';
+import MobileCalendarEnhanced from '../components/MobileCalendarEnhanced';
 import EventDetailsModal from '../components/EventDetailsModal';
 import EventFormModal from '../components/EventFormModal';
 import AbsenceModal from '../components/AbsenceModal';
@@ -534,13 +534,13 @@ const Dashboard = () => {
 
           <div className="relative mt-6 w-full">
             {isMobile ? (
-              <MobileEventCalendar
+              <MobileCalendarEnhanced
                 events={events}
-                onSlotSelect={handleCalendarEventCreate}
-                onDaySelect={(day) => handleCalendarEventCreate({ start: day })}
                 onEventClick={handleEventClick}
-                onWeekChange={handleMobileWeekChange}
-                onDayOpen={handleMobileDayOpen}
+                onEventCreate={handleCalendarEventCreate}
+                onViewChange={(view) => console.log('View changed to:', view)}
+                onDateChange={(date) => setSelectedDate(date)}
+                loading={eventsLoading}
               />
             ) : (
               <CalendarView

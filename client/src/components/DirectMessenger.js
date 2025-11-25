@@ -231,7 +231,7 @@ const DirectMessenger = () => {
         const [contactsRes, threadsRes, storiesRes] = await Promise.all([
           getAllContacts().catch(err => {
             console.error('❌ Error loading contacts:', err);
-            return { data: [] };
+            return { data: { contacts: [] } };
           }),
           getMessageThreads().catch(err => {
             console.error('❌ Error loading threads:', err);
@@ -242,14 +242,22 @@ const DirectMessenger = () => {
             return { data: { stories: [] } };
           })
         ]);
+        // Обробка контактів - може бути в data або data.contacts
+        const contactsArray = Array.isArray(contactsRes?.data)
+          ? contactsRes.data
+          : Array.isArray(contactsRes?.data?.contacts)
+            ? contactsRes.data.contacts
+            : [];
+
         console.log('📦 [DirectMessenger] API Responses:', {
           contactsRes,
           contactsData: contactsRes?.data,
-          contactsCount: Array.isArray(contactsRes?.data) ? contactsRes.data.length : 0,
+          contactsArray,
+          contactsCount: contactsArray.length,
           threadsCount: Array.isArray(threadsRes?.data) ? threadsRes.data.length : 0,
           storiesCount: Array.isArray(storiesRes?.data?.stories) ? storiesRes.data.stories.length : 0
         });
-        setContacts(Array.isArray(contactsRes?.data) ? contactsRes.data : []);
+        setContacts(contactsArray);
         setThreads(Array.isArray(threadsRes?.data) ? threadsRes.data : []);
         setStories(Array.isArray(storiesRes?.data?.stories) ? storiesRes.data.stories : []);
       } catch (error) {

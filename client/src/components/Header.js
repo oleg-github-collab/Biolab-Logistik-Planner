@@ -111,13 +111,15 @@ const Header = () => {
   }, [location.pathname]);
 
   useEffect(() => {
-    if (typeof document === 'undefined') return undefined;
+    if (typeof document === 'undefined') return;
     const portalRoot = document.createElement('div');
     portalRoot.className = 'mobile-menu-portal-root';
     document.body.appendChild(portalRoot);
     setMobileMenuPortalRoot(portalRoot);
     return () => {
-      document.body.removeChild(portalRoot);
+      if (document.body.contains(portalRoot)) {
+        document.body.removeChild(portalRoot);
+      }
     };
   }, []);
 

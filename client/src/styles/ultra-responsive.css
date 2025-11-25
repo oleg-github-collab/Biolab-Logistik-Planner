@@ -1,0 +1,571 @@
+/* =========================================
+   ULTRA-RESPONSIVE DESIGN SYSTEM
+   ========================================= */
+
+/* CSS Variables for Responsive Scaling */
+:root {
+  /* Breakpoints */
+  --breakpoint-xs: 320px;
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1536px;
+
+  /* Dynamic Viewport Units */
+  --vw: 1vw;
+  --vh: 1vh;
+  --vmin: 1vmin;
+  --vmax: 1vmax;
+
+  /* Responsive Font Sizes */
+  --font-xs: clamp(0.75rem, 2vw, 0.875rem);
+  --font-sm: clamp(0.875rem, 2.5vw, 1rem);
+  --font-base: clamp(1rem, 3vw, 1.125rem);
+  --font-lg: clamp(1.125rem, 3.5vw, 1.25rem);
+  --font-xl: clamp(1.25rem, 4vw, 1.5rem);
+  --font-2xl: clamp(1.5rem, 5vw, 2rem);
+  --font-3xl: clamp(2rem, 6vw, 3rem);
+
+  /* Responsive Spacing */
+  --space-xs: clamp(0.25rem, 1vw, 0.5rem);
+  --space-sm: clamp(0.5rem, 2vw, 0.75rem);
+  --space-md: clamp(1rem, 3vw, 1.5rem);
+  --space-lg: clamp(1.5rem, 4vw, 2rem);
+  --space-xl: clamp(2rem, 5vw, 3rem);
+
+  /* Touch Target Sizes */
+  --touch-min: 44px;
+  --touch-target: 48px;
+  --touch-comfortable: 56px;
+}
+
+/* =========================================
+   GLOBAL RESPONSIVE UTILITIES
+   ========================================= */
+
+/* Fluid Typography */
+.text-responsive {
+  font-size: var(--font-base);
+  line-height: 1.5;
+}
+
+h1.responsive {
+  font-size: var(--font-3xl);
+  line-height: 1.2;
+}
+
+h2.responsive {
+  font-size: var(--font-2xl);
+  line-height: 1.3;
+}
+
+h3.responsive {
+  font-size: var(--font-xl);
+  line-height: 1.4;
+}
+
+/* Container Queries Support */
+@supports (container-type: inline-size) {
+  .container-responsive {
+    container-type: inline-size;
+  }
+
+  @container (min-width: 320px) and (max-width: 640px) {
+    .container-responsive > * {
+      padding: var(--space-sm);
+    }
+  }
+
+  @container (min-width: 641px) {
+    .container-responsive > * {
+      padding: var(--space-md);
+    }
+  }
+}
+
+/* =========================================
+   DEVICE-SPECIFIC OPTIMIZATIONS
+   ========================================= */
+
+/* iPhone SE to iPhone 14 Pro Max */
+@media only screen and (min-device-width: 320px) and (max-device-width: 430px) {
+  /* Touch-friendly buttons */
+  button, .btn, [role="button"] {
+    min-height: var(--touch-target);
+    padding: 12px 16px;
+    font-size: 16px; /* Prevent zoom on iOS */
+  }
+
+  /* Prevent text overflow */
+  .text-wrap-mobile {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+
+  /* Optimize for thumb reach */
+  .bottom-actions {
+    position: fixed;
+    bottom: env(safe-area-inset-bottom, 20px);
+    left: 0;
+    right: 0;
+    padding: 0 16px;
+  }
+}
+
+/* iPad Mini to iPad Pro */
+@media only screen and (min-device-width: 768px) and (max-device-width: 1366px) {
+  /* Tablet-optimized grid */
+  .grid-tablet {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: var(--space-md);
+  }
+
+  /* Split view support */
+  @supports (aspect-ratio: 1) {
+    .split-view {
+      display: flex;
+      gap: var(--space-lg);
+    }
+
+    .split-view > * {
+      flex: 1;
+      min-width: 320px;
+    }
+  }
+}
+
+/* Desktop and Large Screens */
+@media only screen and (min-width: 1024px) {
+  /* Desktop-optimized layout */
+  .desktop-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 var(--space-lg);
+  }
+
+  /* Hover states only on desktop */
+  @media (hover: hover) and (pointer: fine) {
+    .hover-effect:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+      transition: all 0.3s ease;
+    }
+  }
+}
+
+/* =========================================
+   BROWSER-SPECIFIC FIXES
+   ========================================= */
+
+/* Safari iOS Fixes */
+@supports (-webkit-touch-callout: none) {
+  /* Fix for Safari's bottom bar */
+  .ios-bottom-fix {
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-bottom: constant(safe-area-inset-bottom); /* iOS 11.0-11.2 */
+  }
+
+  /* Fix for 100vh in Safari */
+  .full-height-ios {
+    height: 100vh;
+    height: -webkit-fill-available;
+  }
+
+  /* Smooth scrolling */
+  .scroll-smooth-ios {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Chrome Android Fixes */
+@media screen and (-webkit-min-device-pixel-ratio: 0) and (hover: none) {
+  /* Fix address bar hiding */
+  .chrome-mobile-fix {
+    min-height: calc(100vh - 56px);
+    min-height: calc(var(--vh, 1vh) * 100);
+  }
+}
+
+/* Firefox Fixes */
+@-moz-document url-prefix() {
+  /* Firefox scrollbar styling */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0,0,0,0.2) transparent;
+  }
+}
+
+/* Edge Fixes */
+@supports (-ms-ime-align: auto) {
+  /* Edge-specific styles */
+  .edge-fix {
+    -ms-overflow-style: -ms-autohiding-scrollbar;
+  }
+}
+
+/* =========================================
+   COMPONENT-SPECIFIC RESPONSIVENESS
+   ========================================= */
+
+/* Calendar Component */
+.calendar-responsive {
+  container-type: inline-size;
+}
+
+@container (max-width: 640px) {
+  .calendar-responsive .calendar-grid {
+    font-size: var(--font-xs);
+  }
+
+  .calendar-responsive .event-item {
+    padding: 4px;
+    font-size: 10px;
+  }
+}
+
+/* Stories Carousel */
+.stories-carousel {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.stories-carousel::-webkit-scrollbar {
+  display: none;
+}
+
+/* Mobile Navigation */
+@media (max-width: 767px) {
+  .mobile-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: calc(56px + env(safe-area-inset-bottom));
+    background: white;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding-bottom: env(safe-area-inset-bottom);
+    z-index: 1000;
+  }
+
+  .mobile-nav-item {
+    flex: 1;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    color: #6b7280;
+    transition: color 0.2s;
+  }
+
+  .mobile-nav-item.active {
+    color: #3b82f6;
+  }
+}
+
+/* Bulk Operations Panel */
+.bulk-operations-responsive {
+  position: fixed;
+  bottom: calc(70px + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 32px);
+  max-width: 600px;
+  z-index: 1100;
+}
+
+@media (min-width: 768px) {
+  .bulk-operations-responsive {
+    max-width: 800px;
+    bottom: 40px;
+  }
+}
+
+/* Modal Responsiveness */
+.modal-responsive {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 1200;
+}
+
+.modal-content-responsive {
+  width: 100%;
+  max-width: 500px;
+  max-height: calc(100vh - 32px);
+  max-height: calc(var(--vh, 1vh) * 100 - 32px);
+  overflow-y: auto;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+@media (max-width: 640px) {
+  .modal-content-responsive {
+    max-width: 100%;
+    height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    border-radius: 16px 16px 0 0;
+    position: absolute;
+    bottom: 0;
+  }
+}
+
+/* Form Inputs */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="tel"],
+input[type="number"],
+input[type="date"],
+input[type="time"],
+select,
+textarea {
+  font-size: 16px; /* Prevents zoom on iOS */
+  min-height: var(--touch-target);
+  padding: 12px;
+}
+
+/* =========================================
+   PERFORMANCE OPTIMIZATIONS
+   ========================================= */
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-primary: #1a1a1a;
+    --text-primary: #ffffff;
+    --border-color: #333333;
+  }
+
+  .dark-mode-support {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+  }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  .high-contrast-support {
+    border-width: 2px;
+    font-weight: 600;
+  }
+
+  button, .btn {
+    border: 2px solid currentColor;
+  }
+}
+
+/* =========================================
+   PRINT STYLES
+   ========================================= */
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .print-break {
+    page-break-before: always;
+  }
+
+  body {
+    font-size: 12pt;
+    line-height: 1.5;
+    color: black;
+    background: white;
+  }
+}
+
+/* =========================================
+   ORIENTATION SUPPORT
+   ========================================= */
+
+@media (orientation: landscape) and (max-height: 500px) {
+  /* Optimize for landscape mobile */
+  .landscape-optimize {
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+  }
+
+  .mobile-nav {
+    height: 48px;
+  }
+}
+
+@media (orientation: portrait) {
+  /* Portrait optimizations */
+  .portrait-optimize {
+    padding: var(--space-md) var(--space-sm);
+  }
+}
+
+/* =========================================
+   FOLDABLE DEVICES SUPPORT
+   ========================================= */
+
+@media (screen-spanning: single-fold-vertical) {
+  /* Support for foldable devices like Surface Duo */
+  .fold-aware {
+    display: grid;
+    grid-template-columns: env(fold-left, 50%) env(fold-right, 50%);
+    gap: env(fold-width, 0);
+  }
+}
+
+/* =========================================
+   ACCESSIBILITY ENHANCEMENTS
+   ========================================= */
+
+/* Focus visible for keyboard navigation */
+:focus-visible {
+  outline: 3px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Skip to content link */
+.skip-to-content {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: #000;
+  color: #fff;
+  padding: 8px;
+  text-decoration: none;
+  z-index: 100000;
+}
+
+.skip-to-content:focus {
+  top: 0;
+}
+
+/* Screen reader only content */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* =========================================
+   FUTURE-PROOF FEATURES
+   ========================================= */
+
+/* CSS Grid with fallback */
+@supports (display: grid) {
+  .grid-enhanced {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: var(--space-md);
+  }
+}
+
+/* Aspect ratio with fallback */
+@supports (aspect-ratio: 1) {
+  .aspect-ratio-box {
+    aspect-ratio: 16 / 9;
+  }
+}
+
+@supports not (aspect-ratio: 1) {
+  .aspect-ratio-box {
+    position: relative;
+    padding-bottom: 56.25%;
+  }
+
+  .aspect-ratio-box > * {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+}
+
+/* Clamp with fallback */
+.responsive-padding {
+  padding: 1rem;
+  padding: clamp(1rem, 3vw, 2rem);
+}
+
+/* =========================================
+   TESTING HELPERS
+   ========================================= */
+
+/* Debug mode for testing responsiveness */
+.debug-responsive {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  padding: 5px 10px;
+  background: rgba(0,0,0,0.8);
+  color: white;
+  font-size: 12px;
+  z-index: 99999;
+  pointer-events: none;
+}
+
+.debug-responsive::after {
+  content: "XS";
+}
+
+@media (min-width: 640px) {
+  .debug-responsive::after {
+    content: "SM";
+  }
+}
+
+@media (min-width: 768px) {
+  .debug-responsive::after {
+    content: "MD";
+  }
+}
+
+@media (min-width: 1024px) {
+  .debug-responsive::after {
+    content: "LG";
+  }
+}
+
+@media (min-width: 1280px) {
+  .debug-responsive::after {
+    content: "XL";
+  }
+}
+
+@media (min-width: 1536px) {
+  .debug-responsive::after {
+    content: "2XL";
+  }
+}
