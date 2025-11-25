@@ -36,6 +36,9 @@
 /* Mobile Menu Fix - Ensure visibility */
 @import './styles/mobile-menu-fix.css';
 
+/* Messenger Mobile Ultimate - Complete mobile messenger redesign */
+@import './styles/messenger-mobile-ultimate.css';
+
 @tailwind utilities;
 
 /* Notification Animation */

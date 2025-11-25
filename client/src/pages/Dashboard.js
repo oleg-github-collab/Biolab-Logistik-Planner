@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
-import { Plus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useWebSocketContext } from '../context/WebSocketContext';
@@ -599,20 +598,6 @@ const Dashboard = () => {
         onSave={handleAbsenceSave}
         selectedDate={selectedDate}
       />
-
-      {isMobile && (
-        <button
-          type="button"
-          onClick={() => {
-            setActiveTab('calendar');
-            handleCalendarEventCreate({ start: selectedDate });
-          }}
-          className={`fixed bottom-24 right-5 z-[1200] flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-xl shadow-blue-500/30 transition hover:bg-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-200 ${showEventFormModal || showEventDetailsModal ? 'pointer-events-none opacity-0' : ''}`}
-          aria-label="Neuen Termin erstellen"
-        >
-          <Plus className="h-6 w-6" />
-        </button>
-      )}
 
       <Toast toast={toast} onClose={() => setToast(null)} />
     </div>
