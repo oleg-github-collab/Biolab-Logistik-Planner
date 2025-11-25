@@ -1,42 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import DirectMessenger from '../components/DirectMessenger';
 
-const DEFAULT_HEADER_OFFSET = 64;
-
 const Messages = () => {
-  const [topOffset, setTopOffset] = useState(DEFAULT_HEADER_OFFSET);
-
+  // Встановлюємо клас для body
   useEffect(() => {
-    const updateTopOffset = () => {
-      const header = document.querySelector('.top-nav-mobile');
-      if (header) {
-        const { height } = header.getBoundingClientRect();
-        setTopOffset(Math.ceil(height));
-      } else {
-        setTopOffset(DEFAULT_HEADER_OFFSET);
-      }
-    };
-
-    updateTopOffset();
-    window.addEventListener('resize', updateTopOffset);
-    window.addEventListener('orientationchange', updateTopOffset);
+    document.body.classList.add('messenger-page');
     return () => {
-      window.removeEventListener('resize', updateTopOffset);
-      window.removeEventListener('orientationchange', updateTopOffset);
+      document.body.classList.remove('messenger-page');
     };
   }, []);
 
-  const containerStyle = {
-    top: `${topOffset}px`,
-    height: `calc(100vh - ${topOffset}px)`,
-    zIndex: 1
-  };
-
   return (
-    <div
-      className="fixed inset-x-0 bottom-0 bg-white overflow-hidden messenger-page-container"
-      style={containerStyle}
-    >
+    <div className="messenger-page-container">
       <DirectMessenger />
     </div>
   );

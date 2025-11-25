@@ -1,0 +1,250 @@
+/* ==========================================
+   MOBILE VIEWPORT FIX - НАДІЙНЕ РІШЕННЯ
+   Виправляє проблеми з адресною строкою браузера
+   ========================================== */
+
+/* CSS змінні для viewport */
+:root {
+  --vh: 1vh;
+  --bottom-nav-height: 56px;
+  --safe-area-bottom: 0px;
+  --app-bottom-offset: 56px;
+  --messenger-height: 100vh;
+}
+
+@media (max-width: 1023px) {
+
+  /* ==========================================
+     БАЗОВА СТРУКТУРА З ДИНАМІЧНОЮ ВИСОТОЮ
+     ========================================== */
+
+  /* Використовуємо динамічну висоту замість 100vh */
+  html, body {
+    height: 100%;
+    min-height: 100%;
+    min-height: calc(var(--vh, 1vh) * 100);
+    overflow: hidden;
+  }
+
+  /* Root контейнер */
+  #root {
+    height: 100%;
+    min-height: calc(var(--vh, 1vh) * 100);
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Головний app контейнер БЕЗ padding-bottom */
+  #mobile-app-root {
+    height: 100%;
+    min-height: calc(var(--vh, 1vh) * 100);
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 0 !important; /* Видаляємо pb-16 */
+  }
+
+  /* Main content - займає весь простір */
+  main.mobile-scroll-container {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    padding-bottom: 0 !important;
+    position: relative;
+  }
+
+  /* ==========================================
+     BOTTOM NAVIGATION - ФІКСОВАНА ВНИЗУ
+     ========================================== */
+
+  .bottom-nav-mobile {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: var(--bottom-nav-height) !important;
+    padding-bottom: env(safe-area-inset-bottom, 0) !important;
+    z-index: 100 !important;
+    background: rgba(255, 255, 255, 0.98) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+  }
+
+  /* ==========================================
+     MESSENGER PAGE СПЕЦИФІЧНІ СТИЛІ
+     ========================================== */
+
+  /* Messenger page контейнер - використовує повну висоту */
+  body.messenger-page .messenger-page-container {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    height: calc(var(--vh, 1vh) * 100) !important;
+    overflow: hidden !important;
+    z-index: 1 !important;
+  }
+
+  /* Messenger mobile container - займає весь простір мінус bottom nav */
+  body.messenger-page .messenger-mobile-container {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0)) !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: hidden !important;
+  }
+
+  /* Messenger list view - правильна висота */
+  body.messenger-page .messenger-mobile-list-view {
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+  }
+
+  /* Contact list - займає доступний простір */
+  body.messenger-page .contact-list {
+    flex: 1 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  /* Contact list grid - скролиться */
+  body.messenger-page .contact-list__grid {
+    flex: 1 !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding-bottom: 20px !important;
+  }
+
+  /* Messenger messages - правильний padding bottom */
+  body.messenger-page .messenger-mobile-messages {
+    flex: 1 !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    padding-bottom: calc(80px + 16px) !important; /* input height + gap */
+  }
+
+  /* Messenger input - знизу контейнера, НЕ fixed */
+  body.messenger-page .messenger-mobile-input {
+    position: absolute !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    z-index: 10 !important;
+    background: rgba(255, 255, 255, 0.98) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+  }
+
+  /* Chat mode - також правильна висота */
+  body.messenger-page .messenger-mobile-chat-mode {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    height: 100% !important;
+    overflow: hidden !important;
+  }
+
+  /* ==========================================
+     ІНШІ СТОРІНКИ - З BOTTOM NAV PADDING
+     ========================================== */
+
+  /* Всі сторінки крім messenger мають padding для bottom nav */
+  body:not(.messenger-page) main {
+    padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0)) !important;
+  }
+
+  /* Dashboard, Kanban та інші - правильний скролл */
+  body:not(.messenger-page) .overflow-y-auto {
+    max-height: calc(var(--vh, 1vh) * 100 - var(--bottom-nav-height) - 64px) !important; /* -header */
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* ==========================================
+     iOS SAFARI SPECIFIC
+     ========================================== */
+
+  @supports (-webkit-touch-callout: none) {
+    /* iOS Safari має свої особливості з viewport */
+    body.messenger-page .messenger-page-container {
+      height: -webkit-fill-available !important;
+    }
+
+    #mobile-app-root {
+      min-height: -webkit-fill-available !important;
+    }
+  }
+
+  /* ==========================================
+     LANDSCAPE MODE
+     ========================================== */
+
+  @media (orientation: landscape) and (max-height: 500px) {
+    /* В landscape режимі bottom nav може бути меншим */
+    :root {
+      --bottom-nav-height: 48px;
+    }
+
+    .bottom-nav-mobile {
+      height: 48px !important;
+    }
+
+    .bottom-nav-item span {
+      display: none !important; /* Ховаємо текст в landscape */
+    }
+  }
+
+  /* ==========================================
+     DEBUG HELPERS (видалити в продакшн)
+     ========================================== */
+
+  /* Показує поточну висоту viewport для debug */
+  body::after {
+    content: 'VH: ' var(--vh) ' | Bottom: ' var(--app-bottom-offset);
+    position: fixed;
+    bottom: 100px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.8);
+    color: lime;
+    padding: 5px;
+    font-size: 10px;
+    z-index: 99999;
+    display: none; /* Увімкнути для debug */
+  }
+}
+
+/* ==========================================
+   КРИТИЧНІ ВИПРАВЛЕННЯ
+   ========================================== */
+
+@media (max-width: 1023px) {
+  /* Видаляємо всі pb-16 класи */
+  .pb-16 {
+    padding-bottom: 0 !important;
+  }
+
+  /* Messenger має власну логіку bottom offset */
+  .messenger-page-container,
+  .messenger-mobile-container {
+    padding-bottom: 0 !important;
+    margin-bottom: 0 !important;
+  }
+
+  /* Переконуємось що fixed контейнер Messages.js правильний */
+  .fixed.inset-x-0.bottom-0 {
+    bottom: 0 !important;
+    padding-bottom: 0 !important;
+  }
+}

@@ -5,6 +5,7 @@
 @import './styles/advanced-calendar.css';
 
 /* Import Mobile Design System - MODULAR & PROFESSIONAL */
+@import './styles/mobile/mobile-viewport-fix.css'; /* КРИТИЧНО: має бути першим */
 @import './styles/mobile/mobile-native-core.css';
 @import './styles/mobile/mobile-global.css';
 @import './styles/mobile/mobile-scroll-fix.css';

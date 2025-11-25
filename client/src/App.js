@@ -22,6 +22,7 @@ import WasteTemplatesAdmin from './pages/WasteTemplatesAdmin';
 import KnowledgeBase from './pages/KnowledgeBase';
 import KistenManagement from './pages/KistenManagement';
 import { WebSocketProvider } from './context/WebSocketContext';
+import { initViewportHeight } from './utils/viewport';
 
 // Protected Route component with First Login check
 const ProtectedRoute = ({ children }) => {
@@ -76,6 +77,12 @@ const AppContent = () => {
   const auth = useAuth();
   const { t } = useLocale();
   const loading = auth?.loading;
+
+  // Ініціалізація динамічної висоти viewport
+  useEffect(() => {
+    const cleanup = initViewportHeight();
+    return cleanup;
+  }, []);
 
   if (loading) {
     return (
