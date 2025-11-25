@@ -158,8 +158,10 @@ const Header = () => {
     if (!mobileMenuOpen) return undefined;
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+    document.body.classList.add('mobile-menu-open');
     return () => {
       document.body.style.overflow = originalOverflow;
+      document.body.classList.remove('mobile-menu-open');
     };
   }, [mobileMenuOpen]);
 
@@ -326,13 +328,11 @@ const Header = () => {
         ReactDOM.createPortal(
           <>
         <div
-          className="mobile-menu-backdrop lg:hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm"
+          className="mobile-menu-backdrop lg:hidden"
           onClick={() => setMobileMenuOpen(false)}
-          style={{ zIndex: 12000 }}
         />
         <div
-          className="mobile-menu-drawer lg:hidden fixed inset-y-0 right-0 w-72 max-w-[90vw] bg-white text-slate-900 shadow-2xl animate-slideInRight safe-top safe-bottom border-l border-slate-200"
-          style={{ zIndex: 12000 }}
+          className="mobile-menu-drawer lg:hidden"
         >
               <div className="h-full flex flex-col">
                 <div className="flex items-center justify-between px-4 py-4 border-b border-slate-200">

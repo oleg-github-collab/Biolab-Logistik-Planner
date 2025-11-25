@@ -33,6 +33,9 @@
 /* Ultra Responsive Design System - Maximum Device & Browser Compatibility */
 @import './styles/ultra-responsive.css';
 
+/* Mobile Menu Fix - Ensure visibility */
+@import './styles/mobile-menu-fix.css';
+
 @tailwind utilities;
 
 /* Notification Animation */

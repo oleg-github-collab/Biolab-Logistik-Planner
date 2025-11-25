@@ -1,0 +1,216 @@
+/* =========================================
+   MOBILE MENU FIX - Ultimate Visibility Solution
+   ========================================= */
+
+/* Portal Root - Ensure it's on top */
+.mobile-menu-portal-root {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  z-index: 99999 !important;
+  pointer-events: none;
+}
+
+/* Backdrop with maximum z-index */
+.mobile-menu-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  background-color: rgba(15, 23, 42, 0.4) !important;
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+  z-index: 99998 !important;
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
+}
+
+/* Mobile Menu Drawer - Maximum visibility */
+.mobile-menu-drawer {
+  position: fixed !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 288px !important;
+  max-width: 90vw !important;
+  background-color: #ffffff !important;
+  box-shadow: -10px 0 40px rgba(0, 0, 0, 0.15) !important;
+  z-index: 99999 !important;
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: flex !important;
+  flex-direction: column !important;
+  transform: translateX(0) !important;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* Animation for slide-in effect */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Apply animations */
+.mobile-menu-drawer {
+  animation: slideInRight 0.3s ease-out forwards !important;
+}
+
+.mobile-menu-backdrop {
+  animation: fadeIn 0.2s ease-out forwards !important;
+}
+
+/* Ensure content is scrollable */
+.mobile-menu-drawer .mobile-scroll-container {
+  flex: 1 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior-y: contain !important;
+}
+
+/* Safe area support for notched devices */
+.mobile-menu-drawer {
+  padding-top: env(safe-area-inset-top) !important;
+  padding-bottom: env(safe-area-inset-bottom) !important;
+}
+
+/* Hide on desktop */
+@media (min-width: 1024px) {
+  .mobile-menu-backdrop,
+  .mobile-menu-drawer,
+  .mobile-menu-portal-root {
+    display: none !important;
+  }
+}
+
+/* Mobile-specific visibility */
+@media (max-width: 1023px) {
+  /* Ensure menu button is visible and clickable */
+  .btn-icon-mobile {
+    position: relative !important;
+    z-index: 1100 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    touch-action: manipulation !important;
+  }
+
+  /* Fix for iOS Safari */
+  @supports (-webkit-touch-callout: none) {
+    .mobile-menu-drawer {
+      position: fixed !important;
+      -webkit-transform: translateX(0) !important;
+      transform: translateX(0) !important;
+    }
+  }
+
+  /* Fix for Android Chrome */
+  @supports (-webkit-appearance: none) and (not (-webkit-touch-callout: none)) {
+    .mobile-menu-drawer {
+      position: fixed !important;
+      will-change: transform !important;
+    }
+  }
+}
+
+/* Ensure proper layering */
+.mobile-menu-drawer * {
+  position: relative !important;
+  z-index: auto !important;
+}
+
+/* Fix text and interaction elements */
+.mobile-menu-drawer a,
+.mobile-menu-drawer button,
+.mobile-menu-drawer input,
+.mobile-menu-drawer [role="button"] {
+  position: relative !important;
+  z-index: 1 !important;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  -webkit-tap-highlight-color: transparent !important;
+  touch-action: manipulation !important;
+}
+
+/* Ensure text is visible */
+.mobile-menu-drawer,
+.mobile-menu-drawer * {
+  color: inherit !important;
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+}
+
+/* Fix for overflow issues */
+body.mobile-menu-open {
+  overflow: hidden !important;
+  position: fixed !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Debug helper - Remove in production */
+.debug-menu {
+  position: fixed !important;
+  top: 10px !important;
+  left: 10px !important;
+  background: red !important;
+  color: white !important;
+  padding: 5px 10px !important;
+  z-index: 999999 !important;
+  font-size: 12px !important;
+}
+
+/* Accessibility improvements */
+.mobile-menu-drawer:focus-within {
+  outline: 2px solid #3b82f6 !important;
+  outline-offset: -2px !important;
+}
+
+/* Performance optimization */
+.mobile-menu-drawer {
+  contain: layout style paint !important;
+  backface-visibility: hidden !important;
+  -webkit-backface-visibility: hidden !important;
+  transform: translateZ(0) !important;
+  -webkit-transform: translateZ(0) !important;
+}
+
+/* Fallback styles for maximum compatibility */
+.mobile-menu-drawer {
+  /* Fallback for older browsers */
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 288px;
+  max-width: 90vw;
+  background: white;
+  box-shadow: -10px 0 40px rgba(0, 0, 0, 0.15);
+  overflow-y: auto;
+}
+
+/* Extra high specificity override for stubborn styles */
+html body .mobile-menu-portal-root .mobile-menu-drawer {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
