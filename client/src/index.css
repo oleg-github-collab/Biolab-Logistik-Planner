@@ -39,6 +39,9 @@
 /* Messenger Mobile Ultimate - Complete mobile messenger redesign */
 @import './styles/messenger-mobile-ultimate.css';
 
+/* Messenger Ultimate - Perfect Desktop & Mobile Design */
+@import './styles/messenger-ultimate.css';
+
 @tailwind utilities;
 
 /* Notification Animation */

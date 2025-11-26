@@ -1,10 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import DirectMessenger from '../components/DirectMessenger';
-import MessengerRedesigned from '../components/MessengerRedesigned';
+import React, { useEffect } from 'react';
+import MessengerUltimate from '../components/MessengerUltimate';
 
 const Messages = () => {
-  const [useNewDesign, setUseNewDesign] = useState(true); // Default to new design
-
   // Встановлюємо клас для body
   useEffect(() => {
     document.body.classList.add('messenger-page');
@@ -15,7 +12,7 @@ const Messages = () => {
 
   return (
     <div className="messenger-page-container">
-      {useNewDesign ? <MessengerRedesigned /> : <DirectMessenger />}
+      <MessengerUltimate />
     </div>
   );
 };
