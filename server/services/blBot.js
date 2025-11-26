@@ -314,23 +314,42 @@ class BLBot {
    * Generate AI response using OpenAI
    */
   async generateAIResponse(userMessage, userId) {
+    console.log('🤖 generateAIResponse called', {
+      hasOpenAI: !!this.openai,
+      openaiKey: process.env.OPENAI_API_KEY ? 'SET (length: ' + process.env.OPENAI_API_KEY.length + ')' : 'NOT SET',
+      userId,
+      messageLength: userMessage?.length
+    });
+
     if (!this.openai) {
+      console.error('❌ OpenAI not initialized! API key:', process.env.OPENAI_API_KEY ? 'EXISTS' : 'MISSING');
+      logger.error('OpenAI not initialized', {
+        apiKeyExists: !!process.env.OPENAI_API_KEY,
+        apiKeyLength: process.env.OPENAI_API_KEY?.length
+      });
       return 'Вибачте, AI-функції зараз недоступні. Адміністратор ще не налаштував OpenAI API ключ.';
     }
 
     try {
+      console.log('🔄 Getting user context...');
       // Get user context
       const userContext = await this.getUserContext(userId);
       if (!userContext) {
+        console.error('❌ Failed to get user context');
         return 'Не вдалося отримати дані користувача.';
       }
+      console.log('✅ User context retrieved');
 
+      console.log('🔄 Getting KB articles...');
       // Get relevant KB articles
       const kbArticles = await this.getKnowledgeBaseContext(userMessage);
+      console.log('✅ KB articles retrieved:', kbArticles?.length || 0);
 
       // Build system prompt
       const systemPrompt = this.buildSystemPrompt(userContext, kbArticles);
+      console.log('✅ System prompt built, length:', systemPrompt?.length);
 
+      console.log('🔄 Calling OpenAI API...');
       // Call OpenAI (using gpt-4o-mini for faster responses)
       const completion = await this.openai.chat.completions.create({
         model: 'gpt-4o-mini',
@@ -342,10 +361,17 @@ class BLBot {
         max_tokens: 1000
       });
 
+      console.log('✅ OpenAI response received:', {
+        hasChoices: !!completion.choices,
+        choicesLength: completion.choices?.length,
+        responseLength: completion.choices?.[0]?.message?.content?.length
+      });
+
       return completion.choices[0].message.content;
     } catch (error) {
+      console.error('❌ Error in generateAIResponse:', error);
       logger.error('Error generating AI response:', error);
-      return 'Вибачте, виникла помилка при обробці вашого запиту.';
+      return 'Вібачте, виникла помилка при обробці вашого запиту: ' + error.message;
     }
   }
 
