@@ -2565,4 +2565,159 @@ router.post('/bulk/mark-read', auth, async (req, res) => {
   }
 });
 
+// @route   GET /api/messages/stories
+// @desc    Get all active stories for the current user
+router.get('/stories', auth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+        us.id,
+        us.user_id,
+        us.media_url,
+        us.media_type,
+        us.caption,
+        us.created_at,
+        us.expires_at,
+        u.name as user_name,
+        u.profile_photo_url,
+        (SELECT COUNT(*) FROM user_story_views WHERE story_id = us.id) as view_count,
+        (SELECT COUNT(*) > 0 FROM user_story_views WHERE story_id = us.id AND viewer_id = $1) as viewed_by_me
+       FROM user_stories us
+       JOIN users u ON u.id = us.user_id
+       WHERE us.expires_at > NOW()
+       AND (us.user_id = $1 OR us.user_id IN (
+         SELECT user_id FROM message_conversation_members
+         WHERE conversation_id IN (
+           SELECT conversation_id FROM message_conversation_members WHERE user_id = $1
+         )
+       ))
+       ORDER BY us.created_at DESC`,
+      [req.user.id]
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    logger.error('Error fetching stories', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// @route   POST /api/messages/stories
+// @desc    Create a new story
+router.post('/stories', auth, upload.single('file'), async (req, res) => {
+  try {
+    const { caption } = req.body;
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'Keine Datei hochgeladen' });
+    }
+
+    // Determine media type
+    const mediaType = req.file.mimetype.startsWith('image/') ? 'image' :
+                     req.file.mimetype.startsWith('video/') ? 'video' : 'image';
+
+    // Store relative path
+    const mediaUrl = `/uploads/${req.file.filename}`;
+
+    // Create story with 24-hour expiration
+    const result = await pool.query(
+      `INSERT INTO user_stories (user_id, media_url, media_type, caption, expires_at)
+       VALUES ($1, $2, $3, $4, NOW() + INTERVAL '24 hours')
+       RETURNING *`,
+      [req.user.id, mediaUrl, mediaType, caption || '']
+    );
+
+    const story = result.rows[0];
+
+    // Get user info
+    const userResult = await pool.query(
+      `SELECT name, profile_photo_url FROM users WHERE id = $1`,
+      [req.user.id]
+    );
+
+    const storyWithUser = {
+      ...story,
+      user_name: userResult.rows[0].name,
+      profile_photo_url: userResult.rows[0].profile_photo_url,
+      view_count: 0,
+      viewed_by_me: false
+    };
+
+    // Notify via WebSocket
+    const io = getIO();
+    if (io) {
+      io.emit('story:new', storyWithUser);
+    }
+
+    res.status(201).json(storyWithUser);
+  } catch (error) {
+    logger.error('Error creating story', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// @route   POST /api/messages/stories/:storyId/view
+// @desc    Mark a story as viewed
+router.post('/stories/:storyId/view', auth, async (req, res) => {
+  const storyId = parseInt(req.params.storyId, 10);
+
+  try {
+    // Insert view record (ignore if already exists)
+    await pool.query(
+      `INSERT INTO user_story_views (story_id, viewer_id)
+       VALUES ($1, $2)
+       ON CONFLICT (story_id, viewer_id) DO NOTHING`,
+      [storyId, req.user.id]
+    );
+
+    // Get updated view count
+    const result = await pool.query(
+      `SELECT COUNT(*) as view_count FROM user_story_views WHERE story_id = $1`,
+      [storyId]
+    );
+
+    res.json({ view_count: parseInt(result.rows[0].view_count, 10) });
+  } catch (error) {
+    logger.error('Error marking story as viewed', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// @route   DELETE /api/messages/stories/:storyId
+// @desc    Delete a story (owner only)
+router.delete('/stories/:storyId', auth, async (req, res) => {
+  const storyId = parseInt(req.params.storyId, 10);
+
+  try {
+    const result = await pool.query(
+      `DELETE FROM user_stories WHERE id = $1 AND user_id = $2 RETURNING *`,
+      [storyId, req.user.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Story nicht gefunden oder keine Berechtigung' });
+    }
+
+    // Delete file from uploads folder
+    const story = result.rows[0];
+    if (story.media_url && story.media_url.startsWith('/uploads/')) {
+      const filePath = path.join(__dirname, '../..', story.media_url);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+
+    // Notify via WebSocket
+    const io = getIO();
+    if (io) {
+      io.emit('story:deleted', { storyId });
+    }
+
+    res.json({ message: 'Story gelöscht' });
+  } catch (error) {
+    logger.error('Error deleting story', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
 module.exports = router;
