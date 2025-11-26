@@ -55,7 +55,7 @@ api.interceptors.request.use((config) => {
 
 const MessengerComplete = () => {
   const { user } = useAuth();
-  const [view, setView] = useState('list'); // 'list' | 'chat'
+  const [view, setView] = useState('list'); // 'list' | 'chat' | 'newChat' | 'stories'
   const [contacts, setContacts] = useState([]);
   const [conversations, setConversations] = useState([]);
   const [messages, setMessages] = useState([]);
@@ -72,6 +72,14 @@ const MessengerComplete = () => {
   const [replyingTo, setReplyingTo] = useState(null);
   const [editingMessage, setEditingMessage] = useState(null);
   const [quickReplies, setQuickReplies] = useState([]);
+  const [showNewChatModal, setShowNewChatModal] = useState(false);
+  const [selectedContacts, setSelectedContacts] = useState([]);
+  const [stories, setStories] = useState([]);
+  const [showStoryCreate, setShowStoryCreate] = useState(false);
+  const [showStoryView, setShowStoryView] = useState(false);
+  const [currentStory, setCurrentStory] = useState(null);
+  const [storyFile, setStoryFile] = useState(null);
+  const [storyText, setStoryText] = useState('');
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -489,6 +497,46 @@ const MessengerComplete = () => {
         </div>
       </div>
 
+      {/* Stories Section */}
+      <div className="bg-white border-b border-gray-200 px-4 py-3">
+        <h3 className="text-xs font-bold text-gray-500 uppercase mb-2">Stories</h3>
+        <div className="flex gap-3 overflow-x-auto pb-2">
+          {/* Add Your Story */}
+          <button
+            onClick={() => setShowStoryCreate(true)}
+            className="flex-shrink-0 flex flex-col items-center gap-2"
+          >
+            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg hover:shadow-xl transition-all hover:scale-105">
+              <Plus className="w-8 h-8 text-white" />
+            </div>
+            <p className="text-xs font-medium text-gray-700">Deine Story</p>
+          </button>
+
+          {/* Stories from others */}
+          {stories.map((story) => (
+            <button
+              key={story.id}
+              onClick={() => {
+                setCurrentStory(story);
+                setShowStoryView(true);
+              }}
+              className="flex-shrink-0 flex flex-col items-center gap-2"
+            >
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 p-0.5 shadow-md hover:shadow-lg transition-all hover:scale-105">
+                <div className="w-full h-full rounded-full bg-white flex items-center justify-center overflow-hidden">
+                  {story.media_type === 'image' ? (
+                    <img src={story.media_url} alt={story.user_name} className="w-full h-full object-cover" />
+                  ) : (
+                    <User className="w-8 h-8 text-gray-400" />
+                  )}
+                </div>
+              </div>
+              <p className="text-xs font-medium text-gray-700 max-w-[64px] truncate">{story.user_name}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Conversations List */}
       <div className="flex-1 overflow-y-auto">
         {loading ? (
@@ -576,14 +624,21 @@ const MessengerComplete = () => {
         )}
       </div>
 
-      {/* New Conversation Button */}
-      <div className="p-3 bg-white/80 backdrop-blur-sm border-t border-gray-200">
+      {/* New Conversation & Stories Buttons */}
+      <div className="p-3 bg-white/80 backdrop-blur-sm border-t border-gray-200 space-y-2">
         <button
-          onClick={() => {/* TODO: Implement new conversation */}}
+          onClick={() => setShowNewChatModal(true)}
           className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all font-semibold"
         >
           <Plus className="w-5 h-5" />
           Neue Unterhaltung
+        </button>
+        <button
+          onClick={() => setShowStoryCreate(true)}
+          className="w-full py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all font-semibold"
+        >
+          <Plus className="w-4 h-4" />
+          Story hinzufügen
         </button>
       </div>
     </div>
@@ -960,37 +1015,243 @@ const MessengerComplete = () => {
     </div>
   );
 
-  // Main render
-  if (isMobile) {
+  // New Chat Modal
+  const renderNewChatModal = () => {
+    if (!showNewChatModal) return null;
+
     return (
-      <div className="h-screen flex flex-col bg-white">
-        {view === 'list' ? renderChatList() : renderChat()}
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setShowNewChatModal(false)}>
+        <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 rounded-t-2xl">
+            <h2 className="text-2xl font-bold text-white">Neue Unterhaltung</h2>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-6">
+            <div className="space-y-2">
+              {contacts.map((contact) => (
+                <button
+                  key={contact.id}
+                  onClick={async () => {
+                    try {
+                      const res = await api.post('/messages/conversations', {
+                        type: 'direct',
+                        members: [contact.id]
+                      });
+                      if (res.data) {
+                        await loadAllData();
+                        setSelectedConversation(res.data);
+                        setShowNewChatModal(false);
+                        if (isMobile) setView('chat');
+                      }
+                    } catch (error) {
+                      console.error('Error creating conversation:', error);
+                    }
+                  }}
+                  className="w-full p-4 flex items-center gap-3 rounded-xl hover:bg-gray-50 transition-colors"
+                >
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold">
+                    {contact.name?.charAt(0)}
+                  </div>
+                  <div className="text-left">
+                    <p className="font-semibold text-gray-900">{contact.name}</p>
+                    <p className="text-sm text-gray-500">{contact.email}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="p-4 border-t">
+            <button
+              onClick={() => setShowNewChatModal(false)}
+              className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 rounded-xl font-semibold transition-colors"
+            >
+              Abbrechen
+            </button>
+          </div>
+        </div>
       </div>
     );
-  } else {
+  };
+
+  // Story Create Modal
+  const renderStoryCreateModal = () => {
+    if (!showStoryCreate) return null;
+
+    const handleStoryUpload = async () => {
+      if (!storyFile) return;
+
+      try {
+        const formData = new FormData();
+        formData.append('file', storyFile);
+        formData.append('text', storyText);
+
+        await api.post('/messages/stories', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+
+        setShowStoryCreate(false);
+        setStoryFile(null);
+        setStoryText('');
+        // Reload stories
+        const res = await api.get('/messages/stories');
+        setStories(Array.isArray(res?.data) ? res.data : []);
+      } catch (error) {
+        console.error('Error creating story:', error);
+      }
+    };
+
     return (
-      <div className="h-screen flex bg-white">
-        <div className="w-96 border-r flex-shrink-0">
-          {renderChatList()}
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setShowStoryCreate(false)}>
+        <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl shadow-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-6 rounded-t-2xl">
+            <h2 className="text-2xl font-bold text-white">Story erstellen</h2>
+          </div>
+
+          <div className="p-6 space-y-4">
+            <div className="border-2 border-dashed border-purple-300 rounded-xl p-8 text-center">
+              <input
+                type="file"
+                accept="image/*,video/*"
+                onChange={(e) => setStoryFile(e.target.files[0])}
+                className="hidden"
+                id="story-file"
+              />
+              <label htmlFor="story-file" className="cursor-pointer">
+                {storyFile ? (
+                  <div className="space-y-2">
+                    <Image className="w-16 h-16 text-purple-600 mx-auto" />
+                    <p className="text-sm font-medium text-gray-700">{storyFile.name}</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Plus className="w-16 h-16 text-purple-400 mx-auto" />
+                    <p className="text-sm text-gray-600">Foto oder Video auswählen</p>
+                  </div>
+                )}
+              </label>
+            </div>
+
+            <textarea
+              value={storyText}
+              onChange={(e) => setStoryText(e.target.value)}
+              placeholder="Text hinzufügen (optional)..."
+              className="w-full px-4 py-3 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+              rows={3}
+            />
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowStoryCreate(false)}
+                className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl font-semibold transition-colors"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={handleStoryUpload}
+                disabled={!storyFile}
+                className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-semibold hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 transition-all"
+              >
+                Posten
+              </button>
+            </div>
+          </div>
         </div>
-        <div className="flex-1">
-          {selectedConversation ? (
-            renderChat()
-          ) : (
-            <div className="h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
-              <div className="text-center">
-                <div className="w-32 h-32 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
-                  <MessageSquare className="w-16 h-16 text-blue-600" />
-                </div>
-                <p className="text-2xl font-semibold text-gray-700">Wähle eine Unterhaltung</p>
-                <p className="text-gray-500 mt-2">
-                  Wähle einen Chat aus der Liste oder starte eine neue Unterhaltung
-                </p>
+      </div>
+    );
+  };
+
+  // Story View Modal
+  const renderStoryViewModal = () => {
+    if (!showStoryView || !currentStory) return null;
+
+    return (
+      <div className="fixed inset-0 z-50 bg-black flex items-center justify-center" onClick={() => setShowStoryView(false)}>
+        <div className="relative w-full h-full max-w-md">
+          {/* Story Progress */}
+          <div className="absolute top-4 left-4 right-4 z-10">
+            <div className="h-1 bg-white/30 rounded-full overflow-hidden">
+              <div className="h-full bg-white rounded-full w-full animate-progress"></div>
+            </div>
+          </div>
+
+          {/* Story Header */}
+          <div className="absolute top-12 left-4 right-4 z-10 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold">
+                {currentStory.user_name?.charAt(0)}
               </div>
+              <div>
+                <p className="text-white font-semibold">{currentStory.user_name}</p>
+                <p className="text-white/80 text-xs">{formatMessageTime(currentStory.created_at)}</p>
+              </div>
+            </div>
+            <button onClick={() => setShowStoryView(false)} className="text-white">
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+
+          {/* Story Content */}
+          <div className="w-full h-full flex items-center justify-center">
+            {currentStory.media_type === 'image' ? (
+              <img src={currentStory.media_url} alt="Story" className="max-w-full max-h-full object-contain" />
+            ) : (
+              <video src={currentStory.media_url} className="max-w-full max-h-full" controls autoPlay />
+            )}
+          </div>
+
+          {/* Story Text */}
+          {currentStory.text && (
+            <div className="absolute bottom-8 left-4 right-4">
+              <p className="text-white text-center text-lg font-medium drop-shadow-lg">{currentStory.text}</p>
             </div>
           )}
         </div>
       </div>
+    );
+  };
+
+  // Main render
+  if (isMobile) {
+    return (
+      <>
+        <div className="h-screen flex flex-col bg-white">
+          {view === 'list' ? renderChatList() : renderChat()}
+        </div>
+        {renderNewChatModal()}
+        {renderStoryCreateModal()}
+        {renderStoryViewModal()}
+      </>
+    );
+  } else {
+    return (
+      <>
+        <div className="h-screen flex bg-white">
+          <div className="w-96 border-r flex-shrink-0">
+            {renderChatList()}
+          </div>
+          <div className="flex-1">
+            {selectedConversation ? (
+              renderChat()
+            ) : (
+              <div className="h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+                <div className="text-center">
+                  <div className="w-32 h-32 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                    <MessageSquare className="w-16 h-16 text-blue-600" />
+                  </div>
+                  <p className="text-2xl font-semibold text-gray-700">Wähle eine Unterhaltung</p>
+                  <p className="text-gray-500 mt-2">
+                    Wähle einen Chat aus der Liste oder starte eine neue Unterhaltung
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+        {renderNewChatModal()}
+        {renderStoryCreateModal()}
+        {renderStoryViewModal()}
+      </>
     );
   }
 };
