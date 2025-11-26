@@ -8,7 +8,13 @@ import {
 } from 'lucide-react';
 import { format, formatDistanceToNow, isToday, isYesterday } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { getUsersForMessaging, getMessages, sendMessage } from '../utils/api';
+import {
+  getUsersForMessaging,
+  getMessagesForUser,
+  getThreads,
+  getConversations,
+  sendMessage
+} from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { showSuccess, showError } from '../utils/toast';
 
@@ -49,27 +55,26 @@ const MessengerRedesigned = () => {
     try {
       // Load contacts using getUsersForMessaging
       const contactsRes = await getUsersForMessaging();
+      console.log('Raw contacts response:', contactsRes);
 
-      // Process contacts - ensure we get all contacts
+      // Process contacts - the API returns a simple array
       let contactsList = [];
       if (Array.isArray(contactsRes?.data)) {
         contactsList = contactsRes.data;
       } else if (Array.isArray(contactsRes?.data?.users)) {
+        // Fallback for different API format
         contactsList = contactsRes.data.users;
-      } else if (contactsRes?.data && typeof contactsRes.data === 'object') {
-        // If it's an object with user data inside
-        contactsList = Object.values(contactsRes.data);
+      } else {
+        console.warn('Unexpected contacts response format:', contactsRes);
+        contactsList = [];
       }
 
-      // Filter out current user and system users
+      // Filter out invalid entries (but keep all valid contacts)
       contactsList = contactsList.filter(c =>
-        c.id !== user?.id &&
-        !c.is_system_user &&
-        c.email &&
-        c.name
+        c && c.id && c.name && c.email
       );
 
-      console.log('Loaded contacts:', contactsList);
+      console.log('Processed contacts:', contactsList.length, 'contacts found');
       setContacts(contactsList);
 
       // For now, we'll use empty threads since getThreads doesn't exist
@@ -101,23 +106,27 @@ const MessengerRedesigned = () => {
     }
   };
 
-  const loadMessages = async (threadId) => {
+  const loadMessages = async (contactId) => {
     try {
-      const response = await getMessages(threadId);
+      // Use getMessagesForUser with the contact's ID
+      const response = await getMessagesForUser(contactId);
       setMessages(Array.isArray(response?.data) ? response.data : []);
       scrollToBottom();
     } catch (error) {
       console.error('Error loading messages:', error);
-      showError('Fehler beim Laden der Nachrichten');
+      // Don't show error for empty conversations
+      if (error.response?.status !== 404) {
+        showError('Fehler beim Laden der Nachrichten');
+      }
+      setMessages([]);
     }
   };
 
   const handleContactClick = async (contact) => {
     setSelectedContact(contact);
 
-    // For now, create a mock thread since we don't have createThread API
-    // In production, this would be a real API call
-    const mockThread = {
+    // Create a virtual thread for the UI
+    const virtualThread = {
       id: `thread-${contact.id}`,
       type: 'direct',
       participants: [contact],
@@ -125,11 +134,11 @@ const MessengerRedesigned = () => {
       created_at: new Date().toISOString()
     };
 
-    setSelectedThread(mockThread);
+    setSelectedThread(virtualThread);
 
-    // Load messages - this will return empty for now
+    // Load messages for this contact
     try {
-      await loadMessages(mockThread.id);
+      await loadMessages(contact.id);
     } catch (error) {
       // It's okay if this fails, we'll show empty messages
       setMessages([]);
@@ -320,28 +329,44 @@ const MessengerRedesigned = () => {
             )}
 
             {/* Direct Messages */}
-            {filteredContacts.map(contact => (
-              <button
-                key={contact.id}
-                onClick={() => handleContactClick(contact)}
-                className="w-full p-4 hover:bg-gray-50 transition flex items-center gap-3"
-              >
-                <div className="relative">
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-400 rounded-full flex items-center justify-center text-white font-bold">
-                    {contact.name?.[0]?.toUpperCase()}
+            {filteredContacts.length > 0 ? (
+              filteredContacts.map(contact => (
+                <button
+                  key={contact.id}
+                  onClick={() => handleContactClick(contact)}
+                  className="w-full p-4 hover:bg-gray-50 transition flex items-center gap-3"
+                >
+                  <div className="relative">
+                    <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-400 rounded-full flex items-center justify-center text-white font-bold">
+                      {contact.name?.[0]?.toUpperCase()}
+                    </div>
+                    {contact.is_online && (
+                      <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white" />
+                    )}
                   </div>
-                  {contact.is_online && (
-                    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white" />
-                  )}
-                </div>
-                <div className="flex-1 text-left">
-                  <p className="font-semibold text-gray-900">{contact.name}</p>
-                  <p className="text-sm text-gray-500">
-                    {contact.is_online ? 'Online' : formatDistanceToNow(new Date(contact.last_seen || Date.now()), { addSuffix: true, locale: de })}
+                  <div className="flex-1 text-left">
+                    <p className="font-semibold text-gray-900">{contact.name}</p>
+                    <p className="text-sm text-gray-500">
+                      {contact.is_online ? 'Online' : contact.last_seen ?
+                        formatDistanceToNow(new Date(contact.last_seen), { addSuffix: true, locale: de }) :
+                        'Offline'}
+                    </p>
+                  </div>
+                </button>
+              ))
+            ) : (
+              <div className="p-8 text-center">
+                <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500">
+                  {searchTerm ? 'Keine Kontakte gefunden' : 'Keine Kontakte verfügbar'}
+                </p>
+                {!searchTerm && (
+                  <p className="text-sm text-gray-400 mt-2">
+                    Kontakte werden geladen...
                   </p>
-                </div>
-              </button>
-            ))}
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

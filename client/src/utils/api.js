@@ -182,21 +182,30 @@ export const deleteTask = (id) =>
   api.delete(`/tasks/${id}`);
 
 // Messages endpoints
-export const getMessages = () => 
+export const getMessages = () =>
   api.get('/messages');
 
-export const getUnreadCount = () => 
+export const getMessagesForUser = (userId) =>
+  api.get(`/messages/conversation/${userId}`);
+
+export const getThreads = () =>
+  api.get('/messages/threads');
+
+export const getConversations = () =>
+  api.get('/messages/conversations');
+
+export const getUnreadCount = () =>
   api.get('/messages/unread-count');
 
-export const sendMessage = (receiverId, message, isGroup = false) => 
+export const sendMessage = (receiverId, message, isGroup = false) =>
   api.post('/messages', {
     recipientId: receiverId,
     content: message,
     isGroup
   });
 
-export const getUsersForMessaging = () => 
-  api.get('/messages/users');
+export const getUsersForMessaging = () =>
+  api.get('/messages/contacts');
 
 // Waste endpoints
 export const getWasteCategories = () =>
