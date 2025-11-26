@@ -5,6 +5,9 @@ import './styles/calendar.css';
 import './styles/desktop-header.css';
 import App from './App';
 
+// Version control and cache busting
+import './version';
+
 // CRITICAL: Setup global date format protection BEFORE any components load
 import { setupDateProtection } from './utils/setupDateProtection';
 setupDateProtection();
