@@ -2175,6 +2175,45 @@ body {
   animation: slideInUp 0.3s ease-out;
 }
 
+/* Base modal portal helpers */
+.base-modal-portal-root {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: calc(var(--z-modal-backdrop) + 1);
+  pointer-events: none;
+}
+
+.base-modal-portal-root--active {
+  pointer-events: auto;
+}
+
+.base-modal-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  gap: 1.25rem;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  z-index: var(--z-modal-backdrop);
+  pointer-events: all;
+}
+
+.base-modal-dialog {
+  width: 100%;
+  max-width: min(1100px, 100%);
+  max-height: calc(100vh - 2rem);
+  overflow: hidden;
+  outline: none;
+}
+
 @keyframes slideInUp {
   from {
     opacity: 0;

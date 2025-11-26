@@ -4,6 +4,7 @@ import { de } from 'date-fns/locale';
 import { Play, Pause, X, ChevronLeft, ChevronRight, Share2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { safeParseDate, safeFormat } from '../utils/dateHelpers';
+import BaseModal from './BaseModal';
 
 const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplicate }) => {
   const navigate = useNavigate();
@@ -163,60 +164,82 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
   };
 
   return (
-    <div className="modal-backdrop-mobile fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center sm:p-4 z-50" onClick={onClose}>
-      <div className="modal-bottom-sheet bg-white sm:modal sm:rounded-xl w-full sm:max-w-lg" onClick={(e) => e.stopPropagation()}>
+    <BaseModal
+      isOpen={isOpen}
+      onClose={onClose}
+      overlayClassName="modal-backdrop-mobile backdrop-blur-sm"
+      dialogClassName="modal-bottom-sheet bg-gradient-to-br from-white via-blue-50/30 to-purple-50/30 sm:modal sm:rounded-2xl w-full sm:max-w-2xl shadow-2xl border border-gray-200/50"
+    >
         {/* Mobile Handle */}
-        <div className="modal-handle sm:hidden" />
+        <div className="modal-handle sm:hidden bg-gradient-to-r from-gray-300 to-gray-400" />
 
-        {/* Header */}
-        <div className="modal-header-mobile p-4 sm:p-6 border-b border-gray-200">
-          <div className="flex justify-between items-start gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center flex-wrap gap-2 mb-3">
-                <span className="text-2xl">{getTypeIcon(normalizedEvent.type)}</span>
-                <span className={`px-3 py-1.5 rounded-full text-sm font-medium border ${getTypeColor(normalizedEvent.type)}`}>
-                  {normalizedEvent.type}
-                </span>
-                {normalizedEvent.priority && (
-                  <span className="flex items-center gap-1.5 text-sm text-gray-600 bg-gray-50 px-2.5 py-1 rounded-full">
-                    <span>{getPriorityIcon(normalizedEvent.priority)}</span>
-                    <span className="font-medium">{getPriorityLabel(normalizedEvent.priority)}</span>
-                  </span>
-                )}
+        {/* Header with Premium Gradient */}
+        <div className="modal-header-mobile relative overflow-hidden">
+          {/* Gradient Background */}
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600"></div>
+          <div className="absolute inset-0 bg-black/10"></div>
+
+          <div className="relative z-10 p-6 sm:p-8">
+            <div className="flex justify-between items-start gap-4">
+              <div className="flex-1 min-w-0">
+                {/* Type and Priority Badges */}
+                <div className="flex items-center flex-wrap gap-2.5 mb-4">
+                  <div className="flex items-center gap-2 bg-white/95 backdrop-blur-md px-4 py-2 rounded-xl shadow-lg border border-white/50">
+                    <span className="text-2xl">{getTypeIcon(normalizedEvent.type)}</span>
+                    <span className="text-sm font-bold text-gray-900">
+                      {normalizedEvent.type}
+                    </span>
+                  </div>
+                  {normalizedEvent.priority && (
+                    <div className="flex items-center gap-2 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-xl shadow-md border border-white/40">
+                      <span className="text-lg">{getPriorityIcon(normalizedEvent.priority)}</span>
+                      <span className="text-xs font-semibold text-gray-700">{getPriorityLabel(normalizedEvent.priority)}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Title */}
+                <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3 break-words drop-shadow-lg">
+                  {normalizedEvent.title}
+                </h2>
+
+                {/* Date */}
+                <div className="flex items-center gap-2 text-white/95">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <p className="text-base sm:text-lg font-semibold">
+                    {safeFormat(eventDate, 'EEEE, dd. MMMM yyyy', { locale: de, fallback: '—' })}
+                  </p>
+                </div>
               </div>
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 break-words">
-                {normalizedEvent.title}
-              </h2>
-              <p className="text-sm sm:text-base text-gray-600">
-                {safeFormat(eventDate, 'EEEE, dd. MMMM yyyy', { locale: de, fallback: '—' })}
-              </p>
+
+              {/* Close Button */}
+              <button
+                onClick={onClose}
+                className="btn-icon-mobile flex-shrink-0 bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/40 mobile-touch-feedback transition-all hover:scale-105"
+              >
+                <X className="w-5 h-5 text-white" />
+              </button>
             </div>
-            <button
-              onClick={onClose}
-              className="btn-icon-mobile flex-shrink-0 bg-gray-100 hover:bg-gray-200 mobile-touch-feedback"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
           </div>
         </div>
 
         {/* Content */}
-        <div className="modal-body-mobile p-4 sm:p-6 space-y-4">
+        <div className="modal-body-mobile p-6 sm:p-8 space-y-3">
           {/* Time */}
           {!normalizedEvent.isAllDay && (normalizedEvent.startTime || normalizedEvent.endTime) && (
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100/50 hover:shadow-md transition-shadow">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <div>
-                <p className="font-medium text-gray-800">
+              <div className="flex-1">
+                <p className="font-bold text-gray-900 text-lg">
                   {normalizedEvent.startTime} - {normalizedEvent.endTime}
                 </p>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-gray-600 font-medium">
                   {normalizedEvent.isAllDay ? 'Ganztägig' : 'Zeitraum'}
                 </p>
               </div>
@@ -225,37 +248,41 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
 
           {/* Location */}
           {normalizedEvent.location && (
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-green-50 to-teal-50 rounded-xl border border-green-100/50 hover:shadow-md transition-shadow">
+              <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-teal-600 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
               </div>
-              <div>
-                <p className="font-medium text-gray-800">{normalizedEvent.location}</p>
-                <p className="text-sm text-gray-600">Ort</p>
+              <div className="flex-1">
+                <p className="font-bold text-gray-900 text-base">{normalizedEvent.location}</p>
+                <p className="text-sm text-gray-600 font-medium">Ort</p>
               </div>
             </div>
           )}
 
           {/* Attendees */}
           {normalizedEvent.attendees && (
-            <div className="flex items-start space-x-3">
-              <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-                <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex items-start gap-4 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-100/50 hover:shadow-md transition-shadow">
+              <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
               </div>
               <div className="flex-1">
-                <p className="font-medium text-gray-800">Teilnehmer</p>
-                <div className="text-sm text-gray-600 mt-1">
+                <p className="font-bold text-gray-900 text-base mb-2">Teilnehmer</p>
+                <div className="flex flex-wrap gap-2">
                   {(Array.isArray(normalizedEvent.attendees) ? normalizedEvent.attendees : normalizedEvent.attendees.split(',')).map((email, index) => (
-                    <div key={index} className="mb-1">
-                      <span className="bg-gray-100 px-2 py-1 rounded-md text-xs">
-                        {email.trim()}
-                      </span>
-                    </div>
+                    <span
+                      key={index}
+                      className="inline-flex items-center gap-1.5 bg-white border border-purple-200 px-3 py-1.5 rounded-lg text-sm font-medium text-gray-700 shadow-sm hover:shadow-md transition-shadow"
+                    >
+                      <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                      {email.trim()}
+                    </span>
                   ))}
                 </div>
               </div>
@@ -488,7 +515,6 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
             </div>
           )}
         </div>
-      </div>
 
       {/* Full-Screen Image Gallery */}
       {showImageGallery && imageAttachments.length > 0 && (
@@ -575,7 +601,7 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
           )}
         </div>
       )}
-    </div>
+    </BaseModal>
   );
 };
 

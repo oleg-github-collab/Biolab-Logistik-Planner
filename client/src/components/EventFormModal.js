@@ -6,6 +6,7 @@ import { X, Calendar, Clock, MapPin, Users, Image, Mic, AlertCircle, Repeat } fr
 import VoiceRecorder from './VoiceRecorder';
 import toast from 'react-hot-toast';
 import { uploadAttachment } from '../utils/apiEnhanced';
+import BaseModal from './BaseModal';
 
 const EVENT_TYPES = [
   { value: 'Arbeit', label: 'Arbeit', color: '#0EA5E9' },
@@ -417,16 +418,13 @@ const EventFormModal = ({
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto"
-      onClick={onClose}
+    <BaseModal
+      isOpen={isOpen}
+      onClose={onClose}
+      dialogClassName="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
     >
-      <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl my-8 max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl z-10">
+      {/* Header */}
+      <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl z-10">
           <h2 className="text-2xl font-bold text-gray-900">
             {mode === 'edit' ? 'Termin bearbeiten' : 'Neuer Termin'}
           </h2>
@@ -439,8 +437,8 @@ const EventFormModal = ({
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+      {/* Form */}
+      <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* Title */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -929,9 +927,8 @@ const EventFormModal = ({
               )}
             </button>
           </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </BaseModal>
   );
 };
 
