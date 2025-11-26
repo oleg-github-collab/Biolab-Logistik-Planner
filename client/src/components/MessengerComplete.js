@@ -104,6 +104,7 @@ const MessengerComplete = () => {
   useEffect(() => {
     loadAllData();
     loadQuickReplies();
+    loadStories();
   }, []);
 
   const loadAllData = async () => {
@@ -150,6 +151,16 @@ const MessengerComplete = () => {
       setQuickReplies(Array.isArray(res?.data) ? res.data : []);
     } catch (error) {
       console.error('Error loading quick replies:', error);
+    }
+  };
+
+  const loadStories = async () => {
+    try {
+      const res = await api.get('/messages/stories');
+      setStories(Array.isArray(res?.data) ? res.data : []);
+    } catch (error) {
+      console.error('Error loading stories:', error);
+      // Не критично, stories може не бути
     }
   };
 
@@ -236,8 +247,14 @@ const MessengerComplete = () => {
         setMessageText('');
         scrollToBottom();
 
-        // Handle bot conversation
-        if (selectedConversation.members?.some(m => m.id === BL_BOT_ID)) {
+        // Handle bot conversation - check if it's a bot conversation
+        const isBotConversation =
+          selectedConversation.is_bot ||
+          selectedConversation.name === 'BL_Bot' ||
+          selectedConversation.name === 'EntsorgungsBot' ||
+          selectedConversation.members?.some(m => m.id === BL_BOT_ID || m.id === 8 || m.is_system_user);
+
+        if (isBotConversation) {
           handleBotResponse(messageText);
         }
       }
@@ -1019,6 +1036,35 @@ const MessengerComplete = () => {
   const renderNewChatModal = () => {
     if (!showNewChatModal) return null;
 
+    const createBotChat = async () => {
+      try {
+        // Пошук BL_Bot conversation або створення нового
+        const existingBotChat = conversations.find(c => c.is_bot || c.name === 'BL_Bot' || c.name === 'EntsorgungsBot');
+
+        if (existingBotChat) {
+          setSelectedConversation(existingBotChat);
+          await loadMessages(existingBotChat.id);
+        } else {
+          // Створюємо новий чат з ботом
+          const res = await api.post('/messages/conversations', {
+            name: 'BL_Bot',
+            type: 'direct',
+            members: [8], // BL_Bot ID
+            is_bot: true
+          });
+          if (res.data) {
+            await loadAllData();
+            setSelectedConversation(res.data);
+          }
+        }
+
+        setShowNewChatModal(false);
+        if (isMobile) setView('chat');
+      } catch (error) {
+        console.error('Error creating bot chat:', error);
+      }
+    };
+
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setShowNewChatModal(false)}>
         <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
@@ -1027,6 +1073,23 @@ const MessengerComplete = () => {
           </div>
 
           <div className="flex-1 overflow-y-auto p-6">
+            {/* BL_Bot Option */}
+            <div className="mb-4 pb-4 border-b border-gray-200">
+              <button
+                onClick={createBotChat}
+                className="w-full p-4 flex items-center gap-3 rounded-xl bg-gradient-to-r from-purple-50 to-pink-50 hover:from-purple-100 hover:to-pink-100 border-2 border-purple-200 transition-all"
+              >
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white shadow-lg">
+                  <Bot className="w-6 h-6" />
+                </div>
+                <div className="text-left flex-1">
+                  <p className="font-bold text-gray-900">🤖 BL_Bot</p>
+                  <p className="text-sm text-gray-600">KI-Assistent für Hilfe & Fragen</p>
+                </div>
+              </button>
+            </div>
+
+            <p className="text-sm font-semibold text-gray-500 mb-2">Teammitglieder:</p>
             <div className="space-y-2">
               {contacts.map((contact) => (
                 <button
