@@ -42,6 +42,9 @@
 /* Messenger Ultimate - Perfect Desktop & Mobile Design */
 @import './styles/messenger-ultimate.css';
 
+/* Messenger Powerful - Enhanced with Fixed Input & Better Design */
+@import './styles/messenger-powerful.css';
+
 @tailwind utilities;
 
 /* Notification Animation */

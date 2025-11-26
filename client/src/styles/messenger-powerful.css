@@ -1,0 +1,359 @@
+/* Messenger Powerful - Ultimate Design with Fixed Input Position */
+
+/* Root container configurations */
+.messenger-page-container {
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  position: relative;
+  background: white;
+}
+
+/* Hide bottom navigation on messenger page */
+.messenger-page .mobile-bottom-nav {
+  display: none !important;
+}
+
+/* MOBILE STYLES */
+@media (max-width: 767px) {
+  /* Full screen mobile container */
+  .messenger-mobile-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 100vh;
+    height: 100dvh; /* Dynamic viewport height */
+    display: flex;
+    flex-direction: column;
+    background: white;
+    z-index: 50;
+  }
+
+  /* Chat list container */
+  .messenger-chat-list-container {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Chat container with proper flex layout */
+  .messenger-chat-container {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Messages area - takes available space */
+  .messenger-messages-area {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    /* Add padding to prevent last message from being hidden */
+    padding-bottom: 20px;
+  }
+
+  /* Input container - FIXED POSITIONING */
+  .messenger-input-container {
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: white;
+    border-top: 1px solid #e5e7eb;
+    padding: 12px 16px;
+    /* Safe area for iPhone notch */
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+    /* Ensure it stays above everything */
+    z-index: 100;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+  }
+
+  /* Prevent input from being covered */
+  .messenger-input-container form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+  }
+
+  /* Ensure proper input field height on mobile */
+  .messenger-input-container input {
+    min-height: 40px;
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+}
+
+/* DESKTOP STYLES */
+@media (min-width: 768px) {
+  /* Desktop container with two-panel layout */
+  .messenger-desktop-container {
+    height: calc(100vh - 64px);
+    margin-top: 64px;
+    display: flex;
+    background: #f9fafb;
+  }
+
+  /* Sidebar - chat list */
+  .messenger-sidebar {
+    width: 360px;
+    min-width: 320px;
+    max-width: 400px;
+    border-right: 1px solid #e5e7eb;
+    background: white;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05);
+  }
+
+  /* Main chat area */
+  .messenger-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: white;
+    min-width: 0; /* Prevent overflow */
+  }
+
+  /* Desktop chat container */
+  .messenger-chat-container {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Desktop messages area */
+  .messenger-messages-area {
+    flex: 1;
+    overflow-y: auto;
+    padding-bottom: 20px;
+  }
+
+  /* Desktop input container */
+  .messenger-input-container {
+    background: white;
+    border-top: 1px solid #e5e7eb;
+    padding: 16px 20px;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.03);
+  }
+
+  .messenger-input-container form {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+}
+
+/* COMMON STYLES FOR BOTH */
+
+/* Enhanced message bubbles */
+.message-bubble-enhanced {
+  position: relative;
+  animation: slideUp 0.3s ease-out;
+  transition: all 0.2s ease;
+}
+
+.message-bubble-enhanced:hover {
+  transform: scale(1.02);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Chat list item hover effects */
+.messenger-chat-item {
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.messenger-chat-item:hover {
+  background: #f9fafb;
+  transform: translateX(2px);
+}
+
+.messenger-chat-item.selected {
+  background: linear-gradient(to right, #eff6ff, transparent);
+  border-left: 4px solid #3b82f6;
+}
+
+/* Online indicator pulse */
+.online-indicator {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Typing indicator animation */
+@keyframes bounce {
+  0%, 60%, 100% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-10px);
+  }
+}
+
+/* Custom scrollbar */
+.messenger-messages-area::-webkit-scrollbar,
+.messenger-chat-list-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.messenger-messages-area::-webkit-scrollbar-track,
+.messenger-chat-list-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.messenger-messages-area::-webkit-scrollbar-thumb,
+.messenger-chat-list-container::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.messenger-messages-area::-webkit-scrollbar-thumb:hover,
+.messenger-chat-list-container::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Input field focus effects */
+.messenger-input-container input:focus {
+  background: white;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Send button animation */
+.messenger-input-container button[type="submit"] {
+  transition: all 0.2s ease;
+}
+
+.messenger-input-container button[type="submit"]:not(:disabled):hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.messenger-input-container button[type="submit"]:not(:disabled):active {
+  transform: scale(0.95);
+}
+
+/* Action buttons hover effects */
+.messenger-action-btn {
+  transition: all 0.2s ease;
+}
+
+.messenger-action-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  transform: scale(1.05);
+}
+
+/* Empty state animation */
+.messenger-empty-state {
+  animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Fix for iOS Safari keyboard issues */
+@supports (-webkit-touch-callout: none) {
+  /* iOS specific fixes */
+  .messenger-input-container {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    transform: translate3d(0, 0, 0); /* Force hardware acceleration */
+  }
+
+  .messenger-messages-area {
+    -webkit-overflow-scrolling: touch;
+    /* Add extra padding for iOS */
+    padding-bottom: 80px;
+  }
+
+  /* Prevent viewport jumping when keyboard appears */
+  .messenger-mobile-container {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    overflow: hidden;
+  }
+}
+
+/* Android specific adjustments */
+@media screen and (max-width: 767px) {
+  .messenger-input-container {
+    /* Ensure input is always visible on Android */
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    max-width: 100vw;
+  }
+}
+
+/* Landscape mode adjustments */
+@media screen and (max-height: 500px) and (orientation: landscape) {
+  .messenger-messages-area {
+    padding: 8px;
+  }
+
+  .messenger-input-container {
+    padding: 8px 12px;
+  }
+
+  .messenger-input-container input {
+    min-height: 36px;
+  }
+}
+
+/* Dark mode support (optional) */
+@media (prefers-color-scheme: dark) {
+  /* Add dark mode styles here if needed */
+}
+
+/* Accessibility improvements */
+.messenger-input-container button:focus,
+.messenger-input-container input:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  .message-bubble-enhanced {
+    border: 2px solid currentColor;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .message-bubble-enhanced,
+  .messenger-chat-item,
+  .messenger-input-container button {
+    animation: none;
+    transition: none;
+  }
+}

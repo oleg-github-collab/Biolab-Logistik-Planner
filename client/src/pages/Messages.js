@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import MessengerUltimate from '../components/MessengerUltimate';
+import MessengerPowerful from '../components/MessengerPowerful';
 
 const Messages = () => {
   // Встановлюємо клас для body
@@ -12,7 +12,7 @@ const Messages = () => {
 
   return (
     <div className="messenger-page-container">
-      <MessengerUltimate />
+      <MessengerPowerful />
     </div>
   );
 };

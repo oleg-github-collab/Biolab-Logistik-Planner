@@ -168,7 +168,7 @@ async function startServer() {
     scheduleEntsorgungReminders();
     await runEntsorgungReminderJob({ triggeredByScheduler: false });
   } catch (entsorgungError) {
-    console.error('⚠️  Entsorgungsbot initialization failed:', entsorgungError.message);
+    console.error('⚠️  BL_Bot initialization failed:', entsorgungError.message);
   }
 }
 
