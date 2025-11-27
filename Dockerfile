@@ -15,11 +15,18 @@ RUN cd client && npm ci
 # Copy application code
 COPY . .
 
-# Build client - v3.4 STABLE
-RUN echo "======================================== v3.4 STABLE ========================================" && \
-    echo "Building v3.4-STABLE (Calendar Fix + Premium UI) at $(date)" && \
-    echo "=============================================================================================="
-RUN cd client && CI=false GENERATE_SOURCEMAP=false DISABLE_ESLINT_PLUGIN=true npm run build
+# Build client - v3.5 PRODUCTION FIX
+RUN echo "======================================== v3.5 PRODUCTION ========================================" && \
+    echo "Building v3.5-PRODUCTION (Stories + Bot + API URL Fix) at $(date)" && \
+    echo "================================================================================================="
+# CRITICAL: Set API URL for production build
+ARG REACT_APP_API_URL=/api
+RUN cd client && \
+    CI=false \
+    GENERATE_SOURCEMAP=false \
+    DISABLE_ESLINT_PLUGIN=true \
+    REACT_APP_API_URL=${REACT_APP_API_URL} \
+    npm run build
 RUN echo "=============================================================================================" && \
     echo "✅ Build v3.4-STABLE complete!" && \
     ls -lh client/build/static/js/main.*.js && \
