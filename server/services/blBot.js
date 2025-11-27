@@ -30,16 +30,24 @@ class BLBot {
     try {
       console.log('🔧 BL_Bot: Starting initialization...');
 
-      // Initialize OpenAI
-      if (!process.env.OPENAI_API_KEY) {
-        console.log('⚠️  BL_Bot: OPENAI_API_KEY not set, AI features will be disabled');
-        logger.warn('⚠️  BL_Bot: OPENAI_API_KEY not set, AI features will be disabled');
+      // Initialize OpenAI with enhanced validation
+      if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'sk-your-openai-api-key-here') {
+        console.log('⚠️  BL_Bot: OPENAI_API_KEY not set or using placeholder, AI features will be disabled');
+        logger.warn('⚠️  BL_Bot: OPENAI_API_KEY not set or using placeholder, AI features will be disabled');
+
+        // Set a flag for placeholder key
+        this.hasPlaceholderKey = process.env.OPENAI_API_KEY === 'sk-your-openai-api-key-here';
       } else {
         console.log('✅ BL_Bot: OPENAI_API_KEY found, initializing OpenAI...');
-        this.openai = new OpenAI({
-          apiKey: process.env.OPENAI_API_KEY
-        });
-        console.log('✅ BL_Bot: OpenAI initialized');
+        try {
+          this.openai = new OpenAI({
+            apiKey: process.env.OPENAI_API_KEY
+          });
+          console.log('✅ BL_Bot: OpenAI initialized successfully');
+        } catch (error) {
+          console.error('❌ BL_Bot: Failed to initialize OpenAI:', error.message);
+          logger.error('Failed to initialize OpenAI', error);
+        }
       }
 
       // Get BL_Bot user from database
@@ -325,9 +333,46 @@ class BLBot {
       console.error('❌ OpenAI not initialized! API key:', process.env.OPENAI_API_KEY ? 'EXISTS' : 'MISSING');
       logger.error('OpenAI not initialized', {
         apiKeyExists: !!process.env.OPENAI_API_KEY,
-        apiKeyLength: process.env.OPENAI_API_KEY?.length
+        apiKeyLength: process.env.OPENAI_API_KEY?.length,
+        hasPlaceholder: this.hasPlaceholderKey
       });
-      return 'Вибачте, AI-функції зараз недоступні. Адміністратор ще не налаштував OpenAI API ключ.';
+
+      // Enhanced fallback message with better guidance
+      if (this.hasPlaceholderKey) {
+        return `🤖 **BL_Bot - AI-Assistent**
+
+⚠️ **Konfiguration erforderlich!**
+
+Meine KI-Funktionen sind noch nicht aktiviert, da ein Platzhalter-API-Key verwendet wird.
+
+**Für den Administrator:**
+1. Öffnen Sie https://platform.openai.com/api-keys
+2. Erstellen Sie einen neuen API-Key
+3. Ersetzen Sie in .env: OPENAI_API_KEY=sk-proj-xxxxx
+4. Fügen Sie denselben Key in Railway Variables hinzu
+5. Starten Sie den Server neu
+
+**Was ich trotzdem kann:**
+• "Aufgaben" - Ihre Aufgaben anzeigen
+• "Zeitplan" - Ihren Wochenplan zeigen
+• "Stunden" - Arbeitsstunden berechnen
+• "Urlaub" - Urlaubstage prüfen
+
+Kontaktieren Sie Ihren Administrator für die vollständige Aktivierung.`;
+      }
+
+      return `🤖 **BL_Bot - AI-Assistent**
+
+⚠️ Meine erweiterten KI-Funktionen sind temporär nicht verfügbar.
+
+**Verfügbare Befehle:**
+• "Aufgaben" - Ihre aktuellen Aufgaben
+• "Zeitplan" - Ihr Wochenplan
+• "Stunden" - Arbeitsstunden-Übersicht
+• "Urlaub" - Urlaubstage-Status
+• "Krank" - Krankmeldungen
+
+Bitte versuchen Sie es später erneut oder kontaktieren Sie den Administrator.`;
     }
 
     try {
