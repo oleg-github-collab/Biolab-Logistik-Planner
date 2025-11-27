@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import EnhancedMessenger from '../components/EnhancedMessenger';
+import DirectMessenger from '../components/DirectMessenger';
 
 const Messages = () => {
   // Встановлюємо клас для body
@@ -12,7 +12,7 @@ const Messages = () => {
 
   return (
     <div className="messenger-page-container">
-      <EnhancedMessenger />
+      <DirectMessenger />
     </div>
   );
 };
