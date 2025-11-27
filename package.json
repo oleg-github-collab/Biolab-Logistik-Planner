@@ -58,8 +58,11 @@
     "ws": "^8.18.3"
   },
   "devDependencies": {
+    "axios": "^1.13.2",
+    "colors": "^1.4.0",
     "concurrently": "^8.2.0",
-    "nodemon": "^3.0.1"
+    "nodemon": "^3.0.1",
+    "socket.io-client": "^4.8.1"
   },
   "engines": {
     "node": ">=20.x"
