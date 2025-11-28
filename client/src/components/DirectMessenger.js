@@ -2033,68 +2033,65 @@ const DirectMessenger = () => {
             />
           </div>
 
-        <div className="contact-list__stories">
-          {/* Add Story Button */}
-          <button
-            type="button"
-            onClick={() => setShowStoryComposer(true)}
-            className="story-add-btn"
-            aria-label="Story erstellen"
-          >
-            <div className="story-add-btn__circle">
-              <Plus className="w-6 h-6" />
-            </div>
-            <span className="story-add-btn__label">Story</span>
-          </button>
-
-            {storiesLoading ? (
-              Array.from({ length: 3 }).map((_, idx) => (
-                <div key={`story-skel-${idx}`} className="story-chip story-chip--skeleton" />
-              ))
-            ) : (
-              storyEntries.map((story) => {
-                const preview = story.mediaUrl ? getAssetUrl(story.mediaUrl) : null;
-                const timestamp = story.updatedAt || story.createdAt;
-                return (
-                  <button
-                    key={story.id}
-                    type="button"
-                    onClick={() => onStoryOpen(story.id)}
-                    className={`story-chip ${story.viewerHasSeen ? 'seen' : 'new'}`}
-                    aria-label={`Story von ${story.userName || 'Team'}${
-                      story.viewerHasSeen ? ', bereits gesehen' : ', neu'
-                    }`}
-                    title={`${story.userName || 'Story'} - ${
-                      story.viewerHasSeen ? 'bereits angesehen' : 'neu'
-                    }`}
+        {/* Stories Section - показується тільки якщо є stories */}
+        {(!storiesLoading && storyEntries.length > 0) && (
+          <div className="contact-list__stories">
+            {storyEntries.map((story) => {
+              const preview = story.mediaUrl ? getAssetUrl(story.mediaUrl) : null;
+              const timestamp = story.updatedAt || story.createdAt;
+              return (
+                <button
+                  key={story.id}
+                  type="button"
+                  onClick={() => onStoryOpen(story.id)}
+                  className={`story-chip ${story.viewerHasSeen ? 'seen' : 'new'}`}
+                  aria-label={`Story von ${story.userName || 'Team'}${
+                    story.viewerHasSeen ? ', bereits gesehen' : ', neu'
+                  }`}
+                  title={`${story.userName || 'Story'} - ${
+                    story.viewerHasSeen ? 'bereits angesehen' : 'neu'
+                  }`}
+                >
+                  <div
+                    className={`story-chip__ring ${story.viewerHasSeen ? 'seen' : 'has-story'}`}
+                    aria-hidden="true"
                   >
-                    <div
-                      className={`story-chip__ring ${story.viewerHasSeen ? 'seen' : 'has-story'}`}
-                      aria-hidden="true"
-                    >
-                      <div className="story-chip__avatar" aria-hidden={!preview}>
-                        {preview ? (
-                          <img
-                            src={preview}
-                            alt={`${story.userName || 'Story'} media`}
-                            className="story-chip__avatar-img"
-                          />
-                        ) : (
-                          <span>{story.userName?.charAt(0)?.toUpperCase() || '?'}</span>
-                        )}
-                      </div>
+                    <div className="story-chip__avatar" aria-hidden={!preview}>
+                      {preview ? (
+                        <img
+                          src={preview}
+                          alt={`${story.userName || 'Story'} media`}
+                          className="story-chip__avatar-img"
+                        />
+                      ) : (
+                        <span>{story.userName?.charAt(0)?.toUpperCase() || '?'}</span>
+                      )}
                     </div>
-                    <span className="story-chip__name">{story.userName || 'Story'}</span>
-                    <small className="story-chip__meta">
-                      {timestamp
-                        ? formatDistanceToNow(new Date(timestamp), { addSuffix: true, locale: de })
-                        : 'vor kurzem'}
-                    </small>
-                  </button>
-                );
-              })
-            )}
-        </div>
+                  </div>
+                  <span className="story-chip__name">{story.userName || 'Story'}</span>
+                  <small className="story-chip__meta">
+                    {timestamp
+                      ? formatDistanceToNow(new Date(timestamp), { addSuffix: true, locale: de })
+                      : 'vor kurzem'}
+                  </small>
+                </button>
+              );
+            })}
+
+            {/* Add Story Button - в кінці списку */}
+            <button
+              type="button"
+              onClick={() => setShowStoryComposer(true)}
+              className="story-add-btn"
+              aria-label="Story erstellen"
+            >
+              <div className="story-add-btn__circle">
+                <Plus className="w-6 h-6" />
+              </div>
+              <span className="story-add-btn__label">Story</span>
+            </button>
+          </div>
+        )}
 
         <div className="contact-list__grid">
           {loading ? (
