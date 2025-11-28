@@ -381,50 +381,6 @@ const DirectMessenger = () => {
   }, [isMobile]);
 
   useEffect(() => {
-    if (bootstrapDone) return;
-    if (!Array.isArray(threads) || threads.length === 0) return;
-    if (selectedThreadId || selectedContact) return;
-
-    const defaultThread = pickDefaultThread(threads);
-    if (!defaultThread) return;
-
-    setBootstrapDone(true);
-
-    if (defaultThread.type === 'group') {
-      handleGroupChatClick(defaultThread);
-      return;
-    }
-
-    const partner =
-      Array.isArray(defaultThread.members) &&
-      defaultThread.members.find(
-        (member) => member?.user_id && member.user_id !== user?.id
-      );
-
-    const partnerContact =
-      (partner && contacts.find((contact) => contact.id === partner.user_id)) ||
-      contacts.find((contact) => isBotContact(contact));
-
-    if (partnerContact) {
-      handleContactClick(partnerContact);
-    } else if (defaultThread.id) {
-      setSelectedThreadId(defaultThread.id);
-      loadMessages(defaultThread.id);
-    }
-  }, [
-    bootstrapDone,
-    contacts,
-    handleContactClick,
-    handleGroupChatClick,
-    loadMessages,
-    pickDefaultThread,
-    selectedContact,
-    selectedThreadId,
-    threads,
-    user?.id
-  ]);
-
-  useEffect(() => {
     setSelectedEvent(null);
   }, [selectedThreadId]);
 
@@ -726,6 +682,51 @@ const DirectMessenger = () => {
       showError('Failed to load group chat: ' + (error?.message || 'Unknown error'));
     }
   }, [joinConversationRoom, loadMessages, isMobile]);
+
+  // Auto-select a default thread (General or first) once data is ready
+  useEffect(() => {
+    if (bootstrapDone) return;
+    if (!Array.isArray(threads) || threads.length === 0) return;
+    if (selectedThreadId || selectedContact) return;
+
+    const defaultThread = pickDefaultThread(threads);
+    if (!defaultThread) return;
+
+    setBootstrapDone(true);
+
+    if (defaultThread.type === 'group') {
+      handleGroupChatClick(defaultThread);
+      return;
+    }
+
+    const partner =
+      Array.isArray(defaultThread.members) &&
+      defaultThread.members.find(
+        (member) => member?.user_id && member.user_id !== user?.id
+      );
+
+    const partnerContact =
+      (partner && contacts.find((contact) => contact.id === partner.user_id)) ||
+      contacts.find((contact) => isBotContact(contact));
+
+    if (partnerContact) {
+      handleContactClick(partnerContact);
+    } else if (defaultThread.id) {
+      setSelectedThreadId(defaultThread.id);
+      loadMessages(defaultThread.id);
+    }
+  }, [
+    bootstrapDone,
+    contacts,
+    handleContactClick,
+    handleGroupChatClick,
+    loadMessages,
+    pickDefaultThread,
+    selectedContact,
+    selectedThreadId,
+    threads,
+    user?.id
+  ]);
 
   // Load members when thread changes to group
   useEffect(() => {
