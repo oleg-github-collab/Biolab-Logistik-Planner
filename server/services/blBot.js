@@ -321,11 +321,12 @@ class BLBot {
   /**
    * Generate AI response using OpenAI
    */
-  async generateAIResponse(userMessage, userId) {
+  async generateAIResponse(userMessage, userId, conversationId = null) {
     console.log('🤖 generateAIResponse called', {
       hasOpenAI: !!this.openai,
       openaiKey: process.env.OPENAI_API_KEY ? 'SET (length: ' + process.env.OPENAI_API_KEY.length + ')' : 'NOT SET',
       userId,
+      conversationId,
       messageLength: userMessage?.length
     });
 
@@ -394,14 +395,26 @@ Bitte versuchen Sie es später erneut oder kontaktieren Sie den Administrator.`;
       const systemPrompt = this.buildSystemPrompt(userContext, kbArticles);
       console.log('✅ System prompt built, length:', systemPrompt?.length);
 
-      console.log('🔄 Calling OpenAI API...');
+      // Get conversation history if conversationId provided
+      let conversationHistory = [];
+      if (conversationId) {
+        console.log('🔄 Getting conversation history...');
+        conversationHistory = await this.getConversationHistory(conversationId);
+        console.log('✅ Conversation history retrieved:', conversationHistory.length, 'messages');
+      }
+
+      // Build messages array with history
+      const messages = [
+        { role: 'system', content: systemPrompt },
+        ...conversationHistory,
+        { role: 'user', content: userMessage }
+      ];
+
+      console.log('🔄 Calling OpenAI API with', messages.length, 'messages...');
       // Call OpenAI (using gpt-4o-mini for faster responses)
       const completion = await this.openai.chat.completions.create({
         model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userMessage }
-        ],
+        messages,
         temperature: 0.7,
         max_tokens: 1000
       });
@@ -412,7 +425,14 @@ Bitte versuchen Sie es später erneut oder kontaktieren Sie den Administrator.`;
         responseLength: completion.choices?.[0]?.message?.content?.length
       });
 
-      return completion.choices[0].message.content;
+      const assistantResponse = completion.choices[0].message.content;
+
+      // Save conversation history if conversationId provided
+      if (conversationId) {
+        await this.saveConversationHistory(conversationId, userId, userMessage, assistantResponse);
+      }
+
+      return assistantResponse;
     } catch (error) {
       console.error('❌ Error in generateAIResponse:', error);
       logger.error('Error generating AI response:', error);
@@ -789,10 +809,11 @@ Schönes Wochenende! 🎉`;
   /**
    * Process incoming message to BL_Bot (ENHANCED with complex query support)
    */
-  async processIncomingMessage(userId, message) {
+  async processIncomingMessage(userId, message, conversationId = null) {
     try {
       console.log('🤖 BL_Bot processing incoming message', {
         userId,
+        conversationId,
         message,
         messageLength: message?.length,
         openaiEnabled: !!this.openai
@@ -846,12 +867,12 @@ Schönes Wochenende! 🎉`;
       // KNOWLEDGE BASE specific queries
       if (lowerMessage.includes('wie') || lowerMessage.includes('was ist') || lowerMessage.includes('erkläre')) {
         // Extract keywords for KB search
-        const response = await this.generateAIResponse(message, userId);
+        const response = await this.generateAIResponse(message, userId, conversationId);
         return response;
       }
 
-      // COMPLEX MULTI-PART queries - Use AI for everything else
-      return await this.generateAIResponse(message, userId);
+      // COMPLEX MULTI-PART queries - Use AI for everything else with conversation history
+      return await this.generateAIResponse(message, userId, conversationId);
     } catch (error) {
       logger.error('Error processing incoming message:', error);
       return 'Entschuldigung, es gab einen Fehler bei der Verarbeitung Ihrer Nachricht. Bitte versuchen Sie es erneut oder kontaktieren Sie den Administrator.';
@@ -1204,6 +1225,74 @@ Schönes Wochenende! 🎉`;
       clearInterval(this.onlineInterval);
       this.onlineInterval = null;
       logger.info('BL_Bot online heartbeat stopped');
+    }
+  }
+
+  /**
+   * Get conversation history from database
+   * Returns last 20 messages (10 exchanges) for context
+   */
+  async getConversationHistory(conversationId) {
+    try {
+      const result = await pool.query(
+        `SELECT role, content, created_at
+         FROM bot_conversation_history
+         WHERE conversation_id = $1
+         ORDER BY created_at DESC
+         LIMIT 20`,
+        [conversationId]
+      );
+
+      // Reverse to get chronological order (oldest first)
+      return result.rows.reverse().map(row => ({
+        role: row.role,
+        content: row.content
+      }));
+    } catch (error) {
+      logger.error('Error fetching conversation history:', error);
+      return []; // Return empty array on error, conversation continues without history
+    }
+  }
+
+  /**
+   * Save conversation history to database
+   * Stores both user message and assistant response
+   */
+  async saveConversationHistory(conversationId, userId, userMessage, assistantResponse) {
+    try {
+      // Save user message
+      await pool.query(
+        `INSERT INTO bot_conversation_history (conversation_id, user_id, role, content)
+         VALUES ($1, $2, 'user', $3)`,
+        [conversationId, userId, userMessage]
+      );
+
+      // Save assistant response
+      await pool.query(
+        `INSERT INTO bot_conversation_history (conversation_id, user_id, role, content)
+         VALUES ($1, $2, 'assistant', $3)`,
+        [conversationId, userId, assistantResponse]
+      );
+
+      // Cleanup old messages (keep last 50 per conversation)
+      await pool.query(
+        `DELETE FROM bot_conversation_history
+         WHERE id IN (
+           SELECT id FROM (
+             SELECT id,
+                    ROW_NUMBER() OVER (PARTITION BY conversation_id ORDER BY created_at DESC) as rn
+             FROM bot_conversation_history
+             WHERE conversation_id = $1
+           ) t
+           WHERE t.rn > 50
+         )`,
+        [conversationId]
+      );
+
+      console.log('✅ Conversation history saved for conversation:', conversationId);
+    } catch (error) {
+      logger.error('Error saving conversation history:', error);
+      // Don't throw error, just log it - conversation should continue even if history save fails
     }
   }
 }

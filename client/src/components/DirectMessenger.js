@@ -2160,11 +2160,7 @@ const DirectMessenger = () => {
                     <div className="contact-group">
                       <p className="contact-group__heading">Alle Kontakte</p>
                       <div className="contact-group__grid">
-                        {groupedContacts.remainingContacts.length > 0 ? (
-                          groupedContacts.remainingContacts.map((contact) => renderContactCard(contact))
-                        ) : (
-                          <p className="contact-list__empty">Alle Kontakte sind auf dem aktuellen Stand.</p>
-                        )}
+                        {decoratedContacts.map((contact) => renderContactCard(contact))}
                       </div>
                     </div>
                   )}

@@ -1060,8 +1060,8 @@ const sendMessageHandler = async (req, res) => {
         // Process message with BL_Bot in background
         setImmediate(async () => {
           try {
-            console.log('🤖 Calling blBot.processIncomingMessage...');
-            const response = await blBot.processIncomingMessage(req.user.id, messageContent);
+            console.log('🤖 Calling blBot.processIncomingMessage with conversationId:', targetConversationId);
+            const response = await blBot.processIncomingMessage(req.user.id, messageContent, targetConversationId);
             console.log('🤖 BL_Bot response received:', response ? 'YES' : 'NO');
 
             // Stop typing indicator
