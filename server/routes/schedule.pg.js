@@ -598,6 +598,22 @@ router.get('/hours-summary/month/:year/:month', auth, async (req, res) => {
     const monthStart = new Date(parseInt(year), parseInt(month) - 1, 1);
     const monthEnd = new Date(parseInt(year), parseInt(month), 0);
 
+    // Calculate number of calendar weeks in month (proper way)
+    // Count Mondays in the month
+    let totalWeeksInMonth = 0;
+    const tempDate = new Date(monthStart);
+    while (tempDate <= monthEnd) {
+      // Count each Monday as a new week
+      if (tempDate.getDay() === 1) { // Monday = 1
+        totalWeeksInMonth++;
+      }
+      tempDate.setDate(tempDate.getDate() + 1);
+    }
+    // If month starts on non-Monday, count first partial week
+    if (monthStart.getDay() !== 1) {
+      totalWeeksInMonth++;
+    }
+
     // Get all schedules for this month
     const scheduleResult = await pool.query(
       `SELECT week_start, start_time, end_time, is_working, notes
@@ -628,9 +644,9 @@ router.get('/hours-summary/month/:year/:month', auth, async (req, res) => {
       }
     });
 
-    // Calculate totals
+    // Calculate totals using calendar weeks
     const weeks = Object.values(weekSummaries);
-    const totalWeeks = weeks.length;
+    const totalWeeks = totalWeeksInMonth; // Use calculated calendar weeks, not data count
     const totalQuota = weeklyQuota * totalWeeks;
     const totalBooked = weeks.reduce((sum, week) => sum + week.totalBooked, 0);
     const difference = totalBooked - totalQuota;
