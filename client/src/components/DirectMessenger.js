@@ -60,6 +60,33 @@ import VoiceMessagePlayer from './VoiceMessagePlayer';
 import { showError, showSuccess } from '../utils/toast';
 import { getAssetUrl } from '../utils/media';
 
+const GENERAL_THREAD_NAMES = ['general chat', 'general'];
+const BOT_CONTACT_TEMPLATE = {
+  id: 8,
+  name: 'BL_Bot',
+  email: 'bl_bot@system.local',
+  is_bot: true,
+  online: true,
+  status: 'AI Assistant'
+};
+const BOT_FALLBACK_IDS = [BOT_CONTACT_TEMPLATE.id, 999999];
+
+const isGeneralThread = (thread) =>
+  thread?.type === 'group' &&
+  GENERAL_THREAD_NAMES.some((name) => (thread?.name || '').toLowerCase().includes(name));
+
+const isBotContact = (contact) => {
+  if (!contact) return false;
+  const name = (contact.name || '').toLowerCase();
+  const email = (contact.email || '').toLowerCase();
+  return Boolean(
+    contact.is_bot ||
+    BOT_FALLBACK_IDS.includes(contact.id) ||
+    name.includes('bot') ||
+    email.includes('bot')
+  );
+};
+
 const DirectMessenger = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -114,6 +141,74 @@ const DirectMessenger = () => {
   const [showStoryComposer, setShowStoryComposer] = useState(false);
   const [longPressMenuMessage, setLongPressMenuMessage] = useState(null);
   const [longPressMenuPosition, setLongPressMenuPosition] = useState({ x: 0, y: 0 });
+  const [bootstrapDone, setBootstrapDone] = useState(false);
+
+  const ensureBotContactExists = useCallback((contactList) => {
+    const list = Array.isArray(contactList) ? contactList.filter(Boolean) : [];
+    if (list.some((contact) => isBotContact(contact))) {
+      return list;
+    }
+    return [...list, BOT_CONTACT_TEMPLATE];
+  }, []);
+
+  const ensureEssentialThreads = useCallback(async (threadsList, contactList) => {
+    const safeThreads = Array.isArray(threadsList) ? threadsList : [];
+    const contactsSafe = Array.isArray(contactList) ? contactList.filter(Boolean) : [];
+    let updatedThreads = [...safeThreads];
+
+    if (!updatedThreads.some((thread) => isGeneralThread(thread))) {
+      try {
+        const memberIds = contactsSafe.map((contact) => contact?.id).filter(Boolean);
+        const response = await createConversationThread({
+          name: 'General Chat',
+          type: 'group',
+          description: 'Offener Chat für das gesamte Team',
+          memberIds
+        });
+
+        if (response?.data) {
+          updatedThreads = [response.data, ...updatedThreads];
+        }
+      } catch (error) {
+        console.error('Error ensuring General Chat exists:', error);
+      }
+    }
+
+    const hasBotThread = updatedThreads.some(
+      (thread) =>
+        thread?.is_bot ||
+        (thread?.type === 'direct' && (thread?.name || '').toLowerCase().includes('bot'))
+    );
+
+    if (!hasBotThread) {
+      const botContact = contactsSafe.find((contact) => isBotContact(contact));
+      if (botContact?.id) {
+        try {
+          const botThreadResponse = await createConversationThread({
+            name: botContact.name || 'BL_Bot',
+            type: 'direct',
+            memberIds: [botContact.id],
+            is_bot: true
+          });
+
+          if (botThreadResponse?.data) {
+            updatedThreads = [botThreadResponse.data, ...updatedThreads];
+          }
+        } catch (error) {
+          console.error('Error ensuring bot thread exists:', error);
+        }
+      }
+    }
+
+    return updatedThreads;
+  }, []);
+
+  const pickDefaultThread = useCallback((threadList) => {
+    if (!Array.isArray(threadList) || threadList.length === 0) return null;
+    const general = threadList.find((thread) => isGeneralThread(thread));
+    if (general) return general;
+    return threadList[0];
+  }, []);
 
   const fileInputRef = useRef(null);
   const mobileInputRef = useRef(null);
@@ -248,17 +343,20 @@ const DirectMessenger = () => {
           : Array.isArray(contactsRes?.data?.contacts)
             ? contactsRes.data.contacts
             : [];
+        const contactsWithBot = ensureBotContactExists(contactsArray);
+        const rawThreads = Array.isArray(threadsRes?.data) ? threadsRes.data : [];
+        const threadsWithEssentials = await ensureEssentialThreads(rawThreads, contactsWithBot);
 
         console.log('📦 [DirectMessenger] API Responses:', {
           contactsRes,
           contactsData: contactsRes?.data,
           contactsArray,
           contactsCount: contactsArray.length,
-          threadsCount: Array.isArray(threadsRes?.data) ? threadsRes.data.length : 0,
+          threadsCount: rawThreads.length,
           storiesCount: Array.isArray(storiesRes?.data?.stories) ? storiesRes.data.stories.length : 0
         });
-        setContacts(contactsArray);
-        setThreads(Array.isArray(threadsRes?.data) ? threadsRes.data : []);
+        setContacts(contactsWithBot);
+        setThreads(threadsWithEssentials);
         setStories(Array.isArray(storiesRes?.data?.stories) ? storiesRes.data.stories : []);
       } catch (error) {
         console.error('❌ Error loading data:', error);
@@ -272,7 +370,7 @@ const DirectMessenger = () => {
       }
     };
     loadData();
-  }, []);
+  }, [ensureBotContactExists, ensureEssentialThreads]);
 
   useEffect(() => {
     if (isMobile) {
@@ -281,6 +379,50 @@ const DirectMessenger = () => {
       setShowSidebar(true);
     }
   }, [isMobile]);
+
+  useEffect(() => {
+    if (bootstrapDone) return;
+    if (!Array.isArray(threads) || threads.length === 0) return;
+    if (selectedThreadId || selectedContact) return;
+
+    const defaultThread = pickDefaultThread(threads);
+    if (!defaultThread) return;
+
+    setBootstrapDone(true);
+
+    if (defaultThread.type === 'group') {
+      handleGroupChatClick(defaultThread);
+      return;
+    }
+
+    const partner =
+      Array.isArray(defaultThread.members) &&
+      defaultThread.members.find(
+        (member) => member?.user_id && member.user_id !== user?.id
+      );
+
+    const partnerContact =
+      (partner && contacts.find((contact) => contact.id === partner.user_id)) ||
+      contacts.find((contact) => isBotContact(contact));
+
+    if (partnerContact) {
+      handleContactClick(partnerContact);
+    } else if (defaultThread.id) {
+      setSelectedThreadId(defaultThread.id);
+      loadMessages(defaultThread.id);
+    }
+  }, [
+    bootstrapDone,
+    contacts,
+    handleContactClick,
+    handleGroupChatClick,
+    loadMessages,
+    pickDefaultThread,
+    selectedContact,
+    selectedThreadId,
+    threads,
+    user?.id
+  ]);
 
   useEffect(() => {
     setSelectedEvent(null);
@@ -491,7 +633,7 @@ const DirectMessenger = () => {
     }
   }, [normalizeMessage]);
 
-  const handleContactClick = async (contact) => {
+  const handleContactClick = useCallback(async (contact) => {
     console.log('[DirectMessenger] ===== handleContactClick START =====');
     console.log('[DirectMessenger] Contact:', contact);
     console.log('[DirectMessenger] Threads length:', threads?.length);
@@ -555,7 +697,7 @@ const DirectMessenger = () => {
       console.error('[DirectMessenger] Error stack:', error?.stack);
       showError('Fehler beim Öffnen des Chats: ' + (error?.message || 'Unbekannter Fehler'));
     }
-  };
+  }, [threads, loadMessages, isMobile]);
 
   // Handler for group chat selection
   const handleGroupChatClick = useCallback(async (groupThread) => {
@@ -1303,8 +1445,10 @@ const DirectMessenger = () => {
       .filter(thread => thread?.type === 'group')
       .sort((a, b) => {
         // Pin General Chat to top
-        if (a.name === 'General Chat') return -1;
-        if (b.name === 'General Chat') return 1;
+        const aGeneral = isGeneralThread(a);
+        const bGeneral = isGeneralThread(b);
+        if (aGeneral && !bGeneral) return -1;
+        if (bGeneral && !aGeneral) return 1;
 
         // Sort by unread count
         const aUnread = a.unreadCount || 0;
@@ -1980,7 +2124,7 @@ const DirectMessenger = () => {
           <div className="contact-card__body">
             <p className="contact-card__name">
               {contact.name}
-              {isBot && <span className="ml-1 text-xs">🤖</span>}
+              {isBot && <span className="contact-card__pill">Bot</span>}
             </p>
             {isBot && (
               <p className="text-xs text-purple-600 font-semibold">AI Assistant</p>
@@ -1994,12 +2138,14 @@ const DirectMessenger = () => {
     const renderGroupChatCard = (groupThread) => {
       const isSelected = selectedThreadId === groupThread.id;
       const unreadCount = groupThread.unreadCount || 0;
+      const isGeneral = isGeneralThread(groupThread);
+      const displayName = isGeneral ? 'General Chat' : (groupThread.name || 'Group Chat');
 
       return (
         <button
           key={groupThread.id}
           onClick={() => handleGroupChatClick(groupThread)}
-          className={`contact-card ${isSelected ? 'contact-card--active' : ''}`}
+          className={`contact-card ${isSelected ? 'contact-card--active' : ''} ${isGeneral ? 'contact-card--general' : ''}`}
         >
           <div className="relative">
             <div className="contact-card__avatar-ring">
@@ -2014,7 +2160,10 @@ const DirectMessenger = () => {
             )}
           </div>
           <div className="contact-card__body">
-            <p className="contact-card__name">{groupThread.name}</p>
+            <p className="contact-card__name">
+              {displayName}
+              {isGeneral && <span className="contact-card__pill">Allgemein</span>}
+            </p>
           </div>
         </button>
       );

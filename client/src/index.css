@@ -45,6 +45,12 @@
 /* Messenger Powerful - Enhanced with Fixed Input & Better Design */
 @import './styles/messenger-powerful.css';
 
+/* Messenger Clarity - Polished desktop & mobile overrides */
+@import './styles/messenger-clarity.css';
+
+/* Knowledge Base Mobile Boost */
+@import './styles/knowledge-base-mobile.css';
+
 @tailwind utilities;
 
 /* Notification Animation */

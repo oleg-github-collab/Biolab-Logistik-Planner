@@ -101,6 +101,16 @@ const KistenManager = () => {
   const frameRef = useRef(null);
   const scanningRef = useRef(false);
 
+  useEffect(() => {
+    if (!barcodeViewerOpen) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [barcodeViewerOpen]);
+
   const stopScanning = useCallback(() => {
     scanningRef.current = false;
     setScanning(false);

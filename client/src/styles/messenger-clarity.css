@@ -1,0 +1,110 @@
+/* Messenger Clarity - focused overrides for a cleaner messenger on desktop and mobile */
+
+body.messenger-page {
+  background: radial-gradient(120% 120% at 0% 0%, rgba(59, 130, 246, 0.06), transparent 50%),
+              radial-gradient(120% 120% at 100% 0%, rgba(139, 92, 246, 0.05), transparent 50%),
+              #f8fbff;
+}
+
+.messenger-page-container {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 60%, #f5f7fb 100%);
+}
+
+.messenger-desktop-header {
+  position: sticky;
+  top: 0;
+  z-index: 25;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 6px 24px rgba(15, 23, 42, 0.06);
+}
+
+.messenger-desktop-messages {
+  background:
+    radial-gradient(140% 140% at 0% 0%, rgba(59, 130, 246, 0.06), transparent 50%),
+    radial-gradient(140% 140% at 100% 0%, rgba(79, 70, 229, 0.05), transparent 45%),
+    #f8fafc;
+  padding: 20px 24px 28px;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.messenger-mobile-messages {
+  background: #f9fbff;
+  padding: 14px 12px calc(18px + env(safe-area-inset-bottom, 0px));
+}
+
+.contact-list__grid {
+  gap: 10px;
+}
+
+.contact-card {
+  border: 1px solid transparent;
+  border-radius: 14px;
+  margin: 4px 0;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.contact-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.08);
+  border-color: #e2e8f0;
+}
+
+.contact-card--active {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 10px 32px rgba(59, 130, 246, 0.18);
+}
+
+.contact-card--general {
+  background: linear-gradient(135deg, #eff6ff, #f5f3ff) !important;
+  border-color: #bfdbfe !important;
+}
+
+.contact-card--bot {
+  background: linear-gradient(135deg, #f5f3ff, #fff7ed) !important;
+  border-color: #e9d5ff !important;
+}
+
+.contact-card__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(59, 130, 246, 0.14);
+  color: #1d4ed8;
+}
+
+.messenger-quick-replies {
+  gap: 6px;
+  padding: 6px 10px;
+  background: #ffffff;
+  border-top: 1px solid #e2e8f0;
+}
+
+.messenger-quick-reply {
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.messenger-quick-reply--action {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+}
+
+@media (max-width: 767px) {
+  .messenger-mobile-header-enhanced {
+    box-shadow: 0 6px 20px rgba(15, 23, 42, 0.08);
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .contact-card {
+    border-radius: 16px;
+    border-color: #e2e8f0;
+  }
+}

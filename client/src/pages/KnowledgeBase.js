@@ -772,6 +772,11 @@ const ArticleEditorModal = ({ article, categories, allTags, onSave, onClose, onD
         }
       });
       setMediaFiles([]);
+      return true;
+    } catch (error) {
+      console.error('Error uploading media:', error);
+      toast.error('Anhänge konnten nicht hochgeladen werden');
+      throw error;
     } finally {
       setUploadingMedia(false);
     }
@@ -808,12 +813,22 @@ const ArticleEditorModal = ({ article, categories, allTags, onSave, onClose, onD
 
       const savedArticle = await onSave(payload);
 
-      if (savedArticle?.id) {
-        await uploadPendingMedia(savedArticle.id);
+      if (!savedArticle?.id) {
+        throw new Error('Artikel-ID fehlt nach dem Speichern');
       }
+
+      await uploadPendingMedia(savedArticle.id);
 
       onClose();
     } catch (error) {
+      setIsSaving(false);
+      const message =
+        error?.response?.data?.error ||
+        error?.message ||
+        'Artikel konnte nicht gespeichert werden';
+      toast.error(message);
+      return;
+    } finally {
       setIsSaving(false);
     }
   };
@@ -827,11 +842,19 @@ const ArticleEditorModal = ({ article, categories, allTags, onSave, onClose, onD
   }, [title, content, summary, categoryId, tags, autoSaveDraft, categories]);
 
 
+  const modalWrapperClass = isMobile
+    ? 'fixed inset-0 bg-black/60 flex items-start justify-center z-50 p-3 pt-4'
+    : 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
+
+  const modalBodyClass = isMobile
+    ? 'bg-white rounded-2xl shadow-2xl w-full max-w-3xl h-[calc(100vh-1.5rem)] max-h-[calc(100vh-1.5rem)] flex flex-col overflow-hidden'
+    : 'bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[95vh] flex flex-col';
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[95vh] flex flex-col">
+    <div className={modalWrapperClass}>
+      <div className={modalBodyClass}>
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className={`flex items-center justify-between p-6 border-b border-gray-200 ${isMobile ? 'sticky top-0 bg-white z-10' : ''}`}>
           <h2 className="text-2xl font-bold text-gray-900">
             {isEditing ? 'Artikel bearbeiten' : 'Neuer Artikel'}
           </h2>
