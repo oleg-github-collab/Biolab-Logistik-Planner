@@ -257,9 +257,9 @@ const ArticleViewModal = ({
   currentUserId,
   currentUserRole,
   onVersionDiff,
-  diffLoadingVersion
+  diffLoadingVersion,
+  isMobile
 }) => {
-  const { isMobile } = useMobile();
   const [isDeleting, setIsDeleting] = useState(false);
   const [voting, setVoting] = useState(false);
   const [versions, setVersions] = useState([]);
@@ -2167,6 +2167,7 @@ const KnowledgeBaseV3 = () => {
           currentUserRole={currentUser?.role}
           onVersionDiff={handleVersionDiff}
           diffLoadingVersion={diffLoadingVersion}
+          isMobile={isMobile}
         />
       )}
 
