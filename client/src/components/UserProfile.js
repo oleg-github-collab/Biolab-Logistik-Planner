@@ -14,6 +14,7 @@ import {
   markStoryViewed
 } from '../utils/apiEnhanced';
 import { getAssetUrl } from '../utils/media';
+import '../styles/user-profile-mobile.css';
 
 const UserProfile = ({ userId, onClose }) => {
   const [profile, setProfile] = useState(null);

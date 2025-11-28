@@ -87,6 +87,14 @@ const isBotContact = (contact) => {
   );
 };
 
+const normalizeUserId = (value) => {
+  const asNumber = Number(value);
+  if (!Number.isNaN(asNumber) && Number.isFinite(asNumber)) {
+    return asNumber;
+  }
+  return value;
+};
+
 const DirectMessenger = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -150,6 +158,50 @@ const DirectMessenger = () => {
     }
     return [...list, BOT_CONTACT_TEMPLATE];
   }, []);
+
+  const buildContactsFromThreads = useCallback((threadList) => {
+    const safeThreads = Array.isArray(threadList) ? threadList : [];
+    const byId = new Map();
+
+    safeThreads.forEach((thread) => {
+      if (!Array.isArray(thread?.members)) return;
+      thread.members.forEach((member) => {
+        const userId = normalizeUserId(member?.user_id || member?.id);
+        if (!userId || byId.has(userId)) return;
+        byId.set(userId, {
+          id: userId,
+          name: member?.name || member?.email || `User ${userId}`,
+          email: member?.email || '',
+          is_bot: member?.is_system_user || isBotContact(member),
+          online: member?.online || false
+        });
+      });
+    });
+
+    return Array.from(byId.values());
+  }, []);
+
+  const mergeContacts = useCallback((primaryList, extraList) => {
+    const primary = Array.isArray(primaryList) ? primaryList.filter(Boolean) : [];
+    const extras = Array.isArray(extraList) ? extraList.filter(Boolean) : [];
+    const map = new Map();
+
+    primary.forEach((contact) => {
+      if (!contact?.id) return;
+      map.set(contact.id, contact);
+    });
+
+    extras.forEach((contact) => {
+      if (!contact?.id) return;
+      if (!map.has(contact.id)) {
+        map.set(contact.id, contact);
+      }
+    });
+
+    // Ensure bot contact always present
+    const withBot = ensureBotContactExists(Array.from(map.values()));
+    return withBot;
+  }, [ensureBotContactExists]);
 
   const ensureEssentialThreads = useCallback(async (threadsList, contactList) => {
     const safeThreads = Array.isArray(threadsList) ? threadsList : [];
@@ -346,6 +398,8 @@ const DirectMessenger = () => {
         const contactsWithBot = ensureBotContactExists(contactsArray);
         const rawThreads = Array.isArray(threadsRes?.data) ? threadsRes.data : [];
         const threadsWithEssentials = await ensureEssentialThreads(rawThreads, contactsWithBot);
+        const threadContacts = buildContactsFromThreads(threadsWithEssentials);
+        const mergedContacts = mergeContacts(contactsWithBot, threadContacts);
 
         console.log('📦 [DirectMessenger] API Responses:', {
           contactsRes,
@@ -355,7 +409,7 @@ const DirectMessenger = () => {
           threadsCount: rawThreads.length,
           storiesCount: Array.isArray(storiesRes?.data?.stories) ? storiesRes.data.stories.length : 0
         });
-        setContacts(contactsWithBot);
+        setContacts(mergedContacts);
         setThreads(threadsWithEssentials);
         setStories(Array.isArray(storiesRes?.data?.stories) ? storiesRes.data.stories : []);
       } catch (error) {
@@ -370,7 +424,7 @@ const DirectMessenger = () => {
       }
     };
     loadData();
-  }, [ensureBotContactExists, ensureEssentialThreads]);
+  }, [buildContactsFromThreads, ensureBotContactExists, ensureEssentialThreads, mergeContacts]);
 
   useEffect(() => {
     if (isMobile) {
@@ -379,6 +433,18 @@ const DirectMessenger = () => {
       setShowSidebar(true);
     }
   }, [isMobile]);
+
+  // Keep contacts in sync with thread members (fallback when contact API misses users)
+  useEffect(() => {
+    const extras = buildContactsFromThreads(threads);
+    const merged = mergeContacts(contacts, extras);
+    const currentIds = new Set(contacts.map((c) => c.id));
+    const mergedIds = new Set(merged.map((c) => c.id));
+    const hasDiff = currentIds.size !== mergedIds.size || Array.from(mergedIds).some((id) => !currentIds.has(id));
+    if (hasDiff) {
+      setContacts(merged);
+    }
+  }, [buildContactsFromThreads, contacts, mergeContacts, threads]);
 
   useEffect(() => {
     setSelectedEvent(null);
@@ -625,7 +691,7 @@ const DirectMessenger = () => {
         const response = await createConversationThread({
           name: contact.name || 'Unbekannt',
           type: 'direct',
-          memberIds: [contact.id]
+          memberIds: [normalizeUserId(contact.id)]
         });
 
         console.log('[DirectMessenger] Create thread response:', response);
@@ -651,7 +717,8 @@ const DirectMessenger = () => {
       console.error('[DirectMessenger] Error object:', error);
       console.error('[DirectMessenger] Error message:', error?.message);
       console.error('[DirectMessenger] Error stack:', error?.stack);
-      showError('Fehler beim Öffnen des Chats: ' + (error?.message || 'Unbekannter Fehler'));
+      const serverMessage = error?.response?.data?.error || error?.message || 'Unbekannter Fehler';
+      showError('Chat konnte nicht geöffnet werden: ' + serverMessage);
     }
   }, [threads, loadMessages, isMobile]);
 
@@ -2078,11 +2145,11 @@ const DirectMessenger = () => {
       groupThreads: groupThreads.length,
       loading
     });
-    const renderContactCard = (contact) => {
-      const isSelected = selectedContact?.id === contact.id;
-      const contactStory = storyMap?.[contact.id];
-      const unreadCount = contact.unreadCount || 0;
-      const isBot = contact.is_bot || contact.is_system_user ||
+  const renderContactCard = (contact) => {
+    const isSelected = selectedContact?.id === contact.id;
+    const contactStory = storyMap?.[contact.id];
+    const unreadCount = contact.unreadCount || 0;
+    const isBot = contact.is_bot || contact.is_system_user ||
                     contact.email?.includes('bl_bot') ||
                     contact.email?.includes('entsorgungsbot');
 
