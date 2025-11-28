@@ -1937,26 +1937,39 @@ const DirectMessenger = () => {
       const isSelected = selectedContact?.id === contact.id;
       const contactStory = storyMap?.[contact.id];
       const unreadCount = contact.unreadCount || 0;
+      const isBot = contact.is_bot || contact.is_system_user ||
+                    contact.email?.includes('bl_bot') ||
+                    contact.email?.includes('entsorgungsbot');
 
       return (
         <button
           key={contact.id}
           onClick={() => handleContactClick(contact)}
-          className={`contact-card ${isSelected ? 'contact-card--active' : ''}`}
+          className={`contact-card ${isSelected ? 'contact-card--active' : ''} ${isBot ? 'contact-card--bot' : ''}`}
         >
           <div className="relative">
             <div
               className={`contact-card__avatar-ring ${contactStory ? 'has-story' : ''} ${
                 contactStory && !contactStory.viewerHasSeen ? 'story-unread' : ''
-              }`}
+              } ${isBot ? 'bot-ring' : ''}`}
             >
-              <div className="contact-card__avatar">
-                {contact.name?.[0]?.toUpperCase() || contact.email?.[0]?.toUpperCase() || '?'}
+              <div className={`contact-card__avatar ${isBot ? 'bot-avatar' : ''}`}>
+                {isBot ? (
+                  <Bot className="w-5 h-5" />
+                ) : (
+                  contact.name?.[0]?.toUpperCase() || contact.email?.[0]?.toUpperCase() || '?'
+                )}
               </div>
             </div>
             {/* Online status indicator */}
-            {contact.online && (
+            {contact.online && !isBot && (
               <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white shadow-sm" />
+            )}
+            {/* Bot badge */}
+            {isBot && (
+              <div className="absolute bottom-0 right-0 w-5 h-5 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full border-2 border-white shadow-sm flex items-center justify-center">
+                <Bot className="w-3 h-3 text-white" />
+              </div>
             )}
             {unreadCount > 0 && (
               <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[1.25rem] h-5 flex items-center justify-center px-1.5 shadow-lg">
@@ -1965,7 +1978,13 @@ const DirectMessenger = () => {
             )}
           </div>
           <div className="contact-card__body">
-            <p className="contact-card__name">{contact.name}</p>
+            <p className="contact-card__name">
+              {contact.name}
+              {isBot && <span className="ml-1 text-xs">🤖</span>}
+            </p>
+            {isBot && (
+              <p className="text-xs text-purple-600 font-semibold">AI Assistant</p>
+            )}
           </div>
         </button>
       );

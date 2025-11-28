@@ -709,6 +709,37 @@ body {
     letter-spacing: 0.05em;
   }
 
+  /* Bot Contact Styling */
+  .contact-card--bot {
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.08) 0%, rgba(236, 72, 153, 0.08) 100%) !important;
+    border: 1px solid rgba(168, 85, 247, 0.2) !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .contact-card--bot:hover {
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.12) 0%, rgba(236, 72, 153, 0.12) 100%) !important;
+    border-color: rgba(168, 85, 247, 0.35) !important;
+    box-shadow: 0 4px 20px rgba(168, 85, 247, 0.15);
+    transform: translateY(-2px);
+  }
+
+  .bot-ring {
+    background: linear-gradient(135deg, #a855f7, #ec4899) !important;
+    box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.2);
+  }
+
+  .bot-avatar {
+    background: linear-gradient(135deg, #a855f7, #ec4899) !important;
+    color: white !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .bot-avatar svg {
+    color: white !important;
+  }
+
   .story-viewer-extra-close {
     position: absolute;
     inset: 0;

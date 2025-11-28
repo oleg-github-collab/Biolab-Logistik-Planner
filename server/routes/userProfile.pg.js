@@ -238,13 +238,19 @@ router.get('/contacts/all', auth, async (req, res) => {
   try {
     const { search, role, status } = req.query;
 
+    // Включаємо BL_Bot та всіх користувачів крім поточного
     let query = `
       SELECT
         u.id, u.name, u.email, u.role, u.profile_photo,
         u.status, u.status_message, u.position_description,
-        u.last_seen_at, u.created_at, u.is_system_user
+        u.last_seen_at, u.created_at, u.is_system_user,
+        CASE
+          WHEN u.email IN ('bl_bot@biolab.de', 'entsorgungsbot@biolab.de') THEN TRUE
+          ELSE FALSE
+        END as is_bot
       FROM users u
-      WHERE u.is_active = TRUE AND u.id != $1
+      WHERE u.is_active = TRUE
+        AND u.id != $1
     `;
 
     const params = [req.user.id];
@@ -268,7 +274,13 @@ router.get('/contacts/all', auth, async (req, res) => {
       paramIndex++;
     }
 
-    query += ' ORDER BY u.name';
+    // BL_Bot завжди перший, потім всі інші за алфавітом
+    query += ` ORDER BY
+      CASE
+        WHEN u.email IN ('bl_bot@biolab.de', 'entsorgungsbot@biolab.de') THEN 0
+        ELSE 1
+      END,
+      u.name ASC`;
 
     const result = await pool.query(query, params);
 
