@@ -34,6 +34,9 @@
 /* Messenger Clarity - Polished desktop & mobile overrides */
 @import './styles/messenger-clarity.css';
 
+/* Native mobile messenger skin */
+@import './styles/mobile/mobile-messenger-native.css';
+
 /* Knowledge Base Mobile Boost */
 @import './styles/knowledge-base-mobile.css';
 
