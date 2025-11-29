@@ -14,16 +14,11 @@
 @import './styles/mobile/mobile-calendar.css';
 @import './styles/mobile/mobile-planner.css';
 @import './styles/mobile/mobile-notifications.css';
-@import './styles/mobile/mobile-messenger.css';
-@import './styles/mobile/mobile-messenger-fix.css'; /* Виправлення месенджера */
 @import './styles/mobile/mobile-forms.css';
 @import './styles/mobile/mobile-toast.css';
 @import './styles/mobile/mobile-admin.css';
 @import './styles/mobile/mobile-modals.css';
 @import './styles/mobile/mobile-kanban.css';
-
-/* Premium Enhancements - MUST BE LAST for override priority */
-@import './styles/messenger-enhanced.css';
 
 /* Perfect Mobile Enhancements - Priority Order Matters */
 @import './styles/mobile-perfect-scrolling.css';
@@ -35,15 +30,6 @@
 
 /* Mobile Menu Fix - Ensure visibility */
 @import './styles/mobile-menu-fix.css';
-
-/* Messenger Mobile Ultimate - Complete mobile messenger redesign */
-@import './styles/messenger-mobile-ultimate.css';
-
-/* Messenger Ultimate - Perfect Desktop & Mobile Design */
-@import './styles/messenger-ultimate.css';
-
-/* Messenger Powerful - Enhanced with Fixed Input & Better Design */
-@import './styles/messenger-powerful.css';
 
 /* Messenger Clarity - Polished desktop & mobile overrides */
 @import './styles/messenger-clarity.css';
