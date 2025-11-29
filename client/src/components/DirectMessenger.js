@@ -434,6 +434,16 @@ const DirectMessenger = () => {
     }
   }, [isMobile]);
 
+  // When arriving from main menu, default to contact list view
+  useEffect(() => {
+    if (location.pathname.includes('/messages')) {
+      if (isMobile) {
+        setMobileMode('list');
+      }
+      setShowSidebar(!isMobile);
+    }
+  }, [isMobile, location.pathname]);
+
   // Keep contacts in sync with thread members (fallback when contact API misses users)
   useEffect(() => {
     const extras = buildContactsFromThreads(threads);
@@ -1317,6 +1327,13 @@ const DirectMessenger = () => {
 
   const cancelReply = useCallback(() => {
     setReplyToMessage(null);
+  }, []);
+
+  const handleBackToContacts = useCallback(() => {
+    setShowSidebar(true);
+    setMobileMode('list');
+    setSelectedThreadId(null);
+    setSelectedContact(null);
   }, []);
 
   const handlePinMessage = useCallback(async (message) => {
@@ -2448,6 +2465,14 @@ const DirectMessenger = () => {
                 ) : null}
               </div>
               <div className="messenger-desktop-header__actions">
+                <button
+                  onClick={handleBackToContacts}
+                  className="messenger-desktop-header__action-btn"
+                  title="Zurück zu Kontakten"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                  <span className="hidden lg:inline">Kontakte</span>
+                </button>
                 {selectedThreadId && threads.find(t => t.id === selectedThreadId)?.type === 'group' && (
                   <button
                     onClick={() => setShowMembersModal(true)}
