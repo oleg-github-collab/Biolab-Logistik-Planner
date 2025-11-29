@@ -30,30 +30,35 @@ body.messenger-page {
 }
 
 .messenger-mobile-messages {
-  background: #f9fbff;
-  padding: 14px 12px calc(18px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(180deg, #f8fbff 0%, #f3f4f6 100%);
+  padding: 14px 12px calc(22px + env(safe-area-inset-bottom, 0px));
 }
 
 .contact-list__grid {
-  gap: 10px;
+  gap: 12px;
 }
 
 .contact-card {
-  border: 1px solid transparent;
-  border-radius: 14px;
-  margin: 4px 0;
-  transition: transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 14px !important;
+  margin: 2px 0 !important;
+  padding: 12px !important;
+  display: flex !important;
+  gap: 12px !important;
+  background: #ffffff !important;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08) !important;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s ease !important;
 }
 
 .contact-card:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.08);
-  border-color: #e2e8f0;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.12) !important;
+  border-color: #cbd5e1 !important;
 }
 
 .contact-card--active {
   border-color: #3b82f6 !important;
-  box-shadow: 0 10px 32px rgba(59, 130, 246, 0.18);
+  box-shadow: 0 12px 26px rgba(59, 130, 246, 0.2) !important;
 }
 
 .contact-card--general {
@@ -64,6 +69,12 @@ body.messenger-page {
 .contact-card--bot {
   background: linear-gradient(135deg, #f5f3ff, #fff7ed) !important;
   border-color: #e9d5ff !important;
+}
+
+.contact-card__avatar {
+  width: 48px !important;
+  height: 48px !important;
+  box-shadow: 0 6px 14px rgba(59, 130, 246, 0.18);
 }
 
 .contact-card__pill {
@@ -77,6 +88,26 @@ body.messenger-page {
   font-weight: 700;
   background: rgba(59, 130, 246, 0.14);
   color: #1d4ed8;
+}
+
+.contact-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.contact-card__name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.contact-card__body p:not(.contact-card__name) {
+  color: #475569 !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
 }
 
 .messenger-quick-replies {
@@ -226,6 +257,7 @@ body.messenger-page {
   background: #111827;
   border: 1px solid #1f2937;
   color: #e5e7eb;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.18);
 }
 
 .messenger-mobile-input .composer-actions button svg {

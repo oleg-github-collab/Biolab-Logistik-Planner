@@ -64,8 +64,26 @@ const MonthlyHoursCalculator = () => {
     return null;
   }
 
-  const progressPercentage = summary.totalQuota > 0
-    ? (summary.totalBooked / summary.totalQuota) * 100
+  const safeNumber = (value, fallback = 0) =>
+    Number.isFinite(value) ? value : fallback;
+
+  const totalWeeks = Number.isFinite(summary.totalWeeks)
+    ? summary.totalWeeks
+    : Number.isFinite(summary.workingDaysCount)
+      ? parseFloat((summary.workingDaysCount / 5).toFixed(2))
+      : 0;
+
+  const weeklyQuota = safeNumber(summary.weeklyQuota, 0);
+  const totalBooked = safeNumber(summary.totalBooked, 0);
+  const totalQuota = Number.isFinite(summary.totalQuota)
+    ? summary.totalQuota
+    : Number.isFinite(summary.expectedHours)
+      ? summary.expectedHours
+      : totalWeeks * weeklyQuota;
+  const difference = safeNumber(summary.difference, totalBooked - totalQuota);
+
+  const progressPercentage = totalQuota > 0
+    ? (totalBooked / totalQuota) * 100
     : 0;
 
   return (
@@ -124,7 +142,7 @@ const MonthlyHoursCalculator = () => {
                 <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
               </svg>
             </div>
-            <div className="text-3xl font-bold text-blue-900">{summary.totalWeeks}</div>
+            <div className="text-3xl font-bold text-blue-900">{totalWeeks}</div>
           </div>
 
           {/* Wochenstunden */}
@@ -135,7 +153,7 @@ const MonthlyHoursCalculator = () => {
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
               </svg>
             </div>
-            <div className="text-3xl font-bold text-purple-900">{summary.weeklyQuota}h</div>
+            <div className="text-3xl font-bold text-purple-900">{weeklyQuota}h</div>
           </div>
 
           {/* Total Quota */}
@@ -146,7 +164,7 @@ const MonthlyHoursCalculator = () => {
                 <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
               </svg>
             </div>
-            <div className="text-3xl font-bold text-indigo-900">{summary.totalQuota.toFixed(1)}h</div>
+            <div className="text-3xl font-bold text-indigo-900">{totalQuota.toFixed(1)}h</div>
           </div>
 
           {/* Gebucht gesamt */}
@@ -157,7 +175,7 @@ const MonthlyHoursCalculator = () => {
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
               </svg>
             </div>
-            <div className="text-3xl font-bold text-green-900">{summary.totalBooked.toFixed(1)}h</div>
+            <div className="text-3xl font-bold text-green-900">{totalBooked.toFixed(1)}h</div>
           </div>
         </div>
 
@@ -187,7 +205,7 @@ const MonthlyHoursCalculator = () => {
             ? 'bg-gradient-to-r from-red-50 to-red-100 border-2 border-red-300'
             : summary.status === 'under'
             ? 'bg-gradient-to-r from-yellow-50 to-yellow-100 border-2 border-yellow-300'
-            : 'bg-gradient-to-r from-green-50 to-green-100 border-2 border-green-300'
+          : 'bg-gradient-to-r from-green-50 to-green-100 border-2 border-green-300'
         }`}>
           <div className="text-center">
             <div className={`text-6xl font-bold mb-2 ${
@@ -197,7 +215,7 @@ const MonthlyHoursCalculator = () => {
                 ? 'text-yellow-700'
                 : 'text-green-700'
             }`}>
-              {summary.difference >= 0 ? '+' : ''}{summary.difference.toFixed(1)}h
+              {difference >= 0 ? '+' : ''}{difference.toFixed(1)}h
             </div>
             <div className={`text-lg font-semibold ${
               summary.status === 'over'
@@ -211,8 +229,8 @@ const MonthlyHoursCalculator = () => {
               {summary.status === 'exact' && '✓ Perfect Balance'}
             </div>
             <p className="text-sm text-gray-600 mt-2">
-              {summary.status === 'over' && `You have scheduled ${Math.abs(summary.difference).toFixed(1)} hours more than your monthly quota.`}
-              {summary.status === 'under' && `You have ${Math.abs(summary.difference).toFixed(1)} hours remaining to reach your monthly quota.`}
+              {summary.status === 'over' && `You have scheduled ${Math.abs(difference).toFixed(1)} hours more than your monthly quota.`}
+              {summary.status === 'under' && `You have ${Math.abs(difference).toFixed(1)} hours remaining to reach your monthly quota.`}
               {summary.status === 'exact' && 'Your scheduled hours perfectly match your monthly quota!'}
             </p>
           </div>
