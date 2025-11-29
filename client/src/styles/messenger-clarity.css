@@ -107,6 +107,22 @@ body.messenger-page {
     border-radius: 16px;
     border-color: #e2e8f0;
   }
+
+  .messenger-mobile-messages {
+    padding: 12px 12px 120px !important; /* leave room for input */
+  }
+
+  .messenger-mobile-list-header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+
+  .messenger-mobile-header-actions {
+    position: sticky;
+    top: 58px;
+    z-index: 20;
+  }
 }
 
 /* Elevated contact cards */
@@ -200,6 +216,14 @@ body.messenger-page {
 }
 
 .messenger-mobile-input .composer-actions button {
+  justify-content: flex-start;
+}
+
+.messenger-mobile-input .composer-actions button svg {
+  color: #60a5fa;
+}
+
+.messenger-mobile-input .composer-actions button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -226,4 +250,21 @@ body.messenger-page {
 .messenger-mobile-input .send-btn:active {
   transform: translateY(1px);
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.18);
+}
+
+/* Clean up mobile message bubbles spacing */
+.messenger-mobile-messages .message-bubble {
+  max-width: 88% !important;
+  border-radius: 18px !important;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+
+.messenger-mobile-messages .message-bubble.mine {
+  background: linear-gradient(135deg, #2563eb, #4f46e5) !important;
+  color: #f8fafc !important;
+}
+
+.messenger-mobile-messages .message-bubble.other {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
 }

@@ -21,15 +21,14 @@
   /* Використовуємо динамічну висоту замість 100vh */
   html, body {
     height: 100%;
-    min-height: 100%;
-    min-height: calc(var(--vh, 1vh) * 100);
+    min-height: calc(var(--vh, 1vh) * 100 + var(--safe-area-bottom));
     overflow: hidden;
   }
 
   /* Root контейнер */
   #root {
     height: 100%;
-    min-height: calc(var(--vh, 1vh) * 100);
+    min-height: calc(var(--vh, 1vh) * 100 + var(--safe-area-bottom));
     display: flex;
     flex-direction: column;
   }
@@ -37,7 +36,7 @@
   /* Головний app контейнер БЕЗ padding-bottom */
   #mobile-app-root {
     height: 100%;
-    min-height: calc(var(--vh, 1vh) * 100);
+    min-height: calc(var(--vh, 1vh) * 100 + var(--safe-area-bottom));
     display: flex;
     flex-direction: column;
     padding-bottom: 0 !important; /* Видаляємо pb-16 */
@@ -48,7 +47,7 @@
     flex: 1;
     min-height: 0;
     overflow: hidden;
-    padding-bottom: 0 !important;
+    padding-bottom: var(--app-bottom-offset) !important;
     position: relative;
   }
 
@@ -162,7 +161,7 @@
 
   /* Всі сторінки крім messenger мають padding для bottom nav */
   body:not(.messenger-page) main {
-    padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0)) !important;
+    padding-bottom: var(--app-bottom-offset) !important;
   }
 
   /* Dashboard, Kanban та інші - правильний скролл */

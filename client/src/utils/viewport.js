@@ -6,8 +6,9 @@
 export const initViewportHeight = () => {
   // Функція для встановлення реальної висоти viewport
   const setViewportHeight = () => {
-    // Отримуємо реальну висоту viewport (без адресної строки)
-    const vh = window.innerHeight * 0.01;
+    // Отримуємо максимально точну висоту viewport (visualViewport, fallback innerHeight)
+    const viewportHeight = window.visualViewport?.height || window.innerHeight;
+    const vh = viewportHeight * 0.01;
     // Встановлюємо CSS змінну
     document.documentElement.style.setProperty('--vh', `${vh}px`);
 
@@ -16,8 +17,9 @@ export const initViewportHeight = () => {
       getComputedStyle(document.documentElement).getPropertyValue('env(safe-area-inset-bottom)') || '0'
     );
 
-    // Висота bottom nav
-    const bottomNavHeight = 56;
+    // Висота bottom nav (динамічно, якщо елемент вже в DOM)
+    const navEl = document.querySelector('.bottom-nav-mobile');
+    const bottomNavHeight = navEl?.offsetHeight || 56;
 
     // Встановлюємо змінні
     document.documentElement.style.setProperty('--bottom-nav-height', `${bottomNavHeight}px`);
