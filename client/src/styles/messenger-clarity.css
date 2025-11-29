@@ -34,11 +34,13 @@ body.messenger-page {
   padding: 14px 12px calc(22px + env(safe-area-inset-bottom, 0px));
 }
 
-.contact-list__grid {
+.contact-list__grid,
+.messenger-mobile-list-view .contact-list__grid {
   gap: 12px;
 }
 
-.contact-card {
+.contact-card,
+.messenger-mobile-list-view .contact-card {
   border: 1px solid #e2e8f0 !important;
   border-radius: 14px !important;
   margin: 2px 0 !important;
@@ -50,34 +52,40 @@ body.messenger-page {
   transition: transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s ease !important;
 }
 
-.contact-card:hover {
+.contact-card:hover,
+.messenger-mobile-list-view .contact-card:hover {
   transform: translateY(-1px) !important;
   box-shadow: 0 10px 22px rgba(15, 23, 42, 0.12) !important;
   border-color: #cbd5e1 !important;
 }
 
-.contact-card--active {
+.contact-card--active,
+.messenger-mobile-list-view .contact-card--active {
   border-color: #3b82f6 !important;
   box-shadow: 0 12px 26px rgba(59, 130, 246, 0.2) !important;
 }
 
-.contact-card--general {
+.contact-card--general,
+.messenger-mobile-list-view .contact-card--general {
   background: linear-gradient(135deg, #eff6ff, #f5f3ff) !important;
   border-color: #bfdbfe !important;
 }
 
-.contact-card--bot {
+.contact-card--bot,
+.messenger-mobile-list-view .contact-card--bot {
   background: linear-gradient(135deg, #f5f3ff, #fff7ed) !important;
   border-color: #e9d5ff !important;
 }
 
-.contact-card__avatar {
+.contact-card__avatar,
+.messenger-mobile-list-view .contact-card__avatar {
   width: 48px !important;
   height: 48px !important;
   box-shadow: 0 6px 14px rgba(59, 130, 246, 0.18);
 }
 
-.contact-card__pill {
+.contact-card__pill,
+.messenger-mobile-list-view .contact-card__pill {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -90,13 +98,15 @@ body.messenger-page {
   color: #1d4ed8;
 }
 
-.contact-card__body {
+.contact-card__body,
+.messenger-mobile-list-view .contact-card__body {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.contact-card__name {
+.contact-card__name,
+.messenger-mobile-list-view .contact-card__name {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -104,7 +114,8 @@ body.messenger-page {
   color: #0f172a;
 }
 
-.contact-card__body p:not(.contact-card__name) {
+.contact-card__body p:not(.contact-card__name),
+.messenger-mobile-list-view .contact-card__body p:not(.contact-card__name) {
   color: #475569 !important;
   font-size: 12px !important;
   font-weight: 600 !important;
