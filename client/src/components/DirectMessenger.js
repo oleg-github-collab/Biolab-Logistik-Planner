@@ -2746,7 +2746,11 @@ const DirectMessenger = () => {
       <div className="messenger-mobile-header-enhanced">
         <button
           className="messenger-mobile-header-enhanced__back"
-          onClick={() => setMobileMode('list')}
+          onClick={() => {
+            setMobileMode('list');
+            setSelectedThreadId(null);
+            setSelectedContact(null);
+          }}
           aria-label="Zurück zu Kontakten"
         >
           <ChevronLeft className="w-5 h-5" />

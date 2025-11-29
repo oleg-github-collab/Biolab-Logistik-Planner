@@ -132,6 +132,7 @@ body.messenger-page {
   background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%) !important;
   box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08) !important;
   transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease !important;
+  padding: 12px 14px !important;
 }
 
 .contact-card:hover {
@@ -153,6 +154,8 @@ body.messenger-page {
   display: flex;
   align-items: center;
   gap: 6px;
+  font-weight: 700;
+  color: #0f172a;
 }
 
 .contact-card__pill {
@@ -213,10 +216,16 @@ body.messenger-page {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
   gap: 8px;
+  background: #0b1220;
+  border-radius: 14px;
+  padding: 10px;
 }
 
 .messenger-mobile-input .composer-actions button {
   justify-content: flex-start;
+  background: #111827;
+  border: 1px solid #1f2937;
+  color: #e5e7eb;
 }
 
 .messenger-mobile-input .composer-actions button svg {
@@ -267,4 +276,21 @@ body.messenger-page {
 .messenger-mobile-messages .message-bubble.other {
   background: #ffffff !important;
   border: 1px solid #e2e8f0 !important;
+}
+
+/* Mobile header/back button refinements */
+.messenger-mobile-header-enhanced {
+  position: sticky;
+  top: 0;
+}
+
+.messenger-mobile-header-enhanced__back {
+  background: #0f172a !important;
+  color: #e2e8f0 !important;
+  border: 1px solid #1f2937 !important;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.25);
+}
+
+.messenger-mobile-header-enhanced__avatar {
+  box-shadow: 0 12px 26px rgba(59, 130, 246, 0.25);
 }
