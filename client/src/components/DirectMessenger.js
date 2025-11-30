@@ -841,13 +841,23 @@ const DirectMessenger = () => {
     const value = e.target.value;
     const cursorPos = e.target.selectionStart;
 
-    // Auto-resize textarea on mobile
+    // Auto-resize textarea on mobile (1 row → 4 rows max, then scroll)
     if (mobileTextareaRef.current && isMobile) {
-      mobileTextareaRef.current.style.height = 'auto';
-      mobileTextareaRef.current.style.height = `${Math.min(140, mobileTextareaRef.current.scrollHeight)}px`;
-      if (mobileInputRef.current) {
-        const { height } = mobileInputRef.current.getBoundingClientRect();
-        document.documentElement.style.setProperty('--messenger-input-height', `${Math.ceil(height)}px`);
+      const textarea = mobileTextareaRef.current;
+      textarea.style.height = 'auto';
+
+      // 1 рядок = 20px, 4 рядки = 80px
+      const minHeight = 20;
+      const maxHeight = 80;
+      const scrollHeight = textarea.scrollHeight;
+
+      textarea.style.height = `${Math.max(minHeight, Math.min(maxHeight, scrollHeight))}px`;
+
+      // Показуємо overflow тільки коли досягли maxHeight
+      if (scrollHeight > maxHeight) {
+        textarea.style.overflowY = 'auto';
+      } else {
+        textarea.style.overflowY = 'hidden';
       }
     }
 
