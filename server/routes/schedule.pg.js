@@ -598,6 +598,19 @@ router.get('/hours-summary/month/:year/:month', auth, async (req, res) => {
     const monthStart = new Date(parseInt(year), parseInt(month) - 1, 1);
     const monthEnd = new Date(parseInt(year), parseInt(month), 0);
 
+    // Calculate number of calendar weeks in month
+    let totalWeeksInMonth = 0;
+    const tempDate = new Date(monthStart);
+    while (tempDate <= monthEnd) {
+      if (tempDate.getDay() === 1) { // Monday = 1
+        totalWeeksInMonth++;
+      }
+      tempDate.setDate(tempDate.getDate() + 1);
+    }
+    if (monthStart.getDay() !== 1) {
+      totalWeeksInMonth++;
+    }
+
     // Count actual working days (Mon-Fri, excluding public holidays) in the month
     const workingDaysCount = await workingDaysService.countWorkingDays(monthStart, monthEnd);
     const holidaysSet = await workingDaysService.getPublicHolidays(monthStart, monthEnd);
@@ -646,6 +659,7 @@ router.get('/hours-summary/month/:year/:month', auth, async (req, res) => {
     const totalBooked = weeks.reduce((sum, week) => sum + week.totalBooked, 0);
     const dailyQuota = weeklyQuota / 5; // distribute weekly quota across 5 working days
     const expectedHours = dailyQuota * workingDaysCount;
+    const totalQuota = weeklyQuota * totalWeeksInMonth; // Total quota based on calendar weeks
     const difference = totalBooked - expectedHours;
     const status = difference === 0 ? 'exact' : (difference < 0 ? 'under' : 'over');
 
@@ -653,8 +667,10 @@ router.get('/hours-summary/month/:year/:month', auth, async (req, res) => {
       year: parseInt(year),
       month: parseInt(month),
       weeklyQuota,
+      totalWeeks: totalWeeksInMonth, // Calendar weeks in month
+      totalQuota, // weeklyQuota × totalWeeks
       workingDaysCount,
-      expectedHours,
+      expectedHours, // realistic target based on working days
       totalBooked,
       difference,
       status,
