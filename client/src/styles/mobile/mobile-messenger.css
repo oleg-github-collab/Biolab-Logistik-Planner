@@ -875,7 +875,7 @@
   .messenger-mobile-chat-mode,
   .messenger-mobile-list-mode {
     position: relative;
-    z-index: auto;
+    z-index: auto !important; /* НЕ створюємо stacking context */
   }
 
   .messenger-mobile-chat-mode {

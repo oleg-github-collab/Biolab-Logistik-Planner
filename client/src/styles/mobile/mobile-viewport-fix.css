@@ -87,7 +87,7 @@
     bottom: 0 !important;
     height: 100dvh !important; /* Dynamic Viewport Height */
     overflow: hidden !important;
-    z-index: 1 !important;
+    z-index: auto !important; /* НЕ створюємо stacking context */
   }
 
   /* Messenger mobile container - займає весь простір мінус bottom nav */
