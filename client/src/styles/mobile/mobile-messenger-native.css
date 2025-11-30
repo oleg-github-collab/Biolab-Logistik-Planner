@@ -365,8 +365,8 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto !important;
-    padding: 14px 14px calc(var(--messenger-input-height, 94px) + 56px + 18px) !important; /* Input + bottom nav */
-    scroll-padding-bottom: calc(var(--messenger-input-height, 94px) + 56px + 18px);
+    padding: 14px 14px 100px !important; /* Більше padding для input */
+    scroll-padding-bottom: 100px;
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.01), rgba(255, 255, 255, 0.04));
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
@@ -482,11 +482,12 @@
 
   .messenger-mobile-input {
     position: fixed !important;
-    bottom: calc(56px + env(safe-area-inset-bottom, 0px)) !important;
+    bottom: 0 !important; /* САМИЙ НИЗ ЕКРАНУ */
     left: 0 !important;
     right: 0 !important;
-    z-index: 200 !important; /* НАД bottom nav (100) */
+    z-index: 9999 !important; /* ВИЩЕ ЗА ВСЕ */
     padding: 8px !important;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)) !important;
     background: rgba(11, 18, 32, 0.98);
     border-top: 1px solid rgba(148, 163, 184, 0.25);
     backdrop-filter: blur(24px);
@@ -600,7 +601,7 @@
   .composer-actions {
     position: absolute;
     left: 8px;
-    bottom: 56px;
+    bottom: 64px; /* НАД input */
     width: 280px;
     max-width: calc(100% - 16px);
     border-radius: 20px;
@@ -615,7 +616,7 @@
       0 4px 12px rgba(0, 0, 0, 0.3);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    z-index: 250 !important; /* НАД input (200) */
+    z-index: 10000 !important; /* ВИЩЕ ЗА INPUT */
     animation: slideUpFadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 

@@ -153,10 +153,8 @@ const DirectMessenger = () => {
 
   const ensureBotContactExists = useCallback((contactList) => {
     const list = Array.isArray(contactList) ? contactList.filter(Boolean) : [];
-    if (list.some((contact) => isBotContact(contact))) {
-      return list;
-    }
-    return [...list, BOT_CONTACT_TEMPLATE];
+    // НЕ додаємо фейкового бота - тільки реальний з API
+    return list;
   }, []);
 
   const buildContactsFromThreads = useCallback((threadList) => {
