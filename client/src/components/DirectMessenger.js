@@ -2918,87 +2918,6 @@ const DirectMessenger = () => {
         </div>
       )}
       {renderMobileQuickReplies()}
-      <form ref={mobileInputRef} onSubmit={handleSendMessage} className="messenger-mobile-input">
-        {showComposerActions && (
-          <div className="composer-actions">
-            <button type="button" onClick={() => fileInputRef.current?.click()}>
-              <Paperclip className="w-4 h-4" />
-              Datei
-            </button>
-            <button type="button" onClick={() => setShowGifPicker((prev) => !prev)}>
-              <ImageIcon className="w-4 h-4" />
-              GIF
-            </button>
-            <button type="button" onClick={openEventPicker}>
-              <CalendarDays className="w-4 h-4" />
-              Event
-            </button>
-            <button type="button" onClick={() => setShowQuickReplies(true)}>
-              <Zap className="w-4 h-4" />
-              Quick
-            </button>
-            <button type="button" onClick={isRecording ? stopRecording : startRecording}>
-              {isRecording ? <StopCircle className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-              Audio
-            </button>
-            {(() => {
-              const currentThread = threads.find(t => t.id === selectedThreadId);
-              const isGroupChat = currentThread?.type === 'group' || currentThread?.conversation_type === 'group';
-              return isGroupChat ? (
-                <button type="button" onClick={handleAskBot}>
-                  <Bot className="w-4 h-4" />
-                  Bot
-                </button>
-              ) : null;
-            })()}
-          </div>
-        )}
-        <div className="messenger-mobile-input-row">
-          <button
-            type="button"
-            onClick={toggleComposerActions}
-            className={`compose-toggle ${showComposerActions ? 'active' : ''}`}
-            aria-label="Aktionen umschalten"
-          >
-            <Plus className="w-5 h-5" />
-          </button>
-          <div className="input-wrapper">
-            <textarea
-              ref={mobileTextareaRef}
-              rows={1}
-              value={messageInput}
-              onChange={handleInputChange}
-              placeholder={
-                selectedThreadId && threads.find(t => t.id === selectedThreadId)?.type === 'group'
-                  ? "Nachricht... (@BL_Bot für Hilfe)"
-                  : "Nachricht schreiben..."
-              }
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSendMessage();
-                }
-              }}
-              className="message-input"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={sending || (!messageInput.trim() && pendingAttachments.length === 0 && !selectedEvent)}
-            className="send-btn"
-          >
-            <Send className="w-5 h-5" />
-          </button>
-        </div>
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          accept="image/*,audio/*,video/*,.pdf,.doc,.docx"
-          onChange={handleFileSelect}
-          className="hidden"
-        />
-      </form>
     </div>
   );
 
@@ -3183,6 +3102,91 @@ const DirectMessenger = () => {
       )}
 
       {isMobile ? renderMobileLayout() : renderDesktopLayout()}
+
+      {/* MOBILE INPUT - ПОЗА messenger-mobile-container для правильного z-index */}
+      {isMobile && (selectedContact || selectedThreadId) && (
+        <form ref={mobileInputRef} onSubmit={handleSendMessage} className="messenger-mobile-input">
+          {showComposerActions && (
+            <div className="composer-actions">
+              <button type="button" onClick={() => fileInputRef.current?.click()}>
+                <Paperclip className="w-4 h-4" />
+                Datei
+              </button>
+              <button type="button" onClick={() => setShowGifPicker((prev) => !prev)}>
+                <ImageIcon className="w-4 h-4" />
+                GIF
+              </button>
+              <button type="button" onClick={openEventPicker}>
+                <CalendarDays className="w-4 h-4" />
+                Event
+              </button>
+              <button type="button" onClick={() => setShowQuickReplies(true)}>
+                <Zap className="w-4 h-4" />
+                Quick
+              </button>
+              <button type="button" onClick={isRecording ? stopRecording : startRecording}>
+                {isRecording ? <StopCircle className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                Audio
+              </button>
+              {(() => {
+                const currentThread = threads.find(t => t.id === selectedThreadId);
+                const isGroupChat = currentThread?.type === 'group' || currentThread?.conversation_type === 'group';
+                return isGroupChat ? (
+                  <button type="button" onClick={handleAskBot}>
+                    <Bot className="w-4 h-4" />
+                    Bot
+                  </button>
+                ) : null;
+              })()}
+            </div>
+          )}
+          <div className="messenger-mobile-input-row">
+            <button
+              type="button"
+              onClick={toggleComposerActions}
+              className={`compose-toggle ${showComposerActions ? 'active' : ''}`}
+              aria-label="Aktionen umschalten"
+            >
+              <Plus className="w-5 h-5" />
+            </button>
+            <div className="input-wrapper">
+              <textarea
+                ref={mobileTextareaRef}
+                rows={1}
+                value={messageInput}
+                onChange={handleInputChange}
+                placeholder={
+                  selectedThreadId && threads.find(t => t.id === selectedThreadId)?.type === 'group'
+                    ? "Nachricht... (@BL_Bot für Hilfe)"
+                    : "Nachricht schreiben..."
+                }
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
+                className="message-input"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={sending || (!messageInput.trim() && pendingAttachments.length === 0 && !selectedEvent)}
+              className="send-btn"
+            >
+              <Send className="w-5 h-5" />
+            </button>
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/*,audio/*,video/*,.pdf,.doc,.docx"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+        </form>
+      )}
 
       {isMobile && showPinnedDrawer && (
         <div className="fixed inset-0 z-[300100] bg-slate-900/70 backdrop-blur-sm flex flex-col justify-end">
