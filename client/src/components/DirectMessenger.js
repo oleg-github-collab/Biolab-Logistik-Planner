@@ -1325,13 +1325,35 @@ const DirectMessenger = () => {
   const handleLongPressStart = useCallback((e, msg) => {
     if (!isMobile) return;
 
-    const touch = e.touches ? e.touches[0] : e;
+    const target = e.currentTarget;
     longPressTimerRef.current = setTimeout(() => {
+      // Отримуємо позицію message bubble відносно viewport
+      const rect = target.getBoundingClientRect();
+
+      // Висота меню (приблизно)
+      const menuHeight = 250;
+      const menuWidth = 200;
+
+      // Smart positioning: показуємо меню НАД повідомленням якщо є місце, інакше ПІД
+      let y = rect.top - 10; // НАД повідомленням
+      if (y - menuHeight < 20) {
+        // Якщо немає місця зверху, показуємо знизу
+        y = rect.bottom + 10;
+      }
+
+      // Центруємо по горизонталі відносно повідомлення
+      let x = rect.left + rect.width / 2;
+
+      // Перевіряємо чи не виходить за межі екрану
+      if (x + menuWidth / 2 > window.innerWidth - 20) {
+        x = window.innerWidth - menuWidth / 2 - 20;
+      }
+      if (x - menuWidth / 2 < 20) {
+        x = menuWidth / 2 + 20;
+      }
+
       setLongPressMenuMessage(msg);
-      setLongPressMenuPosition({
-        x: touch.clientX,
-        y: touch.clientY
-      });
+      setLongPressMenuPosition({ x, y });
     }, 500); // 500ms for long press
   }, [isMobile]);
 
@@ -2037,8 +2059,9 @@ const DirectMessenger = () => {
               style={{
                 top: `${longPressMenuPosition.y}px`,
                 left: `${longPressMenuPosition.x}px`,
-                transform: 'translate(-50%, -50%)',
-                minWidth: '200px'
+                transform: 'translate(-50%, 0)',
+                minWidth: '200px',
+                maxWidth: 'calc(100vw - 40px)'
               }}
             >
               <div className="py-2">
