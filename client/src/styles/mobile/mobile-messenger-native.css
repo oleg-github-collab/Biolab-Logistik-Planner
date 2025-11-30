@@ -282,7 +282,9 @@
   .messenger-mobile-chat-mode {
     display: flex;
     flex-direction: column;
+    height: 100vh;
     min-height: 100vh;
+    max-height: 100vh;
     background: radial-gradient(circle at 20% 10%, rgba(37, 99, 235, 0.1), transparent 28%),
       radial-gradient(circle at 90% 0%, rgba(124, 58, 237, 0.12), transparent 25%),
       linear-gradient(180deg, #0b1220 0%, #0f172a 100%);
@@ -362,14 +364,20 @@
   }
 
   .messenger-mobile-messages {
-    flex: 1;
+    flex: 1 1 auto;
     min-height: 0;
+    max-height: 100%;
     overflow-y: auto !important;
+    overflow-x: hidden;
     padding: 14px 14px 140px !important; /* Input (60px) + bottom nav (56px) + gap (24px) */
     scroll-padding-bottom: 140px;
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.01), rgba(255, 255, 255, 0.04));
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    position: relative;
   }
 
   .message-day-divider {
