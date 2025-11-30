@@ -1327,29 +1327,35 @@ const DirectMessenger = () => {
 
     const target = e.currentTarget;
     longPressTimerRef.current = setTimeout(() => {
+      // Знаходимо саме message bubble всередині контейнера
+      const messageBubble = target.querySelector('.message-bubble');
+      if (!messageBubble) return;
+
       // Отримуємо позицію message bubble відносно viewport
-      const rect = target.getBoundingClientRect();
+      const rect = messageBubble.getBoundingClientRect();
 
       // Висота меню (приблизно)
-      const menuHeight = 250;
-      const menuWidth = 200;
+      const menuHeight = 280;
+      const menuWidth = 220;
 
-      // Smart positioning: показуємо меню НАД повідомленням якщо є місце, інакше ПІД
+      // Smart positioning: показуємо меню НАД повідомленням якщо є місце
       let y = rect.top - 10; // НАД повідомленням
-      if (y - menuHeight < 20) {
-        // Якщо немає місця зверху, показуємо знизу
+
+      // Якщо немає місця зверху, показуємо знизу
+      if (y - menuHeight < 60) {
         y = rect.bottom + 10;
       }
 
       // Центруємо по горизонталі відносно повідомлення
       let x = rect.left + rect.width / 2;
 
-      // Перевіряємо чи не виходить за межі екрану
-      if (x + menuWidth / 2 > window.innerWidth - 20) {
-        x = window.innerWidth - menuWidth / 2 - 20;
+      // Перевіряємо чи не виходить за межі екрану по горизонталі
+      const halfWidth = menuWidth / 2;
+      if (x + halfWidth > window.innerWidth - 10) {
+        x = window.innerWidth - halfWidth - 10;
       }
-      if (x - menuWidth / 2 < 20) {
-        x = menuWidth / 2 + 20;
+      if (x - halfWidth < 10) {
+        x = halfWidth + 10;
       }
 
       setLongPressMenuMessage(msg);
