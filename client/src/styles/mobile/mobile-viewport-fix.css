@@ -1,15 +1,17 @@
 /* ==========================================
    MOBILE VIEWPORT FIX - НАДІЙНЕ РІШЕННЯ
    Виправляє проблеми з адресною строкою браузера
+   Використовує dvh (dynamic viewport height) для ідеального розміру
    ========================================== */
 
 /* CSS змінні для viewport */
 :root {
   --vh: 1vh;
+  --dvh: 1dvh; /* Dynamic Viewport Height - враховує адресний рядок */
   --bottom-nav-height: 56px;
   --safe-area-bottom: 0px;
   --app-bottom-offset: 56px;
-  --messenger-height: 100vh;
+  --messenger-height: 100dvh; /* Динамічна висота */
 }
 
 @media (max-width: 1023px) {
@@ -18,28 +20,32 @@
      БАЗОВА СТРУКТУРА З ДИНАМІЧНОЮ ВИСОТОЮ
      ========================================== */
 
-  /* Використовуємо динамічну висоту замість 100vh */
+  /* Використовуємо динамічну висоту (dvh) замість 100vh */
   html, body {
     height: 100%;
-    min-height: calc(var(--vh, 1vh) * 100 + var(--safe-area-bottom));
+    min-height: 100dvh; /* Dynamic Viewport Height враховує браузерний UI */
     overflow: hidden;
+    position: fixed;
+    width: 100%;
   }
 
   /* Root контейнер */
   #root {
     height: 100%;
-    min-height: calc(var(--vh, 1vh) * 100 + var(--safe-area-bottom));
+    min-height: 100dvh;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
   }
 
   /* Головний app контейнер БЕЗ padding-bottom */
   #mobile-app-root {
     height: 100%;
-    min-height: calc(var(--vh, 1vh) * 100 + var(--safe-area-bottom));
+    min-height: 100dvh;
     display: flex;
     flex-direction: column;
     padding-bottom: 0 !important; /* Видаляємо pb-16 */
+    overflow: hidden;
   }
 
   /* Main content - займає весь простір */
@@ -79,21 +85,23 @@
     left: 0 !important;
     right: 0 !important;
     bottom: 0 !important;
-    height: calc(var(--vh, 1vh) * 100) !important;
+    height: 100dvh !important; /* Dynamic Viewport Height */
     overflow: hidden !important;
     z-index: 1 !important;
   }
 
   /* Messenger mobile container - займає весь простір мінус bottom nav */
-  body.messenger-page .messenger-mobile-container {
-    position: absolute !important;
+  .messenger-mobile-container {
+    position: fixed !important;
     top: 0 !important;
     left: 0 !important;
     right: 0 !important;
     bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0)) !important;
     height: auto !important;
-    max-height: none !important;
+    max-height: calc(100dvh - var(--bottom-nav-height) - env(safe-area-inset-bottom, 0)) !important;
     overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
   }
 
   /* Messenger list view - правильна висота */
@@ -136,7 +144,7 @@
 
   /* Dashboard, Kanban та інші - правильний скролл */
   body:not(.messenger-page) .overflow-y-auto {
-    max-height: calc(var(--vh, 1vh) * 100 - var(--bottom-nav-height) - 64px) !important; /* -header */
+    max-height: calc(100dvh - var(--bottom-nav-height) - 64px) !important; /* -header */
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
   }
@@ -147,12 +155,22 @@
 
   @supports (-webkit-touch-callout: none) {
     /* iOS Safari має свої особливості з viewport */
+    html, body {
+      height: -webkit-fill-available !important;
+      min-height: -webkit-fill-available !important;
+    }
+
+    #root, #mobile-app-root {
+      height: -webkit-fill-available !important;
+      min-height: -webkit-fill-available !important;
+    }
+
     body.messenger-page .messenger-page-container {
       height: -webkit-fill-available !important;
     }
 
-    #mobile-app-root {
-      min-height: -webkit-fill-available !important;
+    .messenger-mobile-container {
+      max-height: -webkit-fill-available !important;
     }
   }
 
