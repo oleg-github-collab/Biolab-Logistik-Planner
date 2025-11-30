@@ -762,6 +762,8 @@ const DirectMessenger = () => {
 
   // Auto-select a default thread (General or first) once data is ready
   useEffect(() => {
+    // On mobile, stay on contact list until user picks a chat
+    if (isMobile) return;
     if (bootstrapDone) return;
     if (!Array.isArray(threads) || threads.length === 0) return;
     if (selectedThreadId || selectedContact) return;
