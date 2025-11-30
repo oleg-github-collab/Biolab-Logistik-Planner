@@ -242,12 +242,15 @@
 
   .contact-card__name {
     margin: 0;
-    font-weight: 700;
-    color: #f8fafc;
+    font-weight: 750;
+    color: #f1f5f9;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.28);
   }
 
   .contact-card__body p:not(.contact-card__name) {
-    color: #cbd5e1;
+    color: #e2e8f0;
+    font-weight: 650;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);
   }
 
   .contact-card__pill {
@@ -271,9 +274,11 @@
   .messenger-mobile-chat-mode {
     display: flex;
     flex-direction: column;
+    min-height: 100vh;
     background: radial-gradient(circle at 20% 10%, rgba(37, 99, 235, 0.1), transparent 28%),
       radial-gradient(circle at 90% 0%, rgba(124, 58, 237, 0.12), transparent 25%),
       linear-gradient(180deg, #0b1220 0%, #0f172a 100%);
+    overflow: hidden;
   }
 
   .messenger-mobile-header-enhanced {
@@ -351,10 +356,12 @@
   .messenger-mobile-messages {
     flex: 1;
     min-height: 0;
-    overflow-y: auto;
+    overflow-y: auto !important;
     padding: 14px 14px calc(var(--messenger-input-height, 94px) + 18px);
     scroll-padding-bottom: calc(var(--messenger-input-height, 94px) + 18px);
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.01), rgba(255, 255, 255, 0.04));
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
   .message-day-divider {
@@ -457,7 +464,16 @@
     backdrop-filter: blur(16px);
   }
 
+  .messenger-mobile-input-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    width: 100%;
+    position: relative;
+  }
+
   .messenger-mobile-input .input-wrapper {
+    flex: 1;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -478,15 +494,20 @@
     background: rgba(255, 255, 255, 0.12);
   }
 
-  .messenger-mobile-input input[type="text"] {
+  .messenger-mobile-input textarea.message-input {
     width: 100%;
     background: transparent;
     border: none;
     color: #f8fafc;
     font-size: 16px;
+    line-height: 1.5;
+    resize: none;
+    padding: 0;
+    min-height: 32px;
+    max-height: 140px;
   }
 
-  .messenger-mobile-input input[type="text"]::placeholder {
+  .messenger-mobile-input textarea.message-input::placeholder {
     color: rgba(226, 232, 240, 0.6);
   }
 
@@ -510,15 +531,21 @@
   }
 
   .composer-actions {
-    margin-top: 10px;
+    position: absolute;
+    left: 0;
+    bottom: 70px;
+    width: 260px;
+    max-width: calc(100% - 70px);
     border-radius: 18px;
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(148, 163, 184, 0.2);
+    background: rgba(15, 23, 42, 0.95);
+    border: 1px solid rgba(148, 163, 184, 0.35);
     padding: 10px;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
     box-shadow: 0 18px 36px rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(14px);
+    z-index: 50;
   }
 
   .composer-actions button {
@@ -542,6 +569,7 @@
     color: #f8fafc;
     box-shadow: 0 14px 32px rgba(37, 99, 235, 0.35);
     border: 1px solid rgba(255, 255, 255, 0.12);
+    align-self: flex-end;
   }
 
   .messenger-mobile-input .send-btn:active {
@@ -628,16 +656,20 @@
       inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
   }
 
-  body.messenger-page .messenger-mobile-container .messenger-mobile-input input[type="text"] {
+  body.messenger-page .messenger-mobile-container .messenger-mobile-input textarea.message-input {
     width: 100% !important;
     background: transparent !important;
     border: none !important;
     color: #f8fafc !important;
     font-size: 16px !important;
     line-height: 1.5 !important;
+    resize: none !important;
+    min-height: 32px !important;
+    max-height: 140px !important;
+    padding: 0 !important;
   }
 
-  body.messenger-page .messenger-mobile-container .messenger-mobile-input input[type="text"]::placeholder {
+  body.messenger-page .messenger-mobile-container .messenger-mobile-input textarea.message-input::placeholder {
     color: rgba(226, 232, 240, 0.6) !important;
   }
 
@@ -661,21 +693,26 @@
   }
 
   body.messenger-page .messenger-mobile-container .messenger-mobile-input .composer-actions {
-    margin-top: 10px !important;
+    position: absolute !important;
+    left: 0 !important;
+    bottom: 70px !important;
+    width: 260px !important;
+    max-width: calc(100% - 70px) !important;
     border-radius: 18px !important;
-    background: rgba(255, 255, 255, 0.06) !important;
-    border: 1px solid rgba(148, 163, 184, 0.2) !important;
+    background: rgba(15, 23, 42, 0.95) !important;
+    border: 1px solid rgba(148, 163, 184, 0.35) !important;
     padding: 10px !important;
     display: grid !important;
-    grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)) !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 8px !important;
     box-shadow: 0 18px 36px rgba(0, 0, 0, 0.35) !important;
+    backdrop-filter: blur(14px) !important;
   }
 
   body.messenger-page .messenger-mobile-container .messenger-mobile-input .composer-actions button {
-    border: 1px solid rgba(148, 163, 184, 0.25) !important;
-    background: rgba(255, 255, 255, 0.04) !important;
-    color: #e2e8f0 !important;
+    border: 1px solid rgba(148, 163, 184, 0.35) !important;
+    background: rgba(255, 255, 255, 0.06) !important;
+    color: #f8fafc !important;
     font-weight: 700 !important;
   }
 }

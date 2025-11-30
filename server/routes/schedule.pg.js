@@ -2068,4 +2068,150 @@ router.get('/team-week/:weekStart', auth, async (req, res) => {
   }
 });
 
+// @route   POST /api/schedule/initialize-default
+// @desc    Initialize default schedule for new user based on employment type
+// @access  Private
+router.post('/initialize-default', auth, async (req, res) => {
+  const client = await getClient();
+
+  try {
+    await client.query('BEGIN');
+
+    // Get user info
+    const userResult = await client.query(
+      `SELECT id, employment_type, weekly_hours_quota, first_login_completed
+       FROM users
+       WHERE id = $1`,
+      [req.user.id]
+    );
+
+    if (userResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Benutzer nicht gefunden' });
+    }
+
+    const user = userResult.rows[0];
+
+    // Check if already initialized
+    if (user.first_login_completed) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Zeitplan bereits initialisiert' });
+    }
+
+    // Determine daily hours based on employment type
+    let dailyHours = 8; // Default for Vollzeit
+    if (user.employment_type === 'Werkstudent') {
+      // For Werkstudent, calculate from weekly quota
+      dailyHours = user.weekly_hours_quota / 5; // Distribute across 5 days
+    }
+
+    // Get current week Monday
+    const today = new Date();
+    const currentWeekMonday = getMonday(today);
+
+    // Generate next 4 weeks of schedule
+    const weeksToGenerate = 4;
+    const schedules = [];
+
+    for (let weekOffset = 0; weekOffset < weeksToGenerate; weekOffset++) {
+      const weekStart = new Date(currentWeekMonday);
+      weekStart.setDate(weekStart.getDate() + (weekOffset * 7));
+      const weekStartStr = formatDateForDB(weekStart);
+
+      // Get public holidays for this week
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 6);
+      const holidays = await workingDaysService.getPublicHolidays(weekStart, weekEnd);
+
+      // Create schedule for Mon-Fri (0-4)
+      for (let dayOffset = 0; dayOffset < 5; dayOffset++) {
+        const dayDate = new Date(weekStart);
+        dayDate.setDate(dayDate.getDate() + dayOffset);
+        const dayDateStr = formatDateForDB(dayDate);
+
+        // Skip if public holiday
+        if (holidays.has(dayDateStr)) {
+          continue;
+        }
+
+        // Calculate start and end times for this day
+        const startTime = '08:00';
+        const endTime = dailyHours === 8
+          ? '17:00' // 8am-5pm with 1h lunch = 8h
+          : `${String(8 + Math.floor(dailyHours)).padStart(2, '0')}:${String(Math.round((dailyHours % 1) * 60)).padStart(2, '0')}`;
+
+        // Create time blocks
+        const timeBlocks = [{ start: startTime, end: endTime }];
+
+        schedules.push({
+          userId: user.id,
+          weekStart: weekStartStr,
+          dayOfWeek: dayOffset,
+          isWorking: true,
+          startTime,
+          endTime,
+          notes: serializeTimeBlocksToNotes(timeBlocks)
+        });
+      }
+    }
+
+    // Insert all schedules
+    if (schedules.length > 0) {
+      const insertQuery = `
+        INSERT INTO weekly_schedules
+        (user_id, week_start, day_of_week, is_working, start_time, end_time, notes)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        ON CONFLICT (user_id, week_start, day_of_week)
+        DO UPDATE SET
+          is_working = EXCLUDED.is_working,
+          start_time = EXCLUDED.start_time,
+          end_time = EXCLUDED.end_time,
+          notes = EXCLUDED.notes,
+          updated_at = CURRENT_TIMESTAMP
+      `;
+
+      for (const schedule of schedules) {
+        await client.query(insertQuery, [
+          schedule.userId,
+          schedule.weekStart,
+          schedule.dayOfWeek,
+          schedule.isWorking,
+          schedule.startTime,
+          schedule.endTime,
+          schedule.notes
+        ]);
+      }
+    }
+
+    // Mark first login as completed
+    await client.query(
+      'UPDATE users SET first_login_completed = TRUE WHERE id = $1',
+      [req.user.id]
+    );
+
+    await client.query('COMMIT');
+
+    logger.info('Default schedule initialized', {
+      userId: req.user.id,
+      employmentType: user.employment_type,
+      dailyHours,
+      schedulesCreated: schedules.length
+    });
+
+    res.json({
+      success: true,
+      message: 'Standardzeitplan erfolgreich erstellt',
+      schedulesCreated: schedules.length,
+      dailyHours
+    });
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    logger.error('Error initializing default schedule', error);
+    res.status(500).json({ error: 'Fehler beim Erstellen des Standardzeitplans' });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router;

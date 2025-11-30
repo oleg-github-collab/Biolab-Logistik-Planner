@@ -264,6 +264,7 @@ const DirectMessenger = () => {
 
   const fileInputRef = useRef(null);
   const mobileInputRef = useRef(null);
+  const mobileTextareaRef = useRef(null);
   const longPressTimerRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const recordingChunksRef = useRef([]);
@@ -841,6 +842,16 @@ const DirectMessenger = () => {
   const handleInputChange = (e) => {
     const value = e.target.value;
     const cursorPos = e.target.selectionStart;
+
+    // Auto-resize textarea on mobile
+    if (mobileTextareaRef.current && isMobile) {
+      mobileTextareaRef.current.style.height = 'auto';
+      mobileTextareaRef.current.style.height = `${Math.min(140, mobileTextareaRef.current.scrollHeight)}px`;
+      if (mobileInputRef.current) {
+        const { height } = mobileInputRef.current.getBoundingClientRect();
+        document.documentElement.style.setProperty('--messenger-input-height', `${Math.ceil(height)}px`);
+      }
+    }
 
     setMessageInput(value);
     setCursorPosition(cursorPos);
@@ -2657,7 +2668,7 @@ const DirectMessenger = () => {
                       ? "Nachricht schreiben... (Tipp: @BL_Bot für Hilfe)"
                       : "Nachricht schreiben..."
                   }
-                  className="flex-1 px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="flex-1 px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 message-input"
                 />
 
                 <button
@@ -2910,7 +2921,7 @@ const DirectMessenger = () => {
       )}
       {renderMobileQuickReplies()}
       <form ref={mobileInputRef} onSubmit={handleSendMessage} className="messenger-mobile-input">
-        <div className="flex items-end gap-2 w-full">
+        <div className="messenger-mobile-input-row">
           <div className="flex-1">
             <div className="input-wrapper">
               <button
@@ -2921,8 +2932,9 @@ const DirectMessenger = () => {
               >
                 <Plus className="w-5 h-5" />
               </button>
-              <input
-                type="text"
+              <textarea
+                ref={mobileTextareaRef}
+                rows={1}
                 value={messageInput}
                 onChange={handleInputChange}
                 placeholder={
@@ -2936,6 +2948,7 @@ const DirectMessenger = () => {
                     handleSendMessage();
                   }
                 }}
+                className="message-input"
               />
             </div>
             {showComposerActions && (

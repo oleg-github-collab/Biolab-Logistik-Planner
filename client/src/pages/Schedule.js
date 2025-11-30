@@ -1,12 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import HoursCalendar from '../components/HoursCalendar';
 import MonthlyHoursCalculator from '../components/MonthlyHoursCalculator';
 import TeamScheduleCalendar from '../components/TeamScheduleCalendar';
+import axios from 'axios';
 
 const Schedule = () => {
   const auth = useAuth(); const user = auth?.user;
   const [activeTab, setActiveTab] = useState('calendar');
+  const [initializingSchedule, setInitializingSchedule] = useState(false);
+
+  useEffect(() => {
+    const initializeDefaultSchedule = async () => {
+      if (!user || user.first_login_completed !== false || initializingSchedule) {
+        return;
+      }
+
+      setInitializingSchedule(true);
+      try {
+        const token = localStorage.getItem('token');
+        await axios.post(
+          `${process.env.REACT_APP_API_URL}/api/schedule/initialize-default`,
+          {},
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        // Reload user data to update first_login_completed flag
+        if (auth?.refetchUser) {
+          await auth.refetchUser();
+        }
+      } catch (error) {
+        console.error('Error initializing default schedule:', error);
+      } finally {
+        setInitializingSchedule(false);
+      }
+    };
+
+    initializeDefaultSchedule();
+  }, [user, initializingSchedule, auth]);
 
   return (
     <div className="min-h-screen bg-slate-50 pt-4 pb-20 px-3 sm:px-6">
