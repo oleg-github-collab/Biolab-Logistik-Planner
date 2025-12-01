@@ -391,6 +391,9 @@
     letter-spacing: 0.06em;
     text-transform: uppercase;
     backdrop-filter: blur(8px);
+    position: relative;
+    z-index: 1;
+    pointer-events: none;
   }
 
   .messenger-mobile-messages .message-bubble {

@@ -75,6 +75,7 @@ const LONG_PRESS_MOVE_TOLERANCE = 12;
 const LONG_PRESS_MENU_WIDTH = 240;
 const LONG_PRESS_MENU_HEIGHT = 300;
 const LONG_PRESS_MENU_PADDING = 12;
+const LONG_PRESS_VIBRATION_MS = 10;
 
 const isGeneralThread = (thread) =>
   thread?.type === 'group' &&
@@ -272,6 +273,8 @@ const DirectMessenger = () => {
   const longPressOriginRef = useRef({ x: 0, y: 0 });
   const longPressTargetRef = useRef(null);
   const longPressTriggeredRef = useRef(false);
+  const longPressMenuRef = useRef(null);
+  const longPressAnchorRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const recordingChunksRef = useRef([]);
   const recordingStreamRef = useRef(null);
@@ -1338,26 +1341,36 @@ const DirectMessenger = () => {
     longPressTriggeredRef.current = false;
   }, []);
 
-  const calculateLongPressMenuPosition = useCallback((target, touchPoint) => {
+  const calculateLongPressMenuPosition = useCallback((target, touchPoint, menuSize) => {
+    const width = menuSize?.width || LONG_PRESS_MENU_WIDTH;
+    const height = menuSize?.height || LONG_PRESS_MENU_HEIGHT;
+    const padding = LONG_PRESS_MENU_PADDING;
+
     const messageBubble = target?.querySelector?.('.message-bubble');
     const rect = messageBubble?.getBoundingClientRect?.() || target?.getBoundingClientRect?.();
     const centerX = touchPoint?.clientX ?? (rect ? rect.left + rect.width / 2 : window.innerWidth / 2);
 
     let y;
     if (rect) {
-      const spaceAbove = rect.top - LONG_PRESS_MENU_PADDING;
-      const shouldOpenAbove = spaceAbove >= LONG_PRESS_MENU_HEIGHT;
-      y = shouldOpenAbove
-        ? rect.top - LONG_PRESS_MENU_HEIGHT - LONG_PRESS_MENU_PADDING
-        : rect.bottom + LONG_PRESS_MENU_PADDING;
+      const spaceAbove = rect.top - padding;
+      const spaceBelow = window.innerHeight - rect.bottom - padding;
+      const canOpenAbove = spaceAbove >= height;
+      const canOpenBelow = spaceBelow >= height;
+      const shouldOpenAbove = canOpenAbove || (!canOpenBelow && spaceAbove >= spaceBelow);
+
+      if (shouldOpenAbove) {
+        y = rect.top - height - padding;
+      } else {
+        y = rect.bottom + padding;
+      }
     } else {
-      y = (touchPoint?.clientY ?? window.innerHeight / 2) - LONG_PRESS_MENU_HEIGHT / 2;
+      y = (touchPoint?.clientY ?? window.innerHeight / 2) - height / 2;
     }
 
-    const minX = LONG_PRESS_MENU_PADDING + LONG_PRESS_MENU_WIDTH / 2;
-    const maxX = window.innerWidth - LONG_PRESS_MENU_PADDING - LONG_PRESS_MENU_WIDTH / 2;
-    const minY = LONG_PRESS_MENU_PADDING;
-    const maxY = window.innerHeight - LONG_PRESS_MENU_PADDING - LONG_PRESS_MENU_HEIGHT;
+    const minX = padding + width / 2;
+    const maxX = window.innerWidth - padding - width / 2;
+    const minY = padding;
+    const maxY = window.innerHeight - padding - height;
 
     return {
       x: Math.min(maxX, Math.max(minX, centerX)),
@@ -1367,6 +1380,7 @@ const DirectMessenger = () => {
 
   const openLongPressMenu = useCallback((msg, target, touchPoint) => {
     const position = calculateLongPressMenuPosition(target, touchPoint);
+    longPressAnchorRef.current = { target, touchPoint };
     setShowReactionPicker(null);
     setLongPressMenuMessage(msg);
     setLongPressMenuPosition(position);
@@ -1391,7 +1405,7 @@ const DirectMessenger = () => {
       longPressTimerRef.current = null;
       if (window?.navigator?.vibrate) {
         try {
-          window.navigator.vibrate(10);
+          window.navigator.vibrate(LONG_PRESS_VIBRATION_MS);
         } catch (_) {
           // vibration might be blocked - ignore silently
         }
@@ -1424,6 +1438,7 @@ const DirectMessenger = () => {
   const handleLongPressCancel = useCallback(() => {
     clearLongPressTimer();
     longPressTargetRef.current = null;
+    longPressAnchorRef.current = null;
   }, [clearLongPressTimer]);
 
   const handleLongPressContextMenu = useCallback((e, msg) => {
@@ -1440,6 +1455,7 @@ const DirectMessenger = () => {
   const closeLongPressMenu = useCallback(() => {
     longPressTriggeredRef.current = false;
     setLongPressMenuMessage(null);
+    longPressAnchorRef.current = null;
   }, []);
 
   useEffect(() => {
@@ -1447,6 +1463,28 @@ const DirectMessenger = () => {
       clearLongPressTimer();
     };
   }, [clearLongPressTimer]);
+
+  useEffect(() => {
+    if (!longPressMenuMessage) return;
+    // After menu is rendered, measure its actual size and reposition precisely near the anchor
+    const menuEl = longPressMenuRef.current;
+    const anchor = longPressAnchorRef.current;
+    if (!menuEl || !anchor?.target) return;
+
+    const reposition = () => {
+      const menuRect = menuEl.getBoundingClientRect();
+      const nextPosition = calculateLongPressMenuPosition(
+        anchor.target,
+        anchor.touchPoint,
+        { width: menuRect.width, height: menuRect.height }
+      );
+      setLongPressMenuPosition(nextPosition);
+    };
+
+    // Measure after paint to ensure correct size
+    const raf = window.requestAnimationFrame(reposition);
+    return () => window.cancelAnimationFrame(raf);
+  }, [longPressMenuMessage, calculateLongPressMenuPosition]);
 
   useEffect(() => {
     if (!longPressMenuMessage) return;
@@ -2150,17 +2188,20 @@ const DirectMessenger = () => {
             {/* Backdrop */}
             <div
               className="fixed inset-0 z-[300100] bg-black/20"
+              style={{ zIndex: 400000 }}
               onClick={closeLongPressMenu}
             />
             {/* Context menu */}
             <div
               className="fixed z-[300150] bg-white rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+              ref={longPressMenuRef}
               style={{
                 top: `${longPressMenuPosition.y}px`,
                 left: `${longPressMenuPosition.x}px`,
                 transform: 'translate(-50%, 0)',
                 minWidth: '200px',
-                maxWidth: 'calc(100vw - 40px)'
+                maxWidth: 'calc(100vw - 40px)',
+                zIndex: 400100
               }}
             >
               <div className="py-2">
