@@ -2169,7 +2169,7 @@ const DirectMessenger = () => {
             <div
               className={`absolute ${
                 isMine ? 'right-0' : 'left-0'
-              } top-full mt-3 bg-white border-2 border-slate-300 rounded-2xl shadow-2xl p-3 flex gap-3 z-40 animate-in fade-in slide-in-from-bottom-2 duration-200`}
+              } top-full mt-3 bg-white border-2 border-slate-300 rounded-2xl shadow-2xl p-3 flex gap-3 z-40 animate-in fade-in slide-in-from-bottom-2 duration-200 reaction-picker max-w-[92vw] overflow-x-auto`}
             >
               {['👍', '❤️', '😂', '😮', '😢', '🙏'].map((emoji) => (
                 <button

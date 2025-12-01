@@ -403,6 +403,7 @@
     transform: translateX(-50%) !important;
     width: calc(100vw - 24px) !important;
     max-width: 360px !important;
+    max-height: 50vh !important;
 
     background: rgba(15, 23, 42, 0.98) !important;
     backdrop-filter: blur(30px) !important;
@@ -418,6 +419,9 @@
     display: grid !important;
     grid-template-columns: repeat(3, 1fr) !important;
     gap: 12px !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior: contain !important;
 
     z-index: 999999 !important;
 
@@ -476,6 +480,19 @@
     width: 26px !important;
     height: 26px !important;
     color: #60a5fa !important;
+  }
+
+  /* Reaction picker on mobile - scrollable when emojis overflow */
+  .reaction-picker {
+    max-width: min(420px, 92vw) !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    gap: 12px !important;
+    padding: 12px !important;
+  }
+
+  .reaction-picker::-webkit-scrollbar {
+    display: none !important;
   }
 
   /* ==================== BOTTOM NAVIGATION ==================== */

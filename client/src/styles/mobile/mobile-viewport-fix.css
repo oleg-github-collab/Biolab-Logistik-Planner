@@ -9,8 +9,8 @@
   --vh: 1vh;
   --dvh: 1dvh; /* Dynamic Viewport Height - враховує адресний рядок */
   --bottom-nav-height: 56px;
-  --safe-area-bottom: 0px;
-  --app-bottom-offset: 56px;
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --app-bottom-offset: calc(var(--bottom-nav-height) + var(--safe-area-bottom));
   --messenger-height: 100dvh; /* Динамічна висота */
 }
 
@@ -24,8 +24,17 @@
   html, body {
     height: 100%;
     min-height: 100dvh; /* Dynamic Viewport Height враховує браузерний UI */
+    overflow-x: hidden;
+    overflow-y: auto;
+    position: relative;
+    width: 100%;
+  }
+
+  /* Messenger залишається фулскрін, інші сторінки можуть скролитись */
+  body.messenger-page {
     overflow: hidden;
     position: fixed;
+    inset: 0;
     width: 100%;
   }
 
@@ -45,15 +54,16 @@
     display: flex;
     flex-direction: column;
     padding-bottom: 0 !important; /* Видаляємо pb-16 */
-    overflow: hidden;
+    overflow: visible;
   }
 
   /* Main content - займає весь простір */
   main.mobile-scroll-container {
     flex: 1;
     min-height: 0;
-    overflow: hidden;
-    padding-bottom: var(--app-bottom-offset) !important;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: calc(var(--app-bottom-offset) + 12px) !important;
     position: relative;
   }
 
