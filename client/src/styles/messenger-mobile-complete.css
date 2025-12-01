@@ -188,43 +188,45 @@
     left: 0 !important;
     right: 0 !important;
     width: 100% !important;
-    min-height: var(--input-height) !important;
+    min-height: 56px !important;
     z-index: 90 !important;
-    margin-bottom: var(--bottom-nav-height) !important;
-    padding-bottom: calc(10px + var(--safe-bottom)) !important;
+    margin-bottom: calc(var(--bottom-nav-height) + var(--safe-bottom)) !important;
 
-    background: rgba(11, 18, 32, 0.98) !important;
-    backdrop-filter: blur(24px) !important;
-    -webkit-backdrop-filter: blur(24px) !important;
-    border-top: 1px solid rgba(148, 163, 184, 0.25) !important;
-    box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.3) !important;
+    background: linear-gradient(180deg, rgba(11, 18, 32, 0.95), rgba(15, 23, 42, 0.98)) !important;
+    backdrop-filter: blur(32px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(32px) saturate(180%) !important;
+    border-top: 1px solid rgba(59, 130, 246, 0.2) !important;
+    box-shadow:
+      0 -8px 32px rgba(0, 0, 0, 0.4),
+      0 -2px 8px rgba(0, 0, 0, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
 
-    padding: 10px !important;
+    padding: 12px 14px !important;
 
     display: flex !important;
     align-items: center !important;
-    gap: 8px !important;
+    gap: 10px !important;
 
     transform: translateZ(0) !important;
     -webkit-transform: translateZ(0) !important;
     flex-shrink: 0 !important;
   }
 
-  /* Plus Button - КРАСИВИЙ І ФУНКЦІОНАЛЬНИЙ */
+  /* Plus Button - СУЧАСНИЙ ДИЗАЙН */
   .messenger-btn-plus {
-    width: 42px !important;
-    height: 42px !important;
-    min-width: 42px !important;
-    border-radius: 50% !important;
-    background: linear-gradient(135deg, rgba(37, 99, 235, 0.15), rgba(139, 92, 246, 0.15)) !important;
-    border: 2px solid rgba(37, 99, 235, 0.3) !important;
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    border-radius: 14px !important;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(139, 92, 246, 0.12)) !important;
+    border: 1.5px solid rgba(59, 130, 246, 0.25) !important;
     color: #60a5fa !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
     flex-shrink: 0 !important;
     cursor: pointer !important;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
     position: relative !important;
     overflow: hidden !important;
   }
@@ -233,13 +235,13 @@
     content: '' !important;
     position: absolute !important;
     inset: 0 !important;
-    background: radial-gradient(circle at center, rgba(255, 255, 255, 0.1), transparent) !important;
+    background: radial-gradient(circle at center, rgba(59, 130, 246, 0.15), transparent) !important;
     opacity: 0 !important;
-    transition: opacity 0.3s ease !important;
+    transition: opacity 0.25s ease !important;
   }
 
   .messenger-btn-plus:active {
-    transform: scale(0.9) !important;
+    transform: scale(0.92) !important;
   }
 
   .messenger-btn-plus:active::before {
@@ -247,52 +249,56 @@
   }
 
   .messenger-btn-plus.active {
-    background: linear-gradient(135deg, #2563eb, #7c3aed) !important;
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6) !important;
     border-color: transparent !important;
     color: white !important;
-    transform: rotate(45deg) !important;
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4) !important;
+    transform: rotate(45deg) scale(1.05) !important;
+    box-shadow: 0 8px 24px rgba(59, 130, 246, 0.35), 0 0 0 4px rgba(59, 130, 246, 0.1) !important;
   }
 
   .messenger-btn-plus svg {
-    width: 24px !important;
-    height: 24px !important;
+    width: 22px !important;
+    height: 22px !important;
     pointer-events: none !important;
   }
 
-  /* Input Field Wrapper - КРАСИВЕ ПОЛЕ */
+  /* Input Field Wrapper - СУЧАСНИЙ ДИЗАЙН */
   .messenger-input-wrapper {
     flex: 1 !important;
     display: flex !important;
     align-items: center !important;
-    gap: 8px !important;
-    padding: 10px 14px !important;
-    background: rgba(255, 255, 255, 0.06) !important;
-    border: 2px solid rgba(148, 163, 184, 0.2) !important;
-    border-radius: 25px !important;
-    min-height: 42px !important;
-    max-height: 100px !important;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    gap: 10px !important;
+    padding: 11px 16px !important;
+    background: rgba(255, 255, 255, 0.04) !important;
+    border: 1.5px solid rgba(148, 163, 184, 0.15) !important;
+    border-radius: 24px !important;
+    min-height: 40px !important;
+    max-height: 96px !important;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
     position: relative !important;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1) !important;
   }
 
   .messenger-input-wrapper::before {
     content: '' !important;
     position: absolute !important;
-    inset: -2px !important;
-    border-radius: 25px !important;
-    padding: 2px !important;
-    background: linear-gradient(135deg, transparent, rgba(37, 99, 235, 0.3), transparent) !important;
+    inset: -1.5px !important;
+    border-radius: 24px !important;
+    padding: 1.5px !important;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.4), rgba(139, 92, 246, 0.4)) !important;
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0) !important;
     -webkit-mask-composite: xor !important;
     mask-composite: exclude !important;
     opacity: 0 !important;
-    transition: opacity 0.3s ease !important;
+    transition: opacity 0.25s ease !important;
   }
 
   .messenger-input-wrapper:focus-within {
-    background: rgba(255, 255, 255, 0.1) !important;
-    border-color: rgba(37, 99, 235, 0.4) !important;
+    background: rgba(255, 255, 255, 0.08) !important;
+    border-color: rgba(59, 130, 246, 0.4) !important;
+    box-shadow:
+      inset 0 1px 2px rgba(0, 0, 0, 0.1),
+      0 0 0 3px rgba(59, 130, 246, 0.08) !important;
   }
 
   .messenger-input-wrapper:focus-within::before {
@@ -322,13 +328,13 @@
     color: rgba(148, 163, 184, 0.6) !important;
   }
 
-  /* Send Button - ЯСКРАВИЙ */
+  /* Send Button - СУЧАСНИЙ І ЯСКРАВИЙ */
   .messenger-btn-send {
-    width: 42px !important;
-    height: 42px !important;
-    min-width: 42px !important;
-    border-radius: 50% !important;
-    background: linear-gradient(135deg, #2563eb, #7c3aed) !important;
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    border-radius: 14px !important;
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6) !important;
     color: white !important;
     border: none !important;
     display: flex !important;
@@ -336,8 +342,8 @@
     justify-content: center !important;
     flex-shrink: 0 !important;
     cursor: pointer !important;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4) !important;
+    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4), 0 0 0 0 rgba(59, 130, 246, 0.2) !important;
     position: relative !important;
     overflow: hidden !important;
   }
@@ -346,13 +352,13 @@
     content: '' !important;
     position: absolute !important;
     inset: 0 !important;
-    background: radial-gradient(circle at center, rgba(255, 255, 255, 0.2), transparent) !important;
+    background: radial-gradient(circle at center, rgba(255, 255, 255, 0.25), transparent) !important;
     opacity: 0 !important;
-    transition: opacity 0.3s ease !important;
+    transition: opacity 0.25s ease !important;
   }
 
   .messenger-btn-send:active {
-    transform: scale(0.9) !important;
+    transform: scale(0.92) !important;
   }
 
   .messenger-btn-send:active::before {
@@ -360,22 +366,27 @@
   }
 
   .messenger-btn-send:disabled {
-    opacity: 0.3 !important;
+    opacity: 0.25 !important;
     cursor: not-allowed !important;
+    box-shadow: none !important;
   }
 
   .messenger-btn-send:not(:disabled) {
-    animation: sendPulse 2s ease-in-out infinite !important;
+    animation: sendPulseNew 2.5s ease-in-out infinite !important;
   }
 
-  @keyframes sendPulse {
-    0%, 100% { box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4); }
-    50% { box-shadow: 0 4px 20px rgba(37, 99, 235, 0.6); }
+  @keyframes sendPulseNew {
+    0%, 100% {
+      box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4), 0 0 0 0 rgba(59, 130, 246, 0.2);
+    }
+    50% {
+      box-shadow: 0 8px 28px rgba(59, 130, 246, 0.55), 0 0 0 4px rgba(59, 130, 246, 0.15);
+    }
   }
 
   .messenger-btn-send svg {
-    width: 22px !important;
-    height: 22px !important;
+    width: 20px !important;
+    height: 20px !important;
     pointer-events: none !important;
   }
 
