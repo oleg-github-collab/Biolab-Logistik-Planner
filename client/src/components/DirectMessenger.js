@@ -70,6 +70,11 @@ const BOT_CONTACT_TEMPLATE = {
   status: 'AI Assistant'
 };
 const BOT_FALLBACK_IDS = [BOT_CONTACT_TEMPLATE.id, 999999];
+const LONG_PRESS_DELAY = 450;
+const LONG_PRESS_MOVE_TOLERANCE = 12;
+const LONG_PRESS_MENU_WIDTH = 240;
+const LONG_PRESS_MENU_HEIGHT = 300;
+const LONG_PRESS_MENU_PADDING = 12;
 
 const isGeneralThread = (thread) =>
   thread?.type === 'group' &&
@@ -264,6 +269,9 @@ const DirectMessenger = () => {
   const mobileInputRef = useRef(null);
   const mobileTextareaRef = useRef(null);
   const longPressTimerRef = useRef(null);
+  const longPressOriginRef = useRef({ x: 0, y: 0 });
+  const longPressTargetRef = useRef(null);
+  const longPressTriggeredRef = useRef(false);
   const mediaRecorderRef = useRef(null);
   const recordingChunksRef = useRef([]);
   const recordingStreamRef = useRef(null);
@@ -1321,58 +1329,141 @@ const DirectMessenger = () => {
     setReplyToMessage(message);
   }, []);
 
-  // Long press handlers for mobile
-  const handleLongPressStart = useCallback((e, msg) => {
-    if (!isMobile) return;
-
-    const target = e.currentTarget;
-    longPressTimerRef.current = setTimeout(() => {
-      // Знаходимо саме message bubble всередині контейнера
-      const messageBubble = target.querySelector('.message-bubble');
-      if (!messageBubble) return;
-
-      // Отримуємо позицію message bubble відносно viewport
-      const rect = messageBubble.getBoundingClientRect();
-
-      // Висота меню (приблизно)
-      const menuHeight = 280;
-      const menuWidth = 220;
-
-      // Smart positioning: показуємо меню НАД повідомленням якщо є місце
-      let y = rect.top - 10; // НАД повідомленням
-
-      // Якщо немає місця зверху, показуємо знизу
-      if (y - menuHeight < 60) {
-        y = rect.bottom + 10;
-      }
-
-      // Центруємо по горизонталі відносно повідомлення
-      let x = rect.left + rect.width / 2;
-
-      // Перевіряємо чи не виходить за межі екрану по горизонталі
-      const halfWidth = menuWidth / 2;
-      if (x + halfWidth > window.innerWidth - 10) {
-        x = window.innerWidth - halfWidth - 10;
-      }
-      if (x - halfWidth < 10) {
-        x = halfWidth + 10;
-      }
-
-      setLongPressMenuMessage(msg);
-      setLongPressMenuPosition({ x, y });
-    }, 500); // 500ms for long press
-  }, [isMobile]);
-
-  const handleLongPressEnd = useCallback(() => {
+  // Long press handlers for mobile (movement tolerant + viewport clamped)
+  const clearLongPressTimer = useCallback(() => {
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
     }
+    longPressTriggeredRef.current = false;
   }, []);
 
+  const calculateLongPressMenuPosition = useCallback((target, touchPoint) => {
+    const messageBubble = target?.querySelector?.('.message-bubble');
+    const rect = messageBubble?.getBoundingClientRect?.() || target?.getBoundingClientRect?.();
+    const centerX = touchPoint?.clientX ?? (rect ? rect.left + rect.width / 2 : window.innerWidth / 2);
+
+    let y;
+    if (rect) {
+      const spaceAbove = rect.top - LONG_PRESS_MENU_PADDING;
+      const shouldOpenAbove = spaceAbove >= LONG_PRESS_MENU_HEIGHT;
+      y = shouldOpenAbove
+        ? rect.top - LONG_PRESS_MENU_HEIGHT - LONG_PRESS_MENU_PADDING
+        : rect.bottom + LONG_PRESS_MENU_PADDING;
+    } else {
+      y = (touchPoint?.clientY ?? window.innerHeight / 2) - LONG_PRESS_MENU_HEIGHT / 2;
+    }
+
+    const minX = LONG_PRESS_MENU_PADDING + LONG_PRESS_MENU_WIDTH / 2;
+    const maxX = window.innerWidth - LONG_PRESS_MENU_PADDING - LONG_PRESS_MENU_WIDTH / 2;
+    const minY = LONG_PRESS_MENU_PADDING;
+    const maxY = window.innerHeight - LONG_PRESS_MENU_PADDING - LONG_PRESS_MENU_HEIGHT;
+
+    return {
+      x: Math.min(maxX, Math.max(minX, centerX)),
+      y: Math.min(maxY, Math.max(minY, y))
+    };
+  }, []);
+
+  const openLongPressMenu = useCallback((msg, target, touchPoint) => {
+    const position = calculateLongPressMenuPosition(target, touchPoint);
+    setShowReactionPicker(null);
+    setLongPressMenuMessage(msg);
+    setLongPressMenuPosition(position);
+    longPressTriggeredRef.current = true;
+  }, [calculateLongPressMenuPosition]);
+
+  const handleLongPressStart = useCallback((e, msg) => {
+    if (!isMobile) return;
+    if (e.touches && e.touches.length > 1) return; // ignore multi-touch
+
+    const touch = e.touches?.[0] || e.changedTouches?.[0];
+    longPressOriginRef.current = {
+      x: touch?.clientX ?? 0,
+      y: touch?.clientY ?? 0
+    };
+    longPressTargetRef.current = e.currentTarget;
+    longPressTriggeredRef.current = false;
+
+    clearLongPressTimer();
+    longPressTimerRef.current = setTimeout(() => {
+      openLongPressMenu(msg, longPressTargetRef.current, touch);
+      longPressTimerRef.current = null;
+      if (window?.navigator?.vibrate) {
+        try {
+          window.navigator.vibrate(10);
+        } catch (_) {
+          // vibration might be blocked - ignore silently
+        }
+      }
+    }, LONG_PRESS_DELAY);
+  }, [isMobile, clearLongPressTimer, openLongPressMenu]);
+
+  const handleLongPressMove = useCallback((e) => {
+    if (!isMobile) return;
+    if (!longPressTimerRef.current) return;
+    const touch = e.touches?.[0] || e.changedTouches?.[0];
+    if (!touch) return;
+
+    const dx = touch.clientX - longPressOriginRef.current.x;
+    const dy = touch.clientY - longPressOriginRef.current.y;
+    const distance = Math.hypot(dx, dy);
+
+    if (distance > LONG_PRESS_MOVE_TOLERANCE) {
+      clearLongPressTimer();
+    }
+  }, [isMobile, clearLongPressTimer]);
+
+  const handleLongPressEnd = useCallback(() => {
+    if (!longPressTriggeredRef.current) {
+      clearLongPressTimer();
+    }
+    longPressTargetRef.current = null;
+  }, [clearLongPressTimer]);
+
+  const handleLongPressCancel = useCallback(() => {
+    clearLongPressTimer();
+    longPressTargetRef.current = null;
+  }, [clearLongPressTimer]);
+
+  const handleLongPressContextMenu = useCallback((e, msg) => {
+    if (!isMobile) return;
+    if (longPressMenuMessage?.id === msg.id) {
+      e.preventDefault();
+      return;
+    }
+    e.preventDefault();
+    clearLongPressTimer();
+    openLongPressMenu(msg, e.currentTarget, { clientX: e.clientX, clientY: e.clientY });
+  }, [isMobile, longPressMenuMessage, clearLongPressTimer, openLongPressMenu]);
+
   const closeLongPressMenu = useCallback(() => {
+    longPressTriggeredRef.current = false;
     setLongPressMenuMessage(null);
   }, []);
+
+  useEffect(() => {
+    return () => {
+      clearLongPressTimer();
+    };
+  }, [clearLongPressTimer]);
+
+  useEffect(() => {
+    if (!longPressMenuMessage) return;
+
+    const handleRepositioningEvents = () => {
+      closeLongPressMenu();
+      clearLongPressTimer();
+    };
+
+    window.addEventListener('scroll', handleRepositioningEvents, true);
+    window.addEventListener('resize', handleRepositioningEvents);
+
+    return () => {
+      window.removeEventListener('scroll', handleRepositioningEvents, true);
+      window.removeEventListener('resize', handleRepositioningEvents);
+    };
+  }, [longPressMenuMessage, closeLongPressMenu, clearLongPressTimer]);
 
   const cancelReply = useCallback(() => {
     setReplyToMessage(null);
@@ -1758,7 +1849,9 @@ const DirectMessenger = () => {
         onMouseLeave={() => setHoveredMessage(null)}
         onTouchStart={(e) => handleLongPressStart(e, msg)}
         onTouchEnd={handleLongPressEnd}
-        onTouchMove={handleLongPressEnd}
+        onTouchMove={handleLongPressMove}
+        onTouchCancel={handleLongPressCancel}
+        onContextMenu={(e) => handleLongPressContextMenu(e, msg)}
       >
         {/* Message bubble with pinned highlight */}
         <div
