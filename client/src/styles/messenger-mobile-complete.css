@@ -19,7 +19,6 @@
     right: 0 !important;
     bottom: 0 !important;
     width: 100vw !important;
-    height: 100vh !important;
     height: 100dvh !important;
     overflow: hidden !important;
     background: #0b1220 !important;
@@ -31,6 +30,7 @@
     flex-direction: column !important;
     width: 100% !important;
     height: 100% !important;
+    height: 100dvh !important;
     position: relative !important;
   }
 
@@ -168,7 +168,7 @@
     -webkit-overflow-scrolling: touch !important;
     overscroll-behavior-y: contain !important;
     padding: 14px !important;
-    padding-bottom: calc(var(--input-height) + var(--bottom-nav-height) + 20px) !important;
+    padding-bottom: 20px !important;
   }
 
   .messenger-mobile-messages::-webkit-scrollbar {
@@ -176,15 +176,22 @@
   }
 
   /* ==================== INPUT SECTION ==================== */
+  .messenger-mobile-input-wrapper {
+    position: relative !important;
+    width: 100% !important;
+    flex-shrink: 0 !important;
+  }
+
   .messenger-input-container.messenger-mobile-input {
-    position: fixed !important;
-    bottom: var(--bottom-nav-height) !important;
+    position: relative !important;
+    bottom: auto !important;
     left: 0 !important;
     right: 0 !important;
     width: 100% !important;
     min-height: var(--input-height) !important;
-    z-index: 9999 !important;
-    padding-bottom: var(--safe-bottom) !important;
+    z-index: 90 !important;
+    margin-bottom: var(--bottom-nav-height) !important;
+    padding-bottom: calc(10px + var(--safe-bottom)) !important;
 
     background: rgba(11, 18, 32, 0.98) !important;
     backdrop-filter: blur(24px) !important;
@@ -200,6 +207,7 @@
 
     transform: translateZ(0) !important;
     -webkit-transform: translateZ(0) !important;
+    flex-shrink: 0 !important;
   }
 
   /* Plus Button - КРАСИВИЙ І ФУНКЦІОНАЛЬНИЙ */
@@ -399,8 +407,8 @@
 
   /* ==================== COMPOSER MENU - ЦЕНТРОВАНИЙ І ВИДИМИЙ ==================== */
   .messenger-composer-menu {
-    position: fixed !important;
-    bottom: calc(var(--input-height) + var(--bottom-nav-height) + 20px) !important;
+    position: absolute !important;
+    bottom: calc(100% + 20px) !important;
     left: 50% !important;
     transform: translateX(-50%) !important;
     width: calc(100vw - 24px) !important;
