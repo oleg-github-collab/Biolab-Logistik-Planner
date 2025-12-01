@@ -493,50 +493,9 @@
     color: #93c5fd;
   }
 
-  .messenger-mobile-input {
-    position: fixed !important;
-    bottom: calc(56px + env(safe-area-inset-bottom, 0) + 8px) !important; /* НАД bottom nav з урахуванням safe-area */
-    left: 0 !important;
-    right: 0 !important;
-    z-index: 9999 !important; /* ВИЩЕ ЗА ВСЕ */
-    padding: 6px 8px !important;
-    background: rgba(11, 18, 32, 0.98) !important;
-    border-top: 1px solid rgba(148, 163, 184, 0.25) !important;
-    backdrop-filter: blur(24px) !important;
-    -webkit-backdrop-filter: blur(24px) !important;
-    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3) !important;
-  }
+  /* Стилі для messenger-mobile-input перенесено в messenger-mobile-fixed.css */
 
-  .messenger-mobile-input-row {
-    display: flex !important;
-    align-items: flex-end !important;
-    gap: 6px !important;
-    width: 100% !important;
-    position: relative !important;
-  }
-
-  .messenger-mobile-input .input-wrapper {
-    flex: 1 !important;
-    display: flex !important;
-    align-items: center !important;
-    gap: 6px !important;
-    padding: 6px 10px !important;
-    border-radius: 18px !important;
-    background: rgba(255, 255, 255, 0.08) !important;
-    border: 1px solid rgba(148, 163, 184, 0.2) !important;
-    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.1) !important;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-    min-height: 34px !important;
-    max-height: 94px !important;
-  }
-
-  .messenger-mobile-input .input-wrapper:focus-within {
-    border-color: rgba(37, 99, 235, 0.5);
-    background: rgba(255, 255, 255, 0.12);
-    box-shadow:
-      0 0 0 3px rgba(37, 99, 235, 0.15),
-      inset 0 2px 8px rgba(0, 0, 0, 0.1);
-  }
+  /* Стилі для input-row та input-wrapper перенесено в messenger-mobile-fixed.css */
 
   /* Mobile message input - адаптивний 1→4 рядки */
   .messenger-mobile-input textarea.message-input,
@@ -590,55 +549,7 @@
     height: 16px;
   }
 
-  .compose-toggle {
-    width: 34px !important;
-    height: 34px !important;
-    min-width: 34px !important;
-    border-radius: 50% !important;
-    border: 1px solid rgba(148, 163, 184, 0.2) !important;
-    background: rgba(255, 255, 255, 0.06) !important;
-    color: #cbd5e1 !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    flex-shrink: 0 !important;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-  }
-
-  .compose-toggle:active {
-    transform: scale(0.92);
-    background: rgba(255, 255, 255, 0.1);
-  }
-
-  .compose-toggle.active {
-    border-color: rgba(37, 99, 235, 0.4);
-    background: rgba(37, 99, 235, 0.2);
-    color: #93c5fd;
-    transform: rotate(45deg);
-  }
-
-  .composer-actions {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    bottom: 72px; /* НАД input (60px bottom + 12px gap) */
-    width: calc(100% - 20px);
-    max-width: 360px;
-    border-radius: 20px;
-    background: rgba(15, 23, 42, 0.98);
-    border: 1px solid rgba(148, 163, 184, 0.3);
-    padding: 12px;
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 8px;
-    box-shadow:
-      0 12px 32px rgba(0, 0, 0, 0.4),
-      0 4px 12px rgba(0, 0, 0, 0.3);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    z-index: 10000 !important; /* ВИЩЕ ЗА INPUT */
-    animation: slideUpFadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  }
+  /* Стилі для compose-toggle та composer-actions перенесено в messenger-mobile-fixed.css */
 
   @keyframes slideUpFadeIn {
     from {
