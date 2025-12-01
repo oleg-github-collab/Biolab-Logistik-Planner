@@ -36,7 +36,8 @@
 
   /* ==================== HEADER З КНОПКОЮ НАЗАД ==================== */
   .messenger-mobile-header-enhanced {
-    position: relative !important;
+    position: sticky !important;
+    top: 0 !important;
     z-index: 100 !important;
     display: flex !important;
     align-items: center !important;
@@ -167,7 +168,7 @@
     -webkit-overflow-scrolling: touch !important;
     overscroll-behavior-y: contain !important;
     padding: 14px !important;
-    padding-bottom: calc(var(--input-height) + var(--bottom-nav-height) + var(--safe-bottom) + 20px) !important;
+    padding-bottom: calc(var(--input-height) + var(--bottom-nav-height) + 20px) !important;
   }
 
   .messenger-mobile-messages::-webkit-scrollbar {
@@ -177,12 +178,13 @@
   /* ==================== INPUT SECTION ==================== */
   .messenger-input-container.messenger-mobile-input {
     position: fixed !important;
-    bottom: calc(var(--bottom-nav-height) + var(--safe-bottom)) !important;
+    bottom: var(--bottom-nav-height) !important;
     left: 0 !important;
     right: 0 !important;
     width: 100% !important;
     min-height: var(--input-height) !important;
     z-index: 9999 !important;
+    padding-bottom: var(--safe-bottom) !important;
 
     background: rgba(11, 18, 32, 0.98) !important;
     backdrop-filter: blur(24px) !important;
@@ -398,7 +400,7 @@
   /* ==================== COMPOSER MENU - ЦЕНТРОВАНИЙ І ВИДИМИЙ ==================== */
   .messenger-composer-menu {
     position: fixed !important;
-    bottom: calc(var(--input-height) + var(--bottom-nav-height) + var(--safe-bottom) + 20px) !important;
+    bottom: calc(var(--input-height) + var(--bottom-nav-height) + 20px) !important;
     left: 50% !important;
     transform: translateX(-50%) !important;
     width: calc(100vw - 24px) !important;
