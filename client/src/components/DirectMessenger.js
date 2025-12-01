@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { format, parseISO, formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -2183,17 +2184,17 @@ const DirectMessenger = () => {
         )}
 
         {/* Mobile long-press context menu */}
-        {isMobile && longPressMenuMessage?.id === msg.id && (
+        {isMobile && longPressMenuMessage?.id === msg.id && typeof document !== 'undefined' && createPortal(
           <>
             {/* Backdrop */}
             <div
-              className="fixed inset-0 z-[300100] bg-black/20"
+              className="fixed inset-0 bg-black/20"
               style={{ zIndex: 400000 }}
               onClick={closeLongPressMenu}
             />
             {/* Context menu */}
             <div
-              className="fixed z-[300150] bg-white rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+              className="fixed bg-white rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
               ref={longPressMenuRef}
               style={{
                 top: `${longPressMenuPosition.y}px`,
@@ -2267,7 +2268,8 @@ const DirectMessenger = () => {
                 )}
               </div>
             </div>
-          </>
+          </>,
+          document.body
         )}
       </div>
     );

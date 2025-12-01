@@ -378,6 +378,8 @@
     flex-direction: column;
     gap: 12px;
     position: relative;
+    padding-bottom: calc(160px + env(safe-area-inset-bottom, 0)) !important;
+    scroll-padding-bottom: calc(160px + env(safe-area-inset-bottom, 0)) !important;
   }
 
   .message-day-divider {
@@ -493,7 +495,7 @@
 
   .messenger-mobile-input {
     position: fixed !important;
-    bottom: 60px !important; /* НАД bottom nav (56px + 4px gap) */
+    bottom: calc(56px + env(safe-area-inset-bottom, 0) + 8px) !important; /* НАД bottom nav з урахуванням safe-area */
     left: 0 !important;
     right: 0 !important;
     z-index: 9999 !important; /* ВИЩЕ ЗА ВСЕ */
