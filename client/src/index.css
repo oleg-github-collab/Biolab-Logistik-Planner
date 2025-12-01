@@ -39,6 +39,8 @@
 
 /* Knowledge Base Mobile Boost */
 @import './styles/knowledge-base-mobile.css';
+/* Messenger mobile high-priority fixes */
+@import './styles/messenger-mobile-hotfix.css';
 
 @tailwind utilities;
 

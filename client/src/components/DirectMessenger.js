@@ -60,7 +60,7 @@ import MessageForwardModal from './MessageForwardModal';
 import VoiceMessagePlayer from './VoiceMessagePlayer';
 import { showError, showSuccess } from '../utils/toast';
 import { getAssetUrl } from '../utils/media';
-import '../styles/messenger-unified-input.css';
+import '../styles/messenger-desktop-fixed.css';
 import '../styles/messenger-mobile-complete.css';
 
 const GENERAL_THREAD_NAMES = ['general chat', 'general'];
@@ -2607,7 +2607,7 @@ const DirectMessenger = () => {
         />
       )}
 
-      <div className="flex-1 flex flex-col bg-white min-h-0">
+      <div className="flex-1 flex flex-col bg-white min-h-0 messenger-container">
         {selectedContact || selectedThreadId ? (
           <>
             <div className="messenger-desktop-header">
@@ -2700,7 +2700,7 @@ const DirectMessenger = () => {
               </div>
             )}
 
-            <div className="messenger-desktop-messages bg-slate-50">
+            <div className="messenger-messages-container">
               {renderMessages()}
 
               {/* Typing Indicators */}
@@ -2711,54 +2711,54 @@ const DirectMessenger = () => {
               <div ref={messagesEndRef} />
             </div>
 
-            <div className="border-t border-slate-200 bg-white p-4">
-              {replyToMessage && (
-                <div className="mb-3 flex items-start gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-blue-50 to-slate-50 text-slate-700 shadow-sm border-l-4 border-blue-500">
-                  <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-500 text-white flex-shrink-0">
-                    <Reply className="w-5 h-5" />
+            <form onSubmit={handleSendMessage} className="messenger-input-container">
+                {replyToMessage && (
+                  <div className="absolute bottom-full left-0 right-0 mb-2 mx-4 flex items-start gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-blue-50 to-slate-50 text-slate-700 shadow-sm border-l-4 border-blue-500">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-500 text-white flex-shrink-0">
+                      <Reply className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-blue-600 mb-1">Antworten auf {replyToMessage.sender_name}</p>
+                      <p className="text-sm text-slate-600 line-clamp-2">{replyToMessage.message}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={cancelReply}
+                      className="p-1.5 rounded-full hover:bg-slate-200/80 transition flex-shrink-0"
+                      title="Antwort abbrechen"
+                    >
+                      <X className="w-4 h-4 text-slate-500" />
+                    </button>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-blue-600 mb-1">Antworten auf {replyToMessage.sender_name}</p>
-                    <p className="text-sm text-slate-600 line-clamp-2">{replyToMessage.message}</p>
+                )}
+                {selectedEvent && (
+                  <div className="absolute bottom-full left-0 right-0 mb-2 mx-4 flex items-center gap-3 px-4 py-2 rounded-xl bg-blue-50 text-blue-700 shadow-sm border border-blue-200">
+                    <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-600 text-white">
+                      <CalendarDays className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold truncate">{selectedEvent.title}</p>
+                      <p className="text-xs opacity-80">
+                        {formatEventDateRange(selectedEvent.start_time, selectedEvent.end_time)}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={clearSelectedEvent}
+                      className="p-1 rounded-full hover:bg-blue-100 transition"
+                      title="Ereignis entfernen"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={cancelReply}
-                    className="p-1.5 rounded-full hover:bg-slate-200/80 transition flex-shrink-0"
-                    title="Antwort abbrechen"
-                  >
-                    <X className="w-4 h-4 text-slate-500" />
-                  </button>
-                </div>
-              )}
-              {selectedEvent && (
-                <div className="mb-3 flex items-center gap-3 px-4 py-2 rounded-xl bg-blue-50 text-blue-700 shadow-sm border border-blue-200">
-                  <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-600 text-white">
-                    <CalendarDays className="w-5 h-5" />
+                )}
+                {pendingAttachments.length > 0 && (
+                  <div className="absolute bottom-full left-0 right-0 mb-2 mx-4 flex flex-wrap gap-2">
+                    {pendingAttachments.map((file, idx) => renderAttachmentPreview(file, idx))}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate">{selectedEvent.title}</p>
-                    <p className="text-xs opacity-80">
-                      {formatEventDateRange(selectedEvent.start_time, selectedEvent.end_time)}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={clearSelectedEvent}
-                    className="p-1 rounded-full hover:bg-blue-100 transition"
-                    title="Ereignis entfernen"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-              {pendingAttachments.length > 0 && (
-                <div className="mb-3 flex flex-wrap gap-2">
-                  {pendingAttachments.map((file, idx) => renderAttachmentPreview(file, idx))}
-                </div>
-              )}
+                )}
 
-              <form onSubmit={handleSendMessage} className="messenger-input-container">
+
                 {/* Plus Button */}
                 <button
                   type="button"
@@ -2920,7 +2920,6 @@ const DirectMessenger = () => {
                   className="hidden"
                 />
               </form>
-            </div>
           </>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-slate-400 bg-slate-50">
