@@ -61,7 +61,7 @@ import VoiceMessagePlayer from './VoiceMessagePlayer';
 import { showError, showSuccess } from '../utils/toast';
 import { getAssetUrl } from '../utils/media';
 import '../styles/messenger-unified-input.css';
-import '../styles/messenger-mobile-fixed.css';
+import '../styles/messenger-mobile-final.css';
 
 const GENERAL_THREAD_NAMES = ['general chat', 'general'];
 const BOT_CONTACT_TEMPLATE = {
