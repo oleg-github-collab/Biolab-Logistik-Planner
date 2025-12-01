@@ -60,6 +60,7 @@ import MessageForwardModal from './MessageForwardModal';
 import VoiceMessagePlayer from './VoiceMessagePlayer';
 import { showError, showSuccess } from '../utils/toast';
 import { getAssetUrl } from '../utils/media';
+import '../styles/messenger-unified-input.css';
 
 const GENERAL_THREAD_NAMES = ['general chat', 'general'];
 const BOT_CONTACT_TEMPLATE = {
@@ -2756,100 +2757,157 @@ const DirectMessenger = () => {
                 </div>
               )}
 
-              <form onSubmit={handleSendMessage} className="flex items-end gap-2">
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="p-3 hover:bg-slate-100 rounded-xl transition"
-                    title="Datei anhängen"
-                  >
-                    <Paperclip className="w-5 h-5 text-slate-600" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowGifPicker((prev) => !prev)}
-                    className="p-3 hover:bg-slate-100 rounded-xl transition"
-                    title="GIF senden"
-                  >
-                    <ImageIcon className="w-5 h-5 text-slate-600" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={openEventPicker}
-                    className="p-3 hover:bg-slate-100 rounded-xl transition"
-                    title="Kalenderereignis teilen"
-                  >
-                    <CalendarDays className="w-5 h-5 text-slate-600" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowQuickReplies(true)}
-                    className="p-3 hover:bg-slate-100 rounded-xl transition"
-                    title="Schnellantworten"
-                  >
-                    <Zap className="w-5 h-5 text-slate-600" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={isRecording ? stopRecording : startRecording}
-                    className={`p-3 rounded-xl transition ${
-                      isRecording ? 'bg-red-100 text-red-600' : 'hover:bg-slate-100'
-                    }`}
-                    title={isRecording ? 'Aufnahme stoppen' : 'Sprachnachricht'}
-                  >
-                    {isRecording ? (
-                      <StopCircle className="w-5 h-5" />
-                    ) : (
-                      <Mic className="w-5 h-5 text-slate-600" />
+              <form onSubmit={handleSendMessage} className="messenger-input-container">
+                {/* Plus Button */}
+                <button
+                  type="button"
+                  onClick={toggleComposerActions}
+                  className={`messenger-btn-plus ${showComposerActions ? 'active' : ''}`}
+                  title="Mehr Optionen"
+                >
+                  <Plus className="w-5 h-5" />
+                </button>
+
+                {/* Composer Actions Menu */}
+                {showComposerActions && (
+                  <div className="messenger-composer-menu">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        fileInputRef.current?.click();
+                        setShowComposerActions(false);
+                      }}
+                      className="messenger-composer-menu-item"
+                    >
+                      <Paperclip />
+                      <span>Datei</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowGifPicker((prev) => !prev);
+                        setShowComposerActions(false);
+                      }}
+                      className="messenger-composer-menu-item"
+                    >
+                      <ImageIcon />
+                      <span>GIF</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        openEventPicker();
+                        setShowComposerActions(false);
+                      }}
+                      className="messenger-composer-menu-item"
+                    >
+                      <CalendarDays />
+                      <span>Event</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowQuickReplies(true);
+                        setShowComposerActions(false);
+                      }}
+                      className="messenger-composer-menu-item"
+                    >
+                      <Zap />
+                      <span>Quick</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        isRecording ? stopRecording() : startRecording();
+                        setShowComposerActions(false);
+                      }}
+                      className="messenger-composer-menu-item"
+                    >
+                      {isRecording ? <StopCircle /> : <Mic />}
+                      <span>Audio</span>
+                    </button>
+                    {selectedThreadId && threads.find(t => t.id === selectedThreadId)?.type === 'group' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMessageInput((prev) => prev + '@BL_Bot ');
+                          setShowComposerActions(false);
+                          setTimeout(() => {
+                            const input = document.querySelector('.messenger-text-input');
+                            if (input) {
+                              input.focus();
+                              input.setSelectionRange(input.value.length, input.value.length);
+                            }
+                          }, 0);
+                        }}
+                        className="messenger-composer-menu-item"
+                      >
+                        <Bot />
+                        <span>Bot</span>
+                      </button>
                     )}
-                  </button>
+                  </div>
+                )}
+
+                {/* Input Wrapper */}
+                <div className="messenger-input-wrapper">
+                  <textarea
+                    rows={1}
+                    value={messageInput}
+                    onChange={handleInputChange}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage();
+                      }
+                    }}
+                    placeholder={
+                      selectedThreadId && threads.find(t => t.id === selectedThreadId)?.type === 'group'
+                        ? "Nachricht schreiben... (Tipp: @BL_Bot für Hilfe)"
+                        : "Nachricht schreiben..."
+                    }
+                    className="messenger-text-input"
+                    style={{ height: 'auto' }}
+                    onInput={(e) => {
+                      e.target.style.height = 'auto';
+                      e.target.style.height = Math.min(e.target.scrollHeight, 88) + 'px';
+                    }}
+                  />
+
+                  {/* Quick Bot Mention for Groups */}
                   {selectedThreadId && threads.find(t => t.id === selectedThreadId)?.type === 'group' && (
                     <button
                       type="button"
                       onClick={() => {
-                        setMessageInput((prev) => prev + '@BL_Bot ');
-                        // Focus the input after insertion
+                        const currentInput = messageInput;
+                        const lastChar = currentInput.slice(-1);
+                        const needsSpace = currentInput && lastChar !== ' ' && lastChar !== '\n';
+                        setMessageInput(currentInput + (needsSpace ? ' ' : '') + '@BL_Bot ');
                         setTimeout(() => {
-                          const input = document.querySelector('input[type="text"][placeholder*="Nachricht"]');
+                          const input = document.querySelector('.messenger-text-input');
                           if (input) {
                             input.focus();
                             input.setSelectionRange(input.value.length, input.value.length);
                           }
                         }, 0);
                       }}
-                      className="p-3 hover:bg-blue-50 rounded-xl transition border border-blue-200"
+                      className="messenger-btn-bot"
                       title="Bot erwähnen"
                     >
-                      <Bot className="w-5 h-5 text-blue-600" />
+                      <Bot />
+                      <span>@Bot</span>
                     </button>
                   )}
                 </div>
 
-                <input
-                  type="text"
-                  value={messageInput}
-                  onChange={handleInputChange}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSendMessage();
-                    }
-                  }}
-                  placeholder={
-                    selectedThreadId && threads.find(t => t.id === selectedThreadId)?.type === 'group'
-                      ? "Nachricht schreiben... (Tipp: @BL_Bot für Hilfe)"
-                      : "Nachricht schreiben..."
-                  }
-                  className="flex-1 px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 message-input"
-                />
-
+                {/* Send Button */}
                 <button
                   type="submit"
                   disabled={sending || (!messageInput.trim() && pendingAttachments.length === 0 && !selectedEvent)}
-                  className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-md"
+                  className="messenger-btn-send"
+                  title="Senden"
                 >
-                  <Send className="w-5 h-5" />
+                  <Send />
                 </button>
 
                 <input
@@ -3280,78 +3338,158 @@ const DirectMessenger = () => {
 
       {/* MOBILE INPUT - ПОЗА messenger-mobile-container для правильного z-index */}
       {isMobile && (selectedContact || selectedThreadId) && (
-        <form ref={mobileInputRef} onSubmit={handleSendMessage} className="messenger-mobile-input">
+        <form ref={mobileInputRef} onSubmit={handleSendMessage} className="messenger-input-container messenger-mobile-input">
+          {/* Plus Button */}
+          <button
+            type="button"
+            onClick={toggleComposerActions}
+            className={`messenger-btn-plus ${showComposerActions ? 'active' : ''}`}
+            aria-label="Aktionen umschalten"
+          >
+            <Plus />
+          </button>
+
+          {/* Composer Actions Menu */}
           {showComposerActions && (
-            <div className="composer-actions">
-              <button type="button" onClick={() => fileInputRef.current?.click()}>
-                <Paperclip className="w-4 h-4" />
-                Datei
+            <div className="messenger-composer-menu">
+              <button
+                type="button"
+                onClick={() => {
+                  fileInputRef.current?.click();
+                  setShowComposerActions(false);
+                }}
+                className="messenger-composer-menu-item"
+              >
+                <Paperclip />
+                <span>Datei</span>
               </button>
-              <button type="button" onClick={() => setShowGifPicker((prev) => !prev)}>
-                <ImageIcon className="w-4 h-4" />
-                GIF
+              <button
+                type="button"
+                onClick={() => {
+                  setShowGifPicker((prev) => !prev);
+                  setShowComposerActions(false);
+                }}
+                className="messenger-composer-menu-item"
+              >
+                <ImageIcon />
+                <span>GIF</span>
               </button>
-              <button type="button" onClick={openEventPicker}>
-                <CalendarDays className="w-4 h-4" />
-                Event
+              <button
+                type="button"
+                onClick={() => {
+                  openEventPicker();
+                  setShowComposerActions(false);
+                }}
+                className="messenger-composer-menu-item"
+              >
+                <CalendarDays />
+                <span>Event</span>
               </button>
-              <button type="button" onClick={() => setShowQuickReplies(true)}>
-                <Zap className="w-4 h-4" />
-                Quick
+              <button
+                type="button"
+                onClick={() => {
+                  setShowQuickReplies(true);
+                  setShowComposerActions(false);
+                }}
+                className="messenger-composer-menu-item"
+              >
+                <Zap />
+                <span>Quick</span>
               </button>
-              <button type="button" onClick={isRecording ? stopRecording : startRecording}>
-                {isRecording ? <StopCircle className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-                Audio
+              <button
+                type="button"
+                onClick={() => {
+                  isRecording ? stopRecording() : startRecording();
+                  setShowComposerActions(false);
+                }}
+                className="messenger-composer-menu-item"
+              >
+                {isRecording ? <StopCircle /> : <Mic />}
+                <span>Audio</span>
               </button>
               {(() => {
                 const currentThread = threads.find(t => t.id === selectedThreadId);
                 const isGroupChat = currentThread?.type === 'group' || currentThread?.conversation_type === 'group';
                 return isGroupChat ? (
-                  <button type="button" onClick={handleAskBot}>
-                    <Bot className="w-4 h-4" />
-                    Bot
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleAskBot();
+                      setShowComposerActions(false);
+                    }}
+                    className="messenger-composer-menu-item"
+                  >
+                    <Bot />
+                    <span>Bot</span>
                   </button>
                 ) : null;
               })()}
             </div>
           )}
-          <div className="messenger-mobile-input-row">
-            <button
-              type="button"
-              onClick={toggleComposerActions}
-              className={`compose-toggle ${showComposerActions ? 'active' : ''}`}
-              aria-label="Aktionen umschalten"
-            >
-              <Plus className="w-5 h-5" />
-            </button>
-            <div className="input-wrapper">
-              <textarea
-                ref={mobileTextareaRef}
-                rows={1}
-                value={messageInput}
-                onChange={handleInputChange}
-                placeholder={
-                  selectedThreadId && threads.find(t => t.id === selectedThreadId)?.type === 'group'
-                    ? "Nachricht... (@BL_Bot für Hilfe)"
-                    : "Nachricht schreiben..."
+
+          {/* Input Wrapper */}
+          <div className="messenger-input-wrapper">
+            <textarea
+              ref={mobileTextareaRef}
+              rows={1}
+              value={messageInput}
+              onChange={handleInputChange}
+              placeholder={
+                selectedThreadId && threads.find(t => t.id === selectedThreadId)?.type === 'group'
+                  ? "Nachricht... (@BL_Bot für Hilfe)"
+                  : "Nachricht schreiben..."
+              }
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendMessage();
                 }
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendMessage();
-                  }
-                }}
-                className="message-input"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={sending || (!messageInput.trim() && pendingAttachments.length === 0 && !selectedEvent)}
-              className="send-btn"
-            >
-              <Send className="w-5 h-5" />
-            </button>
+              }}
+              className="messenger-text-input"
+              style={{ height: 'auto' }}
+              onInput={(e) => {
+                e.target.style.height = 'auto';
+                e.target.style.height = Math.min(e.target.scrollHeight, 88) + 'px';
+              }}
+            />
+
+            {/* Quick Bot Mention for Groups */}
+            {(() => {
+              const currentThread = threads.find(t => t.id === selectedThreadId);
+              const isGroupChat = currentThread?.type === 'group' || currentThread?.conversation_type === 'group';
+              return isGroupChat ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const currentInput = messageInput;
+                    const lastChar = currentInput.slice(-1);
+                    const needsSpace = currentInput && lastChar !== ' ' && lastChar !== '\n';
+                    setMessageInput(currentInput + (needsSpace ? ' ' : '') + '@BL_Bot ');
+                    setTimeout(() => {
+                      mobileTextareaRef.current?.focus();
+                      const len = mobileTextareaRef.current?.value.length || 0;
+                      mobileTextareaRef.current?.setSelectionRange(len, len);
+                    }, 0);
+                  }}
+                  className="messenger-btn-bot"
+                  title="Bot erwähnen"
+                >
+                  <Bot />
+                  <span>@Bot</span>
+                </button>
+              ) : null;
+            })()}
           </div>
+
+          {/* Send Button */}
+          <button
+            type="submit"
+            disabled={sending || (!messageInput.trim() && pendingAttachments.length === 0 && !selectedEvent)}
+            className="messenger-btn-send"
+          >
+            <Send />
+          </button>
+
           <input
             ref={fileInputRef}
             type="file"
