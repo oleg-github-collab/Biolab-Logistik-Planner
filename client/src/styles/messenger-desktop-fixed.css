@@ -4,11 +4,22 @@
 
   /* ==================== КОНТЕЙНЕР МЕСЕНДЖЕРА ==================== */
   .messenger-container {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    position: relative;
-    overflow: hidden;
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+    position: relative !important;
+    overflow: hidden !important;
+  }
+
+  /* FORCE LAYOUT - INPUT ALWAYS AT BOTTOM */
+  .messenger-container > .messenger-messages-container {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+  }
+
+  .messenger-container > .messenger-input-container {
+    flex-shrink: 0 !important;
+    margin-top: auto !important;
   }
 
   /* ==================== HEADER - ЗАКРІПЛЕНИЙ ЗВЕРХУ ==================== */

@@ -34,6 +34,18 @@
     position: relative !important;
   }
 
+  /* FORCE FLEX LAYOUT - HEADER ALWAYS VISIBLE, INPUT ALWAYS AT BOTTOM */
+  .messenger-mobile-container > *,
+  .messenger-mobile-chat-mode > * {
+    flex-shrink: 0 !important;
+  }
+
+  .messenger-mobile-container .messenger-mobile-messages,
+  .messenger-mobile-chat-mode .messenger-mobile-messages {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+  }
+
   /* ==================== HEADER З КНОПКОЮ НАЗАД ==================== */
   .messenger-mobile-header-enhanced {
     position: sticky !important;
@@ -168,6 +180,8 @@
     overscroll-behavior-y: contain !important;
     padding: 14px !important;
     padding-bottom: 20px !important;
+    min-height: 0 !important;
+    max-height: none !important;
   }
 
   .messenger-mobile-messages::-webkit-scrollbar {
