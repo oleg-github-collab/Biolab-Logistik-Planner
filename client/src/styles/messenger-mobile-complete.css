@@ -37,13 +37,12 @@
   /* ==================== HEADER З КНОПКОЮ НАЗАД ==================== */
   .messenger-mobile-header-enhanced {
     position: sticky !important;
-    top: 0 !important;
+    top: var(--safe-top) !important;
     z-index: 100 !important;
     display: flex !important;
     align-items: center !important;
     gap: 8px !important;
     padding: 10px 12px !important;
-    padding-top: calc(10px + var(--safe-top)) !important;
     min-height: var(--header-height) !important;
     background: rgba(11, 18, 32, 0.98) !important;
     backdrop-filter: blur(20px) !important;
@@ -177,20 +176,18 @@
 
   /* ==================== INPUT SECTION ==================== */
   .messenger-mobile-input-wrapper {
-    position: relative !important;
+    position: sticky !important;
+    bottom: calc(var(--bottom-nav-height) + var(--safe-bottom)) !important;
     width: 100% !important;
     flex-shrink: 0 !important;
+    margin-top: auto !important;
+    z-index: 90 !important;
   }
 
   .messenger-input-container.messenger-mobile-input {
     position: relative !important;
-    bottom: auto !important;
-    left: 0 !important;
-    right: 0 !important;
     width: 100% !important;
     min-height: 56px !important;
-    z-index: 90 !important;
-    margin-bottom: calc(var(--bottom-nav-height) + var(--safe-bottom)) !important;
 
     background: linear-gradient(180deg, rgba(11, 18, 32, 0.95), rgba(15, 23, 42, 0.98)) !important;
     backdrop-filter: blur(32px) saturate(180%) !important;
@@ -209,7 +206,6 @@
 
     transform: translateZ(0) !important;
     -webkit-transform: translateZ(0) !important;
-    flex-shrink: 0 !important;
   }
 
   /* Plus Button - СУЧАСНИЙ ДИЗАЙН */
