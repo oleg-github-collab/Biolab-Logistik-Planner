@@ -3,7 +3,8 @@
 @media (min-width: 1025px) {
 
   /* ==================== КОНТЕЙНЕР МЕСЕНДЖЕРА ==================== */
-  .messenger-container {
+  div.messenger-container,
+  .flex-1.flex.flex-col.messenger-container {
     display: flex !important;
     flex-direction: column !important;
     height: 100% !important;
@@ -12,14 +13,19 @@
   }
 
   /* FORCE LAYOUT - INPUT ALWAYS AT BOTTOM */
-  .messenger-container > .messenger-messages-container {
+  div.messenger-container > .messenger-messages-container,
+  .flex-1.flex.flex-col.messenger-container > .messenger-messages-container {
     flex: 1 1 auto !important;
     min-height: 0 !important;
+    max-height: none !important;
   }
 
-  .messenger-container > .messenger-input-container {
+  div.messenger-container > form.messenger-input-container,
+  .flex-1.flex.flex-col.messenger-container > form.messenger-input-container {
     flex-shrink: 0 !important;
     margin-top: auto !important;
+    position: sticky !important;
+    bottom: 0 !important;
   }
 
   /* ==================== HEADER - ЗАКРІПЛЕНИЙ ЗВЕРХУ ==================== */

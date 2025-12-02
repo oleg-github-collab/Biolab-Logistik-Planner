@@ -47,37 +47,44 @@
   }
 
   /* ==================== HEADER З КНОПКОЮ НАЗАД ==================== */
-  .messenger-mobile-header-enhanced {
+  div.messenger-mobile-header-enhanced,
+  .messenger-mobile-chat-mode > .messenger-mobile-header-enhanced {
     position: sticky !important;
-    top: var(--safe-top) !important;
+    top: 0 !important;
     z-index: 100 !important;
     display: flex !important;
     align-items: center !important;
     gap: 8px !important;
     padding: 10px 12px !important;
-    min-height: var(--header-height) !important;
+    padding-top: calc(10px + var(--safe-top)) !important;
+    min-height: calc(var(--header-height) + var(--safe-top)) !important;
     background: rgba(11, 18, 32, 0.98) !important;
     backdrop-filter: blur(20px) !important;
     -webkit-backdrop-filter: blur(20px) !important;
     border-bottom: 1px solid rgba(148, 163, 184, 0.2) !important;
     flex-shrink: 0 !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
   }
 
   /* Back Button - ВИДИМА І ПРАЦЮЮЧА */
-  .messenger-mobile-header-enhanced__back {
+  button.messenger-mobile-header-enhanced__back,
+  .messenger-mobile-header-enhanced > .messenger-mobile-header-enhanced__back {
     width: 40px !important;
     height: 40px !important;
     min-width: 40px !important;
     border-radius: 12px !important;
-    border: 1px solid rgba(148, 163, 184, 0.3) !important;
-    background: rgba(255, 255, 255, 0.08) !important;
-    color: #e2e8f0 !important;
+    border: 1.5px solid rgba(148, 163, 184, 0.4) !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: #f8fafc !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
     cursor: pointer !important;
     transition: all 0.2s ease !important;
     -webkit-tap-highlight-color: transparent !important;
+    flex-shrink: 0 !important;
+    padding: 0 !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
   }
 
   .messenger-mobile-header-enhanced__back:active {
