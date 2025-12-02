@@ -19,6 +19,7 @@ import {
   User,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   CalendarDays,
   Loader2,
   Smile,
@@ -62,6 +63,7 @@ import { showError, showSuccess } from '../utils/toast';
 import { getAssetUrl } from '../utils/media';
 import '../styles/messenger-desktop-fixed.css';
 import '../styles/messenger-mobile-complete.css';
+import '../styles/scroll-to-bottom-button.css';
 
 const GENERAL_THREAD_NAMES = ['general chat', 'general'];
 const BOT_CONTACT_TEMPLATE = {
@@ -159,6 +161,8 @@ const DirectMessenger = () => {
   const [longPressMenuMessage, setLongPressMenuMessage] = useState(null);
   const [longPressMenuPosition, setLongPressMenuPosition] = useState({ x: 0, y: 0 });
   const [bootstrapDone, setBootstrapDone] = useState(false);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const ensureBotContactExists = useCallback((contactList) => {
     const list = Array.isArray(contactList) ? contactList.filter(Boolean) : [];
@@ -511,6 +515,33 @@ const DirectMessenger = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     shouldAutoScrollRef.current = false;
   }, [messages]);
+
+  // Scroll to bottom function
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    setShowScrollToBottom(false);
+    setUnreadCount(0);
+  }, []);
+
+  // Handle scroll detection
+  useEffect(() => {
+    const messagesContainer = isMobile
+      ? document.querySelector('.messenger-mobile-messages')
+      : document.querySelector('.messenger-messages-container');
+
+    if (!messagesContainer) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = messagesContainer;
+      const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+
+      // Show button if scrolled up more than 200px from bottom
+      setShowScrollToBottom(distanceFromBottom > 200);
+    };
+
+    messagesContainer.addEventListener('scroll', handleScroll);
+    return () => messagesContainer.removeEventListener('scroll', handleScroll);
+  }, [isMobile, selectedThreadId]);
 
   useEffect(() => {
     if (!selectedThreadId || !isConnected) return;
@@ -2709,6 +2740,19 @@ const DirectMessenger = () => {
               ))}
 
               <div ref={messagesEndRef} />
+
+              {/* Scroll to Bottom Button - Desktop */}
+              <button
+                type="button"
+                onClick={scrollToBottom}
+                className={`scroll-to-bottom-btn ${showScrollToBottom ? 'visible' : ''}`}
+                aria-label="Zum Ende scrollen"
+              >
+                <ChevronDown />
+                {unreadCount > 0 && (
+                  <span className="unread-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+                )}
+              </button>
             </div>
 
             <form onSubmit={handleSendMessage} className="messenger-input-container">
@@ -3093,6 +3137,19 @@ const DirectMessenger = () => {
           <TypingIndicator key={userId} userName={data.name} />
         ))}
         <div ref={messagesEndRef} />
+
+        {/* Scroll to Bottom Button - Mobile */}
+        <button
+          type="button"
+          onClick={scrollToBottom}
+          className={`scroll-to-bottom-btn ${showScrollToBottom ? 'visible' : ''}`}
+          aria-label="Zum Ende scrollen"
+        >
+          <ChevronDown />
+          {unreadCount > 0 && (
+            <span className="unread-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+          )}
+        </button>
       </div>
       {replyToMessage && (
         <div className="px-4 py-3 bg-slate-900 text-slate-100 flex items-start gap-3 border-t border-slate-700 border-l-4 border-l-blue-400">

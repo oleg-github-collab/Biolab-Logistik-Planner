@@ -9,13 +9,17 @@
   }
 
   /* Головний контейнер профілю */
+  .bg-white.rounded-lg.shadow-2xl.max-w-4xl.w-full.max-h-\\[90vh\\],
   .bg-white.rounded-lg.shadow-2xl.max-w-4xl {
     max-width: 100% !important;
     width: 100% !important;
+    height: 100vh !important;
     max-height: 100vh !important;
     border-radius: 0 !important;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+    display: flex !important;
+    flex-direction: column !important;
   }
 
   /* Header градієнт */
@@ -127,20 +131,39 @@
   }
 
   /* Tabs Navigation */
-  .border-b.border-gray-200 nav {
-    gap: 0.5rem !important;
-    padding: 0 1rem;
+  .border-b.border-gray-200.bg-gray-50 {
+    flex: 0 0 auto !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
   }
 
-  .border-b.border-gray-200 button {
-    padding: 0.875rem 0.5rem !important;
+  .border-b.border-gray-200.bg-gray-50 > .flex.overflow-x-auto,
+  .border-b.border-gray-200 > .flex {
+    gap: 0.25rem !important;
+    padding: 0.5rem !important;
+    min-width: min-content;
+  }
+
+  .border-b.border-gray-200 button,
+  .flex.overflow-x-auto > button {
+    padding: 0.875rem 1rem !important;
     font-size: 0.8125rem !important;
     white-space: nowrap;
+    min-height: 48px !important;
+    flex-shrink: 0;
   }
 
   /* Tab content */
+  .flex-1.overflow-y-auto.p-6,
   .p-6 {
     padding: 1.25rem !important;
+  }
+
+  /* Ensure content area scrolls properly */
+  .flex-1.overflow-y-auto {
+    flex: 1 1 0 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
   }
 
   /* Form groups */
@@ -148,9 +171,16 @@
     gap: 1rem !important;
   }
 
-  .grid.grid-cols-1.md\\:grid-cols-2.gap-6 {
+  /* Grid layouts - ensure single column on mobile */
+  .grid.grid-cols-1.md\\:grid-cols-2.gap-6,
+  .grid.grid-cols-1.sm\\:grid-cols-2.gap-4 {
     grid-template-columns: 1fr !important;
     gap: 1rem !important;
+  }
+
+  /* Two column items should span full width on mobile */
+  .sm\\:col-span-2 {
+    grid-column: 1 / -1 !important;
   }
 
   /* Labels */

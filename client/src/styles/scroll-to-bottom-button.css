@@ -1,0 +1,96 @@
+/* ========================================
+   SCROLL TO BOTTOM BUTTON
+   Mobile + Desktop
+   ======================================== */
+
+.scroll-to-bottom-btn {
+  position: fixed;
+  right: 20px;
+  bottom: calc(var(--input-height, 76px) + 20px);
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  color: white;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.4), 0 0 0 0 rgba(59, 130, 246, 0.2);
+  z-index: 1000;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  opacity: 0;
+  transform: translateY(100px) scale(0.5);
+  pointer-events: none;
+}
+
+.scroll-to-bottom-btn.visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: all;
+}
+
+.scroll-to-bottom-btn:hover {
+  transform: translateY(-4px) scale(1.05);
+  box-shadow: 0 12px 32px rgba(59, 130, 246, 0.5), 0 0 0 4px rgba(59, 130, 246, 0.15);
+}
+
+.scroll-to-bottom-btn:active {
+  transform: translateY(-2px) scale(0.95);
+}
+
+.scroll-to-bottom-btn svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* Badge для кількості нових повідомлень */
+.scroll-to-bottom-btn .unread-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: #ef4444;
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid white;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+}
+
+/* Mobile adjustments */
+@media (max-width: 1024px) {
+  .scroll-to-bottom-btn {
+    right: 16px;
+    bottom: calc(var(--input-height, 60px) + var(--bottom-nav-height, 56px) + var(--safe-bottom, 0px) + 16px);
+    width: 44px;
+    height: 44px;
+  }
+
+  .scroll-to-bottom-btn svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .scroll-to-bottom-btn .unread-badge {
+    min-width: 18px;
+    height: 18px;
+    font-size: 10px;
+  }
+}
+
+/* Desktop - position relative to messenger container */
+@media (min-width: 1025px) {
+  .messenger-container .scroll-to-bottom-btn {
+    position: absolute;
+    right: 24px;
+    bottom: 100px;
+  }
+}
