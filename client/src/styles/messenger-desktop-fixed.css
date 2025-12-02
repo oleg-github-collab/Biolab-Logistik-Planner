@@ -7,25 +7,29 @@
   .flex-1.flex.flex-col.messenger-container {
     display: flex !important;
     flex-direction: column !important;
-    height: 100% !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
     position: relative !important;
     overflow: hidden !important;
   }
 
-  /* FORCE LAYOUT - INPUT ALWAYS AT BOTTOM */
+  /* FORCE LAYOUT - MESSAGES SCROLL, INPUT STICKY */
   div.messenger-container > .messenger-messages-container,
   .flex-1.flex.flex-col.messenger-container > .messenger-messages-container {
-    flex: 1 1 auto !important;
+    flex: 1 1 0 !important;
     min-height: 0 !important;
     max-height: none !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
   }
 
   div.messenger-container > form.messenger-input-container,
   .flex-1.flex.flex-col.messenger-container > form.messenger-input-container {
+    flex: 0 0 auto !important;
     flex-shrink: 0 !important;
-    margin-top: auto !important;
-    position: sticky !important;
+    position: relative !important;
     bottom: 0 !important;
+    width: 100% !important;
   }
 
   /* ==================== HEADER - ЗАКРІПЛЕНИЙ ЗВЕРХУ ==================== */
