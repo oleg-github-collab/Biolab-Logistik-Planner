@@ -555,3 +555,10 @@
     color: #60a5fa;
   }
 }
+
+@media (min-width: 1025px) {
+  .messenger-input-container,
+  .messenger-input-container .messenger-text-input {
+    pointer-events: auto !important;
+  }
+}

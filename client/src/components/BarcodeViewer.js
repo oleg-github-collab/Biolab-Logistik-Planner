@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { X, ChevronLeft, ChevronRight, Upload } from 'lucide-react';
 import api from '../utils/apiEnhanced';
 import { showError, showSuccess } from '../utils/toast';
+import { useMobile } from '../hooks/useMobile';
 import '../styles/barcodeViewer.css';
 
 const BarcodeViewer = ({ isOpen, onClose, date }) => {
@@ -11,6 +12,7 @@ const BarcodeViewer = ({ isOpen, onClose, date }) => {
   const [uploading, setUploading] = useState(false);
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
+  const { isMobile } = useMobile();
 
   useEffect(() => {
     if (isOpen && date) {
@@ -123,10 +125,13 @@ const BarcodeViewer = ({ isOpen, onClose, date }) => {
   if (!isOpen) return null;
 
   const currentBin = bins[currentIndex];
+  const containerClass = isMobile
+    ? 'relative w-full h-full bg-gradient-to-br from-white via-blue-50/30 to-indigo-50/30 rounded-none shadow-2xl overflow-hidden border border-gray-200/50 flex flex-col'
+    : 'relative w-full max-w-4xl bg-gradient-to-br from-white via-blue-50/30 to-indigo-50/30 rounded-3xl shadow-2xl overflow-hidden border border-gray-200/50 max-h-[90vh] flex flex-col';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn">
-      <div className="relative w-full max-w-4xl bg-gradient-to-br from-white via-blue-50/30 to-indigo-50/30 rounded-3xl shadow-2xl overflow-hidden border border-gray-200/50 max-h-[90vh] flex flex-col">
+    <div className={`fixed inset-0 z-50 flex justify-center bg-black/80 backdrop-blur-sm animate-fadeIn ${isMobile ? 'items-stretch p-0' : 'items-center p-4'}`}>
+      <div className={containerClass}>
         {/* Premium Header */}
         <div className="relative bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 px-6 py-5 border-b border-white/20">
           <div className="absolute inset-0 bg-black/10"></div>
@@ -162,7 +167,7 @@ const BarcodeViewer = ({ isOpen, onClose, date }) => {
 
         {/* Content */}
         <div
-          className="flex-1 overflow-y-auto p-6 sm:p-8"
+          className="flex-1 overflow-y-auto p-5 sm:p-8"
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}

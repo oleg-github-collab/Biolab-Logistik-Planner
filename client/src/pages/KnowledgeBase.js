@@ -599,6 +599,7 @@ const ArticleViewModal = ({
 
 // Article Editor Modal Component
 const ArticleEditorModal = ({ article, categories, allTags, onSave, onClose, onDraftSaved = () => {} }) => {
+  const { isMobile } = useMobile();
   const [title, setTitle] = useState(article?.title || '');
   const [content, setContent] = useState(article?.content || '');
   const [summary, setSummary] = useState(article?.summary || '');
@@ -1447,6 +1448,10 @@ const KnowledgeBaseV3 = () => {
     };
   }, [articles]);
 
+  const gridWrapperClass = isMobile
+    ? 'kb-grid-wrapper flex-1 overflow-y-auto px-4 pt-3 pb-28'
+    : 'kb-grid-wrapper flex-1 overflow-y-auto p-6';
+
   // Handlers
   const handleArticleClick = async (article) => {
     try {
@@ -1852,10 +1857,10 @@ const KnowledgeBaseV3 = () => {
   );
 
   return (
-    <div className="kb-page">
-      <div className="kb-layout">
-      {/* Sidebar */}
-      <div className="kb-sidebar flex flex-col">
+    <div className={`kb-page ${isMobile ? 'kb-page-mobile' : ''}`}>
+      <div className={`kb-layout ${isMobile ? 'kb-layout-mobile' : ''}`}>
+        {/* Sidebar */}
+        <div className="kb-sidebar flex flex-col">
         <div className="kb-sidebar__header">
           <h2 className="kb-sidebar__title">
             <BookOpen className="mr-2" size={20} />
@@ -2069,7 +2074,7 @@ const KnowledgeBaseV3 = () => {
         </div>
 
         {/* Article Grid */}
-        <div className="kb-grid-wrapper flex-1 overflow-y-auto p-6">
+        <div className={gridWrapperClass}>
           {isInitialLoad ? (
             <LoadingSpinner />
           ) : articles.length === 0 ? (

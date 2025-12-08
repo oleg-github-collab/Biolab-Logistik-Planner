@@ -276,6 +276,7 @@ const DirectMessenger = () => {
   const fileInputRef = useRef(null);
   const mobileInputRef = useRef(null);
   const mobileTextareaRef = useRef(null);
+  const desktopTextareaRef = useRef(null);
   const longPressTimerRef = useRef(null);
   const longPressOriginRef = useRef({ x: 0, y: 0 });
   const longPressTargetRef = useRef(null);
@@ -690,6 +691,20 @@ const DirectMessenger = () => {
       window.removeEventListener('resize', updateInputHeight);
     };
   }, [isMobile, mobileMode, showComposerActions]);
+
+  useEffect(() => {
+    if (isMobile) {
+      if (selectedThreadId || selectedContact) {
+        requestAnimationFrame(() => {
+          mobileTextareaRef.current?.focus();
+        });
+      }
+    } else if (selectedThreadId || selectedContact) {
+      requestAnimationFrame(() => {
+        desktopTextareaRef.current?.focus({ preventScroll: true });
+      });
+    }
+  }, [isMobile, selectedThreadId, selectedContact]);
 
   const loadMessages = useCallback(async (threadId) => {
     if (!threadId) {
@@ -1685,14 +1700,14 @@ const DirectMessenger = () => {
     setShowComposerActions(false);
     // Focus on input after state update
     setTimeout(() => {
-      const textarea = document.querySelector('.message-input');
+      const textarea = isMobile ? mobileTextareaRef.current : desktopTextareaRef.current;
       if (textarea) {
-        textarea.focus();
-        // Move cursor to end
-        textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+        textarea.focus({ preventScroll: true });
+        const len = textarea.value.length;
+        textarea.setSelectionRange(len, len);
       }
     }, 0);
-  }, []);
+  }, [isMobile]);
 
   const handleStoryCreated = useCallback(async () => {
     try {
@@ -2895,8 +2910,12 @@ const DirectMessenger = () => {
                 )}
 
                 {/* Input Wrapper */}
-                <div className="messenger-input-wrapper">
+                <div
+                  className="messenger-input-wrapper"
+                  onClick={() => desktopTextareaRef.current?.focus({ preventScroll: true })}
+                >
                   <textarea
+                    ref={desktopTextareaRef}
                     rows={1}
                     value={messageInput}
                     onChange={handleInputChange}
@@ -3485,7 +3504,10 @@ const DirectMessenger = () => {
           )}
 
           {/* Input Wrapper */}
-          <div className="messenger-input-wrapper">
+          <div
+            className="messenger-input-wrapper"
+            onClick={() => mobileTextareaRef.current?.focus()}
+          >
             <textarea
               ref={mobileTextareaRef}
               rows={1}

@@ -81,4 +81,28 @@
   body.messenger-page .bottom-nav-mobile {
     z-index: 999 !important;
   }
+
+  /* Keep composer fully interactive and visible */
+  body.messenger-page .messenger-input-container.messenger-mobile-input {
+    overflow: visible !important;
+    pointer-events: auto !important;
+  }
+
+  body.messenger-page .messenger-mobile-input .messenger-text-input {
+    pointer-events: auto !important;
+    background: transparent !important;
+    color: #f8fafc !important;
+  }
+
+  body.messenger-page .messenger-composer-menu {
+    position: fixed !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    bottom: calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 96px) !important;
+    width: min(420px, 94vw) !important;
+  }
+
+  body.messenger-page .messenger-btn-plus {
+    pointer-events: auto !important;
+  }
 }

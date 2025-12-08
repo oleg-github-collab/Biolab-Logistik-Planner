@@ -522,29 +522,29 @@ router.get('/hours-summary/:weekStart', auth, async (req, res) => {
     const holidays = await workingDaysService.getPublicHolidays(monday, sunday);
 
     let totalBooked = 0;
+    let weekendOrHolidayHours = 0;
+    let workingDayHours = 0;
     for (const row of scheduleResult.rows) {
       if (!row.is_working) continue;
 
-      // Skip weekends (day_of_week: 0=Sunday, 6=Saturday)
-      if (row.day_of_week === 0 || row.day_of_week === 6) {
-        continue;
-      }
-
-      // Check if this day is a public holiday
       const dayDate = new Date(row.week_start);
       dayDate.setDate(dayDate.getDate() + row.day_of_week);
       const dayDateStr = dayDate.toISOString().split('T')[0];
-
-      if (holidays.has(dayDateStr)) {
-        continue; // Skip public holidays
-      }
+      const isWeekend = dayDate.getDay() === 0 || dayDate.getDay() === 6;
+      const isHoliday = holidays.has(dayDateStr);
 
       const blocks = parseTimeBlocksFromNotes(
         row.notes,
         row.start_time ? row.start_time.substring(0, 5) : null,
         row.end_time ? row.end_time.substring(0, 5) : null
       );
-      totalBooked += totalHoursFromBlocks(blocks);
+      const hours = totalHoursFromBlocks(blocks);
+      totalBooked += hours;
+      if (isWeekend || isHoliday) {
+        weekendOrHolidayHours += hours;
+      } else {
+        workingDayHours += hours;
+      }
     }
 
     const difference = totalBooked - expectedHours;
@@ -561,7 +561,9 @@ router.get('/hours-summary/:weekStart', auth, async (req, res) => {
       status,
       weekStart,
       workingDaysCount: workingDays.length,
-      publicHolidaysCount: 5 - workingDays.length // Standard 5 working days minus actual
+      publicHolidaysCount: 5 - workingDays.length, // Standard 5 working days minus actual
+      workingDayHours,
+      weekendOrHolidayHours
     });
 
   } catch (error) {
@@ -625,13 +627,15 @@ router.get('/hours-summary/month/:year/:month', auth, async (req, res) => {
       [targetUserId, formatDateForDB(monthStart), formatDateForDB(monthEnd)]
     );
 
-    // Group by week and sum booked hours on working/holiday-free days
+    // Group by week and sum booked hours, keeping track of weekend/holiday hours separately
     const weekSummaries = {};
     scheduleResult.rows.forEach(row => {
       if (!weekSummaries[row.week_start]) {
         weekSummaries[row.week_start] = {
           weekStart: row.week_start,
-          totalBooked: 0
+          totalBooked: 0,
+          workingBooked: 0,
+          nonWorkingBooked: 0
         };
       }
 
@@ -644,19 +648,25 @@ router.get('/hours-summary/month/:year/:month', auth, async (req, res) => {
       const dayDateStr = dayDate.toISOString().split('T')[0];
       const isHoliday = holidaysSet.has(dayDateStr);
 
-      if (isWeekend || isHoliday) return;
-
       const blocks = parseTimeBlocksFromNotes(
         row.notes,
         row.start_time ? row.start_time.substring(0, 5) : null,
         row.end_time ? row.end_time.substring(0, 5) : null
       );
-      weekSummaries[row.week_start].totalBooked += totalHoursFromBlocks(blocks);
+      const hours = totalHoursFromBlocks(blocks);
+      weekSummaries[row.week_start].totalBooked += hours;
+      if (isWeekend || isHoliday) {
+        weekSummaries[row.week_start].nonWorkingBooked += hours;
+      } else {
+        weekSummaries[row.week_start].workingBooked += hours;
+      }
     });
 
     // Calculate totals using actual working days distribution
     const weeks = Object.values(weekSummaries);
     const totalBooked = weeks.reduce((sum, week) => sum + week.totalBooked, 0);
+    const workingBooked = weeks.reduce((sum, week) => sum + week.workingBooked, 0);
+    const weekendOrHolidayHours = weeks.reduce((sum, week) => sum + week.nonWorkingBooked, 0);
     const dailyQuota = weeklyQuota / 5; // distribute weekly quota across 5 working days
     const expectedHours = dailyQuota * workingDaysCount;
     const totalQuota = weeklyQuota * totalWeeksInMonth; // Total quota based on calendar weeks
@@ -672,6 +682,8 @@ router.get('/hours-summary/month/:year/:month', auth, async (req, res) => {
       workingDaysCount,
       expectedHours, // realistic target based on working days
       totalBooked,
+      workingBooked,
+      weekendOrHolidayHours,
       difference,
       status,
       weeks

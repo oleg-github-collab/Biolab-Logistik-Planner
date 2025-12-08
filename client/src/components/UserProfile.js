@@ -14,6 +14,7 @@ import {
   markStoryViewed
 } from '../utils/apiEnhanced';
 import { getAssetUrl } from '../utils/media';
+import { useMobile } from '../hooks/useMobile';
 import '../styles/user-profile-mobile.css';
 
 const UserProfile = ({ userId, onClose }) => {
@@ -39,6 +40,7 @@ const UserProfile = ({ userId, onClose }) => {
   const { user: currentUser } = useAuth();
   const isOwnProfile = useMemo(() => currentUser?.id === parseInt(userId, 10), [currentUser, userId]);
   const storyInputRef = useRef(null);
+  const { isMobile } = useMobile();
 
   const loadProfile = useCallback(async () => {
     try {
@@ -228,8 +230,16 @@ const UserProfile = ({ userId, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto flex flex-col">
+    <div
+      className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-50 ${
+        isMobile ? 'p-0 flex items-stretch justify-center' : 'p-4 flex items-center justify-center'
+      }`}
+    >
+      <div
+        className={`bg-white shadow-2xl w-full flex flex-col ${
+          isMobile ? 'h-full max-w-none rounded-none overflow-y-auto' : 'rounded-lg max-w-4xl max-h-[90vh] overflow-y-auto'
+        }`}
+      >
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-6 relative">
           <button
@@ -809,17 +819,25 @@ const UserProfile = ({ userId, onClose }) => {
         </div>
       </div>
       {storyModal && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center px-4 py-8">
+        <div
+          className={`fixed inset-0 z-[80] flex bg-black/70 ${
+            isMobile ? 'items-stretch justify-center p-0' : 'items-center justify-center px-4 py-8'
+          }`}
+        >
           <div
-            className="absolute inset-0 bg-black/80"
+            className="absolute inset-0"
             onClick={handleCloseStory}
           />
-          <div className="relative z-[81] w-full max-w-sm bg-white rounded-3xl overflow-hidden shadow-2xl">
-            <div className="relative bg-black">
+          <div
+            className={`relative z-[81] w-full bg-white shadow-2xl ${
+              isMobile ? 'h-full max-w-none rounded-none flex flex-col' : 'max-w-sm rounded-3xl overflow-hidden'
+            }`}
+          >
+            <div className={`relative bg-black ${isMobile ? 'flex-1' : ''}`}>
               {storyModal.mediaType?.startsWith('video/') ? (
                 <video
                   src={getAssetUrl(storyModal.mediaUrl)}
-                  className="w-full h-[420px] object-contain bg-black"
+                  className={`w-full ${isMobile ? 'h-full object-contain' : 'h-[420px] object-contain'} bg-black`}
                   controls
                   autoPlay
                 />
@@ -827,7 +845,7 @@ const UserProfile = ({ userId, onClose }) => {
                 <img
                   src={getAssetUrl(storyModal.mediaUrl)}
                   alt={storyModal.caption || 'Story'}
-                  className="w-full h-[420px] object-cover"
+                  className={`w-full ${isMobile ? 'h-full object-contain' : 'h-[420px] object-cover'}`}
                 />
               )}
               <button
