@@ -384,7 +384,7 @@ const KistenManager = () => {
   return (
     <div className="kisten-page min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 pb-28 overflow-x-hidden">
       <div className="kisten-container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-8">
-        <section className="kisten-hero bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
+        <section className="kisten-hero kisten-section bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
           <div className="absolute inset-0 pointer-events-none">
             <div className="absolute w-72 h-72 bg-blue-500/20 blur-3xl -top-10 -left-10 rounded-full" />
             <div className="absolute w-80 h-80 bg-emerald-500/20 blur-3xl bottom-0 -right-10 rounded-full" />
@@ -403,7 +403,7 @@ const KistenManager = () => {
               </p>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 text-slate-900 font-semibold">
+            <div className="kisten-stats-grid grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 text-slate-900 font-semibold">
               <div className="bg-white/95 rounded-2xl px-4 py-3 shadow-lg border border-white/50">
                 <p className="text-xs text-slate-500 uppercase tracking-wide">Aktiv</p>
                 <p className="mt-2 text-3xl">{stats.pending}</p>
@@ -424,7 +424,7 @@ const KistenManager = () => {
           </div>
         </section>
 
-        <section className="kisten-form bg-white rounded-3xl shadow-lg border border-slate-200 p-6 sm:p-8 space-y-6">
+        <section className="kisten-form kisten-section bg-white rounded-3xl shadow-lg border border-slate-200 p-6 sm:p-8 space-y-6">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
               <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-3">

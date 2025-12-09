@@ -4,10 +4,12 @@
   width: 100%;
   overflow-x: hidden;
   padding-top: env(safe-area-inset-top, 0);
+  max-width: 100vw;
 }
 
 .kisten-container {
   max-width: 100%;
+  overflow-x: hidden;
 }
 
 @media (max-width: 768px) {
@@ -20,11 +22,14 @@
     margin-left: 0 !important;
     margin-right: 0 !important;
     border-radius: 18px !important;
+    width: 100% !important;
   }
 
   .kisten-page .grid {
     margin-left: 0 !important;
     margin-right: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
   }
 
   .kisten-hero {
@@ -52,5 +57,20 @@
 
   .kisten-page .rounded-2xl {
     border-radius: 16px !important;
+  }
+
+  .kisten-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  .kisten-section {
+    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08) !important;
+  }
+
+  .kisten-page video,
+  .kisten-page canvas,
+  .kisten-page img {
+    max-width: 100% !important;
   }
 }
