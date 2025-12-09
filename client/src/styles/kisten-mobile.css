@@ -3,6 +3,7 @@
 .kisten-page {
   width: 100%;
   overflow-x: hidden;
+  padding-top: env(safe-area-inset-top, 0);
 }
 
 .kisten-container {
@@ -28,17 +29,28 @@
 
   .kisten-hero {
     width: 100% !important;
-    padding: 1.5rem 1.25rem !important;
+    padding: 1.35rem 1.1rem !important;
+    border-radius: 20px !important;
   }
 
   .kisten-form {
     width: 100% !important;
-    padding: 1.25rem !important;
+    padding: 1.1rem !important;
+    border-radius: 18px !important;
   }
 
   .kisten-page .stats-grid,
   .kisten-page .grid-cols-2,
   .kisten-page .grid-cols-4 {
     width: 100% !important;
+  }
+
+  .kisten-page .flex.flex-col.lg\\:flex-row,
+  .kisten-page .flex.flex-wrap {
+    gap: 0.9rem !important;
+  }
+
+  .kisten-page .rounded-2xl {
+    border-radius: 16px !important;
   }
 }

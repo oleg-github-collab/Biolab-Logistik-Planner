@@ -114,6 +114,7 @@
     padding-bottom: 7.5rem;
     background: transparent;
     width: 100%;
+    min-height: 60vh;
   }
 
   .kb-grid {
@@ -155,6 +156,23 @@
     padding-bottom: env(safe-area-inset-bottom, 0);
     max-height: calc(98vh - env(safe-area-inset-bottom, 0));
     height: calc(98vh - env(safe-area-inset-top, 0));
+  }
+
+  .kb-filters-card {
+    backdrop-filter: blur(10px);
+    background: rgba(255, 255, 255, 0.95);
+  }
+
+  .kb-status-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 0.5rem;
+  }
+
+  .kb-status-tabs button {
+    flex-shrink: 0;
+    padding: 0.65rem 1rem;
+    border-radius: 999px;
   }
 
   /* Touch-friendly кнопки в модалці */
