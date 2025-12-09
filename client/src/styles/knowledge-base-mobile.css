@@ -66,7 +66,7 @@
 @media (max-width: 1023px) {
   .kb-page-mobile {
     min-height: 100vh;
-    padding: 0.75rem 0.85rem calc(6.5rem + env(safe-area-inset-bottom, 0));
+    padding: calc(1rem + env(safe-area-inset-top, 0)) 0.85rem calc(6.5rem + env(safe-area-inset-bottom, 0));
     background: linear-gradient(180deg, #f8fbff 0%, #eef2ff 40%, #f8fafc 100%);
     overflow-x: hidden;
   }
@@ -113,6 +113,7 @@
     margin-top: 1rem;
     padding-bottom: 7.5rem;
     background: transparent;
+    width: 100%;
   }
 
   .kb-grid {

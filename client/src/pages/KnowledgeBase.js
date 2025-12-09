@@ -258,7 +258,7 @@ const ArticleViewModal = ({
   currentUserRole,
   onVersionDiff,
   diffLoadingVersion,
-  isMobile
+  isMobile = false
 }) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [voting, setVoting] = useState(false);
