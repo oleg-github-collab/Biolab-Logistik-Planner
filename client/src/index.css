@@ -41,6 +41,8 @@
 @import './styles/knowledge-base-mobile.css';
 /* Messenger mobile high-priority fixes */
 @import './styles/messenger-mobile-hotfix.css';
+/* Kisten management mobile alignment */
+@import './styles/kisten-mobile.css';
 
 @tailwind utilities;
 

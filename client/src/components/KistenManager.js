@@ -382,8 +382,8 @@ const KistenManager = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 pb-28 overflow-x-hidden">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-8">
+    <div className="kisten-page min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 pb-28 overflow-x-hidden">
+      <div className="kisten-container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-8">
         <section className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
           <div className="absolute inset-0 pointer-events-none">
             <div className="absolute w-72 h-72 bg-blue-500/20 blur-3xl -top-10 -left-10 rounded-full" />

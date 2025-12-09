@@ -27,7 +27,7 @@
   border-radius: 24px 24px 0 0;
   box-shadow: 0 -10px 40px rgba(15, 23, 42, 0.2);
   width: 100%;
-  max-height: 90vh;
+  max-height: 92vh;
   overflow: hidden;
   transform: translateY(100%);
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -152,7 +152,8 @@
   /* Safe area для iPhone */
   .modal-base .bottom-sheet {
     padding-bottom: env(safe-area-inset-bottom, 0);
-    max-height: calc(96vh - env(safe-area-inset-bottom, 0));
+    max-height: calc(98vh - env(safe-area-inset-bottom, 0));
+    height: calc(98vh - env(safe-area-inset-top, 0));
   }
 
   /* Touch-friendly кнопки в модалці */

@@ -70,6 +70,8 @@
     right: 0 !important;
     padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)) !important;
     z-index: 1000002 !important;
+    overflow: visible !important;
+    pointer-events: auto !important;
   }
 
   /* Make sure message list leaves room for the input bar */
@@ -83,11 +85,6 @@
   }
 
   /* Keep composer fully interactive and visible */
-  body.messenger-page .messenger-input-container.messenger-mobile-input {
-    overflow: visible !important;
-    pointer-events: auto !important;
-  }
-
   body.messenger-page .messenger-mobile-input .messenger-text-input {
     pointer-events: auto !important;
     background: transparent !important;
@@ -100,9 +97,11 @@
     transform: translateX(-50%) !important;
     bottom: calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 96px) !important;
     width: min(420px, 94vw) !important;
+    display: grid !important;
   }
 
-  body.messenger-page .messenger-btn-plus {
+  body.messenger-page .messenger-btn-plus,
+  body.messenger-page .messenger-btn-send {
     pointer-events: auto !important;
   }
 }

@@ -3,9 +3,18 @@
 /* Desktop базові стилі вже є в компоненті, тут тільки mobile overrides */
 
 @media (max-width: 768px) {
+  .user-profile-shell {
+    background: linear-gradient(180deg, #0b1220 0%, #0b1220 10%, #f8fafc 100%) !important;
+  }
+
   /* Modal Full Screen на мобільному */
   .fixed.inset-0.bg-black.bg-opacity-50 {
     padding: 0 !important;
+  }
+
+  .user-profile-shell > .bg-white,
+  .user-profile-shell > .bg-white.rounded-lg {
+    min-height: 100% !important;
   }
 
   /* Головний контейнер профілю */

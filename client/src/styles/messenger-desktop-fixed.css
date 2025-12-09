@@ -561,4 +561,7 @@
   .messenger-input-container .messenger-text-input {
     pointer-events: auto !important;
   }
+  .messenger-input-container {
+    z-index: 40 !important;
+  }
 }
