@@ -460,7 +460,7 @@ const KistenManager = () => {
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 xl:grid-cols-5 gap-6">
+          <form onSubmit={handleSubmit} className="kisten-form-grid grid grid-cols-1 xl:grid-cols-5 gap-6">
             <div className="xl:col-span-3 space-y-4">
               <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
                 <div className="flex items-center justify-between mb-4">
@@ -657,7 +657,7 @@ const KistenManager = () => {
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="kisten-filters-row flex flex-wrap items-center gap-3">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
@@ -672,7 +672,7 @@ const KistenManager = () => {
                 <Filter className="w-4 h-4" />
                 Status:
               </div>
-              <div className="flex gap-2 overflow-x-auto">
+              <div className="kisten-filter-chips flex gap-2 overflow-x-auto">
                 {filterOptions.map((option) => (
                   <button
                     key={option.id}
@@ -702,7 +702,7 @@ const KistenManager = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="kisten-cards grid grid-cols-1 lg:grid-cols-2 gap-4">
             {loading ? (
               Array.from({ length: 4 }).map((_, idx) => (
                 <div

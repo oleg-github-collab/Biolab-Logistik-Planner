@@ -16,10 +16,20 @@
   width: 100%;
 }
 
+.kisten-section {
+  box-sizing: border-box;
+}
+
 @media (max-width: 768px) {
+  .kisten-page {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
   .kisten-container {
     padding-left: 0.9rem !important;
     padding-right: 0.9rem !important;
+    box-sizing: border-box;
   }
 
   .kisten-page section {
@@ -53,10 +63,21 @@
     max-width: calc(100vw - 20px) !important;
   }
 
+  .kisten-form-grid {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 1rem !important;
+  }
+
   .kisten-page .stats-grid,
   .kisten-page .grid-cols-2,
   .kisten-page .grid-cols-4 {
     width: 100% !important;
+  }
+
+  .kisten-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
   }
 
   .kisten-page .flex.flex-col.lg\\:flex-row,
@@ -76,11 +97,33 @@
   .kisten-section {
     box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08) !important;
     align-self: center !important;
+    overflow: hidden;
   }
 
   .kisten-page video,
   .kisten-page canvas,
   .kisten-page img {
     max-width: 100% !important;
+  }
+
+  .kisten-filters-row {
+    margin-left: -0.5rem;
+    margin-right: -0.5rem;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .kisten-filters-row > * {
+    flex: 0 0 auto;
+  }
+
+  .kisten-filter-chips {
+    padding-bottom: 0.35rem;
+  }
+
+  .kisten-cards {
+    width: 100%;
   }
 }
