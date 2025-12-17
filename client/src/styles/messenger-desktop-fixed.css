@@ -444,6 +444,9 @@
     gap: 6px;
     cursor: pointer;
     transition: all 0.2s ease;
+    pointer-events: auto;
+    position: relative;
+    z-index: 2;
   }
 
   .messenger-btn-bot:hover {

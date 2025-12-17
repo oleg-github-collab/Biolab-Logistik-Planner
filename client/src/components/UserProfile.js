@@ -90,7 +90,24 @@ const UserProfile = ({ userId, onClose }) => {
     try {
       setStoriesLoading(true);
       const response = await getUserStories(userId);
-      setStories(response.data?.stories || []);
+      const raw = Array.isArray(response?.data?.stories)
+        ? response.data.stories
+        : Array.isArray(response?.data)
+          ? response.data
+          : [];
+      const normalized = raw.map((story) => ({
+        id: story.id,
+        userId: story.user_id ?? story.userId,
+        mediaUrl: story.media_url ?? story.mediaUrl,
+        mediaType: story.media_type ?? story.mediaType,
+        caption: story.caption ?? '',
+        createdAt: story.created_at ?? story.createdAt,
+        expiresAt: story.expires_at ?? story.expiresAt,
+        viewCount: Number(story.view_count ?? story.viewCount ?? 0),
+        viewerHasSeen: Boolean(story.viewed_by_me ?? story.viewerHasSeen ?? false)
+      })).filter(Boolean);
+      const filtered = userId ? normalized.filter((s) => s.userId === Number(userId)) : normalized;
+      setStories(filtered);
     } catch (error) {
       console.error('Error loading stories:', error);
     } finally {

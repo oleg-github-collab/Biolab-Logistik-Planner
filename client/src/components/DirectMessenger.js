@@ -106,6 +106,21 @@ const normalizeUserId = (value) => {
   return value;
 };
 
+const normalizeStory = (story = {}) => ({
+  id: story.id,
+  userId: story.user_id ?? story.userId,
+  userName: story.user_name ?? story.userName ?? story.name,
+  mediaUrl: story.media_url ?? story.mediaUrl,
+  mediaType: story.media_type ?? story.mediaType,
+  caption: story.caption ?? '',
+  createdAt: story.created_at ?? story.createdAt,
+  updatedAt: story.updated_at ?? story.updatedAt ?? story.created_at,
+  expiresAt: story.expires_at ?? story.expiresAt,
+  viewCount: Number(story.view_count ?? story.viewCount ?? 0),
+  viewerHasSeen: Boolean(story.viewed_by_me ?? story.viewerHasSeen ?? false),
+  profilePhoto: story.profile_photo_url ?? story.profilePhotoUrl ?? story.profilePhoto
+});
+
 const DirectMessenger = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -429,7 +444,12 @@ const DirectMessenger = () => {
         });
         setContacts(mergedContacts);
         setThreads(threadsWithEssentials);
-        setStories(Array.isArray(storiesRes?.data?.stories) ? storiesRes.data.stories : []);
+        const rawStories = Array.isArray(storiesRes?.data?.stories)
+          ? storiesRes.data.stories
+          : Array.isArray(storiesRes?.data)
+            ? storiesRes.data
+            : [];
+        setStories(rawStories.map(normalizeStory));
       } catch (error) {
         console.error('❌ Error loading data:', error);
         showError('Fehler beim Laden der Daten');
@@ -550,26 +570,35 @@ const DirectMessenger = () => {
     joinConversationRoom(selectedThreadId);
 
     const handleNewMessage = (data) => {
-      console.log('📨 [DirectMessenger] handleNewMessage called:', {
-        dataConversationId: data?.conversationId,
-        selectedThreadId,
-        hasMessage: !!data?.message,
-        willAdd: data?.conversationId === selectedThreadId && !!data?.message
-      });
+      if (!data?.conversationId || !data?.message) return;
 
-      if (data?.conversationId === selectedThreadId && data?.message) {
+      const normalized = normalizeMessage(data.message);
+      const isActive = data.conversationId === selectedThreadId;
+
+      // Update threads + unread instantly
+      setThreads((prev) =>
+        prev.map((thread) =>
+          thread.id === data.conversationId
+            ? {
+                ...thread,
+                lastMessage: normalized,
+                unreadCount: isActive ? 0 : (thread.unreadCount || 0) + 1
+              }
+            : thread
+        )
+      );
+
+      if (isActive) {
         shouldAutoScrollRef.current = true;
         setMessages((prev) => {
-          // Check for duplicates
-          if (Array.isArray(prev) && prev.some(m => m?.id === data.message.id)) {
-            console.log('⚠️ [DirectMessenger] Duplicate message, skipping');
+          if (Array.isArray(prev) && prev.some((m) => m?.id === normalized.id)) {
             return prev;
           }
-          console.log('✅ [DirectMessenger] Adding message to state');
-          return Array.isArray(prev) ? [...prev, normalizeMessage(data.message)] : [normalizeMessage(data.message)];
+          return Array.isArray(prev) ? [...prev, normalized] : [normalized];
         });
+        requestAnimationFrame(() => scrollToBottom());
       } else {
-        console.log('❌ [DirectMessenger] Message NOT added - conversation mismatch or no message');
+        setUnreadCount((prev) => prev + 1);
       }
     };
 
@@ -1067,6 +1096,29 @@ const DirectMessenger = () => {
     setReplyToMessage(null);
     setSending(true);
 
+    // Optimistic message for instant feedback
+    const optimisticId = `tmp-${Date.now()}`;
+    const optimisticMessage = {
+      id: optimisticId,
+      sender_id: user?.id,
+      sender_name: user?.name,
+      message: trimmed || (eventToShare?.title ? `Kalender: ${eventToShare.title}` : ''),
+      created_at: new Date().toISOString(),
+      attachments: attachments.map((file, idx) => ({
+        id: `tmp-attach-${idx}`,
+        filename: file.name,
+        mimetype: file.type,
+        size: file.size,
+        url: URL.createObjectURL(file)
+      })),
+      metadata: eventToShare?.id
+        ? { shared_event: eventToShare }
+        : undefined,
+      status: 'sending'
+    };
+    setMessages((prev) => [...prev, optimisticMessage]);
+    requestAnimationFrame(() => scrollToBottom());
+
     try {
       let attachmentsData = [];
       if (attachments.length > 0) {
@@ -1095,6 +1147,13 @@ const DirectMessenger = () => {
         message: messageBody,
         attachments: attachmentsData
       };
+
+      if (eventToShare?.id) {
+        payload.metadata = {
+          ...(payload.metadata || {}),
+          shared_event: eventToShare
+        };
+      }
 
       if (replyTo?.id) {
         payload.metadata = payload.metadata || {};
@@ -1154,12 +1213,24 @@ const DirectMessenger = () => {
         }
       }
 
-      // Don't add message to state here - WebSocket will handle it
-      // This prevents duplicate messages since server emits to conversation room
-      if (!newMessage) {
+      // Replace optimistic with server message; if WS also arrives, dedupe by id
+      if (newMessage) {
+        setMessages((prev) =>
+          prev
+            .filter((msg) => msg.id !== newMessage.id) // drop potential WS duplicate
+            .map((msg) => (msg.id === optimisticId ? newMessage : msg))
+        );
+      } else {
         await loadMessages(selectedThreadId);
       }
-      // Scroll will happen when WebSocket event adds the message
+
+      setThreads((prev) =>
+        prev.map((thread) =>
+          thread.id === selectedThreadId
+            ? { ...thread, lastMessage: newMessage || optimisticMessage, unreadCount: 0 }
+            : thread
+        )
+      );
 
       setSelectedEvent(null);
     } catch (error) {
@@ -1170,6 +1241,8 @@ const DirectMessenger = () => {
       setMessageInput(inputValue || '');
       setPendingAttachments(Array.isArray(attachments) ? attachments : []);
       setSelectedEvent(eventToShare || null);
+      // Revert optimistic message
+      setMessages((prev) => prev.filter((msg) => msg.id !== optimisticId));
     } finally {
       setSending(false);
     }
@@ -1712,7 +1785,12 @@ const DirectMessenger = () => {
   const handleStoryCreated = useCallback(async () => {
     try {
       const storiesRes = await getStoriesFeed();
-      setStories(Array.isArray(storiesRes?.data?.stories) ? storiesRes.data.stories : []);
+      const rawStories = Array.isArray(storiesRes?.data?.stories)
+        ? storiesRes.data.stories
+        : Array.isArray(storiesRes?.data)
+          ? storiesRes.data
+          : [];
+      setStories(rawStories.map(normalizeStory));
     } catch (error) {
       console.error('Error refreshing stories:', error);
     }
@@ -1887,7 +1965,9 @@ const DirectMessenger = () => {
         await markStoryViewed(selectedStory.id);
         setStories((prev) =>
           prev.map((story, index) =>
-            index === selectedStoryIndex ? { ...story, viewerHasSeen: true } : story
+            index === selectedStoryIndex
+              ? { ...story, viewerHasSeen: true, viewCount: (story.viewCount || 0) + 1 }
+              : story
           )
         );
       } catch (error) {

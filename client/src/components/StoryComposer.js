@@ -95,7 +95,7 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
 
     try {
       const formData = new FormData();
-      formData.append('storyMedia', selectedFile);
+      formData.append('file', selectedFile);
       if (caption.trim()) {
         formData.append('caption', caption.trim());
       }
