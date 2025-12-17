@@ -111,6 +111,34 @@ const formatDateTime = (dateString) => {
   }).format(date);
 };
 
+const parseTags = (tags) => {
+  if (!tags) return [];
+  if (Array.isArray(tags)) return tags.filter(Boolean);
+  if (typeof tags === 'string') {
+    try {
+      const parsed = JSON.parse(tags);
+      if (Array.isArray(parsed)) return parsed.filter(Boolean);
+    } catch {
+      return tags
+        .replace(/[{}]/g, '')
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter(Boolean);
+    }
+  }
+  return [];
+};
+
+const normalizeArticle = (article = {}) => ({
+  ...article,
+  tags: parseTags(article.tags),
+  view_count: Number(article.view_count ?? article.views_count ?? 0),
+  helpful_count: Number(article.helpful_count ?? 0),
+  not_helpful_count: Number(article.not_helpful_count ?? 0),
+  version_count: Number(article.version_count ?? article.current_version ?? 0),
+  media_count: Number(article.media_count ?? (Array.isArray(article.media) ? article.media.length : 0))
+});
+
 // Loading Spinner Component
 const LoadingSpinner = () => (
   <div className="flex items-center justify-center p-8">
@@ -162,7 +190,7 @@ const ArticleCard = ({ article, onClick, canManage, onEdit, onStatusChange }) =>
         </div>
         <div className="kb-article-card__meta-group">
           <Eye size={14} />
-          <span>{article.views_count || 0}</span>
+          <span>{article.view_count || 0}</span>
         </div>
         {typeof article.version_count === 'number' && (
           <div className="kb-article-card__meta-group">
@@ -388,7 +416,7 @@ const ArticleViewModal = ({
           </div>
           <div className="flex items-center">
             <Eye size={16} className="mr-1" />
-            <span>{article.views_count || 0} Aufrufe</span>
+            <span>{article.view_count || 0} Aufrufe</span>
           </div>
           <div className="flex items-center gap-1">
             <Layers size={16} className="text-gray-500" />
@@ -1409,7 +1437,8 @@ const KnowledgeBaseV3 = () => {
       }
 
       const response = await api.get(`/kb/articles?${params.toString()}`);
-      setArticles(response.data);
+      const data = Array.isArray(response.data) ? response.data.map(normalizeArticle) : [];
+      setArticles(data);
     } catch (error) {
       console.error('Error fetching articles:', error);
       toast.error('Fehler beim Laden der Artikel');
@@ -1435,7 +1464,10 @@ const KnowledgeBaseV3 = () => {
 
   const articleStats = useMemo(() => {
     const total = articles.length;
-    const media = articles.filter((article) => (article.media?.length || 0) > 0).length;
+    const media = articles.filter((article) => {
+      const mediaCount = article.media_count ?? (article.media?.length || 0);
+      return mediaCount > 0;
+    }).length;
     const lastUpdatedRaw = articles
       .map((article) => article.updated_at || article.created_at)
       .filter(Boolean)
@@ -1456,7 +1488,7 @@ const KnowledgeBaseV3 = () => {
   const handleArticleClick = async (article) => {
     try {
       const response = await api.get(`/kb/articles/${article.id}`);
-      setSelectedArticle(response.data);
+      setSelectedArticle(normalizeArticle(response.data));
       setIsViewModalOpen(true);
     } catch (error) {
       console.error('Error fetching article:', error);
@@ -1468,7 +1500,7 @@ const KnowledgeBaseV3 = () => {
     if (!articleId) return;
     try {
       const response = await api.get(`/kb/articles/${articleId}`);
-      setSelectedArticle(response.data);
+      setSelectedArticle(normalizeArticle(response.data));
     } catch (error) {
       console.error('Error refreshing article:', error);
     }
@@ -1498,7 +1530,7 @@ const KnowledgeBaseV3 = () => {
         toast.success('Artikel erfolgreich erstellt');
       }
 
-      const savedArticle = response?.data;
+      const savedArticle = normalizeArticle(response?.data);
       fetchArticles();
 
       // Refresh tags after saving
@@ -1507,7 +1539,7 @@ const KnowledgeBaseV3 = () => {
 
       if (savedArticle?.id && selectedArticle?.id === savedArticle.id) {
         const refreshed = await api.get(`/kb/articles/${savedArticle.id}`);
-        setSelectedArticle(refreshed.data);
+        setSelectedArticle(normalizeArticle(refreshed.data));
       }
 
       return savedArticle;
@@ -1520,14 +1552,15 @@ const KnowledgeBaseV3 = () => {
 
   const handleDraftSaved = useCallback((draft) => {
     if (!draft?.id) return;
+    const normalizedDraft = normalizeArticle(draft);
     setArticles((prev) => {
-      const exists = prev.some((item) => item.id === draft.id);
+      const exists = prev.some((item) => item.id === normalizedDraft.id);
       if (exists) {
-        return prev.map((item) => (item.id === draft.id ? draft : item));
+        return prev.map((item) => (item.id === normalizedDraft.id ? normalizedDraft : item));
       }
-      return [draft, ...prev];
+      return [normalizedDraft, ...prev];
     });
-    setSelectedArticle((prev) => (prev?.id === draft.id ? draft : prev));
+    setSelectedArticle((prev) => (prev?.id === normalizedDraft.id ? normalizedDraft : prev));
   }, []);
 
   const handleDeleteArticle = async (articleId) => {

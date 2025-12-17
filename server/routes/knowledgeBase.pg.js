@@ -11,6 +11,108 @@ const isMissingRelationError = (error) => error?.code === '42P01';
 
 const router = express.Router();
 
+const normalizeTags = (tags) => {
+  if (!tags) return [];
+  if (Array.isArray(tags)) return tags.filter(Boolean);
+
+  if (typeof tags === 'string') {
+    try {
+      const parsed = JSON.parse(tags);
+      if (Array.isArray(parsed)) return parsed.filter(Boolean);
+    } catch {
+      return tags
+        .replace(/[{}]/g, '')
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter(Boolean);
+    }
+  }
+  return [];
+};
+
+const normalizeArticleRow = (row = {}) => {
+  const tags = normalizeTags(row.tags);
+  return {
+    ...row,
+    tags,
+    view_count: Number(row.view_count ?? row.views_count ?? 0),
+    helpful_count: Number(row.helpful_count ?? 0),
+    not_helpful_count: Number(row.not_helpful_count ?? 0),
+    media_count: Number(row.media_count ?? row.attachments_count ?? 0),
+    version_count: Number(row.version_count ?? row.current_version ?? 0)
+  };
+};
+
+const buildFileUrl = (fileUrl, filename) => {
+  if (!fileUrl && filename) return `/uploads/${filename}`;
+  if (!fileUrl) return null;
+  if (fileUrl.startsWith('http')) return fileUrl;
+  const normalized = fileUrl.replace(/^\.?\//, '');
+  return `/${normalized}`;
+};
+
+const mapMediaRecord = (record = {}) => {
+  const url = buildFileUrl(record.file_url || record.file_path, record.filename || record.file_name);
+  const mediaType = record.media_type || record.file_type || 'document';
+
+  return {
+    id: record.id,
+    article_id: record.article_id,
+    media_type: mediaType,
+    file_url: url,
+    file_name: record.file_name || record.original_filename || record.filename,
+    file_size: record.file_size,
+    mime_type: record.mime_type,
+    caption: record.caption || null,
+    display_order: typeof record.display_order === 'number' ? record.display_order : 0,
+    uploaded_by: record.uploaded_by,
+    uploader_name: record.uploader_name || null,
+    created_at: record.created_at
+  };
+};
+
+async function fetchArticleMedia(articleId) {
+  const media = [];
+
+  try {
+    const modern = await pool.query(`
+      SELECT m.*, u.name as uploader_name
+      FROM kb_article_media m
+      LEFT JOIN users u ON m.uploaded_by = u.id
+      WHERE m.article_id = $1
+      ORDER BY m.display_order ASC, m.created_at DESC
+    `, [articleId]);
+    media.push(...modern.rows.map(mapMediaRecord));
+  } catch (error) {
+    if (!isMissingRelationError(error)) {
+      logger.error('Error fetching modern KB media', { error: error.message });
+      throw error;
+    }
+  }
+
+  try {
+    const legacy = await pool.query(`
+      SELECT m.*, u.name as uploader_name
+      FROM kb_media m
+      LEFT JOIN users u ON m.uploaded_by = u.id
+      WHERE m.article_id = $1
+      ORDER BY m.display_order ASC, m.created_at DESC
+    `, [articleId]);
+    media.push(...legacy.rows.map(mapMediaRecord));
+  } catch (error) {
+    if (!isMissingRelationError(error)) {
+      logger.error('Error fetching legacy KB media', { error: error.message });
+      throw error;
+    }
+  }
+
+  return media.sort((a, b) => {
+    const orderDiff = (a.display_order ?? 0) - (b.display_order ?? 0);
+    if (orderDiff !== 0) return orderDiff;
+    return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+  });
+}
+
 // GET /api/kb/categories
 router.get('/categories', auth, async (req, res) => {
   try {
@@ -69,6 +171,7 @@ router.get('/articles', auth, async (req, res) => {
         c.name as category_name, c.color as category_color,
         COUNT(DISTINCT acm.id) as comments_count,
         COUNT(DISTINCT v.id) as version_count,
+        COALESCE(COUNT(DISTINCT am.id), 0) + COALESCE(COUNT(DISTINCT km.id), 0) as media_count,
         BOOL_OR(user_feedback.is_helpful) as user_vote
       FROM kb_articles a
       LEFT JOIN users u ON a.author_id = u.id
@@ -76,6 +179,8 @@ router.get('/articles', auth, async (req, res) => {
       LEFT JOIN kb_article_comments acm ON a.id = acm.article_id
       LEFT JOIN kb_article_feedback user_feedback ON user_feedback.article_id = a.id AND user_feedback.user_id = ${userVotePlaceholder}
       LEFT JOIN kb_article_versions v ON v.article_id = a.id
+      LEFT JOIN kb_article_media am ON am.article_id = a.id
+      LEFT JOIN kb_media km ON km.article_id = a.id
       WHERE a.status = $1
     `;
 
@@ -97,9 +202,11 @@ router.get('/articles', auth, async (req, res) => {
     query += ' GROUP BY a.id, u.name, u.profile_photo, c.name, c.color, c.id';
 
     if (sort === 'popular') {
-      query += ' ORDER BY a.view_count DESC';
+      query += ' ORDER BY a.view_count DESC NULLS LAST';
     } else if (sort === 'helpful') {
-      query += ' ORDER BY a.helpful_count DESC';
+      query += ' ORDER BY a.helpful_count DESC NULLS LAST';
+    } else if (sort === 'oldest') {
+      query += ' ORDER BY a.created_at ASC';
     } else {
       query += ' ORDER BY a.is_featured DESC, a.created_at DESC';
     }
@@ -108,7 +215,7 @@ router.get('/articles', auth, async (req, res) => {
     params.push(parseInt(limit), parseInt(offset));
 
     const result = await pool.query(query, params);
-    res.json(result.rows);
+    res.json(result.rows.map(normalizeArticleRow));
   } catch (error) {
     if (isMissingRelationError(error)) {
       logger.warn('KB articles table not available yet, returning empty list');
@@ -158,12 +265,14 @@ router.get('/articles/:id', auth, async (req, res) => {
       [id, req.user.id]
     );
 
+    const article = normalizeArticleRow(articleResult.rows[0]);
+    const media = await fetchArticleMedia(id);
     const versionCount = parseInt(versionCountResult.rows[0]?.version_count || '0', 10);
     const userVote = voteResult.rows.length > 0 ? voteResult.rows[0].is_helpful : null;
 
     res.json({
-      ...articleResult.rows[0],
-      media: [], // No media table yet
+      ...article,
+      media,
       comments: commentsResult.rows,
       user_vote: userVote,
       version_count: versionCount
@@ -239,11 +348,11 @@ router.post('/articles', auth, async (req, res) => {
 
     if (status === 'published') {
       const io = getIO();
-      if (io) io.emit('kb:article_published', { article: result.rows[0] });
+      if (io) io.emit('kb:article_published', { article: normalizeArticleRow(result.rows[0]) });
     }
 
     logger.info('KB article created', { articleId: result.rows[0].id });
-    res.status(201).json(result.rows[0]);
+    res.status(201).json(normalizeArticleRow(result.rows[0]));
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('[POST /api/kb/articles] ERROR:', error);
@@ -317,10 +426,11 @@ router.put('/articles/:id', auth, async (req, res) => {
     await client.query('COMMIT');
 
     const io = getIO();
-    if (io) io.emit('kb:article_updated', { article: result.rows[0] });
+    const normalized = normalizeArticleRow(result.rows[0]);
+    if (io) io.emit('kb:article_updated', { article: normalized });
 
     logger.info('KB article updated', { articleId: id });
-    res.json(result.rows[0]);
+    res.json(normalized);
   } catch (error) {
     await client.query('ROLLBACK');
     logger.error('Error updating article:', error);
@@ -356,22 +466,83 @@ router.delete('/articles/:id', auth, async (req, res) => {
 // POST /api/kb/articles/:id/media
 router.post('/articles/:id/media', auth, uploadSingle('file'), async (req, res) => {
   try {
+    const { id } = req.params;
     if (!req.file) return res.status(400).json({ error: 'Keine Datei hochgeladen' });
 
-    const { id } = req.params;
-    const { caption, display_order } = req.body;
+    // Permission check
+    const articleCheck = await pool.query(
+      'SELECT id, author_id FROM kb_articles WHERE id = $1',
+      [id]
+    );
+    if (articleCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Artikel nicht gefunden' });
+    }
 
-    let media_type = 'document';
-    if (req.file.mimetype.startsWith('image/')) media_type = 'image';
-    else if (req.file.mimetype.startsWith('audio/')) media_type = 'audio';
-    else if (req.file.mimetype.startsWith('video/')) media_type = 'video';
+    const isOwner = articleCheck.rows[0].author_id === req.user.id;
+    const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ error: 'Keine Berechtigung' });
+    }
 
-    const result = await pool.query(`
-      INSERT INTO kb_article_media (article_id, media_type, file_url, file_name, file_size, mime_type, caption, display_order, uploaded_by)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *
-    `, [id, media_type, req.file.path, req.file.originalname, req.file.size, req.file.mimetype, caption, display_order, req.user.id]);
+    const file = req.file;
+    const mediaType = file.mimetype.startsWith('image/')
+      ? 'image'
+      : file.mimetype.startsWith('audio/')
+        ? 'audio'
+        : file.mimetype.startsWith('video/')
+          ? 'video'
+          : 'document';
 
-    res.status(201).json(result.rows[0]);
+    const orderValue = Number.isFinite(Number(req.body?.display_order))
+      ? Number(req.body.display_order)
+      : 0;
+
+    let savedMedia;
+
+    try {
+      const result = await pool.query(`
+        INSERT INTO kb_article_media (article_id, media_type, file_url, file_name, file_size, mime_type, caption, display_order, uploaded_by)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *
+      `, [
+        id,
+        mediaType,
+        file.path.replace(/\\/g, '/'),
+        file.originalname,
+        file.size,
+        file.mimetype,
+        req.body.caption,
+        orderValue,
+        req.user.id
+      ]);
+      savedMedia = result.rows[0];
+    } catch (error) {
+      if (!isMissingRelationError(error)) {
+        throw error;
+      }
+      // Fallback for legacy kb_media table
+      const legacy = await pool.query(`
+        INSERT INTO kb_media (
+          article_id, filename, original_filename, file_path,
+          file_size, mime_type, file_type, uploaded_by, display_order
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        RETURNING *
+      `, [
+        id,
+        file.filename,
+        file.originalname,
+        file.path.replace(/\\/g, '/'),
+        file.size,
+        file.mimetype,
+        mediaType,
+        req.user.id,
+        orderValue
+      ]);
+      savedMedia = legacy.rows[0];
+    }
+
+    const response = mapMediaRecord(savedMedia);
+    logger.info('KB media uploaded', { mediaId: response.id, articleId: id });
+    res.status(201).json(response);
   } catch (error) {
     logger.error('Error uploading media:', error);
     res.status(500).json({ error: 'Serverfehler' });
@@ -471,14 +642,14 @@ router.get('/search', auth, async (req, res) => {
       paramIndex++;
     }
 
-    if (sort === 'relevance') query += ' ORDER BY rank DESC, a.views_count DESC';
+    if (sort === 'relevance') query += ' ORDER BY rank DESC, a.view_count DESC';
     else if (sort === 'recent') query += ' ORDER BY a.published_at DESC';
-    else if (sort === 'popular') query += ' ORDER BY a.views_count DESC';
+    else if (sort === 'popular') query += ' ORDER BY a.view_count DESC';
 
     query += ' LIMIT 50';
 
     const result = await pool.query(query, params);
-    res.json(result.rows);
+    res.json(result.rows.map(normalizeArticleRow));
   } catch (error) {
     logger.error('Error searching KB:', error);
     res.status(500).json({ error: 'Serverfehler' });
@@ -504,134 +675,6 @@ router.get('/tags', auth, async (req, res) => {
   } catch (error) {
     console.error('Error fetching tags:', error);
     res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// @route   GET /api/kb/articles/:id/versions
-// @desc    Get version history for an article
-router.get('/articles/:id/versions', auth, async (req, res) => {
-  const { id } = req.params;
-
-  try {
-    const versions = await pool.query(
-      `SELECT v.*, u.name as author_name
-       FROM kb_article_versions v
-       LEFT JOIN users u ON v.author_id = u.id
-       WHERE v.article_id = $1
-       ORDER BY v.version_number DESC`,
-      [id]
-    );
-
-    res.json(versions.rows);
-  } catch (error) {
-    console.error('Error fetching versions:', error);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// @route   POST /api/kb/articles/:id/versions/:versionId/restore
-// @desc    Restore an article to a specific version
-router.post('/articles/:id/versions/:versionId/restore', auth, async (req, res) => {
-  const { id, versionId } = req.params;
-
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-
-    // Get the version data
-    const version = await client.query(
-      'SELECT * FROM kb_article_versions WHERE id = $1 AND article_id = $2',
-      [versionId, id]
-    );
-
-    if (version.rows.length === 0) {
-      await client.query('ROLLBACK');
-      return res.status(404).json({ error: 'Version not found' });
-    }
-
-    const v = version.rows[0];
-
-    // Update the article with version data
-    await client.query(
-      `UPDATE kb_articles
-       SET title = $1, content = $2, excerpt = $3, category_id = $4,
-           tags = $5, last_edited_by = $6, last_edited_at = NOW(), updated_at = NOW()
-       WHERE id = $7`,
-      [v.title, v.content, v.excerpt || v.summary, v.category_id, v.tags, req.user.id, id]
-    );
-
-    await client.query('COMMIT');
-
-    // Return updated article
-    const updated = await pool.query('SELECT * FROM kb_articles WHERE id = $1', [id]);
-    res.json(updated.rows[0]);
-
-  } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('Error restoring version:', error);
-    res.status(500).json({ error: 'Server error' });
-  } finally {
-    client.release();
-  }
-});
-
-// POST /api/kb/articles/:id/media - Upload media (image, video, audio)
-router.post('/articles/:id/media', auth, uploadSingle('media'), async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    if (!req.file) {
-      return res.status(400).json({ error: 'Keine Datei hochgeladen' });
-    }
-
-    // Check if article exists
-    const articleCheck = await pool.query(
-      'SELECT id, author_id FROM kb_articles WHERE id = $1',
-      [id]
-    );
-
-    if (articleCheck.rows.length === 0) {
-      return res.status(404).json({ error: 'Artikel nicht gefunden' });
-    }
-
-    const isOwner = articleCheck.rows[0].author_id === req.user.id;
-    const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
-
-    if (!isOwner && !isAdmin) {
-      return res.status(403).json({ error: 'Keine Berechtigung' });
-    }
-
-    const file = req.file;
-    const fileType = file.mimetype.startsWith('image/') ? 'image' :
-                     file.mimetype.startsWith('video/') ? 'video' :
-                     file.mimetype.startsWith('audio/') ? 'audio' : 'document';
-
-    const result = await pool.query(`
-      INSERT INTO kb_media (
-        article_id, filename, original_filename, file_path,
-        file_size, mime_type, file_type, uploaded_by
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      RETURNING *
-    `, [
-      id,
-      file.filename,
-      file.originalname,
-      file.path.replace(/\\/g, '/'),
-      file.size,
-      file.mimetype,
-      fileType,
-      req.user.id
-    ]);
-
-    logger.info('KB media uploaded', { mediaId: result.rows[0].id, articleId: id });
-
-    res.status(201).json({
-      ...result.rows[0],
-      url: `/uploads/${file.filename}`
-    });
-  } catch (error) {
-    logger.error('Error uploading media:', error);
-    res.status(500).json({ error: 'Serverfehler beim Hochladen' });
   }
 });
 
@@ -717,20 +760,7 @@ router.post('/articles/dictate', auth, uploadSingle('audio'), async (req, res) =
 router.get('/articles/:id/media', auth, async (req, res) => {
   try {
     const { id } = req.params;
-
-    const result = await pool.query(`
-      SELECT m.*, u.name as uploader_name
-      FROM kb_media m
-      LEFT JOIN users u ON m.uploaded_by = u.id
-      WHERE m.article_id = $1
-      ORDER BY m.display_order ASC, m.created_at DESC
-    `, [id]);
-
-    const media = result.rows.map(m => ({
-      ...m,
-      url: `/uploads/${m.filename}`
-    }));
-
+    const media = await fetchArticleMedia(id);
     res.json(media);
   } catch (error) {
     logger.error('Error fetching media:', error);
@@ -743,25 +773,49 @@ router.delete('/media/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
 
-    const mediaCheck = await pool.query(`
-      SELECT m.*, a.author_id
-      FROM kb_media m
-      JOIN kb_articles a ON m.article_id = a.id
-      WHERE m.id = $1
-    `, [id]);
+    let mediaRecord = null;
+    let sourceTable = null;
 
-    if (mediaCheck.rows.length === 0) {
+    try {
+      const modern = await pool.query(`
+        SELECT m.*, a.author_id
+        FROM kb_article_media m
+        JOIN kb_articles a ON m.article_id = a.id
+        WHERE m.id = $1
+      `, [id]);
+      if (modern.rows.length > 0) {
+        mediaRecord = modern.rows[0];
+        sourceTable = 'kb_article_media';
+      }
+    } catch (error) {
+      if (!isMissingRelationError(error)) throw error;
+    }
+
+    if (!mediaRecord) {
+      const legacy = await pool.query(`
+        SELECT m.*, a.author_id
+        FROM kb_media m
+        JOIN kb_articles a ON m.article_id = a.id
+        WHERE m.id = $1
+      `, [id]);
+      if (legacy.rows.length > 0) {
+        mediaRecord = legacy.rows[0];
+        sourceTable = 'kb_media';
+      }
+    }
+
+    if (!mediaRecord) {
       return res.status(404).json({ error: 'Mediadatei nicht gefunden' });
     }
 
-    const isOwner = mediaCheck.rows[0].author_id === req.user.id;
+    const isOwner = mediaRecord.author_id === req.user.id;
     const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
 
     if (!isOwner && !isAdmin) {
       return res.status(403).json({ error: 'Keine Berechtigung' });
     }
 
-    await pool.query('DELETE FROM kb_media WHERE id = $1', [id]);
+    await pool.query(`DELETE FROM ${sourceTable} WHERE id = $1`, [id]);
 
     logger.info('KB media deleted', { mediaId: id });
     res.json({ message: 'Mediadatei erfolgreich gelöscht' });
@@ -792,7 +846,10 @@ router.get('/articles/:id/versions', auth, async (req, res) => {
       ORDER BY v.version_number DESC
     `, [id]);
 
-    res.json(result.rows);
+    res.json(result.rows.map((row) => ({
+      ...row,
+      tags: normalizeTags(row.tags)
+    })));
   } catch (error) {
     logger.error('Error fetching article versions:', error);
     res.status(500).json({ error: 'Serverfehler' });
@@ -821,7 +878,10 @@ router.get('/articles/:id/versions/:versionNumber', auth, async (req, res) => {
       return res.status(404).json({ error: 'Version nicht gefunden' });
     }
 
-    res.json(result.rows[0]);
+    res.json({
+      ...result.rows[0],
+      tags: normalizeTags(result.rows[0].tags)
+    });
   } catch (error) {
     logger.error('Error fetching article version:', error);
     res.status(500).json({ error: 'Serverfehler' });
@@ -855,15 +915,16 @@ router.post('/articles/:id/versions/:versionNumber/restore', auth, async (req, r
     const version = versionResult.rows[0];
 
     // Update article with version content (trigger will create new version)
+    const normalizedTags = normalizeTags(version.tags);
     const updateResult = await pool.query(`
       UPDATE kb_articles
       SET
         title = $1,
         slug = $2,
         content = $3,
-        excerpt = $4,
+        summary = $4,
         category_id = $5,
-        tags = $6,
+        tags = $6::jsonb,
         status = $7,
         updated_at = CURRENT_TIMESTAMP
       WHERE id = $8
@@ -872,9 +933,9 @@ router.post('/articles/:id/versions/:versionNumber/restore', auth, async (req, r
       version.title,
       version.slug,
       version.content,
-      version.excerpt,
+      version.excerpt || version.summary || null,
       version.category_id,
-      version.tags,
+      JSON.stringify(normalizedTags),
       version.status,
       id
     ]);
@@ -890,7 +951,7 @@ router.post('/articles/:id/versions/:versionNumber/restore', auth, async (req, r
 
     res.json({
       message: `Artikel auf Version ${versionNumber} wiederhergestellt`,
-      article: updateResult.rows[0]
+      article: normalizeArticleRow(updateResult.rows[0])
     });
   } catch (error) {
     logger.error('Error restoring article version:', error);
@@ -921,9 +982,11 @@ router.get('/articles/:id/versions/compare/:v1/:v2', auth, async (req, res) => {
       return res.status(404).json({ error: 'Versionen nicht gefunden' });
     }
 
+    const [version1, version2] = result.rows;
+
     res.json({
-      version1: result.rows[0],
-      version2: result.rows[1]
+      version1: { ...version1, tags: normalizeTags(version1.tags) },
+      version2: { ...version2, tags: normalizeTags(version2.tags) }
     });
   } catch (error) {
     logger.error('Error comparing versions:', error);

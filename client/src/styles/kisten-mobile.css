@@ -5,11 +5,15 @@
   overflow-x: hidden;
   padding-top: env(safe-area-inset-top, 0);
   max-width: 100vw;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .kisten-container {
   max-width: 100%;
   overflow-x: hidden;
+  width: 100%;
 }
 
 @media (max-width: 768px) {
@@ -19,10 +23,11 @@
   }
 
   .kisten-page section {
-    margin-left: 0 !important;
-    margin-right: 0 !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
     border-radius: 18px !important;
     width: 100% !important;
+    max-width: calc(100vw - 20px) !important;
   }
 
   .kisten-page .grid {
@@ -36,12 +41,16 @@
     width: 100% !important;
     padding: 1.35rem 1.1rem !important;
     border-radius: 20px !important;
+    margin: 0 auto !important;
+    max-width: calc(100vw - 20px) !important;
   }
 
   .kisten-form {
     width: 100% !important;
     padding: 1.1rem !important;
     border-radius: 18px !important;
+    margin: 0 auto !important;
+    max-width: calc(100vw - 20px) !important;
   }
 
   .kisten-page .stats-grid,
@@ -66,6 +75,7 @@
 
   .kisten-section {
     box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08) !important;
+    align-self: center !important;
   }
 
   .kisten-page video,
