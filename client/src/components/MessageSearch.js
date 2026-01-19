@@ -1,21 +1,46 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Search, X, Filter, Calendar, User } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Search, X, Filter, Calendar, User, Users } from 'lucide-react';
 import { searchMessages } from '../utils/apiEnhanced';
 import { showError } from '../utils/toast';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 
-const MessageSearch = ({ onClose, onMessageSelect }) => {
+const MessageSearch = ({ onClose, onMessageSelect, contacts = [], threads = [], currentConversationId = null, currentUserId = null }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState({
     from: '',
     date: '',
-    type: 'all'
+    type: 'all',
+    conversationId: currentConversationId || ''
   });
   const [showFilters, setShowFilters] = useState(false);
   const [total, setTotal] = useState(0);
+
+  const contactOptions = useMemo(() => {
+    return contacts
+      .filter((contact) => contact?.id)
+      .map((contact) => ({
+        id: contact.id,
+        label: contact.name || contact.email || `Benutzer ${contact.id}`
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [contacts]);
+
+  const threadOptions = useMemo(() => {
+    return threads.map((thread) => {
+      const isGroup = thread?.type === 'group' || thread?.conversation_type === 'group';
+      const memberName = Array.isArray(thread?.members) && thread.members.length > 0
+        ? thread.members[0]?.name || thread.members[0]?.email
+        : null;
+      const label = thread?.name || memberName || (isGroup ? 'Gruppenchat' : 'Direktchat');
+      return {
+        id: thread?.id,
+        label: isGroup ? `Gruppe: ${label}` : label
+      };
+    }).filter((thread) => thread.id);
+  }, [threads]);
 
   const performSearch = useCallback(async () => {
     if (searchQuery.trim().length < 2) {
@@ -39,6 +64,12 @@ const MessageSearch = ({ onClose, onMessageSelect }) => {
   }, [searchQuery, filters]);
 
   useEffect(() => {
+    if (currentConversationId && !filters.conversationId) {
+      setFilters((prev) => ({ ...prev, conversationId: currentConversationId }));
+    }
+  }, [currentConversationId, filters.conversationId]);
+
+  useEffect(() => {
     const timeout = setTimeout(() => {
       if (searchQuery.trim().length >= 2) {
         performSearch();
@@ -48,11 +79,17 @@ const MessageSearch = ({ onClose, onMessageSelect }) => {
     return () => clearTimeout(timeout);
   }, [searchQuery, performSearch]);
 
+  const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
   const highlightText = (text, query) => {
     if (!query || !text) return text;
-    const parts = text.split(new RegExp(`(${query})`, 'gi'));
+    const rawTerms = query.trim().split(/\s+/).filter(Boolean);
+    if (!rawTerms.length) return text;
+    const escapedTerms = rawTerms.map(escapeRegExp);
+    const regex = new RegExp(`(${escapedTerms.join('|')})`, 'gi');
+    const parts = text.split(regex);
     return parts.map((part, i) =>
-      part.toLowerCase() === query.toLowerCase() ? (
+      rawTerms.some((term) => part.toLowerCase() === term.toLowerCase()) ? (
         <mark key={i} className="bg-yellow-200 text-slate-900 px-0.5 rounded">
           {part}
         </mark>
@@ -60,6 +97,14 @@ const MessageSearch = ({ onClose, onMessageSelect }) => {
         part
       )
     );
+  };
+
+  const formatTypeLabel = (type) => {
+    if (!type || type === 'text') return '';
+    if (type === 'image') return 'Bild';
+    if (type === 'audio') return 'Audio';
+    if (type === 'gif') return 'GIF';
+    return type.toUpperCase();
   };
 
   return (
@@ -97,16 +142,39 @@ const MessageSearch = ({ onClose, onMessageSelect }) => {
 
           {/* Filters */}
           {showFilters && (
-            <div className="mt-3 grid grid-cols-3 gap-2">
+            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
+              <div className="relative">
+                <Users className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <select
+                  value={filters.conversationId}
+                  onChange={(e) => setFilters({ ...filters, conversationId: e.target.value })}
+                  className="w-full pl-8 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Alle Chats</option>
+                  {currentConversationId && (
+                    <option value={currentConversationId}>Aktueller Chat</option>
+                  )}
+                  {threadOptions.map((option) => (
+                    <option key={`thread-${option.id}`} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div className="relative">
                 <User className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Von Benutzer-ID"
+                <select
                   value={filters.from}
                   onChange={(e) => setFilters({ ...filters, from: e.target.value })}
                   className="w-full pl-8 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
-                />
+                >
+                  <option value="">Alle Absender</option>
+                  {contactOptions.map((option) => (
+                    <option key={`contact-${option.id}`} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="relative">
                 <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -161,35 +229,50 @@ const MessageSearch = ({ onClose, onMessageSelect }) => {
             </div>
           )}
 
-          {!loading && results.map((message) => (
-            <button
-              key={message.id}
-              onClick={() => onMessageSelect(message)}
-              className="w-full text-left p-4 bg-slate-50 hover:bg-blue-50 rounded-xl transition border border-slate-200 hover:border-blue-300"
-            >
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold">
-                    {message.sender_name?.[0]?.toUpperCase() || '?'}
+          {!loading && results.map((message) => {
+            const typeLabel = formatTypeLabel(message.message_type);
+            const directName = currentUserId
+              ? (message.sender_id === currentUserId ? message.receiver_name : message.sender_name)
+              : (message.receiver_name || message.sender_name);
+            const conversationLabel = message.conversation_name
+              ? (message.conversation_type === 'group'
+                  ? `Gruppe · ${message.conversation_name}`
+                  : `Chat · ${message.conversation_name}`)
+              : directName
+                ? `Direkt · ${directName}`
+                : 'Direktnachricht';
+
+            return (
+              <button
+                key={message.id}
+                onClick={() => onMessageSelect(message)}
+                className="w-full text-left p-4 bg-slate-50 hover:bg-blue-50 rounded-xl transition border border-slate-200 hover:border-blue-300"
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold">
+                      {message.sender_name?.[0]?.toUpperCase() || '?'}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-slate-900">{message.sender_name}</p>
+                      <p className="text-xs text-slate-500">
+                        {format(new Date(message.created_at), 'dd.MM.yyyy HH:mm', { locale: de })}
+                      </p>
+                      <p className="text-xs text-slate-400">{conversationLabel}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-semibold text-slate-900">{message.sender_name}</p>
-                    <p className="text-xs text-slate-500">
-                      {format(new Date(message.created_at), 'dd.MM.yyyy HH:mm', { locale: de })}
-                    </p>
-                  </div>
+                  {typeLabel && (
+                    <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
+                      {typeLabel}
+                    </span>
+                  )}
                 </div>
-                {message.message_type !== 'text' && (
-                  <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
-                    {message.message_type}
-                  </span>
-                )}
-              </div>
-              <p className="text-sm text-slate-700 line-clamp-2">
-                {highlightText(message.message, searchQuery)}
-              </p>
-            </button>
-          ))}
+                <p className="text-sm text-slate-700 line-clamp-2">
+                  {highlightText(message.message, searchQuery)}
+                </p>
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>

@@ -419,6 +419,105 @@ router.get('/conversations/:conversationId', auth, async (req, res) => {
   }
 });
 
+// @route   PUT /api/messages/conversations/:conversationId
+// @desc    Update conversation details (name/description)
+router.put('/conversations/:conversationId', auth, async (req, res) => {
+  const conversationId = parseInt(req.params.conversationId, 10);
+  const { name, description } = req.body;
+
+  if (!conversationId) {
+    return res.status(400).json({ error: 'Ungültige Konversations-ID' });
+  }
+
+  const cleanedName = typeof name === 'string' ? name.trim() : null;
+  const cleanedDescription = typeof description === 'string' ? description.trim() : null;
+
+  if (!cleanedName && !cleanedDescription) {
+    return res.status(400).json({ error: 'Keine Aktualisierungen angegeben' });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    const conversation = await fetchConversationById(client, conversationId);
+
+    if (!conversation) {
+      return res.status(404).json({ error: 'Konversation nicht gefunden' });
+    }
+
+    if (conversation.conversation_type === CONVERSATION_TYPES.DIRECT) {
+      return res.status(400).json({ error: 'Direkte Konversationen können nicht umbenannt werden' });
+    }
+
+    const membership = await client.query(
+      `SELECT role
+         FROM message_conversation_members
+        WHERE conversation_id = $1 AND user_id = $2`,
+      [conversationId, req.user.id]
+    );
+
+    if (membership.rows.length === 0) {
+      return res.status(403).json({ error: 'Kein Zugriff auf diese Konversation' });
+    }
+
+    const myRole = membership.rows[0].role;
+    const canEdit =
+      myRole === 'owner' ||
+      myRole === 'moderator' ||
+      ['admin', 'superadmin'].includes(req.user.role);
+
+    if (!canEdit) {
+      return res.status(403).json({ error: 'Keine Berechtigung zum Bearbeiten der Konversation' });
+    }
+
+    const updateResult = await client.query(
+      `UPDATE message_conversations
+          SET name = COALESCE($1, name),
+              description = COALESCE($2, description),
+              updated_at = CURRENT_TIMESTAMP
+        WHERE id = $3
+        RETURNING *`,
+      [cleanedName || null, cleanedDescription || null, conversationId]
+    );
+
+    const updated = updateResult.rows[0];
+    const members = await getConversationMembers(client, conversationId);
+
+    const io = getIO();
+    if (io) {
+      const payload = {
+        conversationId,
+        conversation: {
+          id: updated.id,
+          name: updated.name,
+          description: updated.description,
+          type: updated.conversation_type,
+          updatedAt: updated.updated_at
+        },
+        members
+      };
+
+      members.forEach((member) => {
+        io.to(`user_${member.user_id}`).emit('conversation:updated', payload);
+      });
+    }
+
+    res.json({
+      id: updated.id,
+      name: updated.name,
+      description: updated.description,
+      type: updated.conversation_type,
+      updatedAt: updated.updated_at,
+      members
+    });
+  } catch (error) {
+    logger.error('Error updating conversation', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  } finally {
+    client.release();
+  }
+});
+
 // @route   GET /api/messages/conversations/:conversationId/messages
 // @desc    Fetch messages for a conversation
 router.get('/conversations/:conversationId/messages', auth, async (req, res) => {
@@ -763,11 +862,25 @@ router.get('/conversation/:userId', auth, async (req, res) => {
 router.get('/unread-count', auth, async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT COUNT(*) as count FROM messages WHERE receiver_id = $1 AND read_status = false',
+      `SELECT COALESCE(SUM(count), 0) AS count
+         FROM (
+           SELECT COUNT(*)::INT AS count
+             FROM messages m
+            WHERE m.conversation_id IS NULL
+              AND m.receiver_id = $1
+              AND m.read_status = false
+           UNION ALL
+           SELECT COUNT(*)::INT AS count
+             FROM message_conversation_members mcm
+             JOIN messages m ON m.conversation_id = mcm.conversation_id
+            WHERE mcm.user_id = $1
+              AND m.sender_id <> $1
+              AND m.created_at > COALESCE(mcm.last_read_at, '1970-01-01'::timestamp)
+         ) unread`,
       [req.user.id]
     );
 
-    const unreadCount = parseInt(result.rows[0].count);
+    const unreadCount = parseInt(result.rows[0]?.count || 0, 10);
 
     // Return both formats for compatibility
     res.json({
@@ -856,22 +969,35 @@ const sendMessageHandler = async (req, res) => {
   // Parse @mentions from message content
   let parsedMentionedUserIds = [...mentionedUserIds];
   if (messageContent && typeof messageContent === 'string') {
-    // Improved regex: capture username, then remove trailing punctuation
-    const mentionRegex = /@([a-zA-Z0-9_]+)/g;
-    const matches = messageContent.matchAll(mentionRegex);
-    const mentionedNames = Array.from(matches, m => m[1]);
+    // Support @Name and @{Full Name With Spaces}
+    const mentionRegex = /@(\{[^}]+\}|[^\s@]+)/g;
+    const matches = Array.from(messageContent.matchAll(mentionRegex));
+    const mentionedNames = matches
+      .map((match) => {
+        let raw = match[1] || '';
+        if (raw.startsWith('{') && raw.endsWith('}')) {
+          raw = raw.slice(1, -1);
+        }
+        raw = raw.replace(/[.,!?;:]+$/, '').trim();
+        return raw;
+      })
+      .filter(Boolean);
+
+    const normalizedNames = Array.from(
+      new Set(mentionedNames.map((name) => name.toLowerCase()))
+    );
 
     console.log('📝 Parsing @mentions from message:', {
       messageContent,
-      mentionedNames,
-      hasMatches: mentionedNames.length > 0
+      mentionedNames: normalizedNames,
+      hasMatches: normalizedNames.length > 0
     });
 
-    if (mentionedNames.length > 0) {
-      // Fetch user IDs for mentioned names
+    if (normalizedNames.length > 0) {
+      // Fetch user IDs for mentioned names (case-insensitive)
       const { rows: mentionedUsers } = await pool.query(
-        `SELECT id, name FROM users WHERE name = ANY($1::text[])`,
-        [mentionedNames]
+        `SELECT id, name FROM users WHERE LOWER(name) = ANY($1::text[])`,
+        [normalizedNames]
       );
 
       console.log('👥 Found mentioned users in database:', {
@@ -2258,7 +2384,7 @@ router.delete('/contacts/:contactId/notes', auth, async (req, res) => {
 // @desc    Full-text search messages
 router.get('/search', auth, async (req, res) => {
   try {
-    const { q, from, date, type = 'text', limit = 50, offset = 0 } = req.query;
+    const { q, from, date, type = 'all', limit = 50, offset = 0, conversationId } = req.query;
 
     if (!q || q.trim().length < 2) {
       return res.status(400).json({ error: 'Suchanfrage muss mindestens 2 Zeichen lang sein' });
@@ -2268,16 +2394,16 @@ router.get('/search', auth, async (req, res) => {
     const params = [];
     let paramIndex = 1;
 
-    // User must be sender or receiver
-    conditions.push(`(m.sender_id = $${paramIndex} OR m.receiver_id = $${paramIndex})`);
+    // User must be sender/receiver or a member of the conversation
     params.push(req.user.id);
+    conditions.push(`(m.sender_id = $${paramIndex} OR m.receiver_id = $${paramIndex} OR mcm.user_id IS NOT NULL)`);
     paramIndex++;
 
-    // Full-text search
-    const searchTerm = q.trim().replace(/\s+/g, ' & ');
+    // Full-text search (German)
+    const searchTerm = q.trim();
     conditions.push(
-      `(to_tsvector('english', m.message) @@ to_tsquery('english', $${paramIndex}) OR
-        to_tsvector('english', COALESCE(m.transcription, '')) @@ to_tsquery('english', $${paramIndex}))`
+      `(to_tsvector('german', COALESCE(m.message, '')) @@ websearch_to_tsquery('german', $${paramIndex}) OR
+        to_tsvector('german', COALESCE(m.transcription, '')) @@ websearch_to_tsquery('german', $${paramIndex}))`
     );
     params.push(searchTerm);
     paramIndex++;
@@ -2286,6 +2412,12 @@ router.get('/search', auth, async (req, res) => {
     if (from) {
       conditions.push(`m.sender_id = $${paramIndex}`);
       params.push(parseInt(from, 10));
+      paramIndex++;
+    }
+
+    if (conversationId) {
+      conditions.push(`m.conversation_id = $${paramIndex}`);
+      params.push(parseInt(conversationId, 10));
       paramIndex++;
     }
 
@@ -2312,10 +2444,18 @@ router.get('/search', auth, async (req, res) => {
         sender.name AS sender_name,
         sender.profile_photo AS sender_photo,
         receiver.name AS receiver_name,
-        ts_rank(to_tsvector('english', m.message), to_tsquery('english', $2)) AS rank
+        mc.name AS conversation_name,
+        mc.conversation_type AS conversation_type,
+        ts_rank_cd(
+          to_tsvector('german', COALESCE(m.message, '') || ' ' || COALESCE(m.transcription, '')),
+          websearch_to_tsquery('german', $2)
+        ) AS rank
       FROM messages m
       LEFT JOIN users sender ON m.sender_id = sender.id
       LEFT JOIN users receiver ON m.receiver_id = receiver.id
+      LEFT JOIN message_conversations mc ON m.conversation_id = mc.id
+      LEFT JOIN message_conversation_members mcm
+        ON m.conversation_id = mcm.conversation_id AND mcm.user_id = $1
       WHERE ${conditions.join(' AND ')}
       ORDER BY rank DESC, m.created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
@@ -2327,6 +2467,8 @@ router.get('/search', auth, async (req, res) => {
     const countQuery = `
       SELECT COUNT(*) as total
       FROM messages m
+      LEFT JOIN message_conversation_members mcm
+        ON m.conversation_id = mcm.conversation_id AND mcm.user_id = $1
       WHERE ${conditions.join(' AND ')}
     `;
     const countResult = await pool.query(countQuery, params.slice(0, -2));

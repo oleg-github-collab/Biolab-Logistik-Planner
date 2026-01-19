@@ -256,6 +256,10 @@ const useWebSocket = () => {
           emitConversationEvent('conversation:created', payload);
         });
 
+        socket.on('conversation:updated', (payload) => {
+          emitConversationEvent('conversation:updated', payload);
+        });
+
         socket.on('conversation:removed', (payload) => {
           emitConversationEvent('conversation:removed', payload);
         });

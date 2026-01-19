@@ -313,6 +313,9 @@ export const createConversationThread = (payload) =>
 export const getConversationThread = (conversationId) =>
   api.get(`/messages/conversations/${conversationId}`);
 
+export const updateConversationThread = (conversationId, payload) =>
+  api.put(`/messages/conversations/${conversationId}`, payload);
+
 export const getConversationMessages = (conversationId) =>
   api.get(`/messages/conversations/${conversationId}/messages`);
 

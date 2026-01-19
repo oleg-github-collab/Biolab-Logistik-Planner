@@ -7,14 +7,14 @@ const GIPHY_API_KEY = process.env.REACT_APP_GIPHY_API_KEY || 'sXpGFDGZs0Dv1mmNFv
 const GIPHY_API_BASE = 'https://api.giphy.com/v1/gifs';
 
 const POPULAR_CATEGORIES = [
-  { name: 'Happy', emoji: '😊' },
-  { name: 'Sad', emoji: '😢' },
-  { name: 'Love', emoji: '❤️' },
-  { name: 'Funny', emoji: '😂' },
-  { name: 'Celebrate', emoji: '🎉' },
-  { name: 'Thumbs Up', emoji: '👍' },
-  { name: 'Dance', emoji: '💃' },
-  { name: 'Wow', emoji: '😮' }
+  { label: 'Glücklich', query: 'Happy', emoji: '😊' },
+  { label: 'Traurig', query: 'Sad', emoji: '😢' },
+  { label: 'Liebe', query: 'Love', emoji: '❤️' },
+  { label: 'Lustig', query: 'Funny', emoji: '😂' },
+  { label: 'Feiern', query: 'Celebrate', emoji: '🎉' },
+  { label: 'Daumen hoch', query: 'Thumbs Up', emoji: '👍' },
+  { label: 'Tanzen', query: 'Dance', emoji: '💃' },
+  { label: 'Wow', query: 'Wow', emoji: '😮' }
 ];
 
 const GifPicker = ({ onSelectGif, onClose }) => {
@@ -40,7 +40,7 @@ const GifPicker = ({ onSelectGif, onClose }) => {
       setGifs(data.data || []);
     } catch (error) {
       console.error('Error loading trending GIFs:', error);
-      showError('Fehler beim Laden der Trending GIFs');
+      showError('Fehler beim Laden der Trend-GIFs');
       setGifs([]);
     } finally {
       setLoading(false);
@@ -71,8 +71,9 @@ const GifPicker = ({ onSelectGif, onClose }) => {
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
-      if (searchTerm.trim()) {
-        searchGifs(searchTerm);
+      const query = selectedCategory?.query || searchTerm;
+      if (query.trim()) {
+        searchGifs(query);
       } else if (!selectedCategory) {
         loadTrendingGifs();
       }
@@ -87,8 +88,7 @@ const GifPicker = ({ onSelectGif, onClose }) => {
 
   const handleCategoryClick = (category) => {
     setSelectedCategory(category);
-    setSearchTerm(category.name);
-    searchGifs(category.name);
+    setSearchTerm(category.label);
   };
 
   const handleGifSelect = (gif) => {
@@ -120,8 +120,8 @@ const GifPicker = ({ onSelectGif, onClose }) => {
         <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-purple-500 to-pink-500">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-lg font-semibold text-white flex items-center">
-              <span className="mr-2">GIF Picker</span>
-              <span className="text-sm font-normal opacity-90">powered by Giphy</span>
+              <span className="mr-2">GIF-Auswahl</span>
+              <span className="text-sm font-normal opacity-90">bereitgestellt von Giphy</span>
             </h3>
             <button
               onClick={onClose}
@@ -166,16 +166,16 @@ const GifPicker = ({ onSelectGif, onClose }) => {
           <div className="flex flex-wrap gap-2 mt-3">
             {POPULAR_CATEGORIES.map((category) => (
               <button
-                key={category.name}
+                key={category.query}
                 onClick={() => handleCategoryClick(category)}
                 className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
-                  selectedCategory?.name === category.name
+                  selectedCategory?.query === category.query
                     ? 'bg-white text-purple-600 shadow-md'
                     : 'bg-white bg-opacity-20 text-white hover:bg-opacity-30'
                 }`}
               >
                 <span className="mr-1">{category.emoji}</span>
-                {category.name}
+                {category.label}
               </button>
             ))}
           </div>

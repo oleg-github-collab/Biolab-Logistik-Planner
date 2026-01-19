@@ -17,6 +17,14 @@ const QuickRepliesPanel = ({ onSelect, onClose }) => {
   const [selectedCategory, setSelectedCategory] = useState('all');
 
   const categories = ['all', 'general', 'greeting', 'closing', 'question', 'other'];
+  const categoryLabels = {
+    all: 'Alle',
+    general: 'Allgemein',
+    greeting: 'Begrüßung',
+    closing: 'Abschluss',
+    question: 'Frage',
+    other: 'Sonstiges'
+  };
 
   useEffect(() => {
     loadTemplates();
@@ -131,7 +139,7 @@ const QuickRepliesPanel = ({ onSelect, onClose }) => {
                     : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                 }`}
               >
-                {cat === 'all' ? 'Alle' : cat.charAt(0).toUpperCase() + cat.slice(1)}
+                {categoryLabels[cat] || cat}
               </button>
             ))}
           </div>
@@ -174,11 +182,11 @@ const QuickRepliesPanel = ({ onSelect, onClose }) => {
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                   className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="general">General</option>
-                  <option value="greeting">Greeting</option>
-                  <option value="closing">Closing</option>
-                  <option value="question">Question</option>
-                  <option value="other">Other</option>
+                  <option value="general">{categoryLabels.general}</option>
+                  <option value="greeting">{categoryLabels.greeting}</option>
+                  <option value="closing">{categoryLabels.closing}</option>
+                  <option value="question">{categoryLabels.question}</option>
+                  <option value="other">{categoryLabels.other}</option>
                 </select>
               </div>
               <div className="flex gap-2">

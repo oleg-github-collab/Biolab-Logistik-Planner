@@ -36,10 +36,15 @@ import { useWebSocketContext } from '../context/WebSocketContext';
 import { useMobile } from '../hooks/useMobile';
 import {
   getAllContacts,
+  getConversationThread,
   getConversationMessages,
   sendConversationMessage,
   createConversationThread,
   getMessageThreads,
+  addConversationMembers,
+  removeConversationMember,
+  markConversationAsRead,
+  updateConversationThread,
   uploadAttachment,
   deleteMessage,
   getStoriesFeed,
@@ -64,15 +69,16 @@ import { getAssetUrl } from '../utils/media';
 import '../styles/messenger-desktop-fixed.css';
 import '../styles/messenger-mobile-complete.css';
 import '../styles/scroll-to-bottom-button.css';
+import '../styles/messenger-premium.css';
 
-const GENERAL_THREAD_NAMES = ['general chat', 'general'];
+const GENERAL_THREAD_NAMES = ['general chat', 'general', 'allgemein', 'allgemeiner chat', 'teamchat'];
 const BOT_CONTACT_TEMPLATE = {
   id: 8,
   name: 'BL_Bot',
   email: 'bl_bot@system.local',
   is_bot: true,
   online: true,
-  status: 'AI Assistant'
+  status: 'KI-Assistent'
 };
 const BOT_FALLBACK_IDS = [BOT_CONTACT_TEMPLATE.id, 999999];
 const LONG_PRESS_DELAY = 450;
@@ -178,10 +184,22 @@ const DirectMessenger = () => {
   const [bootstrapDone, setBootstrapDone] = useState(false);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
+  const [groupDraftName, setGroupDraftName] = useState('');
+  const [groupDraftDescription, setGroupDraftDescription] = useState('');
+  const [groupDraftMemberIds, setGroupDraftMemberIds] = useState([]);
+  const [groupDraftSearch, setGroupDraftSearch] = useState('');
+  const [groupDraftIncludeBot, setGroupDraftIncludeBot] = useState(true);
+  const [groupDraftSaving, setGroupDraftSaving] = useState(false);
+  const [groupEditName, setGroupEditName] = useState('');
+  const [groupEditDescription, setGroupEditDescription] = useState('');
+  const [groupEditSaving, setGroupEditSaving] = useState(false);
+  const [groupMembersSaving, setGroupMembersSaving] = useState(false);
+  const [groupMemberSearch, setGroupMemberSearch] = useState('');
+  const [groupInviteIds, setGroupInviteIds] = useState([]);
 
   const ensureBotContactExists = useCallback((contactList) => {
     const list = Array.isArray(contactList) ? contactList.filter(Boolean) : [];
-    // НЕ додаємо фейкового бота - тільки реальний з API
     return list;
   }, []);
 
@@ -196,7 +214,7 @@ const DirectMessenger = () => {
         if (!userId || byId.has(userId)) return;
         byId.set(userId, {
           id: userId,
-          name: member?.name || member?.email || `User ${userId}`,
+          name: member?.name || member?.email || `Benutzer ${userId}`,
           email: member?.email || '',
           is_bot: member?.is_system_user || isBotContact(member),
           online: member?.online || false
@@ -238,14 +256,14 @@ const DirectMessenger = () => {
       try {
         const memberIds = contactsSafe.map((contact) => contact?.id).filter(Boolean);
         const response = await createConversationThread({
-          name: 'General Chat',
+          name: 'Allgemeiner Chat',
           type: 'group',
           description: 'Offener Chat für das gesamte Team',
           memberIds
         });
 
         if (response?.data) {
-          updatedThreads = [response.data, ...updatedThreads];
+          updatedThreads = [normalizeThread(response.data), ...updatedThreads];
         }
       } catch (error) {
         console.error('Error ensuring General Chat exists:', error);
@@ -270,7 +288,7 @@ const DirectMessenger = () => {
           });
 
           if (botThreadResponse?.data) {
-            updatedThreads = [botThreadResponse.data, ...updatedThreads];
+            updatedThreads = [normalizeThread(botThreadResponse.data), ...updatedThreads];
           }
         } catch (error) {
           console.error('Error ensuring bot thread exists:', error);
@@ -302,6 +320,7 @@ const DirectMessenger = () => {
   const recordingChunksRef = useRef([]);
   const recordingStreamRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
   const shouldAutoScrollRef = useRef(true);
   const typingTimeoutRef = useRef(null);
 
@@ -378,6 +397,52 @@ const DirectMessenger = () => {
     };
   }, []);
 
+  const normalizeContact = useCallback((contact) => {
+    if (!contact) return contact;
+    return {
+      ...contact,
+      online: Boolean(contact.online ?? contact.is_online ?? false),
+      is_bot: Boolean(contact.is_bot || contact.is_system_user || isBotContact(contact))
+    };
+  }, []);
+
+  const normalizeThreadLastMessage = useCallback((message) => {
+    if (!message) return null;
+    const content = message.content ?? message.message ?? message.text ?? '';
+    const createdAt = message.createdAt ?? message.created_at ?? message.createdAt ?? message.created_at;
+    const messageType = message.messageType ?? message.message_type ?? message.type ?? 'text';
+    const senderId = message.senderId ?? message.sender_id ?? message.senderId ?? message.sender_id;
+
+    return {
+      ...message,
+      content,
+      createdAt,
+      messageType,
+      senderId
+    };
+  }, []);
+
+  const normalizeThread = useCallback((thread) => {
+    if (!thread) return thread;
+    return {
+      ...thread,
+      type: thread.type || thread.conversation_type,
+      unreadCount: Number(thread.unreadCount ?? thread.unread_count ?? 0),
+      participantCount: Number(thread.participantCount ?? thread.participant_count ?? 0),
+      members: Array.isArray(thread.members)
+        ? thread.members
+        : Array.isArray(thread.member_snapshot)
+          ? thread.member_snapshot
+          : [],
+      lastMessage: normalizeThreadLastMessage(thread.lastMessage)
+    };
+  }, [normalizeThreadLastMessage]);
+
+  const getThreadTimestamp = useCallback((thread) => {
+    const last = thread?.lastMessage;
+    return last?.createdAt || last?.created_at || thread?.updatedAt || thread?.updated_at || null;
+  }, []);
+
   const formatEventDateRange = (start, end) => {
     const startDate = start ? new Date(start) : null;
     const endDate = end ? new Date(end) : null;
@@ -427,12 +492,17 @@ const DirectMessenger = () => {
           ? contactsRes.data
           : Array.isArray(contactsRes?.data?.contacts)
             ? contactsRes.data.contacts
-            : [];
-        const contactsWithBot = ensureBotContactExists(contactsArray);
+            : Array.isArray(contactsRes?.data?.data)
+              ? contactsRes.data.data
+              : [];
+        const normalizedContacts = contactsArray.map(normalizeContact);
+        const contactsWithBot = ensureBotContactExists(normalizedContacts);
         const rawThreads = Array.isArray(threadsRes?.data) ? threadsRes.data : [];
-        const threadsWithEssentials = await ensureEssentialThreads(rawThreads, contactsWithBot);
-        const threadContacts = buildContactsFromThreads(threadsWithEssentials);
-        const mergedContacts = mergeContacts(contactsWithBot, threadContacts);
+        const normalizedThreads = rawThreads.map(normalizeThread);
+        const threadsWithEssentials = await ensureEssentialThreads(normalizedThreads, contactsWithBot);
+        const sanitizedThreads = threadsWithEssentials.map(normalizeThread);
+        const threadContacts = buildContactsFromThreads(sanitizedThreads).map(normalizeContact);
+        const mergedContacts = mergeContacts(contactsWithBot, threadContacts).map(normalizeContact);
 
         console.log('📦 [DirectMessenger] API Responses:', {
           contactsRes,
@@ -443,7 +513,7 @@ const DirectMessenger = () => {
           storiesCount: Array.isArray(storiesRes?.data?.stories) ? storiesRes.data.stories.length : 0
         });
         setContacts(mergedContacts);
-        setThreads(threadsWithEssentials);
+        setThreads(sanitizedThreads);
         const rawStories = Array.isArray(storiesRes?.data?.stories)
           ? storiesRes.data.stories
           : Array.isArray(storiesRes?.data)
@@ -462,7 +532,14 @@ const DirectMessenger = () => {
       }
     };
     loadData();
-  }, [buildContactsFromThreads, ensureBotContactExists, ensureEssentialThreads, mergeContacts]);
+  }, [
+    buildContactsFromThreads,
+    ensureBotContactExists,
+    ensureEssentialThreads,
+    mergeContacts,
+    normalizeContact,
+    normalizeThread
+  ]);
 
   useEffect(() => {
     if (isMobile) {
@@ -484,18 +561,23 @@ const DirectMessenger = () => {
 
   // Keep contacts in sync with thread members (fallback when contact API misses users)
   useEffect(() => {
-    const extras = buildContactsFromThreads(threads);
-    const merged = mergeContacts(contacts, extras);
+    const extras = buildContactsFromThreads(threads).map(normalizeContact);
+    const merged = mergeContacts(contacts, extras).map(normalizeContact);
     const currentIds = new Set(contacts.map((c) => c.id));
     const mergedIds = new Set(merged.map((c) => c.id));
     const hasDiff = currentIds.size !== mergedIds.size || Array.from(mergedIds).some((id) => !currentIds.has(id));
     if (hasDiff) {
       setContacts(merged);
     }
-  }, [buildContactsFromThreads, contacts, mergeContacts, threads]);
+  }, [buildContactsFromThreads, contacts, mergeContacts, normalizeContact, threads]);
 
   useEffect(() => {
     setSelectedEvent(null);
+  }, [selectedThreadId]);
+
+  useEffect(() => {
+    setUnreadCount(0);
+    setShowScrollToBottom(false);
   }, [selectedThreadId]);
 
   // Load pinned messages when conversation changes
@@ -534,33 +616,45 @@ const DirectMessenger = () => {
       return;
     }
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    shouldAutoScrollRef.current = false;
   }, [messages]);
 
   // Scroll to bottom function
   const scrollToBottom = useCallback(() => {
+    shouldAutoScrollRef.current = true;
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     setShowScrollToBottom(false);
     setUnreadCount(0);
   }, []);
 
+  const clearThreadUnread = useCallback((threadId) => {
+    if (!threadId) return;
+    setThreads((prev) =>
+      prev.map((thread) =>
+        thread.id === threadId ? { ...thread, unreadCount: 0 } : thread
+      )
+    );
+  }, []);
+
   // Handle scroll detection
   useEffect(() => {
-    const messagesContainer = isMobile
-      ? document.querySelector('.messenger-mobile-messages')
-      : document.querySelector('.messenger-messages-container');
+    const messagesContainer = messagesContainerRef.current;
 
     if (!messagesContainer) return;
 
     const handleScroll = () => {
       const { scrollTop, scrollHeight, clientHeight } = messagesContainer;
       const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+      const isNearBottom = distanceFromBottom < 120;
 
-      // Show button if scrolled up more than 200px from bottom
-      setShowScrollToBottom(distanceFromBottom > 200);
+      shouldAutoScrollRef.current = isNearBottom;
+      setShowScrollToBottom(!isNearBottom);
+      if (isNearBottom) {
+        setUnreadCount(0);
+      }
     };
 
-    messagesContainer.addEventListener('scroll', handleScroll);
+    handleScroll();
+    messagesContainer.addEventListener('scroll', handleScroll, { passive: true });
     return () => messagesContainer.removeEventListener('scroll', handleScroll);
   }, [isMobile, selectedThreadId]);
 
@@ -573,6 +667,7 @@ const DirectMessenger = () => {
       if (!data?.conversationId || !data?.message) return;
 
       const normalized = normalizeMessage(data.message);
+      const lastMessage = normalizeThreadLastMessage(normalized);
       const isActive = data.conversationId === selectedThreadId;
 
       // Update threads + unread instantly
@@ -581,7 +676,7 @@ const DirectMessenger = () => {
           thread.id === data.conversationId
             ? {
                 ...thread,
-                lastMessage: normalized,
+                lastMessage,
                 unreadCount: isActive ? 0 : (thread.unreadCount || 0) + 1
               }
             : thread
@@ -589,16 +684,24 @@ const DirectMessenger = () => {
       );
 
       if (isActive) {
-        shouldAutoScrollRef.current = true;
+        const container = messagesContainerRef.current;
+        const distanceFromBottom = container
+          ? container.scrollHeight - container.scrollTop - container.clientHeight
+          : 0;
+        const isNearBottom = distanceFromBottom < 120;
+        shouldAutoScrollRef.current = isNearBottom;
         setMessages((prev) => {
           if (Array.isArray(prev) && prev.some((m) => m?.id === normalized.id)) {
             return prev;
           }
           return Array.isArray(prev) ? [...prev, normalized] : [normalized];
         });
-        requestAnimationFrame(() => scrollToBottom());
-      } else {
-        setUnreadCount((prev) => prev + 1);
+        if (isNearBottom) {
+          requestAnimationFrame(() => scrollToBottom());
+        } else {
+          setShowScrollToBottom(true);
+          setUnreadCount((prev) => prev + 1);
+        }
       }
     };
 
@@ -648,7 +751,7 @@ const DirectMessenger = () => {
       if (data?.conversationId === selectedThreadId && data?.userId && data.userId !== user?.id) {
         setTypingUsers(prev => ({
           ...prev,
-          [data.userId]: { name: data.userName || 'User', timestamp: Date.now() }
+          [data.userId]: { name: data.userName || 'Benutzer', timestamp: Date.now() }
         }));
 
         // Auto-clear after 3 seconds
@@ -682,12 +785,80 @@ const DirectMessenger = () => {
       }
     };
 
+    const handleMembersUpdated = (data) => {
+      if (!data?.conversationId) return;
+      if (data.conversationId === selectedThreadId && Array.isArray(data.members)) {
+        setGroupMembers(data.members);
+      }
+      setThreads((prev) =>
+        prev.map((thread) =>
+          thread.id === data.conversationId
+            ? {
+                ...thread,
+                members: Array.isArray(data.members) ? data.members : thread.members,
+                participantCount: Array.isArray(data.members)
+                  ? Math.max(data.members.length - 1, 0)
+                  : thread.participantCount
+              }
+            : thread
+        )
+      );
+    };
+
+    const handleConversationCreated = (data) => {
+      if (!data?.conversation?.id) return;
+      const incoming = normalizeThread({
+        ...data.conversation,
+        members: Array.isArray(data.members) ? data.members : []
+      });
+      setThreads((prev) => {
+        const exists = prev.some((thread) => thread.id === incoming.id);
+        if (exists) return prev;
+        return [incoming, ...prev];
+      });
+    };
+
+    const handleConversationUpdated = (data) => {
+      if (!data?.conversationId) return;
+      const updated = data.conversation || {};
+      setThreads((prev) =>
+        prev.map((thread) =>
+          thread.id === data.conversationId
+            ? {
+                ...thread,
+                name: updated.name ?? thread.name,
+                description: updated.description ?? thread.description,
+                updatedAt: updated.updatedAt ?? thread.updatedAt
+              }
+            : thread
+        )
+      );
+      if (data.conversationId === selectedThreadId && Array.isArray(data.members)) {
+        setGroupMembers(data.members);
+      }
+    };
+
+    const handleConversationRemoved = (data) => {
+      if (!data?.conversationId) return;
+      setThreads((prev) => prev.filter((thread) => thread.id !== data.conversationId));
+      if (data.conversationId === selectedThreadId) {
+        setSelectedThreadId(null);
+        setSelectedContact(null);
+        setMessages([]);
+        setMobileMode('list');
+      }
+    };
+
     const unsubscribeNewMessage = onConversationEvent('new_message', handleNewMessage);
     const unsubscribeReaction = onConversationEvent('message:reaction', handleMessageReaction);
     const unsubscribePin = onConversationEvent('message:pin', handleMessagePin);
     const unsubscribeTyping = onConversationEvent('typing:start', handleUserTyping);
     const unsubscribeStopTyping = onConversationEvent('typing:stop', handleUserStopTyping);
     const unsubscribeMessageRead = onConversationEvent('message:read', handleMessageRead);
+    const unsubscribeMembersUpdated = onConversationEvent('conversation:members_updated', handleMembersUpdated);
+    const unsubscribeConversationCreated = onConversationEvent('conversation:created', handleConversationCreated);
+    const unsubscribeConversationUpdated = onConversationEvent('conversation:updated', handleConversationUpdated);
+    const unsubscribeConversationRemoved = onConversationEvent('conversation:removed', handleConversationRemoved);
 
     return () => {
       unsubscribeNewMessage();
@@ -696,8 +867,29 @@ const DirectMessenger = () => {
       unsubscribeTyping();
       unsubscribeStopTyping();
       unsubscribeMessageRead();
+      unsubscribeMembersUpdated();
+      unsubscribeConversationCreated();
+      unsubscribeConversationUpdated();
+      unsubscribeConversationRemoved();
     };
-  }, [selectedThreadId, isConnected, joinConversationRoom, onConversationEvent, normalizeMessage, user]);
+  }, [
+    isConnected,
+    joinConversationRoom,
+    normalizeMessage,
+    normalizeThread,
+    normalizeThreadLastMessage,
+    onConversationEvent,
+    scrollToBottom,
+    selectedThreadId,
+    user
+  ]);
+
+  useEffect(() => {
+    if (!showMembersModal) {
+      setGroupInviteIds([]);
+      setGroupMemberSearch('');
+    }
+  }, [showMembersModal]);
 
   useEffect(() => {
     if (!isMobile || mobileMode !== 'chat') {
@@ -753,6 +945,27 @@ const DirectMessenger = () => {
     }
   }, [normalizeMessage]);
 
+  const refreshGroupDetails = useCallback(async (threadId) => {
+    if (!threadId) return;
+    try {
+      const response = await getConversationThread(threadId);
+      const data = response?.data;
+      if (data?.members && Array.isArray(data.members)) {
+        setGroupMembers(data.members);
+      } else {
+        setGroupMembers([]);
+      }
+      if (data?.name !== undefined) {
+        setGroupEditName(data.name || '');
+      }
+      if (data?.description !== undefined) {
+        setGroupEditDescription(data.description || '');
+      }
+    } catch (error) {
+      console.error('Error loading group details:', error);
+    }
+  }, []);
+
   const handleContactClick = useCallback(async (contact) => {
     console.log('[DirectMessenger] ===== handleContactClick START =====');
     console.log('[DirectMessenger] Contact:', contact);
@@ -784,6 +997,10 @@ const DirectMessenger = () => {
         console.log('[DirectMessenger] Using existing thread:', existingThread.id);
         setSelectedThreadId(existingThread.id);
         await loadMessages(existingThread.id);
+        clearThreadUnread(existingThread.id);
+        markConversationAsRead(existingThread.id).catch(() => {});
+        setUnreadCount(0);
+        setShowScrollToBottom(false);
       } else {
         console.log('[DirectMessenger] Creating new thread...');
         const response = await createConversationThread({
@@ -796,11 +1013,14 @@ const DirectMessenger = () => {
 
         if (response?.data?.id) {
           console.log('[DirectMessenger] Thread created successfully:', response.data.id);
-          setSelectedThreadId(response.data.id);
+          const normalizedThread = normalizeThread(response.data);
+          setSelectedThreadId(normalizedThread.id);
           setMessages([]);
-          setThreads((prev) => Array.isArray(prev) ? [...prev, response.data] : [response.data]);
+          setThreads((prev) => Array.isArray(prev) ? [...prev, normalizedThread] : [normalizedThread]);
+          clearThreadUnread(normalizedThread.id);
+          markConversationAsRead(normalizedThread.id).catch(() => {});
         } else {
-          throw new Error('Invalid response from createConversationThread');
+          throw new Error('Ungültige Antwort vom Server');
         }
       }
 
@@ -818,12 +1038,12 @@ const DirectMessenger = () => {
       const serverMessage = error?.response?.data?.error || error?.message || 'Unbekannter Fehler';
       showError('Chat konnte nicht geöffnet werden: ' + serverMessage);
     }
-  }, [threads, loadMessages, isMobile]);
+  }, [clearThreadUnread, isMobile, loadMessages, markConversationAsRead, normalizeThread, threads]);
 
   // Handler for group chat selection
   const handleGroupChatClick = useCallback(async (groupThread) => {
     if (!groupThread?.id) {
-      showError('Group chat not found');
+      showError('Gruppenchat nicht gefunden');
       return;
     }
 
@@ -838,15 +1058,19 @@ const DirectMessenger = () => {
 
       // Load messages
       await loadMessages(groupThread.id);
+      clearThreadUnread(groupThread.id);
+      markConversationAsRead(groupThread.id).catch(() => {});
+      setUnreadCount(0);
+      setShowScrollToBottom(false);
 
       if (isMobile) {
         setMobileMode('chat');
       }
     } catch (error) {
       console.error('Error opening group chat:', error);
-      showError('Failed to load group chat: ' + (error?.message || 'Unknown error'));
+      showError('Gruppenchat konnte nicht geladen werden: ' + (error?.message || 'Unbekannter Fehler'));
     }
-  }, [joinConversationRoom, loadMessages, isMobile]);
+  }, [clearThreadUnread, isMobile, joinConversationRoom, loadMessages, markConversationAsRead]);
 
   // Auto-select a default thread (General or first) once data is ready
   useEffect(() => {
@@ -899,31 +1123,15 @@ const DirectMessenger = () => {
   useEffect(() => {
     const currentThread = threads.find(t => t.id === selectedThreadId);
     if (currentThread?.type === 'group' && selectedThreadId) {
-      // Load group members directly in useEffect
-      const loadMembers = async () => {
-        try {
-          const response = await fetch(`/api/messages/conversations/${selectedThreadId}`, {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-          });
-
-          if (!response.ok) throw new Error('Failed to fetch conversation details');
-
-          const data = await response.json();
-          if (data?.members && Array.isArray(data.members)) {
-            setGroupMembers(data.members);
-          }
-        } catch (error) {
-          console.error('Error loading group members:', error);
-        }
-      };
-
-      loadMembers();
+      refreshGroupDetails(selectedThreadId);
     } else {
       setGroupMembers([]);
+      setGroupEditName('');
+      setGroupEditDescription('');
     }
-  }, [selectedThreadId, threads]);
+    setGroupInviteIds([]);
+    setGroupMemberSearch('');
+  }, [refreshGroupDetails, selectedThreadId, threads]);
 
   // Handle input change with @mention detection and typing indicator
   const handleInputChange = (e) => {
@@ -991,9 +1199,9 @@ const DirectMessenger = () => {
     if (lastAtSymbol !== -1) {
       const afterAt = textBeforeCursor.substring(lastAtSymbol + 1);
 
-      // Check if we're still in mention mode (no space after @)
-      if (!afterAt.includes(' ')) {
-        const query = afterAt.toLowerCase();
+      // Check if we're still in mention mode (no space or closing brace after @)
+      if (!afterAt.includes(' ') && !afterAt.includes('}')) {
+        const query = afterAt.replace(/^\{/, '').toLowerCase();
         setMentionQuery(query);
 
         // Filter members by query
@@ -1021,8 +1229,9 @@ const DirectMessenger = () => {
     const lastAtSymbol = textBeforeCursor.lastIndexOf('@');
 
     if (lastAtSymbol !== -1) {
+      const mentionName = member.name?.includes(' ') ? `{${member.name}}` : member.name;
       const newText = textBeforeCursor.substring(0, lastAtSymbol) +
-                      `@${member.name} ` +
+                      `@${mentionName} ` +
                       textAfterCursor;
       setMessageInput(newText);
       setShowMentionSuggestions(false);
@@ -1034,7 +1243,7 @@ const DirectMessenger = () => {
   const highlightMentions = (text, isMine) => {
     if (!text) return text;
 
-    const mentionRegex = /@([^\s]+)/g;
+    const mentionRegex = /@(\{[^}]+\}|[^\s]+)/g;
     const parts = [];
     let lastIndex = 0;
     let match;
@@ -1046,7 +1255,10 @@ const DirectMessenger = () => {
       }
 
       // Add highlighted mention
-      const mentionName = match[1];
+      const rawMention = match[1];
+      const mentionName = rawMention.startsWith('{') && rawMention.endsWith('}')
+        ? rawMention.slice(1, -1)
+        : rawMention;
       const isMentionedUser = Array.isArray(groupMembers) && groupMembers.some(m => m.name === mentionName && m.user_id === user?.id);
 
       parts.push(
@@ -1160,7 +1372,7 @@ const DirectMessenger = () => {
         payload.metadata.reply_to = {
           id: replyTo.id,
           message: replyTo.message || '',
-          sender_name: replyTo.sender_name || 'Unknown'
+          sender_name: replyTo.sender_name || 'Unbekannt'
         };
       }
 
@@ -1168,7 +1380,7 @@ const DirectMessenger = () => {
         payload.metadata = payload.metadata || {};
         payload.metadata.shared_event = {
           id: eventToShare.id,
-          title: eventToShare.title || 'Untitled',
+          title: eventToShare.title || 'Ohne Titel',
           start_time: eventToShare.start_time,
           end_time: eventToShare.end_time,
           location: eventToShare.location || null
@@ -1185,7 +1397,7 @@ const DirectMessenger = () => {
           const eventReference = {
             id: referenceId,
             event_id: eventToShare.id,
-            event_title: eventToShare.title || 'Untitled',
+            event_title: eventToShare.title || 'Ohne Titel',
             event_start_time: eventToShare.start_time,
             event_end_time: eventToShare.end_time,
             location: eventToShare.location || null
@@ -1200,7 +1412,7 @@ const DirectMessenger = () => {
               ...(newMessage.metadata || {}),
               shared_event: {
                 id: eventToShare.id,
-                title: eventToShare.title || 'Untitled',
+                title: eventToShare.title || 'Ohne Titel',
                 start_time: eventToShare.start_time,
                 end_time: eventToShare.end_time,
                 location: eventToShare.location || null
@@ -1224,10 +1436,11 @@ const DirectMessenger = () => {
         await loadMessages(selectedThreadId);
       }
 
+      const lastThreadMessage = normalizeThreadLastMessage(newMessage || optimisticMessage);
       setThreads((prev) =>
         prev.map((thread) =>
           thread.id === selectedThreadId
-            ? { ...thread, lastMessage: newMessage || optimisticMessage, unreadCount: 0 }
+            ? { ...thread, lastMessage: lastThreadMessage, unreadCount: 0 }
             : thread
         )
       );
@@ -1685,7 +1898,7 @@ const DirectMessenger = () => {
       setShowContactPicker(false);
       setPendingEventShare(null);
 
-      showSuccess(`Event bereit zum Teilen mit ${contact.name}`);
+      showSuccess(`Termin bereit zum Teilen mit ${contact.name}`);
     } catch (error) {
       console.error('Error selecting contact for event share:', error);
       showError('Fehler beim Auswählen des Kontakts');
@@ -1721,10 +1934,47 @@ const DirectMessenger = () => {
     }
   }, []);
 
-  const handleMessageSearchSelect = useCallback((message) => {
+  const handleMessageSearchSelect = useCallback(async (message) => {
+    if (!message?.id) return;
     setShowSearch(false);
+
+    const conversationId = message.conversation_id || message.conversationId;
+    if (conversationId) {
+      const thread = threads.find((item) => item.id === conversationId);
+      if (thread?.type === 'group') {
+        setSelectedContact(null);
+        await handleGroupChatClick(thread);
+      } else {
+        const otherUserId = message.sender_id === user?.id ? message.receiver_id : message.sender_id;
+        const partner = contacts.find(
+          (contact) => normalizeUserId(contact.id) === normalizeUserId(otherUserId)
+        );
+        if (partner) {
+          await handleContactClick(partner);
+        } else {
+          setSelectedContact(null);
+          setSelectedThreadId(conversationId);
+          await loadMessages(conversationId);
+          clearThreadUnread(conversationId);
+          markConversationAsRead(conversationId).catch(() => {});
+        }
+      }
+      setTimeout(() => highlightMessage(message.id), 200);
+      return;
+    }
+
     highlightMessage(message.id);
-  }, [highlightMessage]);
+  }, [
+    clearThreadUnread,
+    contacts,
+    handleContactClick,
+    handleGroupChatClick,
+    highlightMessage,
+    loadMessages,
+    markConversationAsRead,
+    threads,
+    user?.id
+  ]);
 
   const loadMobileQuickReplies = useCallback(async () => {
     setQuickRepliesLoading(true);
@@ -1768,19 +2018,263 @@ const DirectMessenger = () => {
     setShowComposerActions((prev) => !prev);
   }, []);
 
-  const handleAskBot = useCallback(() => {
-    setMessageInput('@BL_Bot ');
-    setShowComposerActions(false);
-    // Focus on input after state update
-    setTimeout(() => {
-      const textarea = isMobile ? mobileTextareaRef.current : desktopTextareaRef.current;
-      if (textarea) {
-        textarea.focus({ preventScroll: true });
-        const len = textarea.value.length;
-        textarea.setSelectionRange(len, len);
+  const getBotContact = useCallback(() => {
+    const fromContacts = contacts.find((contact) => isBotContact(contact));
+    if (fromContacts?.id) {
+      return fromContacts;
+    }
+    const fromMembers = groupMembers.find((member) =>
+      isBotContact({ ...member, id: member.user_id })
+    );
+    if (fromMembers?.user_id) {
+      return {
+        id: fromMembers.user_id,
+        name: fromMembers.name || 'BL_Bot',
+        email: fromMembers.email || '',
+        is_bot: true
+      };
+    }
+    return null;
+  }, [contacts, groupMembers]);
+
+  const ensureBotInConversation = useCallback(async () => {
+    const bot = getBotContact();
+    if (!bot?.id || !selectedThreadId) return bot;
+    const isMember = groupMembers.some(
+      (member) => normalizeUserId(member.user_id) === normalizeUserId(bot.id)
+    );
+    if (!isMember) {
+      try {
+        await addConversationMembers(selectedThreadId, [bot.id]);
+        await refreshGroupDetails(selectedThreadId);
+      } catch (error) {
+        console.error('Error adding bot to conversation:', error);
+        showError('BL_Bot konnte nicht zur Gruppe hinzugefügt werden');
       }
-    }, 0);
-  }, [isMobile]);
+    }
+    return bot;
+  }, [addConversationMembers, getBotContact, groupMembers, refreshGroupDetails, selectedThreadId, showError]);
+
+  const handleAskBot = useCallback(async () => {
+    const currentThread = threads.find((thread) => thread.id === selectedThreadId);
+    const isGroupChat = currentThread?.type === 'group';
+    let botProfile = null;
+
+    if (isGroupChat) {
+      botProfile = await ensureBotInConversation();
+    } else {
+      botProfile = getBotContact();
+      if (botProfile?.id) {
+        await handleContactClick(botProfile);
+      }
+    }
+
+    if (!botProfile?.id) {
+      showError('BL_Bot ist derzeit nicht verfügbar');
+      return;
+    }
+
+    if (isGroupChat) {
+      const botName = botProfile?.name || 'BL_Bot';
+      const mentionName = botName.includes(' ') ? `{${botName}}` : botName;
+      setMessageInput((prev) => {
+        const lastChar = prev.slice(-1);
+        const needsSpace = prev && lastChar !== ' ' && lastChar !== '\n';
+        return `${prev}${needsSpace ? ' ' : ''}@${mentionName} `;
+      });
+      setShowComposerActions(false);
+      setTimeout(() => {
+        const textarea = isMobile ? mobileTextareaRef.current : desktopTextareaRef.current;
+        if (textarea) {
+          textarea.focus({ preventScroll: true });
+          const len = textarea.value.length;
+          textarea.setSelectionRange(len, len);
+        }
+      }, 0);
+    }
+  }, [ensureBotInConversation, getBotContact, handleContactClick, isMobile, selectedThreadId, threads]);
+
+  const openCreateGroupModal = useCallback(() => {
+    setGroupDraftName('');
+    setGroupDraftDescription('');
+    setGroupDraftMemberIds([]);
+    setGroupDraftSearch('');
+    setGroupDraftIncludeBot(true);
+    setShowCreateGroupModal(true);
+  }, []);
+
+  const toggleGroupDraftMember = useCallback((memberId) => {
+    setGroupDraftMemberIds((prev) => {
+      if (prev.includes(memberId)) {
+        return prev.filter((id) => id !== memberId);
+      }
+      return [...prev, memberId];
+    });
+  }, []);
+
+  const toggleGroupInviteMember = useCallback((memberId) => {
+    setGroupInviteIds((prev) => {
+      if (prev.includes(memberId)) {
+        return prev.filter((id) => id !== memberId);
+      }
+      return [...prev, memberId];
+    });
+  }, []);
+
+  const handleCreateGroup = useCallback(async () => {
+    const trimmedName = groupDraftName.trim();
+    if (!trimmedName) {
+      showError('Bitte einen Gruppennamen eingeben');
+      return;
+    }
+
+    const memberIds = [...groupDraftMemberIds];
+    const botProfile = groupDraftIncludeBot ? getBotContact() : null;
+    if (botProfile?.id) {
+      memberIds.push(botProfile.id);
+    }
+
+    if (memberIds.length === 0) {
+      showError('Bitte mindestens ein Mitglied auswählen');
+      return;
+    }
+
+    setGroupDraftSaving(true);
+    try {
+      const response = await createConversationThread({
+        name: trimmedName,
+        description: groupDraftDescription.trim() || null,
+        type: 'group',
+        memberIds
+      });
+
+      if (response?.data?.id) {
+        const normalizedThread = normalizeThread(response.data);
+        setThreads((prev) => [normalizedThread, ...(Array.isArray(prev) ? prev : [])]);
+        setSelectedContact(null);
+        setSelectedThreadId(normalizedThread.id);
+        setMessages([]);
+        clearThreadUnread(normalizedThread.id);
+        await refreshGroupDetails(normalizedThread.id);
+        if (isMobile) {
+          setMobileMode('chat');
+        }
+        setShowCreateGroupModal(false);
+        showSuccess('Gruppe erstellt');
+      } else {
+        throw new Error('Keine Gruppendaten erhalten');
+      }
+    } catch (error) {
+      console.error('Error creating group:', error);
+      showError(error?.response?.data?.error || 'Gruppe konnte nicht erstellt werden');
+    } finally {
+      setGroupDraftSaving(false);
+    }
+  }, [
+    clearThreadUnread,
+    createConversationThread,
+    getBotContact,
+    groupDraftDescription,
+    groupDraftIncludeBot,
+    groupDraftMemberIds,
+    groupDraftName,
+    isMobile,
+    normalizeThread,
+    refreshGroupDetails
+  ]);
+
+  const handleUpdateGroupDetails = useCallback(async () => {
+    if (!selectedThreadId) return;
+    const trimmedName = groupEditName.trim();
+    if (!trimmedName) {
+      showError('Bitte einen Gruppennamen eingeben');
+      return;
+    }
+
+    setGroupEditSaving(true);
+    try {
+      const response = await updateConversationThread(selectedThreadId, {
+        name: trimmedName,
+        description: groupEditDescription.trim() || null
+      });
+      const updated = response?.data;
+      if (updated) {
+        setThreads((prev) =>
+          prev.map((thread) =>
+            thread.id === selectedThreadId
+              ? { ...thread, name: updated.name, description: updated.description }
+              : thread
+          )
+        );
+      }
+      await refreshGroupDetails(selectedThreadId);
+      showSuccess('Gruppe aktualisiert');
+    } catch (error) {
+      console.error('Error updating group:', error);
+      showError(error?.response?.data?.error || 'Gruppe konnte nicht aktualisiert werden');
+    } finally {
+      setGroupEditSaving(false);
+    }
+  }, [groupEditDescription, groupEditName, refreshGroupDetails, selectedThreadId, updateConversationThread]);
+
+  const handleAddGroupMembers = useCallback(async () => {
+    if (!selectedThreadId || groupInviteIds.length === 0) return;
+    setGroupMembersSaving(true);
+    try {
+      await addConversationMembers(selectedThreadId, groupInviteIds);
+      await refreshGroupDetails(selectedThreadId);
+      setGroupInviteIds([]);
+      showSuccess('Mitglieder hinzugefügt');
+    } catch (error) {
+      console.error('Error adding members:', error);
+      showError(error?.response?.data?.error || 'Mitglieder konnten nicht hinzugefügt werden');
+    } finally {
+      setGroupMembersSaving(false);
+    }
+  }, [addConversationMembers, groupInviteIds, refreshGroupDetails, selectedThreadId]);
+
+  const handleRemoveGroupMember = useCallback(async (memberId) => {
+    if (!selectedThreadId || !memberId) return;
+    setGroupMembersSaving(true);
+    try {
+      await removeConversationMember(selectedThreadId, memberId);
+      await refreshGroupDetails(selectedThreadId);
+      showSuccess('Mitglied entfernt');
+    } catch (error) {
+      console.error('Error removing member:', error);
+      showError(error?.response?.data?.error || 'Mitglied konnte nicht entfernt werden');
+    } finally {
+      setGroupMembersSaving(false);
+    }
+  }, [refreshGroupDetails, removeConversationMember, selectedThreadId]);
+
+  const handleLeaveGroup = useCallback(async () => {
+    if (!selectedThreadId || !user?.id) return;
+    setGroupMembersSaving(true);
+    try {
+      await removeConversationMember(selectedThreadId, user.id);
+      setThreads((prev) => prev.filter((thread) => thread.id !== selectedThreadId));
+      setSelectedThreadId(null);
+      setSelectedContact(null);
+      setMessages([]);
+      setShowMembersModal(false);
+      setMobileMode('list');
+      showSuccess('Du hast die Gruppe verlassen');
+    } catch (error) {
+      console.error('Error leaving group:', error);
+      showError(error?.response?.data?.error || 'Gruppe konnte nicht verlassen werden');
+    } finally {
+      setGroupMembersSaving(false);
+    }
+  }, [removeConversationMember, selectedThreadId, user?.id]);
+
+  const handleOpenProfile = useCallback((profileId) => {
+    if (!profileId) {
+      navigate('/profile/me');
+      return;
+    }
+    navigate(`/profile/${profileId}`);
+  }, [navigate]);
 
   const handleStoryCreated = useCallback(async () => {
     try {
@@ -1796,15 +2290,15 @@ const DirectMessenger = () => {
     }
   }, []);
 
-  const filteredContacts = useMemo(
-    () =>
-      contacts.filter(
-        (contact) =>
-          contact.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          contact.email?.toLowerCase().includes(searchTerm.toLowerCase())
-      ),
-    [contacts, searchTerm]
-  );
+  const normalizedSearchTerm = searchTerm.trim().toLowerCase();
+
+  const filteredContacts = useMemo(() => {
+    if (!normalizedSearchTerm) return contacts;
+    return contacts.filter((contact) => {
+      const haystack = `${contact.name || ''} ${contact.email || ''} ${contact.status || ''}`.toLowerCase();
+      return haystack.includes(normalizedSearchTerm);
+    });
+  }, [contacts, normalizedSearchTerm]);
 
   const formatContactTimestamp = useCallback((timestamp) => {
     if (!timestamp) return '';
@@ -1846,29 +2340,63 @@ const DirectMessenger = () => {
         if (bUnread !== aUnread) return bUnread - aUnread;
 
         // Then by last message time
-        const aTime = a.lastMessage?.createdAt || a.updatedAt;
-        const bTime = b.lastMessage?.createdAt || b.updatedAt;
+        const aTime = getThreadTimestamp(a);
+        const bTime = getThreadTimestamp(b);
         return new Date(bTime) - new Date(aTime);
       });
-  }, [threads]);
+  }, [getThreadTimestamp, threads]);
+
+  const filteredGroupThreads = useMemo(() => {
+    if (!normalizedSearchTerm) return groupThreads;
+    return groupThreads.filter((thread) => {
+      const haystack = `${thread.name || ''} ${thread.description || ''}`.toLowerCase();
+      return haystack.includes(normalizedSearchTerm);
+    });
+  }, [groupThreads, normalizedSearchTerm]);
+
+  const activeThread = useMemo(
+    () => threads.find((thread) => thread.id === selectedThreadId) || null,
+    [selectedThreadId, threads]
+  );
+
+  const canManageGroup = useMemo(() => {
+    if (!activeThread || activeThread.type !== 'group') return false;
+    const role = activeThread.myRole || activeThread.my_role;
+    if (role === 'owner' || role === 'moderator') return true;
+    return ['admin', 'superadmin'].includes(user?.role);
+  }, [activeThread, user?.role]);
 
   const decoratedContacts = useMemo(
     () =>
       filteredContacts.map((contact) => {
         const thread = threadMapByContact[contact.id];
         const lastMessage = thread?.lastMessage;
-        const timestamp = lastMessage?.createdAt || thread?.updatedAt;
+        const timestamp = getThreadTimestamp(thread);
+        const messageType = lastMessage?.messageType || lastMessage?.message_type;
+        const typeLabel = messageType && messageType !== 'text'
+          ? messageType === 'image'
+            ? 'Bild'
+            : messageType === 'audio'
+              ? 'Audio'
+              : messageType === 'gif'
+                ? 'GIF'
+                : messageType.toUpperCase()
+          : '';
         return {
           ...contact,
           thread,
           unreadCount: thread?.unreadCount || 0,
           lastMessageSnippet:
-            lastMessage?.content || contact.status || 'Bereit, direkt zu schreiben',
+            lastMessage?.content ||
+            lastMessage?.message ||
+            typeLabel ||
+            contact.status ||
+            'Bereit, direkt zu schreiben',
           lastMessageTime: timestamp,
           lastMessageTimeLabel: formatContactTimestamp(timestamp)
         };
       }),
-    [filteredContacts, threadMapByContact, formatContactTimestamp]
+    [filteredContacts, formatContactTimestamp, getThreadTimestamp, threadMapByContact]
   );
 
   const groupedContacts = useMemo(() => {
@@ -1893,6 +2421,30 @@ const DirectMessenger = () => {
       remainingContacts: remaining
     };
   }, [decoratedContacts]);
+
+  const groupDraftCandidates = useMemo(() => {
+    const searchValue = groupDraftSearch.trim().toLowerCase();
+    const candidates = contacts.filter((contact) => !isBotContact(contact));
+    if (!searchValue) return candidates;
+    return candidates.filter((contact) => {
+      const haystack = `${contact.name || ''} ${contact.email || ''}`.toLowerCase();
+      return haystack.includes(searchValue);
+    });
+  }, [contacts, groupDraftSearch]);
+
+  const groupInviteCandidates = useMemo(() => {
+    if (!activeThread || activeThread.type !== 'group') return [];
+    const memberIds = new Set(groupMembers.map((member) => normalizeUserId(member.user_id)));
+    const candidates = contacts.filter(
+      (contact) => !memberIds.has(normalizeUserId(contact.id))
+    );
+    const searchValue = groupMemberSearch.trim().toLowerCase();
+    if (!searchValue) return candidates;
+    return candidates.filter((contact) => {
+      const haystack = `${contact.name || ''} ${contact.email || ''}`.toLowerCase();
+      return haystack.includes(searchValue);
+    });
+  }, [activeThread, contacts, groupMemberSearch, groupMembers]);
 
   // Get stories for currently selected user
   const selectedUserStories = useMemo(() => {
@@ -1996,10 +2548,10 @@ const DirectMessenger = () => {
   );
 
   const renderMessageContent = (msg, isMine) => {
-    const baseClassMobile = `message-bubble ${isMine ? 'mine' : 'other'}`;
-    const baseClassDesktop = isMine
+    const baseClassMobile = `message-bubble messenger-bubble messenger-bubble--${isMine ? 'mine' : 'other'} ${isMine ? 'mine' : 'other'}`;
+    const baseClassDesktop = `${isMine
       ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white'
-      : 'bg-white text-slate-900 border border-slate-200';
+      : 'bg-white text-slate-900 border border-slate-200'} messenger-bubble messenger-bubble--${isMine ? 'mine' : 'other'}`;
 
     const isHovered = hoveredMessage === msg.id;
     const isPinned = pinnedMessages.some((m) => m.id === msg.id);
@@ -2462,18 +3014,27 @@ const DirectMessenger = () => {
       variant === 'overlay'
         ? 'contact-list contact-list--overlay'
         : 'contact-list contact-list--panel';
-    const totalContacts = contacts.length;
-    const onlineContacts = contacts.filter((contact) => contact.online).length;
+    const humanContacts = contacts.filter((contact) => !isBotContact(contact));
+    const totalContacts = humanContacts.length;
+    const totalGroups = groupThreads.length;
+    const onlineContacts = humanContacts.filter((contact) => contact.online).length;
     const filteredCount = filteredContacts.length;
+    const visibleGroups = filteredGroupThreads.length;
+    const visibleItems = filteredCount + visibleGroups;
+    const summaryLabel = normalizedSearchTerm
+      ? `${visibleItems} Treffer · ${onlineContacts} online`
+      : `${totalContacts} Kontakte · ${totalGroups} Gruppen · ${onlineContacts} online`;
 
     console.log('📋 [ContactList] Rendering with:', {
       totalContacts,
+      totalGroups,
       onlineContacts,
       filteredCount,
       contacts,
       filteredContacts,
       decoratedContacts: decoratedContacts.length,
       groupThreads: groupThreads.length,
+      filteredGroupThreads: filteredGroupThreads.length,
       loading
     });
   const renderContactCard = (contact) => {
@@ -2495,6 +3056,19 @@ const DirectMessenger = () => {
               className={`contact-card__avatar-ring ${contactStory ? 'has-story' : ''} ${
                 contactStory && !contactStory.viewerHasSeen ? 'story-unread' : ''
               } ${isBot ? 'bot-ring' : ''}`}
+              role="button"
+              tabIndex={0}
+              onClick={(event) => {
+                event.stopPropagation();
+                handleOpenProfile(contact.id);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  handleOpenProfile(contact.id);
+                }
+              }}
             >
               <div className={`contact-card__avatar ${isBot ? 'bot-avatar' : ''}`}>
                 {isBot ? (
@@ -2525,9 +3099,13 @@ const DirectMessenger = () => {
               {contact.name}
               {isBot && <span className="contact-card__pill">Bot</span>}
             </p>
-            {isBot && (
-              <p className="text-xs text-purple-600 font-semibold">AI Assistant</p>
-            )}
+            <p className="contact-card__message">{contact.lastMessageSnippet}</p>
+            <div className="contact-card__meta">
+              {contact.lastMessageTimeLabel && (
+                <span>{contact.lastMessageTimeLabel}</span>
+              )}
+              {isBot && <span className="contact-card__bot-label">KI-Assistent</span>}
+            </div>
           </div>
         </button>
       );
@@ -2538,7 +3116,23 @@ const DirectMessenger = () => {
       const isSelected = selectedThreadId === groupThread.id;
       const unreadCount = groupThread.unreadCount || 0;
       const isGeneral = isGeneralThread(groupThread);
-      const displayName = isGeneral ? 'General Chat' : (groupThread.name || 'Group Chat');
+      const displayName = isGeneral ? 'Allgemeiner Chat' : (groupThread.name || 'Gruppenchat');
+      const lastMessage = groupThread.lastMessage;
+      const timestamp = getThreadTimestamp(groupThread);
+      const typeLabel = lastMessage?.messageType && lastMessage.messageType !== 'text'
+        ? lastMessage.messageType === 'image'
+          ? 'Bild'
+          : lastMessage.messageType === 'audio'
+            ? 'Audio'
+            : lastMessage.messageType === 'gif'
+              ? 'GIF'
+              : lastMessage.messageType.toUpperCase()
+        : '';
+      const snippet = lastMessage?.content ||
+        lastMessage?.message ||
+        typeLabel ||
+        groupThread.description ||
+        'Gruppenchat';
 
       return (
         <button
@@ -2563,6 +3157,12 @@ const DirectMessenger = () => {
               {displayName}
               {isGeneral && <span className="contact-card__pill">Allgemein</span>}
             </p>
+            <p className="contact-card__message">{snippet}</p>
+            <div className="contact-card__meta">
+              {timestamp && (
+                <span>{formatContactTimestamp(timestamp)}</span>
+              )}
+            </div>
           </div>
         </button>
       );
@@ -2572,11 +3172,9 @@ const DirectMessenger = () => {
       <div className={wrapperClass}>
         <div className="contact-list__header">
           <div>
-            <p className="contact-list__eyebrow">Team Messenger</p>
-            <h2>Kontakte im Blick behalten</h2>
-            <p className="contact-list__subheader">
-              {filteredCount} von {totalContacts} Kontakten · {onlineContacts} online
-            </p>
+            <p className="contact-list__eyebrow">Team-Messenger</p>
+            <h2>Nachrichten im Griff</h2>
+            <p className="contact-list__subheader">{summaryLabel}</p>
           </div>
           {variant === 'overlay' && (
             <button
@@ -2589,21 +3187,66 @@ const DirectMessenger = () => {
           )}
         </div>
 
-          <div className="contact-list__search">
-            <Search className="w-4 h-4 text-slate-500" />
-            <input
-              type="text"
-              placeholder="Kontakte suchen"
-              aria-label="Kontakte suchen"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
+        <div className="contact-list__actions">
+          <button
+            type="button"
+            className="contact-list__action"
+            onClick={() => handleOpenProfile()}
+          >
+            <User className="w-4 h-4" />
+            <span>Mein Profil</span>
+          </button>
+          <button
+            type="button"
+            className="contact-list__action"
+            onClick={openCreateGroupModal}
+          >
+            <Users className="w-4 h-4" />
+            <span>Neue Gruppe</span>
+          </button>
+          <button
+            type="button"
+            className="contact-list__action contact-list__action--bot"
+            onClick={handleAskBot}
+          >
+            <Bot className="w-4 h-4" />
+            <span>BL_Bot</span>
+          </button>
+        </div>
 
-        {/* Stories Section - показується тільки якщо є stories */}
-        {(!storiesLoading && storyEntries.length > 0) && (
-          <div className="contact-list__stories">
-            {storyEntries.map((story) => {
+        <div className="contact-list__search">
+          <Search className="w-4 h-4 text-slate-500" />
+          <input
+            type="text"
+            placeholder="Kontakte und Gruppen suchen"
+            aria-label="Kontakte und Gruppen suchen"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+
+        <div className="contact-list__stories">
+          <div className="contact-list__stories-header">
+            <div>
+              <p className="contact-list__section-title">Storys</p>
+              <p className="contact-list__section-subtitle">Neuigkeiten aus dem Team</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowStoryComposer(true)}
+              className="story-header-btn"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Story erstellen</span>
+            </button>
+          </div>
+          <div className="contact-list__stories-row">
+            {storiesLoading && (
+              Array.from({ length: 3 }).map((_, idx) => (
+                <div key={`story-skeleton-${idx}`} className="story-chip story-chip--skeleton" />
+              ))
+            )}
+            {!storiesLoading && storyEntries.map((story) => {
               const preview = story.mediaUrl ? getAssetUrl(story.mediaUrl) : null;
               const timestamp = story.updatedAt || story.createdAt;
               return (
@@ -2644,8 +3287,14 @@ const DirectMessenger = () => {
                 </button>
               );
             })}
-
-            {/* Add Story Button - в кінці списку */}
+            {!storiesLoading && storyEntries.length === 0 && (
+              <div className="story-empty">
+                <p>Noch keine Storys.</p>
+                <button type="button" onClick={() => setShowStoryComposer(true)}>
+                  Erste Story erstellen
+                </button>
+              </div>
+            )}
             <button
               type="button"
               onClick={() => setShowStoryComposer(true)}
@@ -2658,7 +3307,7 @@ const DirectMessenger = () => {
               <span className="story-add-btn__label">Story</span>
             </button>
           </div>
-        )}
+        </div>
 
         <div className="contact-list__grid">
           {loading ? (
@@ -2668,31 +3317,31 @@ const DirectMessenger = () => {
           ) : (
             <>
               {/* Group Chats Section */}
-              {groupThreads.length > 0 && (
+              {filteredGroupThreads.length > 0 && (
                 <div className="contact-group mb-4">
                   <p className="contact-group__heading flex items-center gap-2">
                     <Users className="w-4 h-4" />
-                    <span>Group Chats</span>
+                    <span>Gruppen-Chats</span>
                     <span className="ml-auto text-xs bg-gradient-to-r from-blue-500 to-purple-600 text-white px-2 py-0.5 rounded-full font-semibold">
-                      {groupThreads.length}
+                      {filteredGroupThreads.length}
                     </span>
                   </p>
                   <div className="contact-group__grid">
-                    {groupThreads.map(thread => renderGroupChatCard(thread))}
+                    {filteredGroupThreads.map(thread => renderGroupChatCard(thread))}
                   </div>
                 </div>
               )}
 
               {/* Divider between groups and contacts */}
-              {groupThreads.length > 0 && decoratedContacts.length > 0 && (
+              {filteredGroupThreads.length > 0 && decoratedContacts.length > 0 && (
                 <div className="border-t border-slate-200 my-4" />
               )}
 
               {/* Individual Contacts Sections */}
-              {decoratedContacts.length === 0 && groupThreads.length === 0 ? (
+              {decoratedContacts.length === 0 && filteredGroupThreads.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-32 text-slate-400 gap-2">
                   <Users className="w-12 h-12" />
-                  <p>No conversations found</p>
+                  <p>Keine Unterhaltungen gefunden</p>
                 </div>
               ) : (
                 <>
@@ -2747,12 +3396,17 @@ const DirectMessenger = () => {
                 </button>
                 {selectedContact ? (
                   <>
-                    <div className="messenger-desktop-header__avatar-wrapper">
+                    <button
+                      type="button"
+                      className="messenger-desktop-header__avatar-wrapper"
+                      onClick={() => handleOpenProfile(selectedContact.id)}
+                      aria-label="Profil öffnen"
+                    >
                       <div className="messenger-desktop-header__avatar">
                         {selectedContact.name?.[0]?.toUpperCase() || '?'}
                       </div>
                       <div className={`messenger-desktop-header__status ${selectedContact.online ? 'online' : 'offline'}`}></div>
-                    </div>
+                    </button>
                     <div className="messenger-desktop-header__contact-info">
                       <h3 className="messenger-desktop-header__name">{selectedContact.name}</h3>
                       <p className="messenger-desktop-header__status-text">
@@ -2760,19 +3414,24 @@ const DirectMessenger = () => {
                       </p>
                     </div>
                   </>
-                ) : selectedThreadId && threads.find(t => t.id === selectedThreadId) ? (
+                ) : selectedThreadId && activeThread ? (
                   <>
-                    <div className="messenger-desktop-header__avatar-wrapper">
+                    <button
+                      type="button"
+                      className="messenger-desktop-header__avatar-wrapper"
+                      onClick={() => setShowMembersModal(true)}
+                      aria-label="Gruppenverwaltung öffnen"
+                    >
                       <div className="messenger-desktop-header__avatar bg-gradient-to-br from-blue-500 to-purple-600">
                         <Users className="w-6 h-6 text-white" />
                       </div>
-                    </div>
+                    </button>
                     <div className="messenger-desktop-header__contact-info">
                       <h3 className="messenger-desktop-header__name">
-                        {threads.find(t => t.id === selectedThreadId)?.name || 'Group Chat'}
+                        {activeThread.name || 'Gruppenchat'}
                       </h3>
                       <p className="messenger-desktop-header__status-text">
-                        {threads.find(t => t.id === selectedThreadId)?.participantCount || 0} members
+                        {groupMembers.length || (activeThread.participantCount ? activeThread.participantCount + 1 : 0)} Mitglieder
                       </p>
                     </div>
                   </>
@@ -2787,14 +3446,14 @@ const DirectMessenger = () => {
                   <ChevronLeft className="w-5 h-5" />
                   <span className="hidden lg:inline">Kontakte</span>
                 </button>
-                {selectedThreadId && threads.find(t => t.id === selectedThreadId)?.type === 'group' && (
+                {activeThread?.type === 'group' && (
                   <button
                     onClick={() => setShowMembersModal(true)}
                     className="messenger-desktop-header__action-btn"
-                    title="Gruppenmitglieder anzeigen"
+                    title="Gruppe verwalten"
                   >
                     <Users className="w-5 h-5" />
-                    <span className="hidden lg:inline">Mitglieder ({groupMembers.length})</span>
+                    <span className="hidden lg:inline">Gruppe</span>
                   </button>
                 )}
                 <button
@@ -2804,6 +3463,14 @@ const DirectMessenger = () => {
                 >
                   <Search className="w-5 h-5" />
                   <span className="hidden lg:inline">Suchen</span>
+                </button>
+                <button
+                  onClick={handleAskBot}
+                  className="messenger-desktop-header__action-btn"
+                  title="BL_Bot öffnen"
+                >
+                  <Bot className="w-5 h-5" />
+                  <span className="hidden lg:inline">BL_Bot</span>
                 </button>
                 <button
                   onClick={() => setShowContactNotes(!showContactNotes)}
@@ -2826,7 +3493,7 @@ const DirectMessenger = () => {
               </div>
             )}
 
-            <div className="messenger-messages-container">
+            <div className="messenger-messages-container" ref={messagesContainerRef}>
               {renderMessages()}
 
               {/* Typing Indicators */}
@@ -2942,7 +3609,7 @@ const DirectMessenger = () => {
                       className="messenger-composer-menu-item"
                     >
                       <CalendarDays />
-                      <span>Event</span>
+                      <span>Termin</span>
                     </button>
                     <button
                       type="button"
@@ -2953,7 +3620,7 @@ const DirectMessenger = () => {
                       className="messenger-composer-menu-item"
                     >
                       <Zap />
-                      <span>Quick</span>
+                      <span>Schnellantworten</span>
                     </button>
                     <button
                       type="button"
@@ -2966,24 +3633,17 @@ const DirectMessenger = () => {
                       {isRecording ? <StopCircle /> : <Mic />}
                       <span>Audio</span>
                     </button>
-                    {selectedThreadId && threads.find(t => t.id === selectedThreadId)?.type === 'group' && (
+                    {activeThread?.type === 'group' && (
                       <button
                         type="button"
                         onClick={() => {
-                          setMessageInput((prev) => prev + '@BL_Bot ');
+                          handleAskBot();
                           setShowComposerActions(false);
-                          setTimeout(() => {
-                            const input = document.querySelector('.messenger-text-input');
-                            if (input) {
-                              input.focus();
-                              input.setSelectionRange(input.value.length, input.value.length);
-                            }
-                          }, 0);
                         }}
                         className="messenger-composer-menu-item"
                       >
                         <Bot />
-                        <span>Bot</span>
+                        <span>BL_Bot</span>
                       </button>
                     )}
                   </div>
@@ -3006,7 +3666,7 @@ const DirectMessenger = () => {
                       }
                     }}
                     placeholder={
-                      selectedThreadId && threads.find(t => t.id === selectedThreadId)?.type === 'group'
+                      activeThread?.type === 'group'
                         ? "Nachricht schreiben... (Tipp: @BL_Bot für Hilfe)"
                         : "Nachricht schreiben..."
                     }
@@ -3019,27 +3679,15 @@ const DirectMessenger = () => {
                   />
 
                   {/* Quick Bot Mention for Groups */}
-                  {selectedThreadId && threads.find(t => t.id === selectedThreadId)?.type === 'group' && (
+                  {activeThread?.type === 'group' && (
                     <button
                       type="button"
-                      onClick={() => {
-                        const currentInput = messageInput;
-                        const lastChar = currentInput.slice(-1);
-                        const needsSpace = currentInput && lastChar !== ' ' && lastChar !== '\n';
-                        setMessageInput(currentInput + (needsSpace ? ' ' : '') + '@BL_Bot ');
-                        setTimeout(() => {
-                          const input = document.querySelector('.messenger-text-input');
-                          if (input) {
-                            input.focus();
-                            input.setSelectionRange(input.value.length, input.value.length);
-                          }
-                        }, 0);
-                      }}
+                      onClick={handleAskBot}
                       className="messenger-btn-bot"
-                      title="Bot erwähnen"
+                      title="BL_Bot erwähnen"
                     >
                       <Bot />
-                      <span>@Bot</span>
+                      <span>BL_Bot</span>
                     </button>
                   )}
                 </div>
@@ -3121,7 +3769,7 @@ const DirectMessenger = () => {
           className="messenger-quick-reply messenger-quick-reply--action"
         >
           <Zap className="w-4 h-4" />
-          Quick
+          Mehr
         </button>
       </div>
     );
@@ -3131,7 +3779,7 @@ const DirectMessenger = () => {
     <div className="messenger-mobile-list-view">
       <div className="messenger-mobile-list-header">
         <div>
-          <p className="text-xs uppercase tracking-[0.3em] text-blue-400">Team messenger</p>
+          <p className="text-xs uppercase tracking-[0.3em] text-blue-400">Team-Messenger</p>
           <h2>Kontakte</h2>
         </div>
         <button
@@ -3169,44 +3817,55 @@ const DirectMessenger = () => {
         </button>
         <div className="messenger-mobile-header-enhanced__info">
           <h3 className="messenger-mobile-header-enhanced__name">
-            {selectedContact?.name || threads.find(t => t.id === selectedThreadId)?.name || 'Chat auswählen'}
+            {selectedContact?.name || activeThread?.name || 'Chat auswählen'}
           </h3>
           <p className="messenger-mobile-header-enhanced__status">
             {selectedContact
               ? (selectedContact.online ? 'Online' : 'Offline')
-              : selectedThreadId && threads.find(t => t.id === selectedThreadId)?.type === 'group'
-                ? `${groupMembers.length} Mitglieder`
+              : activeThread?.type === 'group'
+                ? `${groupMembers.length || (activeThread.participantCount ? activeThread.participantCount + 1 : 0)} Mitglieder`
                 : 'Gruppe'}
           </p>
         </div>
-        <div className="messenger-mobile-header-enhanced__avatar-wrapper">
+        <button
+          type="button"
+          className="messenger-mobile-header-enhanced__avatar-wrapper"
+          onClick={() => {
+            if (selectedContact?.id) {
+              handleOpenProfile(selectedContact.id);
+            } else if (activeThread?.type === 'group') {
+              setShowMembersModal(true);
+            }
+          }}
+          aria-label="Profil oder Gruppe öffnen"
+        >
           <div className={`messenger-mobile-header-enhanced__avatar ${
-            !selectedContact && selectedThreadId && threads.find(t => t.id === selectedThreadId)?.type === 'group'
+            !selectedContact && activeThread?.type === 'group'
               ? 'bg-gradient-to-br from-blue-500 to-purple-600'
               : ''
           }`}>
             {selectedContact
               ? (selectedContact.name?.[0]?.toUpperCase() || '?')
-              : selectedThreadId && threads.find(t => t.id === selectedThreadId)?.type === 'group'
+              : activeThread?.type === 'group'
                 ? <Users className="w-5 h-5 text-white" />
                 : (user?.name?.[0]?.toUpperCase() || '?')}
           </div>
           {selectedContact && (
             <div className={`messenger-mobile-header-enhanced__status-dot ${selectedContact.online ? 'online' : 'offline'}`}></div>
           )}
-        </div>
+        </button>
       </div>
-      {(selectedContact || (selectedThreadId && threads.find(t => t.id === selectedThreadId))) && (
+      {(selectedContact || (selectedThreadId && activeThread)) && (
         <div className="messenger-mobile-header-actions">
-          {selectedThreadId && threads.find(t => t.id === selectedThreadId)?.type === 'group' && (
+          {activeThread?.type === 'group' && (
             <button
               type="button"
               onClick={() => setShowMembersModal(true)}
               aria-label="Gruppenmitglieder"
-              title="Gruppenmitglieder"
+              title="Gruppeneinstellungen"
             >
               <Users className="w-5 h-5" />
-              <span>Mitglieder</span>
+              <span>Gruppe</span>
             </button>
           )}
           <button
@@ -3228,9 +3887,18 @@ const DirectMessenger = () => {
             <Pin className="w-5 h-5" />
             <span>Gepinnt</span>
           </button>
+          <button
+            type="button"
+            onClick={handleAskBot}
+            aria-label="BL_Bot öffnen"
+            title="BL_Bot öffnen"
+          >
+            <Bot className="w-5 h-5" />
+            <span>BL_Bot</span>
+          </button>
         </div>
       )}
-      <div className="messenger-mobile-messages">
+      <div className="messenger-mobile-messages" ref={messagesContainerRef}>
         {renderMessages()}
         {Object.entries(typingUsers).map(([userId, data]) => (
           <TypingIndicator key={userId} userName={data.name} />
@@ -3430,7 +4098,7 @@ const DirectMessenger = () => {
               <div>
                 <h3 className="text-lg font-semibold text-slate-900">Empfänger auswählen</h3>
                 <p className="text-sm text-slate-500 mt-1">
-                  Event teilen: {pendingEventShare.title}
+                  Termin teilen: {pendingEventShare.title}
                 </p>
               </div>
               <button
@@ -3490,6 +4158,112 @@ const DirectMessenger = () => {
         </div>
       )}
 
+      {showCreateGroupModal && (
+        <div className="group-create-overlay">
+          <div className="group-create-modal">
+            <div className="group-create-header">
+              <div>
+                <p className="group-create-eyebrow">Neue Gruppe</p>
+                <h3>Team-Chat erstellen</h3>
+                <p>Wähle Mitglieder und starte den Chat.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCreateGroupModal(false)}
+                className="group-create-close"
+                aria-label="Schließen"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="group-create-body">
+              <div className="group-create-form">
+                <label htmlFor="group-draft-name">Gruppenname</label>
+                <input
+                  id="group-draft-name"
+                  type="text"
+                  value={groupDraftName}
+                  onChange={(event) => setGroupDraftName(event.target.value)}
+                  placeholder="z.B. Laborplanung"
+                />
+                <label htmlFor="group-draft-description">Beschreibung</label>
+                <textarea
+                  id="group-draft-description"
+                  value={groupDraftDescription}
+                  onChange={(event) => setGroupDraftDescription(event.target.value)}
+                  placeholder="Worum geht es in der Gruppe?"
+                  rows={3}
+                />
+                <label className="group-create-bot">
+                  <input
+                    type="checkbox"
+                    checked={groupDraftIncludeBot}
+                    onChange={(event) => setGroupDraftIncludeBot(event.target.checked)}
+                  />
+                  <span>BL_Bot direkt hinzufügen</span>
+                </label>
+              </div>
+
+              <div className="group-create-members">
+                <div className="group-create-members__header">
+                  <span>Mitglieder auswählen</span>
+                  {groupDraftMemberIds.length > 0 && (
+                    <em>{groupDraftMemberIds.length} gewählt</em>
+                  )}
+                </div>
+                <div className="group-create-search">
+                  <Search className="w-4 h-4" />
+                  <input
+                    type="text"
+                    value={groupDraftSearch}
+                    onChange={(event) => setGroupDraftSearch(event.target.value)}
+                    placeholder="Kontakte suchen"
+                  />
+                </div>
+                <div className="group-create-list">
+                  {groupDraftCandidates.length === 0 ? (
+                    <p className="group-create-empty">Keine Kontakte gefunden.</p>
+                  ) : (
+                    groupDraftCandidates.map((contact) => (
+                      <button
+                        key={`draft-${contact.id}`}
+                        type="button"
+                        className={`group-create-member ${
+                          groupDraftMemberIds.includes(contact.id) ? 'selected' : ''
+                        }`}
+                        onClick={() => toggleGroupDraftMember(contact.id)}
+                      >
+                        <span>{contact.name || contact.email}</span>
+                        {groupDraftMemberIds.includes(contact.id) && (
+                          <Check className="w-4 h-4" />
+                        )}
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="group-create-footer">
+              <button
+                type="button"
+                onClick={() => setShowCreateGroupModal(false)}
+                className="group-create-cancel"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateGroup}
+                disabled={groupDraftSaving}
+                className="group-create-submit"
+              >
+                {groupDraftSaving ? 'Erstellen…' : 'Gruppe erstellen'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isMobile ? renderMobileLayout() : renderDesktopLayout()}
 
       {/* MOBILE INPUT - ПОЗА messenger-mobile-container для правильного z-index */}
@@ -3539,7 +4313,7 @@ const DirectMessenger = () => {
                 className="messenger-composer-menu-item"
               >
                 <CalendarDays />
-                <span>Event</span>
+                <span>Termin</span>
               </button>
               <button
                 type="button"
@@ -3550,7 +4324,7 @@ const DirectMessenger = () => {
                 className="messenger-composer-menu-item"
               >
                 <Zap />
-                <span>Quick</span>
+                <span>Schnellantworten</span>
               </button>
               <button
                 type="button"
@@ -3563,23 +4337,19 @@ const DirectMessenger = () => {
                 {isRecording ? <StopCircle /> : <Mic />}
                 <span>Audio</span>
               </button>
-              {(() => {
-                const currentThread = threads.find(t => t.id === selectedThreadId);
-                const isGroupChat = currentThread?.type === 'group' || currentThread?.conversation_type === 'group';
-                return isGroupChat ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleAskBot();
-                      setShowComposerActions(false);
-                    }}
-                    className="messenger-composer-menu-item"
-                  >
-                    <Bot />
-                    <span>Bot</span>
-                  </button>
-                ) : null;
-              })()}
+              {activeThread?.type === 'group' ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleAskBot();
+                    setShowComposerActions(false);
+                  }}
+                  className="messenger-composer-menu-item"
+                >
+                  <Bot />
+                  <span>BL_Bot</span>
+                </button>
+              ) : null}
             </div>
           )}
 
@@ -3594,7 +4364,7 @@ const DirectMessenger = () => {
               value={messageInput}
               onChange={handleInputChange}
               placeholder={
-                selectedThreadId && threads.find(t => t.id === selectedThreadId)?.type === 'group'
+                activeThread?.type === 'group'
                   ? "Nachricht... (@BL_Bot für Hilfe)"
                   : "Nachricht schreiben..."
               }
@@ -3613,31 +4383,17 @@ const DirectMessenger = () => {
             />
 
             {/* Quick Bot Mention for Groups */}
-            {(() => {
-              const currentThread = threads.find(t => t.id === selectedThreadId);
-              const isGroupChat = currentThread?.type === 'group' || currentThread?.conversation_type === 'group';
-              return isGroupChat ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const currentInput = messageInput;
-                    const lastChar = currentInput.slice(-1);
-                    const needsSpace = currentInput && lastChar !== ' ' && lastChar !== '\n';
-                    setMessageInput(currentInput + (needsSpace ? ' ' : '') + '@BL_Bot ');
-                    setTimeout(() => {
-                      mobileTextareaRef.current?.focus();
-                      const len = mobileTextareaRef.current?.value.length || 0;
-                      mobileTextareaRef.current?.setSelectionRange(len, len);
-                    }, 0);
-                  }}
-                  className="messenger-btn-bot"
-                  title="Bot erwähnen"
-                >
-                  <Bot />
-                  <span>@Bot</span>
-                </button>
-              ) : null;
-            })()}
+            {activeThread?.type === 'group' ? (
+              <button
+                type="button"
+                onClick={handleAskBot}
+                className="messenger-btn-bot"
+                title="BL_Bot erwähnen"
+              >
+                <Bot />
+                <span>BL_Bot</span>
+              </button>
+            ) : null}
           </div>
 
           {/* Send Button */}
@@ -3674,7 +4430,7 @@ const DirectMessenger = () => {
                 type="button"
                 onClick={() => setShowPinnedDrawer(false)}
                 className="p-2 rounded-full hover:bg-slate-100 transition"
-                aria-label="Pinned Drawer schließen"
+                aria-label="Gepinnte Nachrichten schließen"
               >
                 <X className="w-5 h-5 text-slate-500" />
               </button>
@@ -3864,6 +4620,10 @@ const DirectMessenger = () => {
         <MessageSearch
           onClose={() => setShowSearch(false)}
           onMessageSelect={handleMessageSearchSelect}
+          contacts={contacts}
+          threads={threads}
+          currentConversationId={selectedThreadId}
+          currentUserId={user?.id}
         />
       )}
 
@@ -3889,65 +4649,193 @@ const DirectMessenger = () => {
 
       {/* Group Members Modal */}
       {showMembersModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[80vh] flex flex-col shadow-2xl">
-            <div className="p-6 border-b border-slate-200 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                  <Users className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900">Gruppenmitglieder</h3>
-                  <p className="text-sm text-slate-500">{groupMembers.length} Mitglieder</p>
-                </div>
+        <div className="group-settings-overlay">
+          <div className="group-settings-modal">
+            <div className="group-settings-header">
+              <div>
+                <p className="group-settings-eyebrow">Gruppeneinstellungen</p>
+                <h3>{activeThread?.name || 'Gruppe'}</h3>
+                <p>{groupMembers.length} Mitglieder</p>
               </div>
               <button
+                type="button"
                 onClick={() => setShowMembersModal(false)}
-                className="p-2 hover:bg-slate-100 rounded-lg transition"
+                className="group-settings-close"
+                aria-label="Schließen"
               >
-                <X className="w-5 h-5 text-slate-600" />
+                <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto p-6">
-              <div className="space-y-3">
-                {groupMembers.map((member) => (
-                  <div
-                    key={member.user_id}
-                    className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 hover:border-blue-300 hover:bg-blue-50/50 transition"
-                  >
-                    <div className="relative">
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg">
-                        {member.name?.[0]?.toUpperCase() || '?'}
-                      </div>
-                      {member.role && (
-                        <div className={`absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                          member.role === 'owner' ? 'bg-amber-500' :
-                          member.role === 'moderator' ? 'bg-blue-500' :
-                          'bg-slate-400'
-                        } text-white border-2 border-white`}>
-                          {member.role === 'owner' ? '👑' : member.role === 'moderator' ? '⭐' : '👤'}
-                        </div>
+
+            <div className="group-settings-body">
+              <section className="group-settings-section">
+                <div className="group-settings-section__header">
+                  <h4>Gruppendetails</h4>
+                  {!canManageGroup && <span>Nur Admins</span>}
+                </div>
+                {canManageGroup ? (
+                  <div className="group-settings-form">
+                    <label htmlFor="group-name">Gruppenname</label>
+                    <input
+                      id="group-name"
+                      type="text"
+                      value={groupEditName}
+                      onChange={(event) => setGroupEditName(event.target.value)}
+                      placeholder="z.B. Laborplanung"
+                    />
+                    <label htmlFor="group-description">Beschreibung</label>
+                    <textarea
+                      id="group-description"
+                      value={groupEditDescription}
+                      onChange={(event) => setGroupEditDescription(event.target.value)}
+                      placeholder="Kurzbeschreibung der Gruppe"
+                      rows={3}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleUpdateGroupDetails}
+                      disabled={groupEditSaving}
+                      className="group-settings-save"
+                    >
+                      {groupEditSaving ? 'Speichern…' : 'Änderungen speichern'}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="group-settings-readonly">
+                    <p><strong>{groupEditName || activeThread?.name}</strong></p>
+                    <p>{groupEditDescription || activeThread?.description || 'Keine Beschreibung hinterlegt.'}</p>
+                  </div>
+                )}
+              </section>
+
+              <section className="group-settings-section">
+                <div className="group-settings-section__header">
+                  <h4>Mitglieder hinzufügen</h4>
+                  {groupInviteIds.length > 0 && (
+                    <span>{groupInviteIds.length} ausgewählt</span>
+                  )}
+                </div>
+                {canManageGroup ? (
+                  <>
+                    <div className="group-settings-search">
+                      <Search className="w-4 h-4" />
+                      <input
+                        type="text"
+                        value={groupMemberSearch}
+                        onChange={(event) => setGroupMemberSearch(event.target.value)}
+                        placeholder="Kontakte suchen"
+                      />
+                    </div>
+                    <div className="group-settings-candidates">
+                      {groupInviteCandidates.length === 0 ? (
+                        <p className="group-settings-empty">Keine passenden Kontakte gefunden.</p>
+                      ) : (
+                        groupInviteCandidates.map((contact) => (
+                          <button
+                            key={`invite-${contact.id}`}
+                            type="button"
+                            className={`group-settings-candidate ${
+                              groupInviteIds.includes(contact.id) ? 'selected' : ''
+                            }`}
+                            onClick={() => toggleGroupInviteMember(contact.id)}
+                          >
+                            <span>{contact.name || contact.email}</span>
+                            {groupInviteIds.includes(contact.id) && <Check className="w-4 h-4" />}
+                          </button>
+                        ))
                       )}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-semibold text-slate-900 truncate">{member.name}</p>
-                        {member.user_id === user?.id && (
-                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">Du</span>
+                    <button
+                      type="button"
+                      onClick={handleAddGroupMembers}
+                      disabled={groupMembersSaving || groupInviteIds.length === 0}
+                      className="group-settings-add"
+                    >
+                      {groupMembersSaving ? 'Hinzufügen…' : 'Mitglieder hinzufügen'}
+                    </button>
+                  </>
+                ) : (
+                  <p className="group-settings-empty">Du kannst keine Mitglieder hinzufügen.</p>
+                )}
+              </section>
+
+              <section className="group-settings-section">
+                <div className="group-settings-section__header">
+                  <h4>Mitglieder</h4>
+                  <span>{groupMembers.length}</span>
+                </div>
+                <div className="group-settings-members">
+                  {groupMembers.map((member) => {
+                    const isSelf = member.user_id === user?.id;
+                    const isOwner = member.role === 'owner';
+                    const canRemove = canManageGroup && !isOwner && !isSelf;
+                    return (
+                      <div key={member.user_id} className="group-settings-member">
+                        <div
+                          className="group-settings-member__avatar"
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => handleOpenProfile(member.user_id)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              handleOpenProfile(member.user_id);
+                            }
+                          }}
+                        >
+                          {member.name?.[0]?.toUpperCase() || '?'}
+                        </div>
+                        <div className="group-settings-member__info">
+                          <div className="group-settings-member__name">
+                            <span>{member.name}</span>
+                            {isSelf && <em>Du</em>}
+                          </div>
+                          <div className="group-settings-member__meta">
+                            <span>{member.email}</span>
+                            {member.role && (
+                              <strong>
+                                {member.role === 'owner'
+                                  ? 'Besitzer'
+                                  : member.role === 'moderator'
+                                    ? 'Moderator'
+                                    : 'Mitglied'}
+                              </strong>
+                            )}
+                          </div>
+                        </div>
+                        {canRemove && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveGroupMember(member.user_id)}
+                            className="group-settings-member__remove"
+                            disabled={groupMembersSaving}
+                          >
+                            Entfernen
+                          </button>
                         )}
                       </div>
-                      <p className="text-sm text-slate-500 truncate">{member.email}</p>
-                      {member.role && (
-                        <p className="text-xs text-slate-400 mt-1 capitalize">
-                          {member.role === 'owner' ? 'Besitzer' :
-                           member.role === 'moderator' ? 'Moderator' :
-                           'Mitglied'}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
+                    );
+                  })}
+                </div>
+              </section>
+            </div>
+
+            <div className="group-settings-footer">
+              <button
+                type="button"
+                onClick={handleLeaveGroup}
+                disabled={groupMembersSaving}
+                className="group-settings-leave"
+              >
+                Gruppe verlassen
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowMembersModal(false)}
+                className="group-settings-close-btn"
+              >
+                Schließen
+              </button>
             </div>
           </div>
         </div>
@@ -3973,7 +4861,9 @@ const DirectMessenger = () => {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-slate-900 truncate text-sm">{member.name}</p>
-                  <p className="text-xs text-slate-500 truncate">@{member.name}</p>
+                  <p className="text-xs text-slate-500 truncate">
+                    @{member.name?.includes(' ') ? `{${member.name}}` : member.name}
+                  </p>
                 </div>
               </button>
             ))}
