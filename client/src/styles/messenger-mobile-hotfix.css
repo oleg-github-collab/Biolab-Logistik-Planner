@@ -81,7 +81,7 @@
 
   /* Make sure message list leaves room for the input bar */
   body.messenger-page .messenger-mobile-messages {
-    padding: 12px 14px calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 140px) !important;
+    padding: calc(var(--header-height) + var(--safe-top) + 70px) 14px calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 140px) !important;
     gap: 10px !important;
   }
 

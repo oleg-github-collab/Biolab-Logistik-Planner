@@ -69,7 +69,6 @@ import { getAssetUrl } from '../utils/media';
 import '../styles/messenger-desktop-fixed.css';
 import '../styles/messenger-mobile-complete.css';
 import '../styles/scroll-to-bottom-button.css';
-import '../styles/messenger-premium.css';
 
 const GENERAL_THREAD_NAMES = ['general chat', 'general', 'allgemein', 'allgemeiner chat', 'teamchat'];
 const BOT_CONTACT_TEMPLATE = {
@@ -319,6 +318,7 @@ const DirectMessenger = () => {
   const mediaRecorderRef = useRef(null);
   const recordingChunksRef = useRef([]);
   const recordingStreamRef = useRef(null);
+  const lastReadUpdateRef = useRef(0);
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const shouldAutoScrollRef = useRef(true);
@@ -624,7 +624,8 @@ const DirectMessenger = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     setShowScrollToBottom(false);
     setUnreadCount(0);
-  }, []);
+    markActiveConversationRead();
+  }, [markActiveConversationRead]);
 
   const clearThreadUnread = useCallback((threadId) => {
     if (!threadId) return;
@@ -634,6 +635,15 @@ const DirectMessenger = () => {
       )
     );
   }, []);
+
+  const markActiveConversationRead = useCallback(() => {
+    if (!selectedThreadId) return;
+    const now = Date.now();
+    if (now - lastReadUpdateRef.current < 2000) return;
+    lastReadUpdateRef.current = now;
+    clearThreadUnread(selectedThreadId);
+    markConversationAsRead(selectedThreadId).catch(() => {});
+  }, [clearThreadUnread, markConversationAsRead, selectedThreadId]);
 
   // Handle scroll detection
   useEffect(() => {
@@ -650,13 +660,14 @@ const DirectMessenger = () => {
       setShowScrollToBottom(!isNearBottom);
       if (isNearBottom) {
         setUnreadCount(0);
+        markActiveConversationRead();
       }
     };
 
     handleScroll();
     messagesContainer.addEventListener('scroll', handleScroll, { passive: true });
     return () => messagesContainer.removeEventListener('scroll', handleScroll);
-  }, [isMobile, selectedThreadId]);
+  }, [isMobile, markActiveConversationRead, selectedThreadId]);
 
   useEffect(() => {
     if (!selectedThreadId || !isConnected) return;
@@ -669,6 +680,7 @@ const DirectMessenger = () => {
       const normalized = normalizeMessage(data.message);
       const lastMessage = normalizeThreadLastMessage(normalized);
       const isActive = data.conversationId === selectedThreadId;
+      const isOwnMessage = normalizeUserId(normalized.sender_id) === normalizeUserId(user?.id);
 
       // Update threads + unread instantly
       setThreads((prev) =>
@@ -677,7 +689,11 @@ const DirectMessenger = () => {
             ? {
                 ...thread,
                 lastMessage,
-                unreadCount: isActive ? 0 : (thread.unreadCount || 0) + 1
+                unreadCount: isActive
+                  ? 0
+                  : isOwnMessage
+                    ? (thread.unreadCount || 0)
+                    : (thread.unreadCount || 0) + 1
               }
             : thread
         )
@@ -697,10 +713,15 @@ const DirectMessenger = () => {
           return Array.isArray(prev) ? [...prev, normalized] : [normalized];
         });
         if (isNearBottom) {
-          requestAnimationFrame(() => scrollToBottom());
+          requestAnimationFrame(() => {
+            scrollToBottom();
+            markActiveConversationRead();
+          });
         } else {
           setShowScrollToBottom(true);
-          setUnreadCount((prev) => prev + 1);
+          if (!isOwnMessage) {
+            setUnreadCount((prev) => prev + 1);
+          }
         }
       }
     };
@@ -875,6 +896,7 @@ const DirectMessenger = () => {
   }, [
     isConnected,
     joinConversationRoom,
+    markActiveConversationRead,
     normalizeMessage,
     normalizeThread,
     normalizeThreadLastMessage,
@@ -3295,17 +3317,19 @@ const DirectMessenger = () => {
                 </button>
               </div>
             )}
-            <button
-              type="button"
-              onClick={() => setShowStoryComposer(true)}
-              className="story-add-btn"
-              aria-label="Story erstellen"
-            >
-              <div className="story-add-btn__circle">
-                <Plus className="w-6 h-6" />
-              </div>
-              <span className="story-add-btn__label">Story</span>
-            </button>
+            {!( !storiesLoading && storyEntries.length === 0) && (
+              <button
+                type="button"
+                onClick={() => setShowStoryComposer(true)}
+                className="story-add-btn"
+                aria-label="Story erstellen"
+              >
+                <div className="story-add-btn__circle">
+                  <Plus className="w-6 h-6" />
+                </div>
+                <span className="story-add-btn__label">Story</span>
+              </button>
+            )}
           </div>
         </div>
 
