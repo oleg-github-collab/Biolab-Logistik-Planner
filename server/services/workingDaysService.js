@@ -6,13 +6,30 @@
 const { pool } = require('../config/database');
 const logger = require('../utils/logger');
 
+function parseDateInput(value) {
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : new Date(value.getTime());
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      const [year, month, day] = trimmed.split('-').map(Number);
+      return new Date(year, month - 1, day);
+    }
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 /**
  * Get Monday of the week for any given date
  * @param {Date|string} date - Any date
  * @returns {Date} Monday of that week (00:00:00 local time)
  */
 function getMonday(date) {
-  const d = new Date(date);
+  const d = parseDateInput(date) || new Date();
   d.setHours(0, 0, 0, 0); // Reset to start of day
 
   const day = d.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
@@ -44,7 +61,8 @@ function getSunday(date) {
  * @returns {boolean}
  */
 function isWeekend(date) {
-  const d = new Date(date);
+  const d = parseDateInput(date);
+  if (!d) return false;
   const day = d.getDay();
   return day === 0 || day === 6; // Sunday or Saturday
 }
@@ -57,16 +75,20 @@ function isWeekend(date) {
  */
 async function getPublicHolidays(startDate, endDate) {
   try {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    const start = parseDateInput(startDate);
+    const end = parseDateInput(endDate);
+
+    if (!start || !end) {
+      return new Set();
+    }
 
     const result = await pool.query(
       `SELECT date FROM public_holidays
        WHERE date >= $1 AND date <= $2`,
-      [start.toISOString().split('T')[0], end.toISOString().split('T')[0]]
+      [formatDateForDB(start), formatDateForDB(end)]
     );
 
-    return new Set(result.rows.map(row => row.date.toISOString().split('T')[0]));
+    return new Set(result.rows.map(row => formatDateForDB(row.date)));
   } catch (error) {
     logger.error('Error fetching public holidays', error);
     return new Set(); // Return empty set on error
@@ -80,7 +102,11 @@ async function getPublicHolidays(startDate, endDate) {
  * @returns {Promise<boolean>}
  */
 async function isPublicHoliday(date, holidaysSet = null) {
-  const dateStr = new Date(date).toISOString().split('T')[0];
+  const dateStr = formatDateForDB(date);
+
+  if (!dateStr) {
+    return false;
+  }
 
   if (holidaysSet) {
     return holidaysSet.has(dateStr);
@@ -132,7 +158,7 @@ async function getWorkingDaysInWeek(weekStart) {
     const day = new Date(monday);
     day.setDate(monday.getDate() + i);
 
-    const dateStr = day.toISOString().split('T')[0];
+    const dateStr = formatDateForDB(day);
     if (!holidays.has(dateStr)) {
       workingDays.push(day);
     }
@@ -148,8 +174,12 @@ async function getWorkingDaysInWeek(weekStart) {
  * @returns {Promise<number>}
  */
 async function countWorkingDays(startDate, endDate) {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
+  const start = parseDateInput(startDate);
+  const end = parseDateInput(endDate);
+
+  if (!start || !end) {
+    return 0;
+  }
 
   if (start > end) {
     return 0;
@@ -162,7 +192,7 @@ async function countWorkingDays(startDate, endDate) {
   const current = new Date(start);
 
   while (current <= end) {
-    const dateStr = current.toISOString().split('T')[0];
+    const dateStr = formatDateForDB(current);
 
     // Check if it's a working day (Mon-Fri and not a holiday)
     if (!isWeekend(current) && !holidays.has(dateStr)) {
@@ -193,7 +223,12 @@ function getWeekBoundaries(date) {
  * @returns {string}
  */
 function formatDateForDB(date) {
-  return new Date(date).toISOString().split('T')[0];
+  const parsed = parseDateInput(date);
+  if (!parsed) return null;
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, '0');
+  const day = String(parsed.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 /**
@@ -202,7 +237,8 @@ function formatDateForDB(date) {
  * @returns {number}
  */
 function getISOWeekNumber(date) {
-  const d = new Date(date);
+  const d = parseDateInput(date);
+  if (!d) return 0;
   d.setHours(0, 0, 0, 0);
   d.setDate(d.getDate() + 4 - (d.getDay() || 7));
   const yearStart = new Date(d.getFullYear(), 0, 1);

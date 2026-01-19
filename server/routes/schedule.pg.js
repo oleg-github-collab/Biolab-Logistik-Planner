@@ -17,8 +17,36 @@ function getMonday(d) {
   return workingDaysService.getMonday(d);
 }
 
+function parseDateOnly(value) {
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : new Date(value.getTime());
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      const [year, month, day] = trimmed.split('-').map(Number);
+      return new Date(year, month - 1, day);
+    }
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 function formatDateForDB(date) {
-  return date.toISOString().split('T')[0];
+  const parsed = parseDateOnly(date);
+  if (!parsed) return null;
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, '0');
+  const day = String(parsed.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function addDays(date, days) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
 }
 
 function calculateHours(startTime, endTime) {
@@ -527,9 +555,10 @@ router.get('/hours-summary/:weekStart', auth, async (req, res) => {
     for (const row of scheduleResult.rows) {
       if (!row.is_working) continue;
 
-      const dayDate = new Date(row.week_start);
+      const dayDate = parseDateOnly(row.week_start);
+      if (!dayDate) continue;
       dayDate.setDate(dayDate.getDate() + row.day_of_week);
-      const dayDateStr = dayDate.toISOString().split('T')[0];
+      const dayDateStr = formatDateForDB(dayDate);
       const isWeekend = dayDate.getDay() === 0 || dayDate.getDay() === 6;
       const isHoliday = holidays.has(dayDateStr);
 
@@ -598,54 +627,74 @@ router.get('/hours-summary/month/:year/:month', auth, async (req, res) => {
 
     // Calculate date range for month
     const monthStart = new Date(parseInt(year), parseInt(month) - 1, 1);
+    monthStart.setHours(0, 0, 0, 0);
     const monthEnd = new Date(parseInt(year), parseInt(month), 0);
+    monthEnd.setHours(23, 59, 59, 999);
 
-    // Calculate number of calendar weeks in month
-    let totalWeeksInMonth = 0;
-    const tempDate = new Date(monthStart);
-    while (tempDate <= monthEnd) {
-      if (tempDate.getDay() === 1) { // Monday = 1
-        totalWeeksInMonth++;
-      }
-      tempDate.setDate(tempDate.getDate() + 1);
-    }
-    if (monthStart.getDay() !== 1) {
-      totalWeeksInMonth++;
+    // Build calendar weeks that intersect with the month
+    const firstWeekStart = getMonday(monthStart);
+    const lastWeekStart = getMonday(monthEnd);
+    const weekStarts = [];
+    let cursor = new Date(firstWeekStart);
+    while (cursor <= lastWeekStart) {
+      weekStarts.push(new Date(cursor));
+      cursor = addDays(cursor, 7);
     }
 
     // Count actual working days (Mon-Fri, excluding public holidays) in the month
     const workingDaysCount = await workingDaysService.countWorkingDays(monthStart, monthEnd);
     const holidaysSet = await workingDaysService.getPublicHolidays(monthStart, monthEnd);
 
-    // Get all schedules for this month
+    // Get all schedules for weeks that overlap this month
     const scheduleResult = await pool.query(
       `SELECT week_start, start_time, end_time, is_working, notes, day_of_week
        FROM weekly_schedules
        WHERE user_id = $1
          AND week_start >= $2
          AND week_start <= $3`,
-      [targetUserId, formatDateForDB(monthStart), formatDateForDB(monthEnd)]
+      [targetUserId, formatDateForDB(firstWeekStart), formatDateForDB(lastWeekStart)]
     );
 
-    // Group by week and sum booked hours, keeping track of weekend/holiday hours separately
+    // Initialize week summaries to keep empty weeks visible
     const weekSummaries = {};
+    weekStarts.forEach((weekStart) => {
+      const weekStartKey = formatDateForDB(weekStart);
+      weekSummaries[weekStartKey] = {
+        weekStart: weekStartKey,
+        totalBooked: 0,
+        workingBooked: 0,
+        nonWorkingBooked: 0,
+        workingDaysCount: 0,
+        daysInMonth: 0,
+        expectedHours: 0
+      };
+    });
+
+    // Group by week and sum booked hours for the days within the month
     scheduleResult.rows.forEach(row => {
-      if (!weekSummaries[row.week_start]) {
-        weekSummaries[row.week_start] = {
-          weekStart: row.week_start,
+      if (!row.is_working) return;
+
+      const baseDate = parseDateOnly(row.week_start);
+      if (!baseDate) return;
+
+      const dayDate = addDays(baseDate, row.day_of_week || 0);
+      if (dayDate < monthStart || dayDate > monthEnd) return;
+
+      const weekStartKey = formatDateForDB(baseDate);
+      if (!weekSummaries[weekStartKey]) {
+        weekSummaries[weekStartKey] = {
+          weekStart: weekStartKey,
           totalBooked: 0,
           workingBooked: 0,
-          nonWorkingBooked: 0
+          nonWorkingBooked: 0,
+          workingDaysCount: 0,
+          daysInMonth: 0,
+          expectedHours: 0
         };
       }
 
-      if (!row.is_working) return;
-
-      // Derive the actual calendar date from week_start + day_of_week
-      const dayDate = new Date(row.week_start);
-      dayDate.setDate(dayDate.getDate() + (row.day_of_week || 0));
       const isWeekend = workingDaysService.isWeekend(dayDate);
-      const dayDateStr = dayDate.toISOString().split('T')[0];
+      const dayDateStr = formatDateForDB(dayDate);
       const isHoliday = holidaysSet.has(dayDateStr);
 
       const blocks = parseTimeBlocksFromNotes(
@@ -654,22 +703,45 @@ router.get('/hours-summary/month/:year/:month', auth, async (req, res) => {
         row.end_time ? row.end_time.substring(0, 5) : null
       );
       const hours = totalHoursFromBlocks(blocks);
-      weekSummaries[row.week_start].totalBooked += hours;
+      weekSummaries[weekStartKey].totalBooked += hours;
       if (isWeekend || isHoliday) {
-        weekSummaries[row.week_start].nonWorkingBooked += hours;
+        weekSummaries[weekStartKey].nonWorkingBooked += hours;
       } else {
-        weekSummaries[row.week_start].workingBooked += hours;
+        weekSummaries[weekStartKey].workingBooked += hours;
       }
     });
 
-    // Calculate totals using actual working days distribution
-    const weeks = Object.values(weekSummaries);
+    const dailyQuota = weeklyQuota / 5;
+    weekStarts.forEach((weekStart) => {
+      const weekStartKey = formatDateForDB(weekStart);
+      let workingDaysInMonth = 0;
+      let daysInMonth = 0;
+
+      for (let i = 0; i < 7; i += 1) {
+        const dayDate = addDays(weekStart, i);
+        if (dayDate < monthStart || dayDate > monthEnd) continue;
+        daysInMonth += 1;
+        const dayDateStr = formatDateForDB(dayDate);
+        if (!workingDaysService.isWeekend(dayDate) && !holidaysSet.has(dayDateStr)) {
+          workingDaysInMonth += 1;
+        }
+      }
+
+      weekSummaries[weekStartKey].workingDaysCount = workingDaysInMonth;
+      weekSummaries[weekStartKey].daysInMonth = daysInMonth;
+      weekSummaries[weekStartKey].expectedHours = Number((dailyQuota * workingDaysInMonth).toFixed(2));
+    });
+
+    const weeks = weekStarts.map((weekStart) => {
+      const weekStartKey = formatDateForDB(weekStart);
+      return weekSummaries[weekStartKey];
+    });
+
     const totalBooked = weeks.reduce((sum, week) => sum + week.totalBooked, 0);
     const workingBooked = weeks.reduce((sum, week) => sum + week.workingBooked, 0);
     const weekendOrHolidayHours = weeks.reduce((sum, week) => sum + week.nonWorkingBooked, 0);
-    const dailyQuota = weeklyQuota / 5; // distribute weekly quota across 5 working days
     const expectedHours = dailyQuota * workingDaysCount;
-    const totalQuota = weeklyQuota * totalWeeksInMonth; // Total quota based on calendar weeks
+    const totalQuota = weeklyQuota * weeks.length;
     const difference = totalBooked - expectedHours;
     const status = difference === 0 ? 'exact' : (difference < 0 ? 'under' : 'over');
 
@@ -677,10 +749,10 @@ router.get('/hours-summary/month/:year/:month', auth, async (req, res) => {
       year: parseInt(year),
       month: parseInt(month),
       weeklyQuota,
-      totalWeeks: totalWeeksInMonth, // Calendar weeks in month
-      totalQuota, // weeklyQuota × totalWeeks
+      totalWeeks: weeks.length,
+      totalQuota,
       workingDaysCount,
-      expectedHours, // realistic target based on working days
+      expectedHours,
       totalBooked,
       workingBooked,
       weekendOrHolidayHours,

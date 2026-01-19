@@ -12,6 +12,18 @@ const MonthlyHoursCalculator = () => {
     'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'
   ];
 
+  const parseDateString = (value) => {
+    if (!value) return null;
+    if (value instanceof Date) return value;
+    const text = String(value);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+      const [year, month, day] = text.split('-').map(Number);
+      return new Date(year, month - 1, day);
+    }
+    const parsed = new Date(text);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  };
+
   // Load monthly summary
   const loadSummary = useCallback(async () => {
     try {
@@ -75,29 +87,39 @@ const MonthlyHoursCalculator = () => {
 
   const weeklyQuota = safeNumber(summary.weeklyQuota, 0);
   const totalBooked = safeNumber(summary.totalBooked, 0);
+  const expectedHours = safeNumber(
+    summary.expectedHours,
+    totalWeeks * weeklyQuota
+  );
   const totalQuota = Number.isFinite(summary.totalQuota)
     ? summary.totalQuota
-    : Number.isFinite(summary.expectedHours)
-      ? summary.expectedHours
-      : totalWeeks * weeklyQuota;
-  const difference = safeNumber(summary.difference, totalBooked - totalQuota);
+    : totalWeeks * weeklyQuota;
+  const difference = safeNumber(summary.difference, totalBooked - expectedHours);
 
-  const progressPercentage = totalQuota > 0
-    ? (totalBooked / totalQuota) * 100
+  const progressPercentage = expectedHours > 0
+    ? (totalBooked / expectedHours) * 100
     : 0;
 
   return (
-    <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+    <div className="monthly-hours bg-white rounded-2xl shadow-lg overflow-hidden">
       {/* Header */}
-      <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white p-6">
-        <h2 className="text-2xl font-bold mb-1">Monatlicher Stundenrechner</h2>
-        <p className="text-purple-100 text-sm">
-          Verfolgen Sie Ihr monatliches Arbeitsstundenkonto
-        </p>
+      <div className="monthly-hours__header p-6">
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold mb-1">Monatlicher Stundenrechner</h2>
+            <p className="text-sm">
+              Präzise Monatsbilanz basierend auf Arbeitstagen, Feiertagen und Wochen.
+            </p>
+          </div>
+          <div className="monthly-hours__meta">
+            <span>Wochenziel: {weeklyQuota.toFixed(1)}h</span>
+            <span>Kalenderziel: {totalQuota.toFixed(1)}h</span>
+          </div>
+        </div>
       </div>
 
       {/* Month Navigation */}
-      <div className="border-b border-gray-200 px-6 py-4 bg-gray-50">
+      <div className="monthly-hours__nav border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
           <button
             onClick={previousMonth}
@@ -114,7 +136,7 @@ const MonthlyHoursCalculator = () => {
             </div>
             <button
               onClick={goToCurrentMonth}
-              className="text-sm text-purple-600 hover:text-purple-700 transition-colors"
+              className="monthly-hours__current text-sm font-semibold transition-colors"
             >
               Zum aktuellen Monat
             </button>
@@ -132,58 +154,62 @@ const MonthlyHoursCalculator = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="p-6">
+      <div className="monthly-hours__summary p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          {/* Wochen gesamt */}
-          <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
+          <div className="monthly-hours__card monthly-hours__card--weeks">
             <div className="flex items-center justify-between mb-2">
-              <div className="text-sm font-medium text-blue-800">Wochen gesamt</div>
-              <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+              <div className="text-sm font-medium">Kalenderwochen</div>
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
               </svg>
             </div>
-            <div className="text-3xl font-bold text-blue-900">{totalWeeks}</div>
+            <div className="text-3xl font-bold">{totalWeeks}</div>
+            <p className="text-xs mt-1">Wochenschnitt: {weeklyQuota.toFixed(1)}h</p>
           </div>
 
-          {/* Wochenstunden */}
-          <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4 border border-purple-200">
+          <div className="monthly-hours__card monthly-hours__card--days">
             <div className="flex items-center justify-between mb-2">
-              <div className="text-sm font-medium text-purple-800">Wochenstunden</div>
-              <svg className="w-5 h-5 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+              <div className="text-sm font-medium">Arbeitstage</div>
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
               </svg>
             </div>
-            <div className="text-3xl font-bold text-purple-900">{weeklyQuota}h</div>
+            <div className="text-3xl font-bold">{summary.workingDaysCount ?? 0}</div>
+            <p className="text-xs mt-1">Feiertage werden automatisch abgezogen.</p>
           </div>
 
-          {/* Total Quota */}
-          <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-lg p-4 border border-indigo-200">
+          <div className="monthly-hours__card monthly-hours__card--expected">
             <div className="flex items-center justify-between mb-2">
-              <div className="text-sm font-medium text-indigo-800">Monatsziel</div>
-              <svg className="w-5 h-5 text-indigo-600" fill="currentColor" viewBox="0 0 20 20">
+              <div className="text-sm font-medium">Soll (bereinigt)</div>
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
               </svg>
             </div>
-            <div className="text-3xl font-bold text-indigo-900">{totalQuota.toFixed(1)}h</div>
+            <div className="text-3xl font-bold">{expectedHours.toFixed(1)}h</div>
+            <p className="text-xs mt-1">Kalenderziel: {totalQuota.toFixed(1)}h</p>
           </div>
 
-          {/* Gebucht gesamt */}
-          <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 border border-green-200">
+          <div className="monthly-hours__card monthly-hours__card--booked">
             <div className="flex items-center justify-between mb-2">
-              <div className="text-sm font-medium text-green-800">Gebucht gesamt</div>
-              <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+              <div className="text-sm font-medium">Gebucht gesamt</div>
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
               </svg>
             </div>
-            <div className="text-3xl font-bold text-green-900">{totalBooked.toFixed(1)}h</div>
+            <div className="text-3xl font-bold">{totalBooked.toFixed(1)}h</div>
+            <p className="text-xs mt-1">Monatsfortschritt in Echtzeit.</p>
           </div>
         </div>
 
         {/* Progress Bar */}
-        <div className="mb-6">
+        <div className="monthly-hours__progress mb-6">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-700">Monatsfortschritt</span>
+            <span className="text-sm font-medium text-gray-700">Monatsfortschritt (bereinigt)</span>
             <span className="text-sm font-semibold text-gray-900">{progressPercentage.toFixed(1)}%</span>
+          </div>
+          <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
+            <span>{totalBooked.toFixed(1)}h gebucht</span>
+            <span>{expectedHours.toFixed(1)}h Ziel</span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
             <div
@@ -192,7 +218,7 @@ const MonthlyHoursCalculator = () => {
                   ? 'bg-gradient-to-r from-red-500 to-red-600'
                   : progressPercentage >= 90
                   ? 'bg-gradient-to-r from-green-500 to-green-600'
-                  : 'bg-gradient-to-r from-blue-500 to-purple-600'
+                  : 'bg-gradient-to-r from-sky-500 to-teal-500'
               }`}
               style={{ width: `${Math.min(progressPercentage, 100)}%` }}
             ></div>
@@ -200,38 +226,38 @@ const MonthlyHoursCalculator = () => {
         </div>
 
         {/* Difference Card */}
-        <div className={`rounded-lg p-6 mb-6 ${
+        <div className={`monthly-hours__delta rounded-lg p-6 mb-6 ${
           summary.status === 'over'
-            ? 'bg-gradient-to-r from-red-50 to-red-100 border-2 border-red-300'
+            ? 'bg-gradient-to-r from-rose-50 to-rose-100 border-2 border-rose-300'
             : summary.status === 'under'
-            ? 'bg-gradient-to-r from-yellow-50 to-yellow-100 border-2 border-yellow-300'
-          : 'bg-gradient-to-r from-green-50 to-green-100 border-2 border-green-300'
+            ? 'bg-gradient-to-r from-amber-50 to-amber-100 border-2 border-amber-300'
+          : 'bg-gradient-to-r from-emerald-50 to-emerald-100 border-2 border-emerald-300'
         }`}>
           <div className="text-center">
             <div className={`text-6xl font-bold mb-2 ${
               summary.status === 'over'
-                ? 'text-red-700'
+                ? 'text-rose-700'
                 : summary.status === 'under'
-                ? 'text-yellow-700'
-                : 'text-green-700'
+                ? 'text-amber-700'
+                : 'text-emerald-700'
             }`}>
               {difference >= 0 ? '+' : ''}{difference.toFixed(1)}h
             </div>
             <div className={`text-lg font-semibold ${
               summary.status === 'over'
-                ? 'text-red-800'
+                ? 'text-rose-800'
                 : summary.status === 'under'
-                ? 'text-yellow-800'
-                : 'text-green-800'
+                ? 'text-amber-800'
+                : 'text-emerald-800'
             }`}>
-              {summary.status === 'over' && '⚠ Over-Scheduled'}
-              {summary.status === 'under' && 'Under-Scheduled'}
-              {summary.status === 'exact' && '✓ Perfect Balance'}
+              {summary.status === 'over' && 'Über dem Soll'}
+              {summary.status === 'under' && 'Unter dem Soll'}
+              {summary.status === 'exact' && 'Perfekte Balance'}
             </div>
             <p className="text-sm text-gray-600 mt-2">
-              {summary.status === 'over' && `You have scheduled ${Math.abs(difference).toFixed(1)} hours more than your monthly quota.`}
-              {summary.status === 'under' && `You have ${Math.abs(difference).toFixed(1)} hours remaining to reach your monthly quota.`}
-              {summary.status === 'exact' && 'Your scheduled hours perfectly match your monthly quota!'}
+              {summary.status === 'over' && `Du hast ${Math.abs(difference).toFixed(1)} Stunden mehr geplant als vorgesehen.`}
+              {summary.status === 'under' && `Dir fehlen noch ${Math.abs(difference).toFixed(1)} Stunden zum Soll.`}
+              {summary.status === 'exact' && 'Deine geplanten Stunden treffen das Soll exakt.'}
             </p>
           </div>
         </div>
@@ -239,21 +265,29 @@ const MonthlyHoursCalculator = () => {
         {/* Weekly Breakdown */}
         {summary.weeks && summary.weeks.length > 0 && (
           <div>
-            <h3 className="text-lg font-semibold text-gray-800 mb-3">Weekly Breakdown</h3>
+            <h3 className="text-lg font-semibold text-gray-800 mb-3">Wöchentliche Aufschlüsselung</h3>
             <div className="space-y-2">
               {summary.weeks.map((week, index) => {
-                const weekPercentage = summary.weeklyQuota > 0
-                  ? (week.totalBooked / summary.weeklyQuota) * 100
+                const weekTarget = Number.isFinite(week.expectedHours)
+                  ? week.expectedHours
+                  : weeklyQuota;
+                const weekPercentage = weekTarget > 0
+                  ? (week.totalBooked / weekTarget) * 100
                   : 0;
 
+                const weekStartDate = parseDateString(week.weekStart);
+
                 return (
-                  <div key={index} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <div key={index} className="monthly-hours__week bg-gray-50 rounded-lg p-4 border border-gray-200">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium text-gray-700">
-                        Week starting {new Date(week.weekStart).toLocaleDateString('de-DE')}
+                        Woche ab {weekStartDate ? weekStartDate.toLocaleDateString('de-DE') : '—'}
+                        {Number.isFinite(week.workingDaysCount) && (
+                          <span className="text-xs text-gray-500"> · {week.workingDaysCount} Arbeitstage</span>
+                        )}
                       </span>
                       <span className="text-sm font-semibold text-gray-900">
-                        {week.totalBooked.toFixed(1)}h / {summary.weeklyQuota}h
+                        {week.totalBooked.toFixed(1)}h / {weekTarget.toFixed(1)}h
                       </span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
@@ -263,7 +297,7 @@ const MonthlyHoursCalculator = () => {
                             ? 'bg-red-500'
                             : weekPercentage >= 90
                             ? 'bg-green-500'
-                            : 'bg-blue-500'
+                            : 'bg-sky-500'
                         }`}
                         style={{ width: `${Math.min(weekPercentage, 100)}%` }}
                       ></div>

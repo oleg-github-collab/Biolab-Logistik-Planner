@@ -158,12 +158,18 @@ const EmptyState = ({ icon: Icon, title, description }) => (
 // Article Card Component
 const ArticleCard = ({ article, onClick, canManage, onEdit, onStatusChange }) => {
   const preview = article.summary || truncateText(article.content, 160);
+  const statusKey = article.status || 'draft';
+  const statusLabel = statusKey === 'published'
+    ? 'Veröffentlicht'
+    : statusKey === 'archived'
+      ? 'Archiviert'
+      : 'Entwurf';
 
   return (
     <div onClick={onClick} className="kb-article-card group cursor-pointer">
       <div className="kb-article-card__tag-row">
-        <span className="kb-article-card__status">
-          {article.status === 'published' ? 'Veröffentlicht' : 'Entwurf'}
+        <span className={`kb-article-card__status kb-article-card__status--${statusKey}`}>
+          {statusLabel}
         </span>
         {article.category_name && (
           <span
@@ -1480,6 +1486,15 @@ const KnowledgeBaseV3 = () => {
     };
   }, [articles]);
 
+  const categoryCounts = useMemo(() => {
+    const counts = {};
+    articles.forEach((article) => {
+      if (!article.category_id) return;
+      counts[article.category_id] = (counts[article.category_id] || 0) + 1;
+    });
+    return counts;
+  }, [articles]);
+
   const gridWrapperClass = isMobile
     ? 'kb-grid-wrapper flex-1 overflow-y-auto px-4 pt-3 pb-28'
     : 'kb-grid-wrapper flex-1 overflow-y-auto p-6';
@@ -1488,7 +1503,9 @@ const KnowledgeBaseV3 = () => {
   const handleArticleClick = async (article) => {
     try {
       const response = await api.get(`/kb/articles/${article.id}`);
-      setSelectedArticle(normalizeArticle(response.data));
+      const normalized = normalizeArticle(response.data);
+      setSelectedArticle(normalized);
+      setArticles((prev) => prev.map((item) => (item.id === normalized.id ? normalized : item)));
       setIsViewModalOpen(true);
     } catch (error) {
       console.error('Error fetching article:', error);
@@ -1940,7 +1957,7 @@ const KnowledgeBaseV3 = () => {
                     <span className="ml-2">{category.name}</span>
                   </div>
                   <span className="kb-sidebar__badge">
-                    {category.articles_count || 0}
+                    {categoryCounts[category.id] ?? 0}
                   </span>
                 </button>
               ))}
@@ -2075,7 +2092,7 @@ const KnowledgeBaseV3 = () => {
                   <div>
                     <p className="kb-mobile-category-card__label">{category.name}</p>
                     <span className="kb-mobile-category-card__count">
-                      {category.articles_count || 0} Artikel
+                      {categoryCounts[category.id] ?? 0} Artikel
                     </span>
                   </div>
                 </button>

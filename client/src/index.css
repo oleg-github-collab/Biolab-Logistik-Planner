@@ -39,6 +39,8 @@
 
 /* Knowledge Base Mobile Boost */
 @import './styles/knowledge-base-mobile.css';
+@import './styles/schedule-premium.css';
+@import './styles/knowledge-base-premium.css';
 /* Messenger mobile high-priority fixes */
 @import './styles/messenger-mobile-hotfix.css';
 /* Kisten management mobile alignment */

@@ -238,6 +238,18 @@ const HoursCalendar = () => {
   }, [schedule, dayHours]);
 
   const weekEnd = useMemo(() => addDays(currentWeekStart, 6), [currentWeekStart]);
+  const expectedHours = useMemo(() => {
+    if (!hoursSummary) return null;
+    const expected = Number(hoursSummary.expectedHours);
+    if (Number.isFinite(expected)) {
+      return expected;
+    }
+    const weekly = Number(hoursSummary.weeklyQuota);
+    if (Number.isFinite(weekly)) {
+      return weekly;
+    }
+    return null;
+  }, [hoursSummary]);
 
   const shiftWeek = (days) => {
     const newDate = new Date(currentWeekStart);
@@ -254,8 +266,8 @@ const HoursCalendar = () => {
   }
 
   return (
-    <div className="rounded-[32px] border border-slate-200 bg-white/90 backdrop-blur shadow-[0_28px_60px_rgba(15,23,42,0.08)] overflow-hidden">
-      <header className="bg-gradient-to-br from-blue-600 via-indigo-600 to-sky-600 text-white px-5 sm:px-7 py-6">
+    <div className="hours-calendar rounded-[32px] border border-slate-200 bg-white/90 backdrop-blur shadow-[0_28px_60px_rgba(15,23,42,0.08)] overflow-hidden">
+      <header className="hours-calendar__header bg-gradient-to-br from-blue-600 via-indigo-600 to-sky-600 text-white px-5 sm:px-7 py-6">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-blue-100/70">
@@ -267,13 +279,16 @@ const HoursCalendar = () => {
             </p>
           </div>
           {hoursSummary && (
-            <div className="bg-white/15 backdrop-blur-lg rounded-3xl px-5 py-4 min-w-[220px] shadow-lg shadow-blue-900/20">
+            <div className="hours-calendar__summary bg-white/15 backdrop-blur-lg rounded-3xl px-5 py-4 min-w-[220px] shadow-lg shadow-blue-900/20">
               <div className="text-xs uppercase tracking-widest text-blue-100 mb-1">
                 Diese Woche
               </div>
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl font-bold">{hoursSummary.totalBooked.toFixed(1)}h</span>
-                <span className="text-sm text-blue-100/80">/ {hoursSummary.weeklyQuota}h</span>
+                <span className="text-sm text-blue-100/80">/ {expectedHours?.toFixed(1) ?? '--'}h</span>
+              </div>
+              <div className="text-xs text-blue-100/70 mt-1">
+                Soll (bereinigt) · Standard {hoursSummary.weeklyQuota}h
               </div>
               {hoursSummary.status !== 'exact' && (
                 <div className={`text-xs mt-2 font-semibold ${
@@ -284,12 +299,17 @@ const HoursCalendar = () => {
                   {hoursSummary.status === 'over' ? ' über Soll' : ' verbleibend'}
                 </div>
               )}
+              {Number.isFinite(hoursSummary.publicHolidaysCount) && hoursSummary.publicHolidaysCount > 0 && (
+                <div className="text-[11px] text-blue-100/70 mt-1">
+                  Feiertage berücksichtigt: {hoursSummary.publicHolidaysCount}
+                </div>
+              )}
             </div>
           )}
         </div>
       </header>
 
-      <section className="border-b border-slate-200/80 px-4 sm:px-6 py-4 bg-white/70 backdrop-blur">
+      <section className="hours-calendar__toolbar border-b border-slate-200/80 px-4 sm:px-6 py-4 bg-white/70 backdrop-blur">
         <div className={`flex ${isMobile ? 'flex-col gap-4' : 'items-center justify-between gap-4'}`}>
           <div className="flex items-center gap-3 flex-wrap rounded-2xl border border-slate-200/80 bg-white/80 backdrop-blur px-3 py-2 shadow-sm shadow-slate-200/60">
             <button
@@ -318,7 +338,7 @@ const HoursCalendar = () => {
           </div>
 
           <div className="flex-1 text-center order-last sm:order-none">
-            <div className="text-lg font-semibold text-slate-800">
+            <div className="hours-calendar__week text-lg font-semibold text-slate-800">
               {formatDate(currentWeekStart)} – {formatDate(weekEnd)}
             </div>
             <button
@@ -337,8 +357,8 @@ const HoursCalendar = () => {
         </div>
       </section>
 
-      <div className="px-4 sm:px-6 py-5 bg-white/85">
-        <div className="space-y-4">
+      <div className="hours-calendar__body px-4 sm:px-6 py-5 bg-white/85">
+        <div className="hours-calendar__day-list space-y-4">
           {schedule.map((day, index) => {
             const dayDate = addDays(currentWeekStart, index);
             const isTodayDay = isToday(dayDate);
@@ -346,7 +366,7 @@ const HoursCalendar = () => {
             return (
               <div
                 key={day.id || index}
-                className={`relative rounded-2xl border p-4 sm:p-5 transition-all shadow-sm ${
+                className={`hours-calendar__day-card relative rounded-2xl border p-4 sm:p-5 transition-all shadow-sm ${
                   day.is_working ? 'border-emerald-200 bg-emerald-50/70' : 'border-slate-200 bg-slate-50/60'
                 } ${isTodayDay ? 'ring-2 ring-blue-200' : ''} ${saving ? 'opacity-75 pointer-events-none' : ''}`}
               >
@@ -392,7 +412,7 @@ const HoursCalendar = () => {
                       {day.time_blocks.map((block, blockIndex) => (
                         <div
                           key={`${index}-${blockIndex}`}
-                          className="flex flex-col lg:flex-row items-start lg:items-center gap-3 bg-white rounded-2xl border border-slate-200/80 p-3 lg:p-4 shadow-sm"
+                          className="hours-calendar__block flex flex-col lg:flex-row items-start lg:items-center gap-3 bg-white rounded-2xl border border-slate-200/80 p-3 lg:p-4 shadow-sm"
                         >
                           <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
                             <TimePicker
@@ -432,7 +452,7 @@ const HoursCalendar = () => {
                           e.stopPropagation();
                           addTimeBlock(index);
                         }}
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 text-blue-600 font-medium hover:bg-blue-100 transition"
+                        className="hours-calendar__add-block inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 text-blue-600 font-medium hover:bg-blue-100 transition"
                         disabled={saving}
                       >
                         <span className="text-lg leading-none">+</span>
@@ -450,7 +470,7 @@ const HoursCalendar = () => {
           })}
         </div>
 
-        <footer className="mt-6 border border-slate-200/80 rounded-2xl bg-white px-4 sm:px-6 py-5 shadow-inner">
+        <footer className="hours-calendar__footer mt-6 border border-slate-200/80 rounded-2xl bg-white px-4 sm:px-6 py-5 shadow-inner">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
             <div className="space-y-1">
               <div className="text-xs uppercase tracking-widest text-slate-400">
@@ -460,9 +480,14 @@ const HoursCalendar = () => {
             </div>
             <div className="space-y-1">
               <div className="text-xs uppercase tracking-widest text-slate-400">
-                Kontingent
+                Soll (bereinigt)
               </div>
-              <div className="text-2xl font-bold text-slate-800">{hoursSummary?.weeklyQuota ?? '-'}h</div>
+              <div className="text-2xl font-bold text-slate-800">
+                {expectedHours?.toFixed(1) ?? '--'}h
+              </div>
+              {hoursSummary?.weeklyQuota && (
+                <div className="text-[11px] text-slate-400">Standard: {hoursSummary.weeklyQuota}h</div>
+              )}
             </div>
             <div className="space-y-1">
               <div className="text-xs uppercase tracking-widest text-slate-400">
@@ -497,7 +522,10 @@ function formatDate(date) {
 }
 
 function formatDateForAPI(date) {
-  return date.toISOString().split('T')[0];
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function addDays(date, days) {
