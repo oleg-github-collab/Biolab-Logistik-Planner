@@ -618,15 +618,6 @@ const DirectMessenger = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Scroll to bottom function
-  const scrollToBottom = useCallback(() => {
-    shouldAutoScrollRef.current = true;
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    setShowScrollToBottom(false);
-    setUnreadCount(0);
-    markActiveConversationRead();
-  }, [markActiveConversationRead]);
-
   const clearThreadUnread = useCallback((threadId) => {
     if (!threadId) return;
     setThreads((prev) =>
@@ -644,6 +635,15 @@ const DirectMessenger = () => {
     clearThreadUnread(selectedThreadId);
     markConversationAsRead(selectedThreadId).catch(() => {});
   }, [clearThreadUnread, markConversationAsRead, selectedThreadId]);
+
+  // Scroll to bottom function
+  const scrollToBottom = useCallback(() => {
+    shouldAutoScrollRef.current = true;
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    setShowScrollToBottom(false);
+    setUnreadCount(0);
+    markActiveConversationRead();
+  }, [markActiveConversationRead]);
 
   // Handle scroll detection
   useEffect(() => {
