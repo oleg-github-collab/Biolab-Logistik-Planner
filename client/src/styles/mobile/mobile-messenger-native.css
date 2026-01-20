@@ -8,6 +8,10 @@
   --messenger-mobile-accent-2: #8b5cf6;
   --messenger-mobile-muted: #94a3b8;
   --messenger-input-height: 94px;
+  --input-height: var(--messenger-input-height, 76px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --header-height: 56px;
 }
 
 @media (max-width: 1024px) {
@@ -238,11 +242,35 @@
     font-weight: 800;
   }
 
+  .story-chip__avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .story-chip__name {
+    font-size: 11px;
+    font-weight: 700;
+    color: #f8fafc;
+    text-align: center;
+  }
+
+  .story-chip__meta {
+    font-size: 10px;
+    color: rgba(226, 232, 240, 0.7);
+  }
+
   .story-add-btn {
-    border: none;
-    background: none;
-    color: #e2e8f0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     gap: 6px;
+    min-width: 70px;
+    padding: 8px 6px;
+    border-radius: 16px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    background: rgba(255, 255, 255, 0.04);
+    color: #e2e8f0;
   }
 
   .story-add-btn__circle {
@@ -263,6 +291,10 @@
   }
 
   .story-empty {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
     padding: 8px 10px;
     border-radius: 14px;
     border: 1px dashed rgba(148, 163, 184, 0.35);
@@ -301,19 +333,29 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 12px;
-    border-radius: 18px;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(148, 163, 184, 0.2);
-    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
-    color: #e2e8f0;
+    padding: 12px !important;
+    border-radius: 18px !important;
+    background: rgba(255, 255, 255, 0.04) !important;
+    border: 1px solid rgba(148, 163, 184, 0.2) !important;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18) !important;
+    color: #e2e8f0 !important;
     text-align: left;
   }
 
   .contact-card--active {
-    border-color: rgba(37, 99, 235, 0.65);
-    box-shadow: 0 14px 36px rgba(37, 99, 235, 0.35);
-    background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(124, 58, 237, 0.08));
+    border-color: rgba(37, 99, 235, 0.65) !important;
+    box-shadow: 0 14px 36px rgba(37, 99, 235, 0.35) !important;
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(124, 58, 237, 0.08)) !important;
+  }
+
+  .contact-card--general {
+    background: rgba(37, 99, 235, 0.12) !important;
+    border-color: rgba(59, 130, 246, 0.4) !important;
+  }
+
+  .contact-card--bot {
+    background: rgba(99, 102, 241, 0.14) !important;
+    border-color: rgba(99, 102, 241, 0.35) !important;
   }
 
   .contact-card__avatar-ring {
@@ -331,10 +373,10 @@
     width: 52px;
     height: 52px;
     border-radius: 14px;
-    background: linear-gradient(135deg, #2563eb, #7c3aed);
+    background: linear-gradient(135deg, #2563eb, #7c3aed) !important;
     display: grid;
     place-items: center;
-    color: #f8fafc;
+    color: #f8fafc !important;
     font-weight: 800;
   }
 
@@ -931,5 +973,115 @@
     background: rgba(255, 255, 255, 0.06) !important;
     color: #f8fafc !important;
     font-weight: 700 !important;
+  }
+
+  body.messenger-page .group-create-overlay,
+  body.messenger-page .group-settings-overlay {
+    align-items: flex-end;
+    padding: 12px;
+    background: rgba(11, 18, 32, 0.72);
+  }
+
+  body.messenger-page .group-create-modal,
+  body.messenger-page .group-settings-modal {
+    width: 100%;
+    max-height: 92vh;
+    border-radius: 20px;
+    background: #0f172a;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    box-shadow: 0 24px 40px rgba(0, 0, 0, 0.45);
+  }
+
+  body.messenger-page .group-create-header,
+  body.messenger-page .group-settings-header {
+    background: rgba(15, 23, 42, 0.95);
+    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  }
+
+  body.messenger-page .group-create-header h3,
+  body.messenger-page .group-settings-header h3 {
+    color: #f8fafc;
+  }
+
+  body.messenger-page .group-create-header p,
+  body.messenger-page .group-settings-header p {
+    color: rgba(226, 232, 240, 0.7);
+  }
+
+  body.messenger-page .group-create-eyebrow,
+  body.messenger-page .group-settings-eyebrow {
+    color: rgba(226, 232, 240, 0.55);
+  }
+
+  body.messenger-page .group-create-close,
+  body.messenger-page .group-settings-close {
+    background: rgba(255, 255, 255, 0.06);
+    color: #e2e8f0;
+    border-color: rgba(148, 163, 184, 0.25);
+  }
+
+  body.messenger-page .group-create-body,
+  body.messenger-page .group-settings-body {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 16px;
+  }
+
+  body.messenger-page .group-create-form label,
+  body.messenger-page .group-settings-form label {
+    color: #f8fafc;
+  }
+
+  body.messenger-page .group-create-form input,
+  body.messenger-page .group-create-form textarea,
+  body.messenger-page .group-settings-form input,
+  body.messenger-page .group-settings-form textarea,
+  body.messenger-page .group-settings-search input,
+  body.messenger-page .group-create-search input {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(148, 163, 184, 0.25);
+    color: #f8fafc;
+  }
+
+  body.messenger-page .group-create-search,
+  body.messenger-page .group-settings-search,
+  body.messenger-page .group-create-bot {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(148, 163, 184, 0.25);
+    color: rgba(226, 232, 240, 0.85);
+  }
+
+  body.messenger-page .group-create-member,
+  body.messenger-page .group-settings-candidate,
+  body.messenger-page .group-settings-member {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(148, 163, 184, 0.2);
+    color: #e2e8f0;
+  }
+
+  body.messenger-page .group-create-member.selected,
+  body.messenger-page .group-settings-candidate.selected {
+    background: rgba(59, 130, 246, 0.18);
+    border-color: rgba(59, 130, 246, 0.5);
+  }
+
+  body.messenger-page .group-create-footer,
+  body.messenger-page .group-settings-footer {
+    background: rgba(15, 23, 42, 0.95);
+    border-top: 1px solid rgba(148, 163, 184, 0.2);
+  }
+
+  body.messenger-page .group-create-cancel,
+  body.messenger-page .group-settings-close-btn {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(148, 163, 184, 0.25);
+    color: #e2e8f0;
+  }
+
+  body.messenger-page .group-settings-member__name {
+    color: #f8fafc;
+  }
+
+  body.messenger-page .group-settings-member__meta {
+    color: rgba(226, 232, 240, 0.65);
   }
 }

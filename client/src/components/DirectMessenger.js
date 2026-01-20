@@ -67,7 +67,6 @@ import VoiceMessagePlayer from './VoiceMessagePlayer';
 import { showError, showSuccess } from '../utils/toast';
 import { getAssetUrl } from '../utils/media';
 import '../styles/messenger-desktop-fixed.css';
-import '../styles/messenger-mobile-complete.css';
 import '../styles/scroll-to-bottom-button.css';
 
 const GENERAL_THREAD_NAMES = ['general chat', 'general', 'allgemein', 'allgemeiner chat', 'teamchat'];
@@ -318,7 +317,7 @@ const DirectMessenger = () => {
   const mediaRecorderRef = useRef(null);
   const recordingChunksRef = useRef([]);
   const recordingStreamRef = useRef(null);
-  const lastReadUpdateRef = useRef(0);
+  const lastReadUpdateRef = useRef({});
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const shouldAutoScrollRef = useRef(true);
@@ -630,8 +629,10 @@ const DirectMessenger = () => {
   const markActiveConversationRead = useCallback(() => {
     if (!selectedThreadId) return;
     const now = Date.now();
-    if (now - lastReadUpdateRef.current < 2000) return;
-    lastReadUpdateRef.current = now;
+    const threadKey = String(selectedThreadId);
+    const lastReadAt = lastReadUpdateRef.current[threadKey] || 0;
+    if (now - lastReadAt < 2000) return;
+    lastReadUpdateRef.current[threadKey] = now;
     clearThreadUnread(selectedThreadId);
     markConversationAsRead(selectedThreadId).catch(() => {});
   }, [clearThreadUnread, markConversationAsRead, selectedThreadId]);
@@ -644,6 +645,16 @@ const DirectMessenger = () => {
     setUnreadCount(0);
     markActiveConversationRead();
   }, [markActiveConversationRead]);
+
+  useEffect(() => {
+    if (!selectedThreadId || !shouldAutoScrollRef.current) return;
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    if (distanceFromBottom < 120) {
+      markActiveConversationRead();
+    }
+  }, [messages, markActiveConversationRead, selectedThreadId]);
 
   // Handle scroll detection
   useEffect(() => {
@@ -681,6 +692,14 @@ const DirectMessenger = () => {
       const lastMessage = normalizeThreadLastMessage(normalized);
       const isActive = data.conversationId === selectedThreadId;
       const isOwnMessage = normalizeUserId(normalized.sender_id) === normalizeUserId(user?.id);
+      const container = isActive ? messagesContainerRef.current : null;
+      const distanceFromBottom = container
+        ? container.scrollHeight - container.scrollTop - container.clientHeight
+        : 0;
+      const isNearBottom = isActive ? distanceFromBottom < 120 : false;
+      if (isActive) {
+        shouldAutoScrollRef.current = isNearBottom;
+      }
 
       // Update threads + unread instantly
       setThreads((prev) =>
@@ -689,23 +708,20 @@ const DirectMessenger = () => {
             ? {
                 ...thread,
                 lastMessage,
-                unreadCount: isActive
-                  ? 0
-                  : isOwnMessage
-                    ? (thread.unreadCount || 0)
-                    : (thread.unreadCount || 0) + 1
+                unreadCount: (() => {
+                  const currentUnread = thread.unreadCount || 0;
+                  if (isActive) {
+                    if (isNearBottom) return 0;
+                    return isOwnMessage ? currentUnread : currentUnread + 1;
+                  }
+                  return isOwnMessage ? currentUnread : currentUnread + 1;
+                })()
               }
             : thread
         )
       );
 
       if (isActive) {
-        const container = messagesContainerRef.current;
-        const distanceFromBottom = container
-          ? container.scrollHeight - container.scrollTop - container.clientHeight
-          : 0;
-        const isNearBottom = distanceFromBottom < 120;
-        shouldAutoScrollRef.current = isNearBottom;
         setMessages((prev) => {
           if (Array.isArray(prev) && prev.some((m) => m?.id === normalized.id)) {
             return prev;
@@ -3047,18 +3063,6 @@ const DirectMessenger = () => {
       ? `${visibleItems} Treffer · ${onlineContacts} online`
       : `${totalContacts} Kontakte · ${totalGroups} Gruppen · ${onlineContacts} online`;
 
-    console.log('📋 [ContactList] Rendering with:', {
-      totalContacts,
-      totalGroups,
-      onlineContacts,
-      filteredCount,
-      contacts,
-      filteredContacts,
-      decoratedContacts: decoratedContacts.length,
-      groupThreads: groupThreads.length,
-      filteredGroupThreads: filteredGroupThreads.length,
-      loading
-    });
   const renderContactCard = (contact) => {
     const isSelected = selectedContact?.id === contact.id;
     const contactStory = storyMap?.[contact.id];
@@ -3262,75 +3266,76 @@ const DirectMessenger = () => {
               <span>Story erstellen</span>
             </button>
           </div>
-          <div className="contact-list__stories-row">
-            {storiesLoading && (
-              Array.from({ length: 3 }).map((_, idx) => (
-                <div key={`story-skeleton-${idx}`} className="story-chip story-chip--skeleton" />
-              ))
-            )}
-            {!storiesLoading && storyEntries.map((story) => {
-              const preview = story.mediaUrl ? getAssetUrl(story.mediaUrl) : null;
-              const timestamp = story.updatedAt || story.createdAt;
-              return (
-                <button
-                  key={story.id}
-                  type="button"
-                  onClick={() => onStoryOpen(story.id)}
-                  className={`story-chip ${story.viewerHasSeen ? 'seen' : 'new'}`}
-                  aria-label={`Story von ${story.userName || 'Team'}${
-                    story.viewerHasSeen ? ', bereits gesehen' : ', neu'
-                  }`}
-                  title={`${story.userName || 'Story'} - ${
-                    story.viewerHasSeen ? 'bereits angesehen' : 'neu'
-                  }`}
-                >
-                  <div
-                    className={`story-chip__ring ${story.viewerHasSeen ? 'seen' : 'has-story'}`}
-                    aria-hidden="true"
+          {storiesLoading || storyEntries.length > 0 ? (
+            <div className="contact-list__stories-row">
+              {storiesLoading && (
+                Array.from({ length: 3 }).map((_, idx) => (
+                  <div key={`story-skeleton-${idx}`} className="story-chip story-chip--skeleton" />
+                ))
+              )}
+              {!storiesLoading && storyEntries.map((story) => {
+                const preview = story.mediaUrl ? getAssetUrl(story.mediaUrl) : null;
+                const timestamp = story.updatedAt || story.createdAt;
+                return (
+                  <button
+                    key={story.id}
+                    type="button"
+                    onClick={() => onStoryOpen(story.id)}
+                    className={`story-chip ${story.viewerHasSeen ? 'seen' : 'new'}`}
+                    aria-label={`Story von ${story.userName || 'Team'}${
+                      story.viewerHasSeen ? ', bereits gesehen' : ', neu'
+                    }`}
+                    title={`${story.userName || 'Story'} - ${
+                      story.viewerHasSeen ? 'bereits angesehen' : 'neu'
+                    }`}
                   >
-                    <div className="story-chip__avatar" aria-hidden={!preview}>
-                      {preview ? (
-                        <img
-                          src={preview}
-                          alt={`${story.userName || 'Story'} media`}
-                          className="story-chip__avatar-img"
-                        />
-                      ) : (
-                        <span>{story.userName?.charAt(0)?.toUpperCase() || '?'}</span>
-                      )}
+                    <div
+                      className={`story-chip__ring ${story.viewerHasSeen ? 'seen' : 'has-story'}`}
+                      aria-hidden="true"
+                    >
+                      <div className="story-chip__avatar" aria-hidden={!preview}>
+                        {preview ? (
+                          <img
+                            src={preview}
+                            alt={`${story.userName || 'Story'} media`}
+                            className="story-chip__avatar-img"
+                          />
+                        ) : (
+                          <span>{story.userName?.charAt(0)?.toUpperCase() || '?'}</span>
+                        )}
+                      </div>
                     </div>
+                    <span className="story-chip__name">{story.userName || 'Story'}</span>
+                    <small className="story-chip__meta">
+                      {timestamp
+                        ? formatDistanceToNow(new Date(timestamp), { addSuffix: true, locale: de })
+                        : 'vor kurzem'}
+                    </small>
+                  </button>
+                );
+              })}
+              {!storiesLoading && storyEntries.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowStoryComposer(true)}
+                  className="story-add-btn"
+                  aria-label="Story erstellen"
+                >
+                  <div className="story-add-btn__circle">
+                    <Plus className="w-6 h-6" />
                   </div>
-                  <span className="story-chip__name">{story.userName || 'Story'}</span>
-                  <small className="story-chip__meta">
-                    {timestamp
-                      ? formatDistanceToNow(new Date(timestamp), { addSuffix: true, locale: de })
-                      : 'vor kurzem'}
-                  </small>
+                  <span className="story-add-btn__label">Story</span>
                 </button>
-              );
-            })}
-            {!storiesLoading && storyEntries.length === 0 && (
-              <div className="story-empty">
-                <p>Noch keine Storys.</p>
-                <button type="button" onClick={() => setShowStoryComposer(true)}>
-                  Erste Story erstellen
-                </button>
-              </div>
-            )}
-            {!( !storiesLoading && storyEntries.length === 0) && (
-              <button
-                type="button"
-                onClick={() => setShowStoryComposer(true)}
-                className="story-add-btn"
-                aria-label="Story erstellen"
-              >
-                <div className="story-add-btn__circle">
-                  <Plus className="w-6 h-6" />
-                </div>
-                <span className="story-add-btn__label">Story</span>
+              )}
+            </div>
+          ) : (
+            <div className="story-empty">
+              <p>Noch keine Storys.</p>
+              <button type="button" onClick={() => setShowStoryComposer(true)}>
+                Erste Story erstellen
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         <div className="contact-list__grid">

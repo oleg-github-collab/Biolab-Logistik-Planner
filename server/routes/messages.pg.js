@@ -559,32 +559,7 @@ router.get('/conversations/:conversationId/messages', auth, async (req, res) => 
       [conversationId]
     );
 
-    await client.query(
-      `UPDATE message_conversation_members
-          SET last_read_at = CURRENT_TIMESTAMP
-        WHERE conversation_id = $1 AND user_id = $2`,
-      [conversationId, req.user.id]
-    );
-
-    if (conversation.conversation_type === CONVERSATION_TYPES.DIRECT) {
-      await client.query(
-        `UPDATE messages
-            SET read_status = true, read_at = CURRENT_TIMESTAMP
-          WHERE conversation_id = $1 AND receiver_id = $2 AND read_status = false`,
-        [conversationId, req.user.id]
-      );
-    }
-
     const messages = await enrichMessages(client, messagesResult.rows);
-
-    // Emit WebSocket event to update unread counts in real-time
-    const io = getIO();
-    if (io) {
-      io.to(`user_${req.user.id}`).emit('message:read', {
-        conversationId,
-        userId: req.user.id
-      });
-    }
 
     res.json(messages);
   } catch (error) {
