@@ -8,6 +8,8 @@ const TimePicker = ({ value, onChange, label, disabled = false }) => {
   const [hour, setHour] = useState('08');
   const [minute, setMinute] = useState('00');
   const pickerRef = useRef(null);
+  const inputRef = useRef(null);
+  const [pickerStyles, setPickerStyles] = useState(null);
   const scrollPositionRef = useRef(0);
   const bodyStyleRef = useRef({
     overflow: '',
@@ -120,6 +122,45 @@ const TimePicker = ({ value, onChange, label, disabled = false }) => {
     const next = Math.min(Math.max(parseInt(value, 10) || 0, 0), 23);
     setHour(formatTwoDigits(next));
   };
+
+  const updatePickerPosition = () => {
+    if (!inputRef.current) return;
+    const rect = inputRef.current.getBoundingClientRect();
+    const minWidth = 280;
+    const estimatedHeight = 360;
+    const viewportPadding = 12;
+    const width = Math.max(rect.width, minWidth);
+    const maxLeft = Math.max(viewportPadding, window.innerWidth - width - viewportPadding);
+    const left = Math.min(Math.max(rect.left, viewportPadding), maxLeft);
+    const spaceBelow = window.innerHeight - rect.bottom - viewportPadding;
+    const spaceAbove = rect.top - viewportPadding;
+    const top = spaceBelow < estimatedHeight && spaceAbove > spaceBelow
+      ? Math.max(viewportPadding, rect.top - estimatedHeight - 8)
+      : Math.min(rect.bottom + 8, window.innerHeight - estimatedHeight - viewportPadding);
+    setPickerStyles({
+      top: `${top}px`,
+      left: `${left}px`,
+      width: `${width}px`
+    });
+  };
+
+  useEffect(() => {
+    if (!showPicker || isMobile) {
+      return undefined;
+    }
+
+    updatePickerPosition();
+
+    const handleScroll = () => updatePickerPosition();
+    const handleResize = () => updatePickerPosition();
+    window.addEventListener('scroll', handleScroll, true);
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll, true);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [isMobile, showPicker]);
 
   if (isMobile) {
     return (
@@ -272,7 +313,7 @@ const TimePicker = ({ value, onChange, label, disabled = false }) => {
       <label className="block text-xs sm:text-sm text-gray-700 font-medium mb-1">
         {label}
       </label>
-      <div className="relative">
+      <div className="relative" ref={inputRef}>
         <input
           type="text"
           value={value || ''}
@@ -286,7 +327,10 @@ const TimePicker = ({ value, onChange, label, disabled = false }) => {
       </div>
 
       {showPicker && (
-        <div className="absolute z-50 mt-2 bg-white rounded-xl shadow-2xl border-2 border-gray-200 p-4 w-full sm:w-auto min-w-[280px]">
+        <div
+          className="fixed z-[9999] bg-white rounded-xl shadow-2xl border-2 border-gray-200 p-4 w-full sm:w-auto"
+          style={pickerStyles || { visibility: 'hidden' }}
+        >
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-bold text-gray-900">Zeit auswahlen</h3>
             <button

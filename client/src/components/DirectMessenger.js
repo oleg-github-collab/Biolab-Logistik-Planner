@@ -318,6 +318,7 @@ const DirectMessenger = () => {
   const recordingChunksRef = useRef([]);
   const recordingStreamRef = useRef(null);
   const lastReadUpdateRef = useRef({});
+  const pendingReadTimeoutRef = useRef({});
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const shouldAutoScrollRef = useRef(true);
@@ -626,12 +627,28 @@ const DirectMessenger = () => {
     );
   }, []);
 
-  const markActiveConversationRead = useCallback(() => {
+  const markActiveConversationRead = useCallback((force = false) => {
     if (!selectedThreadId) return;
-    const now = Date.now();
     const threadKey = String(selectedThreadId);
+    const minIntervalMs = 1200;
+    const now = Date.now();
     const lastReadAt = lastReadUpdateRef.current[threadKey] || 0;
-    if (now - lastReadAt < 2000) return;
+    if (!force && now - lastReadAt < minIntervalMs) {
+      if (!pendingReadTimeoutRef.current[threadKey]) {
+        const delay = Math.max(minIntervalMs - (now - lastReadAt), 300);
+        pendingReadTimeoutRef.current[threadKey] = setTimeout(() => {
+          delete pendingReadTimeoutRef.current[threadKey];
+          lastReadUpdateRef.current[threadKey] = Date.now();
+          clearThreadUnread(selectedThreadId);
+          markConversationAsRead(selectedThreadId).catch(() => {});
+        }, delay);
+      }
+      return;
+    }
+    if (pendingReadTimeoutRef.current[threadKey]) {
+      clearTimeout(pendingReadTimeoutRef.current[threadKey]);
+      delete pendingReadTimeoutRef.current[threadKey];
+    }
     lastReadUpdateRef.current[threadKey] = now;
     clearThreadUnread(selectedThreadId);
     markConversationAsRead(selectedThreadId).catch(() => {});
@@ -643,8 +660,19 @@ const DirectMessenger = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     setShowScrollToBottom(false);
     setUnreadCount(0);
-    markActiveConversationRead();
+    markActiveConversationRead(true);
   }, [markActiveConversationRead]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(pendingReadTimeoutRef.current).forEach((timeoutId) => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+      });
+      pendingReadTimeoutRef.current = {};
+    };
+  }, []);
 
   useEffect(() => {
     if (!selectedThreadId || !shouldAutoScrollRef.current) return;
@@ -691,7 +719,8 @@ const DirectMessenger = () => {
       const normalized = normalizeMessage(data.message);
       const lastMessage = normalizeThreadLastMessage(normalized);
       const isActive = data.conversationId === selectedThreadId;
-      const isOwnMessage = normalizeUserId(normalized.sender_id) === normalizeUserId(user?.id);
+      const senderId = normalized.sender_id ?? normalized.senderId ?? normalized.sender?.id;
+      const isOwnMessage = normalizeUserId(senderId) === normalizeUserId(user?.id);
       const container = isActive ? messagesContainerRef.current : null;
       const distanceFromBottom = container
         ? container.scrollHeight - container.scrollTop - container.clientHeight
@@ -731,7 +760,6 @@ const DirectMessenger = () => {
         if (isNearBottom) {
           requestAnimationFrame(() => {
             scrollToBottom();
-            markActiveConversationRead();
           });
         } else {
           setShowScrollToBottom(true);

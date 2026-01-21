@@ -16,6 +16,7 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
   const [cameraError, setCameraError] = useState('');
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
+  const captionRef = useRef(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
 
@@ -173,15 +174,31 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
 
   const hasPreview = Boolean(preview);
   const dragHint = isDragging ? 'Lass los, um hochzuladen' : 'Oder Datei hierher ziehen';
+  const stepLabel = hasPreview ? 'Schritt 2 von 2' : 'Schritt 1 von 2';
+  const stepSubtitle = hasPreview ? 'Beschreibung hinzufügen' : 'Medien auswählen';
+  const stepProgress = hasPreview ? 100 : 50;
+
+  useEffect(() => {
+    if (hasPreview) {
+      captionRef.current?.focus({ preventScroll: true });
+    }
+  }, [hasPreview]);
 
   return (
     <div className="story-composer-overlay" onClick={onClose}>
       <div className="story-composer-modal" onClick={(e) => e.stopPropagation()}>
         <div className="story-composer-header">
-          <h2>Story erstellen</h2>
+          <div>
+            <p className="story-composer-step">{stepLabel}</p>
+            <h2>Story erstellen</h2>
+            <p className="story-composer-subtitle">{stepSubtitle}</p>
+          </div>
           <button type="button" onClick={onClose} className="close-btn" aria-label="Schließen">
             <X className="w-5 h-5" />
           </button>
+        </div>
+        <div className="story-composer-progress" aria-hidden="true">
+          <div className="story-composer-progress__bar" style={{ width: `${stepProgress}%` }} />
         </div>
 
         <div className="story-composer-body">
@@ -192,6 +209,20 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
+              onClick={() => {
+                if (!showCamera) {
+                  fileInputRef.current?.click();
+                }
+              }}
+              onKeyDown={(event) => {
+                if (showCamera) return;
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  fileInputRef.current?.click();
+                }
+              }}
+              role="button"
+              tabIndex={0}
             >
               {showCamera && (
                 <div className="camera-preview">
@@ -240,7 +271,10 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
                 <div className="upload-buttons">
                   <button
                     type="button"
-                    onClick={handleCameraClick}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleCameraClick();
+                    }}
                     className="upload-btn camera-btn"
                   >
                     <Camera className="w-5 h-5 mr-2" />
@@ -248,7 +282,10 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
                   </button>
                   <button
                     type="button"
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      fileInputRef.current?.click();
+                    }}
                     className="upload-btn"
                   >
                     <Upload className="w-5 h-5 mr-2" />
@@ -305,6 +342,7 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
                   <p className="story-composer-editor-label">Beschreibung</p>
                   <div className="caption-input-container">
                     <textarea
+                      ref={captionRef}
                       value={caption}
                       onChange={(e) => setCaption(e.target.value)}
                       placeholder="Schreibe eine Beschreibung... (optional)"

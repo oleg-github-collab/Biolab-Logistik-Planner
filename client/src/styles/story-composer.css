@@ -44,6 +44,33 @@
   margin: 0;
 }
 
+.story-composer-step {
+  margin: 0 0 0.25rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.7);
+  font-weight: 700;
+}
+
+.story-composer-subtitle {
+  margin: 0.35rem 0 0;
+  font-size: 0.9rem;
+  color: rgba(226, 232, 240, 0.7);
+}
+
+.story-composer-progress {
+  height: 6px;
+  background: rgba(148, 163, 184, 0.2);
+  position: relative;
+}
+
+.story-composer-progress__bar {
+  height: 100%;
+  background: linear-gradient(90deg, #60a5fa, #818cf8);
+  transition: width 0.3s ease;
+}
+
 .story-composer-header .close-btn {
   display: flex;
   align-items: center;
@@ -194,6 +221,14 @@
   border: 1px dashed rgba(148, 163, 184, 0.35);
   background: linear-gradient(180deg, rgba(15, 23, 42, 0.6), rgba(2, 6, 23, 0.85));
   padding: 2rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.upload-area:focus-visible {
+  outline: none;
+  border-color: rgba(96, 165, 250, 0.8);
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
 }
 
 .upload-prompt {
