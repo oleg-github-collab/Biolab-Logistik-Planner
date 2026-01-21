@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Clock, X } from 'lucide-react';
 import { useMobile } from '../hooks/useMobile';
 
@@ -56,9 +57,11 @@ const TimePicker = ({ value, onChange, label, disabled = false }) => {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (pickerRef.current && !pickerRef.current.contains(event.target)) {
-        setShowPicker(false);
-      }
+      const pickerEl = pickerRef.current;
+      const inputEl = inputRef.current;
+      if (pickerEl && pickerEl.contains(event.target)) return;
+      if (inputEl && inputEl.contains(event.target)) return;
+      setShowPicker(false);
     };
 
     if (showPicker && !isMobile) {
@@ -309,7 +312,7 @@ const TimePicker = ({ value, onChange, label, disabled = false }) => {
   }
 
   return (
-    <div className="relative" ref={pickerRef}>
+    <div className="relative">
       <label className="block text-xs sm:text-sm text-gray-700 font-medium mb-1">
         {label}
       </label>
@@ -326,8 +329,9 @@ const TimePicker = ({ value, onChange, label, disabled = false }) => {
         <Clock className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
       </div>
 
-      {showPicker && (
+      {showPicker && createPortal(
         <div
+          ref={pickerRef}
           className="fixed z-[9999] bg-white rounded-xl shadow-2xl border-2 border-gray-200 p-4 w-full sm:w-auto"
           style={pickerStyles || { visibility: 'hidden' }}
         >
@@ -394,7 +398,8 @@ const TimePicker = ({ value, onChange, label, disabled = false }) => {
               OK
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

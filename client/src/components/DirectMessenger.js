@@ -2386,10 +2386,13 @@ const DirectMessenger = () => {
     threads.forEach((thread) => {
       if (thread?.type !== 'direct') return;
       const partner = Array.isArray(thread.members)
-        ? thread.members.find((member) => member?.user_id && member?.user_id !== user?.id)
+        ? thread.members.find((member) =>
+            member?.user_id &&
+            normalizeUserId(member.user_id) !== normalizeUserId(user?.id)
+          )
         : null;
       if (partner?.user_id) {
-        map[partner.user_id] = thread;
+        map[normalizeUserId(partner.user_id)] = thread;
       }
     });
     return map;
