@@ -1,13 +1,16 @@
 // App Version Control
-export const APP_VERSION = '3.0.0';
-export const BUILD_DATE = new Date().toISOString();
-export const BUILD_ID = Date.now();
+const APP_VERSION = process.env.REACT_APP_APP_VERSION || '3.0.1';
+const BUILD_ID = process.env.REACT_APP_BUILD_ID || process.env.REACT_APP_COMMIT_SHA || '';
+const BUILD_DATE = process.env.REACT_APP_BUILD_DATE || '';
+const VERSION_KEY = BUILD_ID ? `${APP_VERSION}.${BUILD_ID}` : APP_VERSION;
+
+export { APP_VERSION, BUILD_DATE, BUILD_ID };
 
 // Version check function
 export const checkVersion = () => {
   const stored = localStorage.getItem('app_version');
-  if (stored !== APP_VERSION) {
-    console.log(`🔄 New version detected: ${APP_VERSION} (was ${stored})`);
+  if (stored !== VERSION_KEY) {
+    console.log(`🔄 New version detected: ${VERSION_KEY} (was ${stored})`);
 
     // Clear all caches
     if ('caches' in window) {
@@ -28,8 +31,10 @@ export const checkVersion = () => {
     if (userId) localStorage.setItem('userId', userId);
 
     // Store new version
-    localStorage.setItem('app_version', APP_VERSION);
-    localStorage.setItem('build_id', BUILD_ID.toString());
+    localStorage.setItem('app_version', VERSION_KEY);
+    if (BUILD_ID) {
+      localStorage.setItem('build_id', BUILD_ID.toString());
+    }
 
     // Force reload
     window.location.reload(true);
@@ -39,6 +44,8 @@ export const checkVersion = () => {
 // Auto-check on load
 checkVersion();
 
+document.documentElement.dataset.build = VERSION_KEY;
+
 console.log(`📱 Biolab Logistik Planner v${APP_VERSION}`);
-console.log(`🏗️ Build ID: ${BUILD_ID}`);
-console.log(`📅 Build Date: ${BUILD_DATE}`);
+console.log(`🏗️ Build ID: ${BUILD_ID || 'n/a'}`);
+console.log(`📅 Build Date: ${BUILD_DATE || 'n/a'}`);

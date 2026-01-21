@@ -25,6 +25,7 @@ cd client
 
 # Create environment variable for build ID
 echo "REACT_APP_BUILD_ID=${BUILD_ID}" > .env.production.local
+echo "REACT_APP_BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> .env.production.local
 echo "GENERATE_SOURCEMAP=false" >> .env.production.local
 echo "DISABLE_ESLINT_PLUGIN=true" >> .env.production.local
 

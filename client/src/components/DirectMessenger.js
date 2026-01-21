@@ -68,6 +68,7 @@ import { showError, showSuccess } from '../utils/toast';
 import { getAssetUrl } from '../utils/media';
 import '../styles/messenger-desktop-fixed.css';
 import '../styles/scroll-to-bottom-button.css';
+import '../styles/messenger-mobile-hotfix.css';
 
 const GENERAL_THREAD_NAMES = ['general chat', 'general', 'allgemein', 'allgemeiner chat', 'teamchat'];
 const BOT_CONTACT_TEMPLATE = {
@@ -109,6 +110,8 @@ const normalizeUserId = (value) => {
   }
   return value;
 };
+
+const isSameThreadId = (left, right) => normalizeUserId(left) === normalizeUserId(right);
 
 const normalizeStory = (story = {}) => ({
   id: story.id,
@@ -622,7 +625,7 @@ const DirectMessenger = () => {
     if (!threadId) return;
     setThreads((prev) =>
       prev.map((thread) =>
-        thread.id === threadId ? { ...thread, unreadCount: 0 } : thread
+        isSameThreadId(thread.id, threadId) ? { ...thread, unreadCount: 0 } : thread
       )
     );
   }, []);
@@ -718,7 +721,7 @@ const DirectMessenger = () => {
 
       const normalized = normalizeMessage(data.message);
       const lastMessage = normalizeThreadLastMessage(normalized);
-      const isActive = data.conversationId === selectedThreadId;
+      const isActive = isSameThreadId(data.conversationId, selectedThreadId);
       const senderId = normalized.sender_id ?? normalized.senderId ?? normalized.sender?.id;
       const isOwnMessage = normalizeUserId(senderId) === normalizeUserId(user?.id);
       const container = isActive ? messagesContainerRef.current : null;
@@ -733,7 +736,7 @@ const DirectMessenger = () => {
       // Update threads + unread instantly
       setThreads((prev) =>
         prev.map((thread) =>
-          thread.id === data.conversationId
+          isSameThreadId(thread.id, data.conversationId)
             ? {
                 ...thread,
                 lastMessage,
@@ -771,7 +774,7 @@ const DirectMessenger = () => {
     };
 
     const handleMessageReaction = (data) => {
-      if (data?.conversationId === selectedThreadId && data?.messageId) {
+      if (isSameThreadId(data?.conversationId, selectedThreadId) && data?.messageId) {
         setMessages((prev) =>
           Array.isArray(prev)
             ? prev.map((msg) => {
@@ -798,7 +801,7 @@ const DirectMessenger = () => {
     };
 
     const handleMessagePin = (data) => {
-      if (data?.conversationId === selectedThreadId && data?.message) {
+      if (isSameThreadId(data?.conversationId, selectedThreadId) && data?.message) {
         const isPinned = data.isPinned ?? true;
         if (isPinned) {
           setPinnedMessages((prev) => {
@@ -813,7 +816,7 @@ const DirectMessenger = () => {
     };
 
     const handleUserTyping = (data) => {
-      if (data?.conversationId === selectedThreadId && data?.userId && data.userId !== user?.id) {
+      if (isSameThreadId(data?.conversationId, selectedThreadId) && data?.userId && data.userId !== user?.id) {
         setTypingUsers(prev => ({
           ...prev,
           [data.userId]: { name: data.userName || 'Benutzer', timestamp: Date.now() }
@@ -831,7 +834,7 @@ const DirectMessenger = () => {
     };
 
     const handleUserStopTyping = (data) => {
-      if (data?.conversationId === selectedThreadId && data?.userId) {
+      if (isSameThreadId(data?.conversationId, selectedThreadId) && data?.userId) {
         setTypingUsers(prev => {
           const updated = { ...prev };
           delete updated[data.userId];
@@ -853,12 +856,12 @@ const DirectMessenger = () => {
 
     const handleMembersUpdated = (data) => {
       if (!data?.conversationId) return;
-      if (data.conversationId === selectedThreadId && Array.isArray(data.members)) {
+      if (isSameThreadId(data.conversationId, selectedThreadId) && Array.isArray(data.members)) {
         setGroupMembers(data.members);
       }
       setThreads((prev) =>
         prev.map((thread) =>
-          thread.id === data.conversationId
+          isSameThreadId(thread.id, data.conversationId)
             ? {
                 ...thread,
                 members: Array.isArray(data.members) ? data.members : thread.members,
@@ -889,7 +892,7 @@ const DirectMessenger = () => {
       const updated = data.conversation || {};
       setThreads((prev) =>
         prev.map((thread) =>
-          thread.id === data.conversationId
+          isSameThreadId(thread.id, data.conversationId)
             ? {
                 ...thread,
                 name: updated.name ?? thread.name,
@@ -899,15 +902,15 @@ const DirectMessenger = () => {
             : thread
         )
       );
-      if (data.conversationId === selectedThreadId && Array.isArray(data.members)) {
+      if (isSameThreadId(data.conversationId, selectedThreadId) && Array.isArray(data.members)) {
         setGroupMembers(data.members);
       }
     };
 
     const handleConversationRemoved = (data) => {
       if (!data?.conversationId) return;
-      setThreads((prev) => prev.filter((thread) => thread.id !== data.conversationId));
-      if (data.conversationId === selectedThreadId) {
+      setThreads((prev) => prev.filter((thread) => !isSameThreadId(thread.id, data.conversationId)));
+      if (isSameThreadId(data.conversationId, selectedThreadId)) {
         setSelectedThreadId(null);
         setSelectedContact(null);
         setMessages([]);
@@ -1054,7 +1057,9 @@ const DirectMessenger = () => {
             (t) =>
               t?.type === 'direct' &&
               Array.isArray(t.members) &&
-              t.members.some((member) => member?.user_id === contact.id)
+              t.members.some((member) =>
+                normalizeUserId(member?.user_id) === normalizeUserId(contact.id)
+              )
           )
         : null;
 
@@ -1188,7 +1193,7 @@ const DirectMessenger = () => {
 
   // Load members when thread changes to group
   useEffect(() => {
-    const currentThread = threads.find(t => t.id === selectedThreadId);
+    const currentThread = threads.find((thread) => isSameThreadId(thread.id, selectedThreadId));
     if (currentThread?.type === 'group' && selectedThreadId) {
       refreshGroupDetails(selectedThreadId);
     } else {
@@ -1506,7 +1511,7 @@ const DirectMessenger = () => {
       const lastThreadMessage = normalizeThreadLastMessage(newMessage || optimisticMessage);
       setThreads((prev) =>
         prev.map((thread) =>
-          thread.id === selectedThreadId
+          isSameThreadId(thread.id, selectedThreadId)
             ? { ...thread, lastMessage: lastThreadMessage, unreadCount: 0 }
             : thread
         )
@@ -2007,7 +2012,8 @@ const DirectMessenger = () => {
 
     const conversationId = message.conversation_id || message.conversationId;
     if (conversationId) {
-      const thread = threads.find((item) => item.id === conversationId);
+      const normalizedConversationId = normalizeUserId(conversationId);
+      const thread = threads.find((item) => isSameThreadId(item.id, normalizedConversationId));
       if (thread?.type === 'group') {
         setSelectedContact(null);
         await handleGroupChatClick(thread);
@@ -2020,10 +2026,10 @@ const DirectMessenger = () => {
           await handleContactClick(partner);
         } else {
           setSelectedContact(null);
-          setSelectedThreadId(conversationId);
-          await loadMessages(conversationId);
-          clearThreadUnread(conversationId);
-          markConversationAsRead(conversationId).catch(() => {});
+          setSelectedThreadId(normalizedConversationId);
+          await loadMessages(normalizedConversationId);
+          clearThreadUnread(normalizedConversationId);
+          markConversationAsRead(normalizedConversationId).catch(() => {});
         }
       }
       setTimeout(() => highlightMessage(message.id), 200);
@@ -2123,7 +2129,7 @@ const DirectMessenger = () => {
   }, [addConversationMembers, getBotContact, groupMembers, refreshGroupDetails, selectedThreadId, showError]);
 
   const handleAskBot = useCallback(async () => {
-    const currentThread = threads.find((thread) => thread.id === selectedThreadId);
+    const currentThread = threads.find((thread) => isSameThreadId(thread.id, selectedThreadId));
     const isGroupChat = currentThread?.type === 'group';
     let botProfile = null;
 
@@ -2268,7 +2274,7 @@ const DirectMessenger = () => {
       if (updated) {
         setThreads((prev) =>
           prev.map((thread) =>
-            thread.id === selectedThreadId
+            isSameThreadId(thread.id, selectedThreadId)
               ? { ...thread, name: updated.name, description: updated.description }
               : thread
           )
@@ -2320,7 +2326,7 @@ const DirectMessenger = () => {
     setGroupMembersSaving(true);
     try {
       await removeConversationMember(selectedThreadId, user.id);
-      setThreads((prev) => prev.filter((thread) => thread.id !== selectedThreadId));
+      setThreads((prev) => prev.filter((thread) => !isSameThreadId(thread.id, selectedThreadId)));
       setSelectedThreadId(null);
       setSelectedContact(null);
       setMessages([]);
@@ -2422,7 +2428,7 @@ const DirectMessenger = () => {
   }, [groupThreads, normalizedSearchTerm]);
 
   const activeThread = useMemo(
-    () => threads.find((thread) => thread.id === selectedThreadId) || null,
+    () => threads.find((thread) => isSameThreadId(thread.id, selectedThreadId)) || null,
     [selectedThreadId, threads]
   );
 
