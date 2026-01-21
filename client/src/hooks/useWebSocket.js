@@ -239,6 +239,10 @@ const useWebSocket = () => {
           }
         };
 
+        socket.on('message:read', (payload) => {
+          emitConversationEvent('message:read', payload);
+        });
+
         socket.on('conversation:new_message', (payload) => {
           console.log('🔔 [WebSocket] conversation:new_message received:', payload);
           emitConversationEvent('new_message', payload); // Changed from 'conversation:new_message' to 'new_message'

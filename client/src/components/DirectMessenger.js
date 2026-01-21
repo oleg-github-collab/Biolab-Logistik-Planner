@@ -841,13 +841,14 @@ const DirectMessenger = () => {
     };
 
     const handleMessageRead = (data) => {
-      if (data?.conversationId) {
-        setThreads(prev => prev.map(thread =>
-          thread.id === data.conversationId
-            ? { ...thread, unreadCount: 0 }
-            : thread
-        ));
-      }
+      const conversationId = data?.conversationId ?? data?.conversation_id;
+      if (!conversationId) return;
+      const readId = normalizeUserId(conversationId);
+      setThreads(prev => prev.map(thread =>
+        normalizeUserId(thread.id) === readId
+          ? { ...thread, unreadCount: 0 }
+          : thread
+      ));
     };
 
     const handleMembersUpdated = (data) => {
