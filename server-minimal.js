@@ -374,18 +374,16 @@ app.use((err, req, res, next) => {
 });
 
 async function startServer() {
-  console.log('\n🔧 RUNNING DATABASE MIGRATIONS...');
+  console.log('\n🔧 ENSURING MESSAGE TABLES EXIST...');
+
+  // CREATE MESSAGE TABLES FIRST - BEFORE MIGRATIONS
+  const { Pool } = require('pg');
+  const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  });
+
   try {
-    await runPendingMigrations();
-    console.log('✅ Database migrations completed');
-
-    // Verify critical tables exist
-    const { Pool } = require('pg');
-    const pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-    });
-
     const tablesCheck = await pool.query(`
       SELECT table_name FROM information_schema.tables
       WHERE table_schema = 'public' AND table_name LIKE 'message%'
@@ -461,8 +459,17 @@ async function startServer() {
       console.log('✅ Message tables created successfully!');
     }
   } catch (error) {
+    console.error('⚠️  Failed to create message tables:', error.message);
+    console.error('Continuing startup...');
+  }
+
+  // NOW RUN MIGRATIONS
+  console.log('\n🔧 RUNNING DATABASE MIGRATIONS...');
+  try {
+    await runPendingMigrations();
+    console.log('✅ Database migrations completed');
+  } catch (error) {
     console.error('⚠️  PostgreSQL migrations failed:', error.message);
-    console.error('Stack:', error.stack);
     console.error('Continuing startup, but database schema may be outdated');
   }
 
