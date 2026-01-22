@@ -14,6 +14,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const http = require('http');
+const { Pool } = require('pg');
 
 const { runPendingMigrations } = require('./server/utils/postgresMigrations');
 const { scheduleEntsorgungReminders, runEntsorgungReminderJob } = require('./server/services/entsorgungReminder');
@@ -21,6 +22,12 @@ const botScheduler = require('./server/services/botScheduler');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Initialize database pool globally
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+});
 
 // Basic middleware
 app.use(cors());
@@ -245,15 +252,9 @@ async function startServer() {
   console.log('\n🔧 ENSURING MESSAGE TABLES EXIST...');
 
   // CREATE MESSAGE TABLES FIRST - BEFORE MIGRATIONS
-  const { Pool } = require('pg');
-
   if (!process.env.DATABASE_URL) {
     console.error('❌ DATABASE_URL not set! Skipping table creation.');
   } else {
-    const pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-    });
 
     try {
       const tablesCheck = await pool.query(`
