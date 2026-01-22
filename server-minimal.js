@@ -98,6 +98,41 @@ app.get('/debug/test-messages', (req, res) => {
   }
 });
 
+app.get('/debug/check-stories-table', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables
+        WHERE table_schema = 'public'
+        AND table_name = 'user_stories'
+      ) as table_exists
+    `);
+
+    const tableExists = result.rows[0]?.table_exists;
+
+    if (tableExists) {
+      const countResult = await pool.query('SELECT COUNT(*) as count FROM user_stories');
+      res.json({
+        success: true,
+        table_exists: true,
+        story_count: parseInt(countResult.rows[0].count, 10)
+      });
+    } else {
+      res.json({
+        success: true,
+        table_exists: false,
+        message: 'Migration 050 has not been applied yet'
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      stack: error.stack
+    });
+  }
+});
+
 // ==================== LOAD ROUTES FROM FILES ====================
 
 const fs = require('fs');
