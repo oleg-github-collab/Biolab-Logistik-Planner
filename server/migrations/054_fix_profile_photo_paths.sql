@@ -1,6 +1,11 @@
 -- Migration 054: Fix profile_photo paths (remove app/ prefix)
 
--- Update all profile_photo paths that start with 'app/'
+-- Update paths that start with '/app/' (e.g. /app/uploads/...)
+UPDATE users
+SET profile_photo = regexp_replace(profile_photo, '^/app/', '/', 'i')
+WHERE profile_photo LIKE '/app/%';
+
+-- Update paths that start with 'app/' without leading slash
 UPDATE users
 SET profile_photo = '/' || regexp_replace(profile_photo, '^app/', '', 'i')
 WHERE profile_photo LIKE 'app/%';
