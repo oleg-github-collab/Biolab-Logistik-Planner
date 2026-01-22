@@ -556,7 +556,7 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
             </>
           )}
 
-          <div className="max-w-7xl max-h-[90vh] px-4" onClick={(e) => e.stopPropagation()}>
+          <div className="max-w-7xl max-h-[calc(100vh-4rem)] px-4" onClick={(e) => e.stopPropagation()}>
             <img
               src={imageAttachments[currentImageIndex]?.url}
               alt={imageAttachments[currentImageIndex]?.filename || `Photo ${currentImageIndex + 1}`}

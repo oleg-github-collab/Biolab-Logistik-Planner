@@ -421,10 +421,10 @@ const EventFormModal = ({
     <BaseModal
       isOpen={isOpen}
       onClose={onClose}
-      dialogClassName="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+      dialogClassName="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[calc(100vh-4rem)] my-8 flex flex-col overflow-hidden"
     >
       {/* Header */}
-      <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl z-10">
+      <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl z-10 flex-shrink-0">
           <h2 className="text-2xl font-bold text-gray-900">
             {mode === 'edit' ? 'Termin bearbeiten' : 'Neuer Termin'}
           </h2>
@@ -438,7 +438,7 @@ const EventFormModal = ({
         </div>
 
       {/* Form */}
-      <form onSubmit={handleSubmit} className="p-6 space-y-6">
+      <form id="event-form" onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto flex-1">
           {/* Title */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -680,8 +680,8 @@ const EventFormModal = ({
             <textarea
               value={formData.description}
               onChange={(e) => handleChange('description', e.target.value)}
-              rows={4}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+              rows={3}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y min-h-[80px]"
               placeholder="Weitere Details zum Termin..."
             />
           </div>
@@ -886,8 +886,8 @@ const EventFormModal = ({
             <textarea
               value={formData.notes}
               onChange={(e) => handleChange('notes', e.target.value)}
-              rows={3}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+              rows={2}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y min-h-[60px]"
               placeholder="Private Notizen..."
             />
           </div>
@@ -902,32 +902,34 @@ const EventFormModal = ({
             </div>
           )}
 
-          {/* Actions */}
-          <div className="flex gap-3 pt-4 border-t border-gray-200">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors"
-              disabled={isSubmitting}
-            >
-              Abbrechen
-            </button>
-            <button
-              type="submit"
-              className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? (
-                <div className="flex items-center justify-center gap-2">
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Speichern...</span>
-                </div>
-              ) : (
-                mode === 'edit' ? 'Aktualisieren' : 'Erstellen'
-              )}
-            </button>
-          </div>
       </form>
+
+      {/* Actions - Footer fixed at bottom */}
+      <div className="flex gap-3 p-6 border-t border-gray-200 bg-gray-50 flex-shrink-0">
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors"
+          disabled={isSubmitting}
+        >
+          Abbrechen
+        </button>
+        <button
+          type="submit"
+          form="event-form"
+          className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? (
+            <div className="flex items-center justify-center gap-2">
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <span>Speichern...</span>
+            </div>
+          ) : (
+            mode === 'edit' ? 'Aktualisieren' : 'Erstellen'
+          )}
+        </button>
+      </div>
     </BaseModal>
   );
 };

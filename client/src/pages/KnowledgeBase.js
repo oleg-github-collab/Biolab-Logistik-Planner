@@ -613,7 +613,7 @@ const ArticleViewModal = ({
     return (
       <div className="modal-base active" role="dialog" aria-modal="true">
         <div className="backdrop active" />
-        <div className="bottom-sheet max-h-[90vh] w-full">
+        <div className="bottom-sheet max-h-[calc(100vh-2rem)] w-full overflow-hidden flex flex-col">
           <div className="pull-handle" aria-hidden="true" />
           {modalContent}
         </div>
@@ -623,7 +623,7 @@ const ArticleViewModal = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[calc(100vh-4rem)] my-8 flex flex-col overflow-hidden">
         {modalContent}
       </div>
     </div>
@@ -883,7 +883,7 @@ const ArticleEditorModal = ({ article, categories, allTags, onSave, onClose, onD
 
   const modalBodyClass = isMobile
     ? 'bg-white rounded-2xl shadow-2xl w-full max-w-3xl h-[calc(100vh-1.5rem)] max-h-[calc(100vh-1.5rem)] flex flex-col overflow-hidden'
-    : 'bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[95vh] flex flex-col';
+    : 'bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[calc(100vh-4rem)] my-8 flex flex-col overflow-hidden';
 
   return (
     <div className={modalWrapperClass}>
@@ -902,7 +902,7 @@ const ArticleEditorModal = ({ article, categories, allTags, onSave, onClose, onD
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
+        <form id="kb-article-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
           <div className="p-6 space-y-6">
             {/* Title */}
             <div>
@@ -964,8 +964,8 @@ const ArticleEditorModal = ({ article, categories, allTags, onSave, onClose, onD
               <textarea
                 value={summary}
                 onChange={(e) => setSummary(e.target.value.slice(0, 200))}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                rows={3}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y min-h-[60px]"
+                rows={2}
                 placeholder="Kurze Beschreibung des Artikels"
                 maxLength={200}
               />
@@ -1177,7 +1177,7 @@ const ArticleEditorModal = ({ article, categories, allTags, onSave, onClose, onD
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                   placeholder="Artikel-Inhalt in Markdown schreiben..."
-                  className="w-full h-96 p-4 border border-gray-300 rounded-md font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full h-64 p-4 border border-gray-300 rounded-md font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y min-h-[250px]"
                 />
               )}
             </div>
@@ -1188,27 +1188,28 @@ const ArticleEditorModal = ({ article, categories, allTags, onSave, onClose, onD
               {autoSaving ? 'Entwurf wird automatisch gespeichert…' : autoSaveError}
             </div>
           )}
-
-          {/* Footer */}
-          <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSaving}
-              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50"
-            >
-              Abbrechen
-            </button>
-            <button
-              type="submit"
-              disabled={isSaving || uploadingMedia}
-              className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
-            >
-              <Save size={16} />
-              <span>{isSaving || uploadingMedia ? 'Wird gespeichert...' : 'Speichern'}</span>
-            </button>
-          </div>
         </form>
+
+        {/* Footer - fixed at bottom */}
+        <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50 flex-shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isSaving}
+            className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50"
+          >
+            Abbrechen
+          </button>
+          <button
+            type="submit"
+            form="kb-article-form"
+            disabled={isSaving || uploadingMedia}
+            className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
+          >
+            <Save size={16} />
+            <span>{isSaving || uploadingMedia ? 'Wird gespeichert...' : 'Speichern'}</span>
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -1792,8 +1793,8 @@ const KnowledgeBaseV3 = () => {
     ? 'modal-base active'
     : 'fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4 py-8';
   const dictationPanelClass = isMobile
-    ? 'bottom-sheet max-h-[90vh] w-full'
-    : 'bg-white rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden';
+    ? 'bottom-sheet max-h-[calc(100vh-2rem)] w-full flex flex-col overflow-hidden'
+    : 'bg-white rounded-3xl w-full max-w-xl max-h-[calc(100vh-4rem)] shadow-2xl flex flex-col overflow-hidden';
   const dictationContent = (
     <div className="flex flex-col h-full">
       <div className={`flex items-center justify-between ${dictationHeaderPadding} border-b border-gray-200`}>
