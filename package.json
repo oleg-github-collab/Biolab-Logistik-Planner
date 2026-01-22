@@ -4,8 +4,8 @@
   "description": "Biolab Logistik Planner - Schedule, Messaging and Waste Management",
   "main": "server/index.js",
   "scripts": {
-    "start": "node server-minimal.js",
-    "start:test": "node server-minimal.js",
+    "start": "node server/index.js",
+    "start:minimal": "node server-minimal.js",
     "server": "nodemon server/index.js",
     "client": "cd client && npm start",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
