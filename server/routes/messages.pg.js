@@ -587,29 +587,8 @@ router.get('/conversations/:conversationId/messages', auth, async (req, res) => 
 
     const messages = await enrichMessages(client, messagesResult.rows);
 
-    await client.query(
-      `UPDATE message_conversation_members
-          SET last_read_at = CURRENT_TIMESTAMP
-        WHERE conversation_id = $1 AND user_id = $2`,
-      [conversationId, req.user.id]
-    );
-
-    if (conversation.conversation_type === CONVERSATION_TYPES.DIRECT) {
-      await client.query(
-        `UPDATE messages
-            SET read_status = true, read_at = CURRENT_TIMESTAMP
-          WHERE conversation_id = $1 AND receiver_id = $2 AND read_status = false`,
-        [conversationId, req.user.id]
-      );
-    }
-
-    const io = getIO();
-    if (io) {
-      io.to(`user_${req.user.id}`).emit('message:read', {
-        conversationId,
-        userId: req.user.id
-      });
-    }
+    // DON'T auto-mark as read on load - let user explicitly mark as read
+    // This keeps unread counters accurate
 
     res.json(messages);
   } catch (error) {
@@ -2826,7 +2805,7 @@ router.post('/stories', auth, upload.single('file'), async (req, res) => {
 // @route   POST /api/messages/stories/:storyId/view
 // @desc    Mark a story as viewed
 router.post('/stories/:storyId/view', auth, async (req, res) => {
-  const storyId = parseInt(req.params.storyId, 10);
+  const storyId = req.params.storyId; // UUID, not integer
 
   try {
     // Insert view record (ignore if already exists)
@@ -2853,7 +2832,7 @@ router.post('/stories/:storyId/view', auth, async (req, res) => {
 // @route   DELETE /api/messages/stories/:storyId
 // @desc    Delete a story (owner only)
 router.delete('/stories/:storyId', auth, async (req, res) => {
-  const storyId = parseInt(req.params.storyId, 10);
+  const storyId = req.params.storyId; // UUID, not integer
 
   try {
     const result = await pool.query(

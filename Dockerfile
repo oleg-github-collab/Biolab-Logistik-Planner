@@ -15,9 +15,9 @@ RUN cd client && npm ci
 # Copy application code
 COPY . .
 
-# Build client - v12.2 STORIES SQL FIX
-RUN echo "======================================== v12.2 PRODUCTION ========================================" && \
-    echo "Building v12.2-STORIES (Fixed profile_photo_url → profile_photo) at $(date)" && \
+# Build client - v12.3 STORIES UUID FIX
+RUN echo "======================================== v12.3 PRODUCTION ========================================" && \
+    echo "Building v12.3-STORIES (Fixed parseInt UUID + Unread counter) at $(date)" && \
     echo "================================================================================================="
 # CRITICAL: Set API URL for production build
 ARG REACT_APP_API_URL=/api
@@ -34,7 +34,7 @@ RUN BUILD_ID=${REACT_APP_BUILD_ID:-$(date +%s)} && \
     REACT_APP_BUILD_DATE=$BUILD_DATE \
     npm run build
 RUN echo "=============================================================================================" && \
-    echo "✅ Build v12.2-STORIES complete!" && \
+    echo "✅ Build v12.3-STORIES complete!" && \
     ls -lh client/build/static/js/main.*.js && \
     echo "=============================================================================================" && \
     cat client/build/asset-manifest.json && \
