@@ -1,7 +1,7 @@
 -- Migration 050: Create user_stories and user_story_views tables
 
 CREATE TABLE IF NOT EXISTS user_stories (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   media_path TEXT,
   media_url TEXT NOT NULL,
