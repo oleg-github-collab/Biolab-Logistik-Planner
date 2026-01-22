@@ -231,6 +231,31 @@ messagesRouter.get('/threads', authMiddleware, async (req, res) => {
   }
 });
 
+// DEBUG ENDPOINT - NO AUTH
+messagesRouter.get('/debug-tables', async (req, res) => {
+  try {
+    await ensureTablesExist();
+
+    const tables = await dbPool.query(`
+      SELECT table_name FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name LIKE 'message%'
+      ORDER BY table_name
+    `);
+
+    res.json({
+      status: 'OK',
+      tablesCreated: tablesCreated,
+      dbPool: !!dbPool,
+      tables: tables.rows.map(r => r.table_name)
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: error.message,
+      stack: error.stack
+    });
+  }
+});
+
 // GET /api/messages/stories - Get all active stories
 messagesRouter.get('/stories', authMiddleware, async (req, res) => {
   await ensureTablesExist();
