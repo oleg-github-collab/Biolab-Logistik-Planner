@@ -147,6 +147,17 @@ routes.forEach(route => {
 console.log(`\n✅ Routes loaded: ${loadedCount}/${routes.length}`);
 if (failedCount > 0) {
   console.error(`❌ Routes failed: ${failedCount}/${routes.length}`);
+
+  // FALLBACK: If messages route failed, load it directly inline
+  console.log('\n🚨 FALLBACK: Attempting to load messages route directly...');
+  try {
+    const messagesRoute = require('./server/routes/messages.pg');
+    app.use('/api/messages', messagesRoute);
+    console.log('  ✅ Messages route loaded via fallback!');
+  } catch(fallbackError) {
+    console.error('  ❌ Fallback also failed:', fallbackError.message);
+    console.error('     Stack:', fallbackError.stack);
+  }
 }
 
 // Health check route (additional API version)
