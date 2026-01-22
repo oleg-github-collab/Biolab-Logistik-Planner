@@ -12,3 +12,4 @@ coverage
 dist
 client/node_modules
 client/build
+# Force rebuild v12.0 - Thu Jan 22 12:03:57 CET 2026

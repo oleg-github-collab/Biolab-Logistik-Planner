@@ -15,9 +15,9 @@ RUN cd client && npm ci
 # Copy application code
 COPY . .
 
-# Build client - v3.5 PRODUCTION FIX
-RUN echo "======================================== v3.5 PRODUCTION ========================================" && \
-    echo "Building v3.5-PRODUCTION (Stories + Bot + API URL Fix) at $(date)" && \
+# Build client - v12.0 MESSAGES FIX
+RUN echo "======================================== v12.0 PRODUCTION ========================================" && \
+    echo "Building v12.0-MESSAGES (Full Messages.pg.js + Stories) at $(date)" && \
     echo "================================================================================================="
 # CRITICAL: Set API URL for production build
 ARG REACT_APP_API_URL=/api
@@ -34,7 +34,7 @@ RUN BUILD_ID=${REACT_APP_BUILD_ID:-$(date +%s)} && \
     REACT_APP_BUILD_DATE=$BUILD_DATE \
     npm run build
 RUN echo "=============================================================================================" && \
-    echo "✅ Build v3.4-STABLE complete!" && \
+    echo "✅ Build v12.0-MESSAGES complete!" && \
     ls -lh client/build/static/js/main.*.js && \
     echo "=============================================================================================" && \
     cat client/build/asset-manifest.json && \
