@@ -76,6 +76,3 @@ CREATE INDEX IF NOT EXISTS idx_message_read_status_message ON message_read_statu
 CREATE INDEX IF NOT EXISTS idx_message_read_status_user ON message_read_status(user_id);
 
 CREATE INDEX IF NOT EXISTS idx_quick_replies_user ON quick_replies(user_id);
-
--- Success message
-SELECT 'Message system tables created successfully' AS status;
