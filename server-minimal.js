@@ -151,8 +151,27 @@ async function ensureTablesExist() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`);
 
+    await dbPool.query(`CREATE TABLE IF NOT EXISTS user_stories (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      media_path TEXT,
+      media_url TEXT NOT NULL,
+      media_type VARCHAR(50) DEFAULT 'image',
+      caption TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      expires_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP + INTERVAL '24 hours')
+    )`);
+
+    await dbPool.query(`CREATE TABLE IF NOT EXISTS user_story_views (
+      id SERIAL PRIMARY KEY,
+      story_id UUID NOT NULL REFERENCES user_stories(id) ON DELETE CASCADE,
+      viewer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      viewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(story_id, viewer_id)
+    )`);
+
     tablesCreated = true;
-    console.log('✅ Message tables ensured');
+    console.log('✅ Message tables + Stories tables ensured');
   } catch (error) {
     console.error('❌ Failed to ensure tables:', error.message);
   }
