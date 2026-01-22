@@ -1,7 +1,7 @@
 // Minimal production server - only essential features
-// Updated: 2026-01-22 10:25 - FORCE CREATE MESSAGE TABLES ON STARTUP
+// Updated: 2026-01-22 11:30 - ENSURE TABLES ON EVERY REQUEST
 console.log('='.repeat(80));
-console.log('🚀 BIOLAB LOGISTIK PLANNER - SERVER v6.0-FORCE-TABLES');
+console.log('🚀 BIOLAB LOGISTIK PLANNER - SERVER v10.0-LAZY-TABLES');
 console.log('='.repeat(80));
 console.log('Time:', new Date().toISOString());
 console.log('Node:', process.version);
@@ -91,12 +91,71 @@ const fs = require('fs');
 
 // Database pool
 let dbPool;
+let tablesCreated = false;
+
 try {
   const { pool } = require('./server/config/database');
   dbPool = pool;
   console.log('✅ Database pool loaded');
 } catch(e) {
   console.error('❌ Failed to load database pool:', e.message);
+}
+
+// BRUTALLY CREATE TABLES ON FIRST REQUEST
+async function ensureTablesExist() {
+  if (tablesCreated || !dbPool) return;
+
+  try {
+    await dbPool.query(`CREATE TABLE IF NOT EXISTS message_conversations (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(255),
+      type VARCHAR(50) DEFAULT 'direct',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      last_message_at TIMESTAMP
+    )`);
+
+    await dbPool.query(`CREATE TABLE IF NOT EXISTS message_conversation_members (
+      id SERIAL PRIMARY KEY,
+      conversation_id INTEGER NOT NULL REFERENCES message_conversations(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      last_read_at TIMESTAMP,
+      joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(conversation_id, user_id)
+    )`);
+
+    await dbPool.query(`CREATE TABLE IF NOT EXISTS messages (
+      id SERIAL PRIMARY KEY,
+      conversation_id INTEGER REFERENCES message_conversations(id) ON DELETE CASCADE,
+      sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      receiver_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      content TEXT,
+      message_type VARCHAR(50) DEFAULT 'text',
+      file_url TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    await dbPool.query(`CREATE TABLE IF NOT EXISTS message_read_status (
+      id SERIAL PRIMARY KEY,
+      message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      read_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(message_id, user_id)
+    )`);
+
+    await dbPool.query(`CREATE TABLE IF NOT EXISTS quick_replies (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      label VARCHAR(100) NOT NULL,
+      content TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    tablesCreated = true;
+    console.log('✅ Message tables ensured');
+  } catch (error) {
+    console.error('❌ Failed to ensure tables:', error.message);
+  }
 }
 
 // Auth middleware
@@ -135,6 +194,8 @@ const upload = multer({
 
 // GET /api/messages/threads - Get all conversations/threads
 messagesRouter.get('/threads', authMiddleware, async (req, res) => {
+  await ensureTablesExist();
+
   try {
     if (!dbPool) {
       console.error('❌ Database pool not available');
@@ -172,6 +233,8 @@ messagesRouter.get('/threads', authMiddleware, async (req, res) => {
 
 // GET /api/messages/stories - Get all active stories
 messagesRouter.get('/stories', authMiddleware, async (req, res) => {
+  await ensureTablesExist();
+
   try {
     if (!dbPool) {
       return res.status(500).json({ error: 'Database not available' });
@@ -230,6 +293,8 @@ messagesRouter.post('/stories', authMiddleware, upload.single('file'), async (re
 
 // GET /api/messages/unread-count - Get total unread message count
 messagesRouter.get('/unread-count', authMiddleware, async (req, res) => {
+  await ensureTablesExist();
+
   try {
     const result = await dbPool.query(`
       SELECT COUNT(DISTINCT m.id) as count
@@ -280,6 +345,8 @@ messagesRouter.post('/', authMiddleware, upload.single('file'), async (req, res)
 
 // GET /api/messages/quick-replies - Get user's quick replies
 messagesRouter.get('/quick-replies', authMiddleware, async (req, res) => {
+  await ensureTablesExist();
+
   try {
     const result = await dbPool.query(
       'SELECT * FROM quick_replies WHERE user_id = $1 ORDER BY created_at DESC',
@@ -294,6 +361,8 @@ messagesRouter.get('/quick-replies', authMiddleware, async (req, res) => {
 
 // POST /api/messages/conversations - Create or get direct conversation
 messagesRouter.post('/conversations', authMiddleware, async (req, res) => {
+  await ensureTablesExist();
+
   try {
     const { participant_ids, name, type = 'direct' } = req.body;
     const userId = req.user.id;
