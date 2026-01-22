@@ -3168,11 +3168,24 @@ const DirectMessenger = () => {
               }}
             >
               <div className={`contact-card__avatar ${isBot ? 'bot-avatar' : ''}`}>
-                {isBot ? (
-                  <Bot className="w-5 h-5" />
-                ) : (
-                  contact.name?.[0]?.toUpperCase() || contact.email?.[0]?.toUpperCase() || '?'
-                )}
+                {contact.profile_photo ? (
+                  <img
+                    src={getAssetUrl(contact.profile_photo)}
+                    alt={contact.name}
+                    className="w-full h-full object-cover rounded-full"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'flex';
+                    }}
+                  />
+                ) : null}
+                <div className={contact.profile_photo ? 'hidden' : 'flex items-center justify-center w-full h-full'}>
+                  {isBot ? (
+                    <Bot className="w-5 h-5" />
+                  ) : (
+                    contact.name?.[0]?.toUpperCase() || contact.email?.[0]?.toUpperCase() || '?'
+                  )}
+                </div>
               </div>
             </div>
             {/* Online status indicator */}
