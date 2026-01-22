@@ -140,6 +140,25 @@ app.get('/debug/check-stories-table', async (req, res) => {
   }
 });
 
+app.get('/debug/users-photos', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT id, name, email, profile_photo, is_active
+      FROM users
+      ORDER BY id
+    `);
+    res.json({
+      success: true,
+      users: result.rows
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // ==================== LOAD ROUTES FROM FILES ====================
 
 const fs = require('fs');
