@@ -1,7 +1,7 @@
 // Minimal production server - only essential features
-// Updated: 2025-11-18 07:25 - Debug logging + fixes
+// Updated: 2026-01-22 10:11 - FORCE REBUILD with message tables
 console.log('='.repeat(80));
-console.log('🚀 BIOLAB LOGISTIK PLANNER - SERVER v3.6-DEBUG');
+console.log('🚀 BIOLAB LOGISTIK PLANNER - SERVER v4.0-MESSAGES-FIX');
 console.log('='.repeat(80));
 console.log('Time:', new Date().toISOString());
 console.log('Node:', process.version);
@@ -217,10 +217,30 @@ app.use((err, req, res, next) => {
 });
 
 async function startServer() {
+  console.log('\n🔧 RUNNING DATABASE MIGRATIONS...');
   try {
     await runPendingMigrations();
+    console.log('✅ Database migrations completed');
+
+    // Verify critical tables exist
+    const { Pool } = require('pg');
+    const pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+    });
+
+    const tablesCheck = await pool.query(`
+      SELECT table_name FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name LIKE 'message%'
+    `);
+    console.log('📊 Message tables found:', tablesCheck.rows.map(r => r.table_name));
+
+    if (tablesCheck.rows.length === 0) {
+      console.error('❌ CRITICAL: No message tables found! Migration 016 may have failed!');
+    }
   } catch (error) {
     console.error('⚠️  PostgreSQL migrations failed:', error.message);
+    console.error('Stack:', error.stack);
     console.error('Continuing startup, but database schema may be outdated');
   }
 
