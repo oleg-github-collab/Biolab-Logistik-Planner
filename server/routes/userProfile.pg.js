@@ -137,7 +137,14 @@ router.post('/:userId/photo', auth, uploadSingleCloudinary('photo', 'avatar'), a
     const oldPhotoUrl = oldPhotoResult.rows[0]?.profile_photo;
 
     // Cloudinary returns req.file.path as the full URL
-    const photoUrl = isCloudinaryConfigured ? req.file.path : `/${req.file.path.replace(/\\/g, '/')}`;
+    let photoUrl = req.file.path;
+    if (!isCloudinaryConfigured) {
+      // Remove 'app/' prefix if exists and ensure leading slash
+      photoUrl = photoUrl.replace(/\\/g, '/').replace(/^app\//, '/');
+      if (!photoUrl.startsWith('/')) {
+        photoUrl = `/${photoUrl}`;
+      }
+    }
 
     // Update user profile_photo
     const result = await pool.query(
