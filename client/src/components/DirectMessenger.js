@@ -518,6 +518,14 @@ const DirectMessenger = () => {
           threadsCount: rawThreads.length,
           storiesCount: Array.isArray(storiesRes?.data?.stories) ? storiesRes.data.stories.length : 0
         });
+        console.log('👥 [DirectMessenger] Merged Contacts with profile_photo:',
+          mergedContacts.map(c => ({
+            id: c.id,
+            name: c.name,
+            profile_photo: c.profile_photo,
+            has_photo: !!c.profile_photo
+          }))
+        );
         setContacts(mergedContacts);
         setThreads(sanitizedThreads);
         const rawStories = Array.isArray(storiesRes?.data?.stories)
@@ -3169,23 +3177,36 @@ const DirectMessenger = () => {
             >
               <div className={`contact-card__avatar ${isBot ? 'bot-avatar' : ''}`}>
                 {contact.profile_photo ? (
-                  <img
-                    src={getAssetUrl(contact.profile_photo)}
-                    alt={contact.name}
-                    className="w-full h-full object-cover rounded-full"
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                      e.target.nextSibling.style.display = 'flex';
-                    }}
-                  />
-                ) : null}
-                <div className={contact.profile_photo ? 'hidden' : 'flex items-center justify-center w-full h-full'}>
-                  {isBot ? (
-                    <Bot className="w-5 h-5" />
-                  ) : (
-                    contact.name?.[0]?.toUpperCase() || contact.email?.[0]?.toUpperCase() || '?'
-                  )}
-                </div>
+                  <>
+                    <img
+                      src={getAssetUrl(contact.profile_photo)}
+                      alt={contact.name}
+                      className="w-full h-full object-cover rounded-full"
+                      style={{ display: 'block' }}
+                      onError={(e) => {
+                        console.error('Failed to load avatar:', contact.name, getAssetUrl(contact.profile_photo));
+                        e.target.style.display = 'none';
+                        const fallback = e.target.nextElementSibling;
+                        if (fallback) fallback.style.display = 'flex';
+                      }}
+                    />
+                    <div className="flex items-center justify-center w-full h-full" style={{ display: 'none' }}>
+                      {isBot ? (
+                        <Bot className="w-5 h-5" />
+                      ) : (
+                        contact.name?.[0]?.toUpperCase() || contact.email?.[0]?.toUpperCase() || '?'
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-center justify-center w-full h-full">
+                    {isBot ? (
+                      <Bot className="w-5 h-5" />
+                    ) : (
+                      contact.name?.[0]?.toUpperCase() || contact.email?.[0]?.toUpperCase() || '?'
+                    )}
+                  </div>
+                )}
               </div>
             </div>
             {/* Online status indicator */}
