@@ -159,6 +159,27 @@ app.get('/debug/users-photos', async (req, res) => {
   }
 });
 
+app.post('/debug/fix-photo-paths', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      UPDATE users
+      SET profile_photo = regexp_replace(profile_photo, '^/app/', '/', 'i')
+      WHERE profile_photo LIKE '/app/%'
+      RETURNING id, name, profile_photo
+    `);
+    res.json({
+      success: true,
+      message: `Fixed ${result.rows.length} photo paths`,
+      updated: result.rows
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // ==================== LOAD ROUTES FROM FILES ====================
 
 const fs = require('fs');
