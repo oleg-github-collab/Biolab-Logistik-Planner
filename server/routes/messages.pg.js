@@ -2747,7 +2747,7 @@ router.get('/stories', auth, async (req, res) => {
         us.created_at,
         us.expires_at,
         u.name as user_name,
-        u.profile_photo_url,
+        u.profile_photo as profile_photo_url,
         (SELECT COUNT(*) FROM user_story_views WHERE story_id = us.id) as view_count,
         (SELECT COUNT(*) > 0 FROM user_story_views WHERE story_id = us.id AND viewer_id = $1) as viewed_by_me
        FROM user_stories us
@@ -2794,14 +2794,14 @@ router.post('/stories', auth, upload.single('file'), async (req, res) => {
 
     // Get user info
     const userResult = await pool.query(
-      `SELECT name, profile_photo_url FROM users WHERE id = $1`,
+      `SELECT name, profile_photo FROM users WHERE id = $1`,
       [req.user.id]
     );
 
     const storyWithUser = {
       ...story,
       user_name: userResult.rows[0]?.name || 'Unknown',
-      profile_photo_url: userResult.rows[0]?.profile_photo_url || null,
+      profile_photo_url: userResult.rows[0]?.profile_photo || null,
       view_count: 0,
       viewed_by_me: false
     };
