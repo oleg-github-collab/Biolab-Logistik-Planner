@@ -1796,13 +1796,24 @@ const KnowledgeBaseV3 = () => {
     ? 'bottom-sheet max-h-[calc(100vh-2rem)] w-full flex flex-col overflow-hidden'
     : 'bg-white rounded-3xl w-full max-w-xl max-h-[calc(100vh-4rem)] shadow-2xl flex flex-col overflow-hidden';
   const dictationContent = (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full relative">
+      {/* Processing Overlay */}
+      {dictationLoading && (
+        <div className="absolute inset-0 bg-white/95 z-50 flex flex-col items-center justify-center gap-4">
+          <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+          <div className="text-center px-4">
+            <p className="text-lg font-semibold text-gray-900">Audio wird verarbeitet...</p>
+            <p className="text-sm text-gray-600 mt-2">Whisper AI transkribiert und OpenAI erstellt den Artikel</p>
+          </div>
+        </div>
+      )}
+
       <div className={`flex items-center justify-between ${dictationHeaderPadding} border-b border-gray-200`}>
         <div>
           <p className="text-xs text-gray-500 uppercase tracking-[0.2em]">Voice Assistant</p>
           <h3 className="text-xl font-bold text-slate-900">Artikel diktieren</h3>
         </div>
-        <button onClick={closeDictationModal} className="text-gray-400 hover:text-gray-600">
+        <button onClick={closeDictationModal} disabled={dictationLoading} className="text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed">
           <X size={20} />
         </button>
       </div>
@@ -1830,12 +1841,6 @@ const KnowledgeBaseV3 = () => {
           <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.4em] text-slate-400">
             <span>Powered by Kaminskyi AI</span>
           </div>
-
-          {dictationLoading && (
-            <p className="text-sm text-gray-500">
-              Verarbeitung läuft... Bitte einen Moment warten.
-            </p>
-        )}
 
         {dictationError && (
           <p className="text-sm text-red-600">{dictationError}</p>

@@ -9,7 +9,9 @@ const DictationArticleEditor = ({
   articleData,
   onSave,
   categories = [],
-  onArticleDataChange
+  onArticleDataChange,
+  isProcessing = false,
+  processingMessage = 'Verarbeitung läuft...'
 }) => {
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [tagInput, setTagInput] = useState('');
@@ -110,14 +112,26 @@ const DictationArticleEditor = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full my-8 flex flex-col max-h-[calc(100vh-4rem)]">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full my-8 flex flex-col max-h-[calc(100vh-4rem)] overflow-hidden relative">
+        {/* Processing Overlay */}
+        {isProcessing && (
+          <div className="absolute inset-0 bg-white/95 z-50 flex flex-col items-center justify-center gap-4">
+            <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+            <div className="text-center px-4">
+              <p className="text-lg font-semibold text-gray-900">{processingMessage}</p>
+              <p className="text-sm text-gray-600 mt-2">Bitte warten Sie einen Moment...</p>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 flex-shrink-0">
           <h2 className="text-xl font-bold text-gray-900">📝 Artikel bearbeiten</h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-full transition"
+            disabled={isProcessing}
+            className="p-2 hover:bg-gray-100 rounded-full transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <X size={20} />
           </button>
@@ -316,13 +330,15 @@ const DictationArticleEditor = ({
         <div className="p-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-3 flex-shrink-0">
           <button
             onClick={onClose}
-            className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition font-medium"
+            disabled={isProcessing}
+            className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Abbrechen
           </button>
           <button
             onClick={handleSave}
-            className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium flex items-center gap-2"
+            disabled={isProcessing}
+            className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Save size={18} />
             Speichern
