@@ -378,20 +378,24 @@ async function startServer() {
 
   // CREATE MESSAGE TABLES FIRST - BEFORE MIGRATIONS
   const { Pool } = require('pg');
-  const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-  });
 
-  try {
-    const tablesCheck = await pool.query(`
-      SELECT table_name FROM information_schema.tables
-      WHERE table_schema = 'public' AND table_name LIKE 'message%'
-    `);
-    console.log('📊 Message tables found:', tablesCheck.rows.map(r => r.table_name));
+  if (!process.env.DATABASE_URL) {
+    console.error('❌ DATABASE_URL not set! Skipping table creation.');
+  } else {
+    const pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+    });
 
-    if (tablesCheck.rows.length === 0) {
-      console.error('❌ CRITICAL: No message tables found! Creating them now...');
+    try {
+      const tablesCheck = await pool.query(`
+        SELECT table_name FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name LIKE 'message%'
+      `);
+      console.log('📊 Message tables found:', tablesCheck.rows.map(r => r.table_name));
+
+      if (tablesCheck.rows.length === 0) {
+        console.error('❌ CRITICAL: No message tables found! Creating them now...');
 
       // FORCE CREATE message tables - SEPARATE QUERIES
       await pool.query(`CREATE TABLE IF NOT EXISTS message_conversations (
@@ -456,11 +460,12 @@ async function startServer() {
       await pool.query(`CREATE INDEX IF NOT EXISTS idx_message_read_status_message ON message_read_status(message_id)`);
       await pool.query(`CREATE INDEX IF NOT EXISTS idx_message_read_status_user ON message_read_status(user_id)`);
 
-      console.log('✅ Message tables created successfully!');
+        console.log('✅ Message tables created successfully!');
+      }
+    } catch (error) {
+      console.error('⚠️  Failed to create message tables:', error.message);
+      console.error('Continuing startup...');
     }
-  } catch (error) {
-    console.error('⚠️  Failed to create message tables:', error.message);
-    console.error('Continuing startup...');
   }
 
   // NOW RUN MIGRATIONS
