@@ -12,8 +12,13 @@ export const getAssetUrl = (value) => {
     return value;
   }
 
-  // For production, use relative paths that work with Railway
-  const normalized = value.startsWith('/') ? value : `/${value}`;
+  // Remove 'app/' prefix if it exists (legacy paths)
+  let normalized = value.replace(/^app\//, '/');
+
+  // Ensure leading slash
+  if (!normalized.startsWith('/')) {
+    normalized = `/${normalized}`;
+  }
 
   // In development, use localhost. In production, use relative path
   if (process.env.NODE_ENV === 'development') {
