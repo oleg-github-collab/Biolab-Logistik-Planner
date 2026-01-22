@@ -395,69 +395,69 @@ async function startServer() {
     if (tablesCheck.rows.length === 0) {
       console.error('❌ CRITICAL: No message tables found! Creating them now...');
 
-      // FORCE CREATE message tables if they don't exist
-      await pool.query(`
-        CREATE TABLE IF NOT EXISTS message_conversations (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          type VARCHAR(50) DEFAULT 'direct',
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          last_message_at TIMESTAMP
-        );
+      // FORCE CREATE message tables - SEPARATE QUERIES
+      await pool.query(`CREATE TABLE IF NOT EXISTS message_conversations (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255),
+        type VARCHAR(50) DEFAULT 'direct',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        last_message_at TIMESTAMP
+      )`);
 
-        CREATE TABLE IF NOT EXISTS message_conversation_members (
-          id SERIAL PRIMARY KEY,
-          conversation_id INTEGER NOT NULL REFERENCES message_conversations(id) ON DELETE CASCADE,
-          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          last_read_at TIMESTAMP,
-          joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          UNIQUE(conversation_id, user_id)
-        );
+      await pool.query(`CREATE TABLE IF NOT EXISTS message_conversation_members (
+        id SERIAL PRIMARY KEY,
+        conversation_id INTEGER NOT NULL REFERENCES message_conversations(id) ON DELETE CASCADE,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        last_read_at TIMESTAMP,
+        joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(conversation_id, user_id)
+      )`);
 
-        CREATE TABLE IF NOT EXISTS messages (
-          id SERIAL PRIMARY KEY,
-          conversation_id INTEGER REFERENCES message_conversations(id) ON DELETE CASCADE,
-          sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          receiver_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-          content TEXT,
-          message_type VARCHAR(50) DEFAULT 'text',
-          file_url TEXT,
-          file_type VARCHAR(100),
-          file_name VARCHAR(255),
-          file_size BIGINT,
-          read_status BOOLEAN DEFAULT FALSE,
-          read_at TIMESTAMP,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          deleted_at TIMESTAMP,
-          metadata JSONB DEFAULT '{}'::jsonb
-        );
+      await pool.query(`CREATE TABLE IF NOT EXISTS messages (
+        id SERIAL PRIMARY KEY,
+        conversation_id INTEGER REFERENCES message_conversations(id) ON DELETE CASCADE,
+        sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        receiver_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        content TEXT,
+        message_type VARCHAR(50) DEFAULT 'text',
+        file_url TEXT,
+        file_type VARCHAR(100),
+        file_name VARCHAR(255),
+        file_size BIGINT,
+        read_status BOOLEAN DEFAULT FALSE,
+        read_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        deleted_at TIMESTAMP,
+        metadata JSONB DEFAULT '{}'::jsonb
+      )`);
 
-        CREATE TABLE IF NOT EXISTS message_read_status (
-          id SERIAL PRIMARY KEY,
-          message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
-          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          read_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          UNIQUE(message_id, user_id)
-        );
+      await pool.query(`CREATE TABLE IF NOT EXISTS message_read_status (
+        id SERIAL PRIMARY KEY,
+        message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        read_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(message_id, user_id)
+      )`);
 
-        CREATE TABLE IF NOT EXISTS quick_replies (
-          id SERIAL PRIMARY KEY,
-          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          label VARCHAR(100) NOT NULL,
-          content TEXT NOT NULL,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
+      await pool.query(`CREATE TABLE IF NOT EXISTS quick_replies (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        label VARCHAR(100) NOT NULL,
+        content TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )`);
 
-        CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);
-        CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender_id);
-        CREATE INDEX IF NOT EXISTS idx_messages_receiver ON messages(receiver_id);
-        CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at DESC);
-        CREATE INDEX IF NOT EXISTS idx_message_read_status_message ON message_read_status(message_id);
-        CREATE INDEX IF NOT EXISTS idx_message_read_status_user ON message_read_status(user_id);
-      `);
+      // Create indexes
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id)`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender_id)`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_messages_receiver ON messages(receiver_id)`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at DESC)`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_message_read_status_message ON message_read_status(message_id)`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_message_read_status_user ON message_read_status(user_id)`);
+
       console.log('✅ Message tables created successfully!');
     }
   } catch (error) {
