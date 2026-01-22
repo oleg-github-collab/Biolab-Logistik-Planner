@@ -78,8 +78,24 @@ app.get('/debug/routes', (req, res) => {
     totalRoutes: loadedRoutes.length,
     routes: loadedRoutes,
     loadedCount,
-    failedCount
+    failedCount,
+    lastError: global.lastRouteError || null
   });
+});
+
+// Test messages.pg.js loading
+app.get('/debug/test-messages', (req, res) => {
+  try {
+    delete require.cache[require.resolve('./server/routes/messages.pg')];
+    const messagesRouter = require('./server/routes/messages.pg');
+    res.json({ success: true, message: 'Messages router loaded successfully' });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      stack: error.stack
+    });
+  }
 });
 
 // ==================== LOAD ROUTES FROM FILES ====================
@@ -113,6 +129,7 @@ routes.forEach(route => {
     if (!fs.existsSync(route.file + '.js')) {
       console.error(`  ✗ ${route.name}: File not found`);
       failedCount++;
+      global.lastRouteError = { route: route.name, error: 'File not found', path: route.file + '.js' };
       return;
     }
 
@@ -122,6 +139,8 @@ routes.forEach(route => {
     loadedCount++;
   } catch(e) {
     console.error(`  ❌ ${route.name} FAILED:`, e.message);
+    console.error(`     Stack:`, e.stack);
+    global.lastRouteError = { route: route.name, error: e.message, stack: e.stack };
     failedCount++;
   }
 });
