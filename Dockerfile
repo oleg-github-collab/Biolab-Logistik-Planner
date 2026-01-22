@@ -43,5 +43,5 @@ RUN echo "======================================================================
 # Expose port
 EXPOSE 5000
 
-# Start server
-CMD ["node", "server-minimal.js"]
+# Start server (FULL SERVER with all routes)
+CMD ["node", "server/index.js"]
