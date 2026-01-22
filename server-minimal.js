@@ -136,6 +136,11 @@ const upload = multer({
 // GET /api/messages/threads - Get all conversations/threads
 messagesRouter.get('/threads', authMiddleware, async (req, res) => {
   try {
+    if (!dbPool) {
+      console.error('❌ Database pool not available');
+      return res.status(500).json({ error: 'Database not available' });
+    }
+
     const userId = req.user.id;
 
     const result = await dbPool.query(`
@@ -159,14 +164,19 @@ messagesRouter.get('/threads', authMiddleware, async (req, res) => {
 
     res.json(result.rows);
   } catch (error) {
-    console.error('Error fetching threads:', error);
-    res.status(500).json({ error: 'Fehler beim Laden der Unterhaltungen' });
+    console.error('❌ Error fetching threads:', error.message);
+    console.error('Stack:', error.stack);
+    res.status(500).json({ error: 'Fehler beim Laden der Unterhaltungen', details: error.message });
   }
 });
 
 // GET /api/messages/stories - Get all active stories
 messagesRouter.get('/stories', authMiddleware, async (req, res) => {
   try {
+    if (!dbPool) {
+      return res.status(500).json({ error: 'Database not available' });
+    }
+
     const result = await dbPool.query(`
       SELECT
         us.id,
@@ -188,8 +198,8 @@ messagesRouter.get('/stories', authMiddleware, async (req, res) => {
 
     res.json(result.rows);
   } catch (error) {
-    console.error('Error fetching stories:', error);
-    res.status(500).json({ error: 'Serverfehler beim Laden der Stories' });
+    console.error('❌ Error fetching stories:', error.message);
+    res.status(500).json({ error: 'Serverfehler beim Laden der Stories', details: error.message });
   }
 });
 
@@ -265,6 +275,78 @@ messagesRouter.post('/', authMiddleware, upload.single('file'), async (req, res)
   } catch (error) {
     console.error('Error sending message:', error);
     res.status(500).json({ error: 'Fehler beim Senden der Nachricht' });
+  }
+});
+
+// GET /api/messages/quick-replies - Get user's quick replies
+messagesRouter.get('/quick-replies', authMiddleware, async (req, res) => {
+  try {
+    const result = await dbPool.query(
+      'SELECT * FROM quick_replies WHERE user_id = $1 ORDER BY created_at DESC',
+      [req.user.id]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching quick replies:', error);
+    res.status(500).json({ error: 'Fehler beim Laden der Schnellantworten' });
+  }
+});
+
+// POST /api/messages/conversations - Create or get direct conversation
+messagesRouter.post('/conversations', authMiddleware, async (req, res) => {
+  try {
+    const { participant_ids, name, type = 'direct' } = req.body;
+    const userId = req.user.id;
+
+    if (type === 'direct' && participant_ids && participant_ids.length === 1) {
+      const otherUserId = participant_ids[0];
+
+      // Check if direct conversation already exists
+      const existing = await dbPool.query(`
+        SELECT mc.* FROM message_conversations mc
+        JOIN message_conversation_members mcm1 ON mc.id = mcm1.conversation_id
+        JOIN message_conversation_members mcm2 ON mc.id = mcm2.conversation_id
+        WHERE mc.type = 'direct'
+          AND mcm1.user_id = $1
+          AND mcm2.user_id = $2
+        LIMIT 1
+      `, [userId, otherUserId]);
+
+      if (existing.rows.length > 0) {
+        return res.json(existing.rows[0]);
+      }
+    }
+
+    // Create new conversation
+    const convResult = await dbPool.query(`
+      INSERT INTO message_conversations (name, type, created_at, updated_at)
+      VALUES ($1, $2, NOW(), NOW())
+      RETURNING *
+    `, [name, type]);
+
+    const conversation = convResult.rows[0];
+
+    // Add creator as member
+    await dbPool.query(`
+      INSERT INTO message_conversation_members (conversation_id, user_id, joined_at)
+      VALUES ($1, $2, NOW())
+    `, [conversation.id, userId]);
+
+    // Add other participants
+    if (participant_ids && participant_ids.length > 0) {
+      for (const pid of participant_ids) {
+        await dbPool.query(`
+          INSERT INTO message_conversation_members (conversation_id, user_id, joined_at)
+          VALUES ($1, $2, NOW())
+          ON CONFLICT DO NOTHING
+        `, [conversation.id, pid]);
+      }
+    }
+
+    res.status(201).json(conversation);
+  } catch (error) {
+    console.error('Error creating conversation:', error);
+    res.status(500).json({ error: 'Fehler beim Erstellen der Unterhaltung' });
   }
 });
 
