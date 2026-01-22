@@ -24,6 +24,7 @@ const {
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { v4: uuidv4 } = require('uuid');
 
 const router = express.Router();
 
@@ -65,6 +66,31 @@ const upload = multer({
       cb(null, true);
     } else {
       cb(new Error('Ungültiger Dateityp. Nur Bilder und Audio-Dateien sind erlaubt.'));
+    }
+  }
+});
+
+const storyUpload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 50 * 1024 * 1024 // 50MB limit for stories
+  },
+  fileFilter: function (req, file, cb) {
+    const allowedMimes = [
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+      'video/mp4',
+      'video/webm',
+      'video/quicktime',
+      'video/ogg'
+    ];
+
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Ungültiger Dateityp. Nur Bilder und Videos sind erlaubt.'));
     }
   }
 });
@@ -2710,6 +2736,7 @@ router.post('/bulk/mark-read', auth, async (req, res) => {
 // @desc    Get all active stories for the current user
 router.get('/stories', auth, async (req, res) => {
   try {
+    // Спрощений запит - показуємо всі активні stories від усіх користувачів
     const result = await pool.query(
       `SELECT
         us.id,
@@ -2726,20 +2753,14 @@ router.get('/stories', auth, async (req, res) => {
        FROM user_stories us
        JOIN users u ON u.id = us.user_id
        WHERE us.expires_at > NOW()
-       AND (us.user_id = $1 OR us.user_id IN (
-         SELECT user_id FROM message_conversation_members
-         WHERE conversation_id IN (
-           SELECT conversation_id FROM message_conversation_members WHERE user_id = $1
-         )
-       ))
        ORDER BY us.created_at DESC`,
       [req.user.id]
     );
 
     res.json(result.rows);
   } catch (error) {
-    logger.error('Error fetching stories', error);
-    res.status(500).json({ error: 'Serverfehler' });
+    logger.error('Error fetching stories:', error);
+    res.status(500).json({ error: 'Serverfehler beim Laden der Stories' });
   }
 });
 
@@ -2757,15 +2778,16 @@ router.post('/stories', auth, upload.single('file'), async (req, res) => {
     const mediaType = req.file.mimetype.startsWith('image/') ? 'image' :
                      req.file.mimetype.startsWith('video/') ? 'video' : 'image';
 
-    // Store relative path
+    // Store paths (both absolute and relative for compatibility)
+    const mediaPath = req.file.path;
     const mediaUrl = `/uploads/${req.file.filename}`;
 
-    // Create story with 24-hour expiration
+    // Create story with 24-hour expiration and explicit UUID generation
     const result = await pool.query(
-      `INSERT INTO user_stories (user_id, media_url, media_type, caption, expires_at)
-       VALUES ($1, $2, $3, $4, NOW() + INTERVAL '24 hours')
+      `INSERT INTO user_stories (id, user_id, media_path, media_url, media_type, caption, expires_at)
+       VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, NOW() + INTERVAL '24 hours')
        RETURNING *`,
-      [req.user.id, mediaUrl, mediaType, caption || '']
+      [req.user.id, mediaPath, mediaUrl, mediaType, caption || '']
     );
 
     const story = result.rows[0];
@@ -2778,8 +2800,8 @@ router.post('/stories', auth, upload.single('file'), async (req, res) => {
 
     const storyWithUser = {
       ...story,
-      user_name: userResult.rows[0].name,
-      profile_photo_url: userResult.rows[0].profile_photo_url,
+      user_name: userResult.rows[0]?.name || 'Unknown',
+      profile_photo_url: userResult.rows[0]?.profile_photo_url || null,
       view_count: 0,
       viewed_by_me: false
     };
@@ -2792,8 +2814,12 @@ router.post('/stories', auth, upload.single('file'), async (req, res) => {
 
     res.status(201).json(storyWithUser);
   } catch (error) {
-    logger.error('Error creating story', error);
-    res.status(500).json({ error: 'Serverfehler' });
+    logger.error('Error creating story:', error);
+    logger.error('Error details:', error.message, error.stack);
+    res.status(500).json({
+      error: 'Serverfehler beim Erstellen der Story',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 

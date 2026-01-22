@@ -15,7 +15,6 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
   const [isDragging, setIsDragging] = useState(false);
   const [cameraError, setCameraError] = useState('');
   const fileInputRef = useRef(null);
-  const cameraInputRef = useRef(null);
   const captionRef = useRef(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -120,9 +119,6 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-    if (cameraInputRef.current) {
-      cameraInputRef.current.value = '';
-    }
     setIsDragging(false);
   };
 
@@ -163,13 +159,6 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
       }
     };
   }, [stream]);
-
-  const handleCameraCapture = (event) => {
-    setIsDragging(false);
-    const file = event.target.files?.[0];
-    if (!file) return;
-    handleFileProcessing(file);
-  };
 
   const hasPreview = Boolean(preview);
   const dragHint = isDragging ? 'Lass los, um hochzuladen' : 'Oder Datei hierher ziehen';
@@ -371,14 +360,6 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
           type="file"
           accept="image/*,video/*"
           onChange={handleFileSelect}
-          className="hidden"
-        />
-        <input
-          ref={cameraInputRef}
-          type="file"
-          accept="image/*,video/*"
-          capture
-          onChange={handleCameraCapture}
           className="hidden"
         />
 
