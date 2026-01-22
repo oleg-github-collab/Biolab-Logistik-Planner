@@ -39,17 +39,20 @@ try {
   console.error('Continuing without WebSocket support');
 }
 
-// Health endpoints
+// Health endpoints - SIMPLE, NO DATABASE
 app.get('/ping', (req, res) => {
+  console.log('✅ PING received');
   res.send('PONG');
 });
 
 app.get('/health', (req, res) => {
+  console.log('✅ HEALTH check received');
   res.json({
     status: 'OK',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV,
-    port: PORT
+    environment: process.env.NODE_ENV || 'development',
+    port: PORT,
+    uptime: process.uptime()
   });
 });
 
@@ -84,7 +87,6 @@ console.log('📊 Setting up INLINE messages router...');
 
 // Messages router dependencies
 const multer = require('multer');
-const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
 
 // Database pool
@@ -493,9 +495,24 @@ async function startServer() {
   }
   console.log('='.repeat(80));
 
+  console.log('\n🚀 STARTING HTTP SERVER...');
+  console.log('PORT:', PORT);
+  console.log('Binding to: 0.0.0.0');
+
   server.listen(PORT, '0.0.0.0', () => {
-    console.log('✅ Server running on port', PORT);
-    console.log('Environment:', process.env.NODE_ENV);
+    console.log('='.repeat(80));
+    console.log('✅✅✅ SERVER SUCCESSFULLY STARTED ✅✅✅');
+    console.log('='.repeat(80));
+    console.log('🌐 Listening on port:', PORT);
+    console.log('🌍 Environment:', process.env.NODE_ENV || 'development');
+    console.log('⏰ Started at:', new Date().toISOString());
+    console.log('='.repeat(80));
+  });
+
+  server.on('error', (error) => {
+    console.error('❌❌❌ SERVER ERROR:', error.message);
+    console.error('Stack:', error.stack);
+    process.exit(1);
   });
 
   try {
