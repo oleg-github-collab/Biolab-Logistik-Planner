@@ -113,41 +113,41 @@ const DictationArticleEditor = ({
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
       <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full my-8 flex flex-col max-h-[calc(100vh-4rem)]">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-2xl font-bold text-gray-900">📝 Artikel bearbeiten</h2>
+        <div className="flex items-center justify-between p-4 border-b border-gray-200 flex-shrink-0">
+          <h2 className="text-xl font-bold text-gray-900">📝 Artikel bearbeiten</h2>
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-full transition"
           >
-            <X size={24} />
+            <X size={20} />
           </button>
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {/* Title */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Titel *
             </label>
             <input
               type="text"
               value={articleData.title}
               onChange={(e) => handleChange('title', e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg font-semibold"
-              placeholder="Artikeltitel eingeben..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Artikeltitel..."
             />
           </div>
 
           {/* Category */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Kategorie *
             </label>
             <select
               value={articleData.category_id}
               onChange={(e) => handleChange('category_id', e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="">Kategorie wählen...</option>
               {categories.map((cat) => (
@@ -160,35 +160,35 @@ const DictationArticleEditor = ({
 
           {/* Summary */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Zusammenfassung
             </label>
             <textarea
               value={articleData.summary}
               onChange={(e) => handleChange('summary', e.target.value)}
               rows={2}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y"
-              placeholder="Kurze Zusammenfassung des Artikels..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y min-h-[50px] text-sm"
+              placeholder="Kurze Zusammenfassung..."
             />
           </div>
 
           {/* Content */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Inhalt *
             </label>
             <textarea
               value={articleData.content}
               onChange={(e) => handleChange('content', e.target.value)}
-              rows={8}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm resize-y min-h-[200px]"
-              placeholder="Artikelinhalt (unterstützt Markdown)..."
+              rows={5}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm resize-y min-h-[120px]"
+              placeholder="Artikelinhalt (Markdown)..."
             />
           </div>
 
           {/* Tags */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               <TagIcon size={16} className="inline mr-1" />
               Tags
             </label>
@@ -230,7 +230,7 @@ const DictationArticleEditor = ({
 
           {/* Media Upload */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               <ImageIcon size={16} className="inline mr-1" />
               Fotos & Dateien
             </label>
@@ -283,11 +283,11 @@ const DictationArticleEditor = ({
 
           {/* Audio Comments */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               <Mic size={16} className="inline mr-1" />
               Audiokommentare
             </label>
-            <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+            <div className="border border-gray-200 rounded-lg p-3 bg-gray-50">
               <VoiceRecorder
                 onRecordingComplete={handleAudioCommentComplete}
                 existingAudioUrl={null}
@@ -313,19 +313,19 @@ const DictationArticleEditor = ({
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
+        <div className="p-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-3 flex-shrink-0">
           <button
             onClick={onClose}
-            className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition font-medium"
+            className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition font-medium"
           >
             Abbrechen
           </button>
           <button
             onClick={handleSave}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium flex items-center gap-2"
+            className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium flex items-center gap-2"
           >
             <Save size={18} />
-            Artikel speichern
+            Speichern
           </button>
         </div>
       </div>
