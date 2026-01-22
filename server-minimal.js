@@ -107,6 +107,21 @@ let failedCount = 0;
 
 routes.forEach(route => {
   try {
+    // Special logging for messages route
+    if (route.name === 'messages') {
+      console.log('\n🔍 SPECIAL CHECK FOR MESSAGES ROUTE:');
+      console.log('   File path:', route.file + '.js');
+      console.log('   File exists:', fs.existsSync(route.file + '.js'));
+      console.log('   __dirname:', __dirname);
+      console.log('   process.cwd():', process.cwd());
+
+      // List files in routes directory
+      const routesDir = path.join(__dirname, 'server', 'routes');
+      console.log('   Routes directory:', routesDir);
+      const files = fs.readdirSync(routesDir);
+      console.log('   Files in routes dir:', files.filter(f => f.includes('message')));
+    }
+
     // Check if file exists
     if (!fs.existsSync(route.file + '.js')) {
       console.error(`  ✗ ${route.name}: File not found at ${route.file}.js`);
@@ -121,7 +136,10 @@ routes.forEach(route => {
   } catch(e) {
     console.error(`  ❌ ${route.name} FAILED:`, e.message);
     console.error(`     File: ${route.file}`);
-    console.error(`     Stack:`, e.stack);
+    if (route.name === 'messages') {
+      console.error(`     FULL ERROR STACK FOR MESSAGES:`);
+      console.error(e.stack);
+    }
     failedCount++;
   }
 });
