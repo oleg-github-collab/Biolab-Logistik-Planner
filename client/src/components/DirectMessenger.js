@@ -630,7 +630,7 @@ const DirectMessenger = () => {
     );
   }, []);
 
-  const markActiveConversationRead = useCallback((force = false) => {
+  const markActiveConversationRead = useCallback(async (force = false) => {
     if (!selectedThreadId) return;
     const threadKey = String(selectedThreadId);
     const minIntervalMs = 1200;
@@ -642,8 +642,12 @@ const DirectMessenger = () => {
         pendingReadTimeoutRef.current[threadKey] = setTimeout(() => {
           delete pendingReadTimeoutRef.current[threadKey];
           lastReadUpdateRef.current[threadKey] = Date.now();
-          clearThreadUnread(selectedThreadId);
-          markConversationAsRead(selectedThreadId).catch(() => {});
+          // API ПЕРЕД clearThreadUnread для уникнення race condition
+          markConversationAsRead(selectedThreadId)
+            .then(() => clearThreadUnread(selectedThreadId))
+            .catch((err) => {
+              console.error('❌ Failed to mark conversation as read:', err);
+            });
         }, delay);
       }
       return;
@@ -653,8 +657,14 @@ const DirectMessenger = () => {
       delete pendingReadTimeoutRef.current[threadKey];
     }
     lastReadUpdateRef.current[threadKey] = now;
-    clearThreadUnread(selectedThreadId);
-    markConversationAsRead(selectedThreadId).catch(() => {});
+    // API ПЕРЕД clearThreadUnread для уникнення race condition
+    try {
+      await markConversationAsRead(selectedThreadId);
+      clearThreadUnread(selectedThreadId);
+    } catch (err) {
+      console.error('❌ Failed to mark conversation as read:', err);
+      // Не очищаємо локальний state якщо API провалився
+    }
   }, [clearThreadUnread, markConversationAsRead, selectedThreadId]);
 
   // Scroll to bottom function
@@ -1069,8 +1079,13 @@ const DirectMessenger = () => {
         console.log('[DirectMessenger] Using existing thread:', existingThread.id);
         setSelectedThreadId(existingThread.id);
         await loadMessages(existingThread.id);
-        clearThreadUnread(existingThread.id);
-        markConversationAsRead(existingThread.id).catch(() => {});
+        // Виклик API перед очищенням локального state
+        try {
+          await markConversationAsRead(existingThread.id);
+          clearThreadUnread(existingThread.id);
+        } catch (err) {
+          console.error('❌ Failed to mark as read on contact open:', err);
+        }
         setUnreadCount(0);
         setShowScrollToBottom(false);
       } else {
@@ -1089,8 +1104,13 @@ const DirectMessenger = () => {
           setSelectedThreadId(normalizedThread.id);
           setMessages([]);
           setThreads((prev) => Array.isArray(prev) ? [...prev, normalizedThread] : [normalizedThread]);
-          clearThreadUnread(normalizedThread.id);
-          markConversationAsRead(normalizedThread.id).catch(() => {});
+          // Виклик API перед очищенням локального state
+          try {
+            await markConversationAsRead(normalizedThread.id);
+            clearThreadUnread(normalizedThread.id);
+          } catch (err) {
+            console.error('❌ Failed to mark new thread as read:', err);
+          }
         } else {
           throw new Error('Ungültige Antwort vom Server');
         }
@@ -1130,8 +1150,13 @@ const DirectMessenger = () => {
 
       // Load messages
       await loadMessages(groupThread.id);
-      clearThreadUnread(groupThread.id);
-      markConversationAsRead(groupThread.id).catch(() => {});
+      // Виклик API перед очищенням локального state
+      try {
+        await markConversationAsRead(groupThread.id);
+        clearThreadUnread(groupThread.id);
+      } catch (err) {
+        console.error('❌ Failed to mark group chat as read:', err);
+      }
       setUnreadCount(0);
       setShowScrollToBottom(false);
 

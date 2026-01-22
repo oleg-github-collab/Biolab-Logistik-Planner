@@ -139,13 +139,12 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
         }
       } catch (error) {
         console.error('Camera error:', error);
-        setCameraError('Kamera kann nicht gestartet werden. Bitte Berechtigungen prüfen.');
-        if (cameraInputRef.current) {
-          cameraInputRef.current.click();
-        }
+        setCameraError('Kamera kann nicht gestartet werden. Bitte Berechtigungen prüfen oder Foto auswählen.');
+        // Видалено автоматичний fallback - користувач сам обере "Foto auswählen"
       }
-    } else if (cameraInputRef.current) {
-      cameraInputRef.current.click();
+    } else {
+      // Якщо getUserMedia не підтримується, показуємо повідомлення
+      setCameraError('Browser unterstützt keine Kamera. Bitte wählen Sie ein Foto aus.');
     }
   };
 
