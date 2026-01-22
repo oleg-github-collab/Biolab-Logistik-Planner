@@ -68,6 +68,9 @@ export const getStoriesFeed = () =>
 export const markStoryViewed = (storyId) =>
   api.post(`/messages/stories/${storyId}/view`);
 
+export const deleteStory = (storyId) =>
+  api.delete(`/messages/stories/${storyId}`);
+
 // ============================================
 // NOTIFICATIONS APIs
 // ============================================

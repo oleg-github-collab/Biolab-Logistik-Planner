@@ -50,6 +50,7 @@ import {
   getStoriesFeed,
   getQuickReplies,
   markStoryViewed,
+  deleteStory,
   linkCalendarToMessage,
   getCalendarEvents,
   addMessageReaction,
@@ -1079,14 +1080,8 @@ const DirectMessenger = () => {
         console.log('[DirectMessenger] Using existing thread:', existingThread.id);
         setSelectedThreadId(existingThread.id);
         await loadMessages(existingThread.id);
-        // Виклик API перед очищенням локального state
-        try {
-          await markConversationAsRead(existingThread.id);
-          clearThreadUnread(existingThread.id);
-        } catch (err) {
-          console.error('❌ Failed to mark as read on contact open:', err);
-        }
-        setUnreadCount(0);
+        // DON'T mark as read immediately - wait for user to actually read
+        // Mark as read will be called after 2s delay or when scrolled to bottom
         setShowScrollToBottom(false);
       } else {
         console.log('[DirectMessenger] Creating new thread...');
@@ -1150,14 +1145,8 @@ const DirectMessenger = () => {
 
       // Load messages
       await loadMessages(groupThread.id);
-      // Виклик API перед очищенням локального state
-      try {
-        await markConversationAsRead(groupThread.id);
-        clearThreadUnread(groupThread.id);
-      } catch (err) {
-        console.error('❌ Failed to mark group chat as read:', err);
-      }
-      setUnreadCount(0);
+      // DON'T mark as read immediately - wait for user to actually read
+      // Mark as read will be called after 2s delay or when scrolled to bottom
       setShowScrollToBottom(false);
 
       if (isMobile) {
@@ -1215,6 +1204,23 @@ const DirectMessenger = () => {
     threads,
     user?.id
   ]);
+
+  // Auto-mark conversation as read after 3 seconds of viewing
+  useEffect(() => {
+    if (!selectedThreadId) return;
+
+    const timer = setTimeout(async () => {
+      try {
+        await markConversationAsRead(selectedThreadId);
+        clearThreadUnread(selectedThreadId);
+        console.log('✅ Auto-marked conversation as read after 3s:', selectedThreadId);
+      } catch (err) {
+        console.error('❌ Failed to auto-mark as read:', err);
+      }
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [selectedThreadId, markConversationAsRead, clearThreadUnread]);
 
   // Load members when thread changes to group
   useEffect(() => {
@@ -4582,13 +4588,38 @@ const DirectMessenger = () => {
                   )}
                 </div>
               </div>
-              <button
-                onClick={handleStoryClose}
-                className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 active:bg-white/30 transition-colors relative z-50"
-                type="button"
-              >
-                <X className="w-6 h-6 text-white" />
-              </button>
+              <div className="flex items-center gap-2">
+                {selectedStory.userId === user?.id && (
+                  <button
+                    onClick={async () => {
+                      if (window.confirm('Story löschen?')) {
+                        try {
+                          await deleteStory(selectedStory.id);
+                          setStories(prev => prev.filter(s => s.id !== selectedStory.id));
+                          handleStoryClose();
+                          showSuccess('Story gelöscht');
+                        } catch (err) {
+                          console.error('Error deleting story:', err);
+                          showError('Fehler beim Löschen');
+                        }
+                      }
+                    }}
+                    className="w-10 h-10 flex items-center justify-center rounded-full bg-red-500/80 active:bg-red-600/80 transition-colors relative z-50"
+                    type="button"
+                  >
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                )}
+                <button
+                  onClick={handleStoryClose}
+                  className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 active:bg-white/30 transition-colors relative z-50"
+                  type="button"
+                >
+                  <X className="w-6 h-6 text-white" />
+                </button>
+              </div>
             </div>
 
             <div className="story-viewer-extra-close">
