@@ -53,44 +53,95 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Load routes with error handling
+// Debug endpoint to check loaded routes
+app.get('/debug/routes', (req, res) => {
+  const loadedRoutes = app._router.stack
+    .filter(r => r.route || r.name === 'router')
+    .map(r => {
+      if (r.route) {
+        return {
+          path: r.route.path,
+          methods: Object.keys(r.route.methods)
+        };
+      } else if (r.name === 'router') {
+        return {
+          path: r.regexp.toString(),
+          name: r.handle.name || 'anonymous router'
+        };
+      }
+    });
+
+  res.json({
+    totalRoutes: loadedRoutes.length,
+    routes: loadedRoutes,
+    loadedCount,
+    failedCount
+  });
+});
+
+// Load routes with error handling - ULTRA RELIABLE VERSION
 console.log('📊 Loading routes...');
+console.log('📁 __dirname:', __dirname);
 
 const routes = [
-  { path: '/api/auth', file: './server/routes/auth.pg', name: 'auth' },
-  { path: '/api/schedule', file: './server/routes/schedule.pg', name: 'schedule' },
-  { path: '/api/messages', file: './server/routes/messages.pg', name: 'messages' },
-  { path: '/api/tasks', file: './server/routes/tasks.pg', name: 'tasks' },
-  { path: '/api/task-pool', file: './server/routes/taskPool.pg', name: 'task-pool' },
-  { path: '/api/kanban', file: './server/routes/kanban.pg', name: 'kanban' },
-  { path: '/api/kb', file: './server/routes/knowledgeBase.pg', name: 'kb' },
-  { path: '/api/profile', file: './server/routes/userProfile.pg', name: 'profile' },
-  { path: '/api/notifications', file: './server/routes/notifications.pg', name: 'notifications' },
-  { path: '/api/uploads', file: './server/routes/uploads', name: 'uploads' },
-  { path: '/api/kisten', file: './server/routes/kisten.pg', name: 'kisten' },
-  { path: '/api/waste', file: './server/routes/waste.pg', name: 'waste' },
-  { path: '/api/waste-categories', file: './server/routes/wasteCategories.pg', name: 'waste-categories' },
-  { path: '/api/admin', file: './server/routes/admin.pg', name: 'admin' },
-  { path: '/api/events', file: './server/routes/event-breaks.pg', name: 'events' }
+  { path: '/api/auth', file: path.join(__dirname, 'server', 'routes', 'auth.pg'), name: 'auth' },
+  { path: '/api/schedule', file: path.join(__dirname, 'server', 'routes', 'schedule.pg'), name: 'schedule' },
+  { path: '/api/messages', file: path.join(__dirname, 'server', 'routes', 'messages.pg'), name: 'messages' },
+  { path: '/api/tasks', file: path.join(__dirname, 'server', 'routes', 'tasks.pg'), name: 'tasks' },
+  { path: '/api/task-pool', file: path.join(__dirname, 'server', 'routes', 'taskPool.pg'), name: 'task-pool' },
+  { path: '/api/kanban', file: path.join(__dirname, 'server', 'routes', 'kanban.pg'), name: 'kanban' },
+  { path: '/api/kb', file: path.join(__dirname, 'server', 'routes', 'knowledgeBase.pg'), name: 'kb' },
+  { path: '/api/profile', file: path.join(__dirname, 'server', 'routes', 'userProfile.pg'), name: 'profile' },
+  { path: '/api/notifications', file: path.join(__dirname, 'server', 'routes', 'notifications.pg'), name: 'notifications' },
+  { path: '/api/uploads', file: path.join(__dirname, 'server', 'routes', 'uploads'), name: 'uploads' },
+  { path: '/api/kisten', file: path.join(__dirname, 'server', 'routes', 'kisten.pg'), name: 'kisten' },
+  { path: '/api/waste', file: path.join(__dirname, 'server', 'routes', 'waste.pg'), name: 'waste' },
+  { path: '/api/waste-categories', file: path.join(__dirname, 'server', 'routes', 'wasteCategories.pg'), name: 'waste-categories' },
+  { path: '/api/admin', file: path.join(__dirname, 'server', 'routes', 'admin.pg'), name: 'admin' },
+  { path: '/api/events', file: path.join(__dirname, 'server', 'routes', 'event-breaks.pg'), name: 'events' }
 ];
+
+const fs = require('fs');
+let loadedCount = 0;
+let failedCount = 0;
 
 routes.forEach(route => {
   try {
-    app.use(route.path, require(route.file));
-    console.log(`  ✓ ${route.name}`);
+    // Check if file exists
+    if (!fs.existsSync(route.file + '.js')) {
+      console.error(`  ✗ ${route.name}: File not found at ${route.file}.js`);
+      failedCount++;
+      return;
+    }
+
+    const routeModule = require(route.file);
+    app.use(route.path, routeModule);
+    console.log(`  ✅ ${route.name} loaded (${route.path})`);
+    loadedCount++;
   } catch(e) {
-    console.error(`  ✗ ${route.name}:`, e.message);
+    console.error(`  ❌ ${route.name} FAILED:`, e.message);
+    console.error(`     File: ${route.file}`);
+    console.error(`     Stack:`, e.stack);
+    failedCount++;
   }
 });
 
-console.log('✅ All routes loaded');
+console.log(`\n✅ Routes loaded: ${loadedCount}/${routes.length}`);
+if (failedCount > 0) {
+  console.error(`❌ Routes failed: ${failedCount}/${routes.length}`);
+}
 
 // Health check route (additional API version)
 try {
-  app.use('/api/health', require('./server/routes/health'));
-  console.log('  ✓ health route');
+  const healthPath = path.join(__dirname, 'server', 'routes', 'health');
+  if (fs.existsSync(healthPath + '.js')) {
+    app.use('/api/health', require(healthPath));
+    console.log('  ✅ health route loaded');
+  } else {
+    console.log('  ⚠️  health route: file not found, skipping');
+  }
 } catch(e) {
-  console.error('  ✗ health route:', e.message);
+  console.error('  ❌ health route FAILED:', e.message);
 }
 
 // Serve uploaded files
