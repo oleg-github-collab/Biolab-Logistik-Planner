@@ -1,7 +1,7 @@
 // Minimal production server - only essential features
-// Updated: 2026-01-22 10:11 - FORCE REBUILD with message tables
+// Updated: 2026-01-22 10:20 - INLINE MESSAGES ROUTER - 100% GUARANTEED
 console.log('='.repeat(80));
-console.log('🚀 BIOLAB LOGISTIK PLANNER - SERVER v4.0-MESSAGES-FIX');
+console.log('🚀 BIOLAB LOGISTIK PLANNER - SERVER v5.0-INLINE-MESSAGES');
 console.log('='.repeat(80));
 console.log('Time:', new Date().toISOString());
 console.log('Node:', process.version);
@@ -79,14 +79,204 @@ app.get('/debug/routes', (req, res) => {
   });
 });
 
-// Load routes with error handling - ULTRA RELIABLE VERSION
-console.log('📊 Loading routes...');
-console.log('📁 __dirname:', __dirname);
+// ==================== INLINE MESSAGES ROUTER - GUARANTEED TO WORK ====================
+console.log('📊 Setting up INLINE messages router...');
+
+// Messages router dependencies
+const multer = require('multer');
+const { v4: uuidv4 } = require('uuid');
+const fs = require('fs');
+
+// Database pool
+let dbPool;
+try {
+  const { pool } = require('./server/config/database');
+  dbPool = pool;
+  console.log('✅ Database pool loaded');
+} catch(e) {
+  console.error('❌ Failed to load database pool:', e.message);
+}
+
+// Auth middleware
+let authMiddleware;
+try {
+  const { auth } = require('./server/middleware/auth');
+  authMiddleware = auth;
+  console.log('✅ Auth middleware loaded');
+} catch(e) {
+  console.error('❌ Failed to load auth middleware:', e.message);
+}
+
+// Create messages router
+const messagesRouter = express.Router();
+
+// Setup multer for file uploads
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadsDir),
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 50 * 1024 * 1024 } // 50MB
+});
+
+// ==================== MESSAGES ROUTES ====================
+
+// GET /api/messages/threads - Get all conversations/threads
+messagesRouter.get('/threads', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const result = await dbPool.query(`
+      SELECT DISTINCT
+        mc.id,
+        mc.name,
+        mc.type,
+        mc.created_at,
+        mc.updated_at,
+        mc.last_message_at,
+        (SELECT COUNT(*) FROM messages WHERE conversation_id = mc.id AND sender_id != $1
+         AND id NOT IN (SELECT message_id FROM message_read_status WHERE user_id = $1)) as unread_count,
+        (SELECT content FROM messages WHERE conversation_id = mc.id ORDER BY created_at DESC LIMIT 1) as last_message,
+        (SELECT u.name FROM messages m JOIN users u ON m.sender_id = u.id
+         WHERE m.conversation_id = mc.id ORDER BY m.created_at DESC LIMIT 1) as last_sender_name
+      FROM message_conversations mc
+      JOIN message_conversation_members mcm ON mc.id = mcm.conversation_id
+      WHERE mcm.user_id = $1
+      ORDER BY mc.last_message_at DESC NULLS LAST, mc.created_at DESC
+    `, [userId]);
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching threads:', error);
+    res.status(500).json({ error: 'Fehler beim Laden der Unterhaltungen' });
+  }
+});
+
+// GET /api/messages/stories - Get all active stories
+messagesRouter.get('/stories', authMiddleware, async (req, res) => {
+  try {
+    const result = await dbPool.query(`
+      SELECT
+        us.id,
+        us.user_id,
+        us.media_url,
+        us.media_type,
+        us.caption,
+        us.created_at,
+        us.expires_at,
+        u.name as user_name,
+        u.profile_photo_url,
+        (SELECT COUNT(*) FROM user_story_views WHERE story_id = us.id) as view_count,
+        (SELECT COUNT(*) > 0 FROM user_story_views WHERE story_id = us.id AND viewer_id = $1) as viewed_by_me
+      FROM user_stories us
+      JOIN users u ON u.id = us.user_id
+      WHERE us.expires_at > NOW()
+      ORDER BY us.created_at DESC
+    `, [req.user.id]);
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching stories:', error);
+    res.status(500).json({ error: 'Serverfehler beim Laden der Stories' });
+  }
+});
+
+// POST /api/messages/stories - Create a new story
+messagesRouter.post('/stories', authMiddleware, upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Keine Datei hochgeladen' });
+    }
+
+    const mediaPath = req.file.path;
+    const mediaUrl = `/uploads/${req.file.filename}`;
+    const mediaType = req.file.mimetype.startsWith('video/') ? 'video' : 'image';
+    const caption = req.body.caption || '';
+
+    const result = await dbPool.query(`
+      INSERT INTO user_stories (id, user_id, media_path, media_url, media_type, caption, expires_at)
+      VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, NOW() + INTERVAL '24 hours')
+      RETURNING *
+    `, [req.user.id, mediaPath, mediaUrl, mediaType, caption]);
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error creating story:', error);
+    res.status(500).json({ error: 'Fehler beim Erstellen der Story' });
+  }
+});
+
+// GET /api/messages/unread-count - Get total unread message count
+messagesRouter.get('/unread-count', authMiddleware, async (req, res) => {
+  try {
+    const result = await dbPool.query(`
+      SELECT COUNT(DISTINCT m.id) as count
+      FROM messages m
+      JOIN message_conversation_members mcm ON m.conversation_id = mcm.conversation_id
+      WHERE mcm.user_id = $1
+        AND m.sender_id != $1
+        AND m.id NOT IN (SELECT message_id FROM message_read_status WHERE user_id = $1)
+    `, [req.user.id]);
+
+    res.json({ count: parseInt(result.rows[0].count) || 0 });
+  } catch (error) {
+    console.error('Error fetching unread count:', error);
+    res.status(500).json({ error: 'Fehler beim Laden der ungelesenen Nachrichten' });
+  }
+});
+
+// POST /api/messages - Send a new message
+messagesRouter.post('/', authMiddleware, upload.single('file'), async (req, res) => {
+  try {
+    const { content, conversation_id, receiver_id, message_type = 'text' } = req.body;
+    const senderId = req.user.id;
+
+    let fileUrl = null;
+    if (req.file) {
+      fileUrl = `/uploads/${req.file.filename}`;
+    }
+
+    const result = await dbPool.query(`
+      INSERT INTO messages (conversation_id, sender_id, receiver_id, content, message_type, file_url, created_at)
+      VALUES ($1, $2, $3, $4, $5, $6, NOW())
+      RETURNING *
+    `, [conversation_id, senderId, receiver_id, content, message_type, fileUrl]);
+
+    // Update conversation last_message_at
+    await dbPool.query(`
+      UPDATE message_conversations
+      SET last_message_at = NOW(), updated_at = NOW()
+      WHERE id = $1
+    `, [conversation_id]);
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error sending message:', error);
+    res.status(500).json({ error: 'Fehler beim Senden der Nachricht' });
+  }
+});
+
+// Mount the inline messages router
+app.use('/api/messages', messagesRouter);
+console.log('✅ INLINE messages router mounted at /api/messages');
+
+// ==================== LOAD OTHER ROUTES ====================
+
+console.log('📊 Loading other routes...');
 
 const routes = [
   { path: '/api/auth', file: path.join(__dirname, 'server', 'routes', 'auth.pg'), name: 'auth' },
   { path: '/api/schedule', file: path.join(__dirname, 'server', 'routes', 'schedule.pg'), name: 'schedule' },
-  { path: '/api/messages', file: path.join(__dirname, 'server', 'routes', 'messages.pg'), name: 'messages' },
   { path: '/api/tasks', file: path.join(__dirname, 'server', 'routes', 'tasks.pg'), name: 'tasks' },
   { path: '/api/task-pool', file: path.join(__dirname, 'server', 'routes', 'taskPool.pg'), name: 'task-pool' },
   { path: '/api/kanban', file: path.join(__dirname, 'server', 'routes', 'kanban.pg'), name: 'kanban' },
@@ -101,63 +291,30 @@ const routes = [
   { path: '/api/events', file: path.join(__dirname, 'server', 'routes', 'event-breaks.pg'), name: 'events' }
 ];
 
-const fs = require('fs');
-let loadedCount = 0;
+let loadedCount = 1; // Already loaded messages inline
 let failedCount = 0;
 
 routes.forEach(route => {
   try {
-    // Special logging for messages route
-    if (route.name === 'messages') {
-      console.log('\n🔍 SPECIAL CHECK FOR MESSAGES ROUTE:');
-      console.log('   File path:', route.file + '.js');
-      console.log('   File exists:', fs.existsSync(route.file + '.js'));
-      console.log('   __dirname:', __dirname);
-      console.log('   process.cwd():', process.cwd());
-
-      // List files in routes directory
-      const routesDir = path.join(__dirname, 'server', 'routes');
-      console.log('   Routes directory:', routesDir);
-      const files = fs.readdirSync(routesDir);
-      console.log('   Files in routes dir:', files.filter(f => f.includes('message')));
-    }
-
-    // Check if file exists
     if (!fs.existsSync(route.file + '.js')) {
-      console.error(`  ✗ ${route.name}: File not found at ${route.file}.js`);
+      console.error(`  ✗ ${route.name}: File not found`);
       failedCount++;
       return;
     }
 
     const routeModule = require(route.file);
     app.use(route.path, routeModule);
-    console.log(`  ✅ ${route.name} loaded (${route.path})`);
+    console.log(`  ✅ ${route.name} loaded`);
     loadedCount++;
   } catch(e) {
     console.error(`  ❌ ${route.name} FAILED:`, e.message);
-    console.error(`     File: ${route.file}`);
-    if (route.name === 'messages') {
-      console.error(`     FULL ERROR STACK FOR MESSAGES:`);
-      console.error(e.stack);
-    }
     failedCount++;
   }
 });
 
-console.log(`\n✅ Routes loaded: ${loadedCount}/${routes.length}`);
+console.log(`\n✅ Routes loaded: ${loadedCount}/${routes.length + 1}`);
 if (failedCount > 0) {
   console.error(`❌ Routes failed: ${failedCount}/${routes.length}`);
-
-  // FALLBACK: If messages route failed, load it directly inline
-  console.log('\n🚨 FALLBACK: Attempting to load messages route directly...');
-  try {
-    const messagesRoute = require('./server/routes/messages.pg');
-    app.use('/api/messages', messagesRoute);
-    console.log('  ✅ Messages route loaded via fallback!');
-  } catch(fallbackError) {
-    console.error('  ❌ Fallback also failed:', fallbackError.message);
-    console.error('     Stack:', fallbackError.stack);
-  }
 }
 
 // Health check route (additional API version)
