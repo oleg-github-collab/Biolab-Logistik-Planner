@@ -3,10 +3,9 @@ const { pool } = require('../config/database');
 const { auth } = require('../middleware/auth');
 const { uploadSingleCloudinary, isCloudinaryConfigured } = require('../services/cloudinaryUpload');
 const { deleteOldAvatar } = require('../config/cloudinary');
-const { getIO } = require('../websocket');
+const { getIO, getOnlineUsers } = require('../websocket');
 const logger = require('../utils/logger');
 const storyService = require('../services/storyService');
-const { getOnlineUsers } = require('../services/redisService');
 
 const router = express.Router();
 
@@ -284,15 +283,17 @@ router.get('/contacts/all', auth, async (req, res) => {
 
     const result = await pool.query(query, params);
 
-    // Get online users from Redis
+    // Get online users from WebSocket activeUsers
     let onlineSet = new Set();
     try {
-      const onlineUsers = await getOnlineUsers();
+      const onlineUsers = getOnlineUsers(); // Synchronous, returns array of userId strings
       if (Array.isArray(onlineUsers) && onlineUsers.length > 0) {
-        onlineSet = new Set(onlineUsers.map(user => parseInt(user.userId, 10)));
+        // Convert string userIds to integers
+        onlineSet = new Set(onlineUsers.map(userId => parseInt(userId, 10)));
+        logger.debug(`Online users count: ${onlineSet.size}`, { onlineUsers });
       }
-    } catch (redisError) {
-      logger.warn('Could not load online status from Redis', { error: redisError.message });
+    } catch (error) {
+      logger.warn('Could not load online status from WebSocket', { error: error.message });
     }
 
     // Add online status to contacts

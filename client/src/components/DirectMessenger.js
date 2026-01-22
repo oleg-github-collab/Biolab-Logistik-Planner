@@ -500,13 +500,15 @@ const DirectMessenger = () => {
               ? contactsRes.data.data
               : [];
         const normalizedContacts = contactsArray.map(normalizeContact);
-        const contactsWithBot = ensureBotContactExists(normalizedContacts);
+        // Filter out current user from contacts list
+        const contactsWithoutSelf = normalizedContacts.filter(c => c.id !== user?.id);
+        const contactsWithBot = ensureBotContactExists(contactsWithoutSelf);
         const rawThreads = Array.isArray(threadsRes?.data) ? threadsRes.data : [];
         const normalizedThreads = rawThreads.map(normalizeThread);
         const threadsWithEssentials = await ensureEssentialThreads(normalizedThreads, contactsWithBot);
         const sanitizedThreads = threadsWithEssentials.map(normalizeThread);
         const threadContacts = buildContactsFromThreads(sanitizedThreads).map(normalizeContact);
-        const mergedContacts = mergeContacts(contactsWithBot, threadContacts).map(normalizeContact);
+        const mergedContacts = mergeContacts(contactsWithBot, threadContacts).map(normalizeContact).filter(c => c.id !== user?.id);
 
         console.log('📦 [DirectMessenger] API Responses:', {
           contactsRes,
