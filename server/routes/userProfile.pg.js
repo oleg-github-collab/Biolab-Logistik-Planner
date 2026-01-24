@@ -46,6 +46,100 @@ router.get('/:userId', auth, async (req, res) => {
   }
 });
 
+// @route   POST /api/profile/:userId/complete-setup
+// @desc    Complete first login setup (change password, set employment info)
+router.post('/:userId/complete-setup', auth, async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Only allow users to complete their own setup
+    if (parseInt(userId) !== req.user.id) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    const {
+      password,
+      employment_type,
+      weekly_hours_quota,
+      default_start_time,
+      default_end_time
+    } = req.body;
+
+    const bcrypt = require('bcryptjs');
+
+    // Validate password
+    if (!password || password.length < 6) {
+      return res.status(400).json({ error: 'Пароль повинен містити мінімум 6 символів' });
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    // Update user with new password and settings
+    const updateFields = ['password = $1', 'first_login_completed = TRUE', 'updated_at = CURRENT_TIMESTAMP'];
+    const updateValues = [hashedPassword];
+    let paramIndex = 2;
+
+    if (employment_type) {
+      const allowedTypes = ['Vollzeit', 'Werkstudent'];
+      if (!allowedTypes.includes(employment_type)) {
+        return res.status(400).json({ error: 'Невірний тип зайнятості' });
+      }
+      updateFields.push(`employment_type = $${paramIndex}`);
+      updateValues.push(employment_type);
+      paramIndex++;
+
+      // Auto-set auto_schedule
+      updateFields.push(`auto_schedule = $${paramIndex}`);
+      updateValues.push(employment_type === 'Vollzeit');
+      paramIndex++;
+    }
+
+    if (weekly_hours_quota) {
+      const hours = parseFloat(weekly_hours_quota);
+      if (isNaN(hours) || hours <= 0 || hours > 168) {
+        return res.status(400).json({ error: 'Години повинні бути від 0 до 168' });
+      }
+      updateFields.push(`weekly_hours_quota = $${paramIndex}`);
+      updateValues.push(hours);
+      paramIndex++;
+    }
+
+    if (default_start_time) {
+      updateFields.push(`default_start_time = $${paramIndex}`);
+      updateValues.push(default_start_time);
+      paramIndex++;
+    }
+
+    if (default_end_time) {
+      updateFields.push(`default_end_time = $${paramIndex}`);
+      updateValues.push(default_end_time);
+      paramIndex++;
+    }
+
+    updateValues.push(userId);
+
+    const result = await pool.query(
+      `UPDATE users SET ${updateFields.join(', ')}
+       WHERE id = $${paramIndex}
+       RETURNING id, name, email, role, employment_type, weekly_hours_quota,
+                 default_start_time, default_end_time, first_login_completed`,
+      updateValues
+    );
+
+    logger.info('User completed first login setup', { userId });
+
+    res.json({
+      message: 'Налаштування профілю завершено',
+      user: result.rows[0]
+    });
+
+  } catch (error) {
+    logger.error('Error completing first login setup', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // @route   PUT /api/profile/:userId
 // @desc    Update user profile
 router.put('/:userId', auth, async (req, res) => {

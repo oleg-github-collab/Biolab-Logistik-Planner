@@ -563,8 +563,8 @@ router.post('/users', [auth, adminAuth], async (req, res) => {
 
   try {
     // Validate required fields
-    if (!name || !email || !password) {
-      return res.status(400).json({ error: 'Name, E-Mail und Passwort sind erforderlich' });
+    if (!name || !email) {
+      return res.status(400).json({ error: 'Name та E-Mail є обов\'язковими' });
     }
 
     // Sanitize and validate name
@@ -586,11 +586,12 @@ router.post('/users', [auth, adminAuth], async (req, res) => {
       return res.status(400).json({ error: 'E-Mail darf maximal 255 Zeichen lang sein' });
     }
 
-    // Validate password
-    if (password.length < 6) {
+    // Generate temporary password if not provided
+    const temporaryPassword = password || generateTemporaryPassword();
+    if (temporaryPassword.length < 6) {
       return res.status(400).json({ error: 'Passwort muss mindestens 6 Zeichen lang sein' });
     }
-    if (password.length > 255) {
+    if (temporaryPassword.length > 255) {
       return res.status(400).json({ error: 'Passwort darf maximal 255 Zeichen lang sein' });
     }
 
@@ -651,16 +652,16 @@ router.post('/users', [auth, adminAuth], async (req, res) => {
     }
 
     // Hash password
-    const hashedPassword = await bcrypt.hash(password, 12);
+    const hashedPassword = await bcrypt.hash(temporaryPassword, 12);
 
     // Set auto_schedule based on employment_type
     const auto_schedule = employment_type === 'Vollzeit';
 
-    // Create user
+    // Create user with first_login_completed = false to force password change
     const insertResult = await pool.query(
-      `INSERT INTO users (name, email, password, role, employment_type, auto_schedule, default_start_time, default_end_time, weekly_hours_quota, is_active, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, TRUE, NOW(), NOW())
-       RETURNING id, name, email, role, employment_type, auto_schedule, default_start_time, default_end_time, weekly_hours_quota, is_active, created_at, updated_at`,
+      `INSERT INTO users (name, email, password, role, employment_type, auto_schedule, default_start_time, default_end_time, weekly_hours_quota, first_login_completed, is_active, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, FALSE, TRUE, NOW(), NOW())
+       RETURNING id, name, email, role, employment_type, auto_schedule, default_start_time, default_end_time, weekly_hours_quota, first_login_completed, is_active, created_at, updated_at`,
       [sanitizedName, sanitizedEmail, hashedPassword, role, employment_type, auto_schedule, normalizedStartTime, normalizedEndTime, validWeeklyHours]
     );
 
@@ -682,7 +683,8 @@ router.post('/users', [auth, adminAuth], async (req, res) => {
 
     res.status(201).json({
       message: 'Benutzer erfolgreich erstellt',
-      user: newUser
+      user: newUser,
+      temporaryPassword: password ? undefined : temporaryPassword // Only return temp password if it was auto-generated
     });
   } catch (err) {
     console.error('Fehler beim Erstellen des Benutzers:', err.message);
