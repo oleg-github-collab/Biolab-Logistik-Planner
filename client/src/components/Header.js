@@ -297,12 +297,22 @@ const Header = () => {
               </Link>
               <button
                 onClick={handleLogout}
-                className="px-3 py-2 bg-red-50 text-red-600 rounded-xl text-sm font-semibold hover:bg-red-100 hover:shadow-md transition-all"
+                className="px-3 py-2 bg-red-50 text-red-600 rounded-xl text-sm font-semibold hover:bg-red-100 hover:shadow-md transition-all flex items-center gap-1"
                 title={t('navigation.logout')}
               >
-                🚪
+                <span>🚪</span>
+                <span className="hidden lg:inline">Abmelden</span>
               </button>
             </div>
+
+            {/* Logout Button - Mobile/Tablet (visible when menu closed) */}
+            <button
+              onClick={handleLogout}
+              className="md:hidden p-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-all mobile-touch-feedback"
+              title="Abmelden"
+            >
+              🚪
+            </button>
 
             {/* Mobile Menu Button */}
             <button
