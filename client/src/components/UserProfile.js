@@ -60,7 +60,9 @@ const UserProfile = ({ userId, onClose }) => {
         address: response.data.address || '',
         timezone: response.data.timezone || 'Europe/Berlin',
         language: response.data.language || 'de',
-        theme: response.data.theme || 'light'
+        theme: response.data.theme || 'light',
+        employment_type: response.data.employment_type || 'Werkstudent',
+        weekly_hours_quota: response.data.weekly_hours_quota || 20
       });
       setPreferences({
         email_notifications: response.data.email_notifications ?? true,
@@ -202,6 +204,26 @@ const UserProfile = ({ userId, onClose }) => {
 
   const handleSaveProfile = async () => {
     try {
+      // Validate work hours before saving
+      if (formData.weekly_hours_quota) {
+        const hours = parseFloat(formData.weekly_hours_quota);
+        if (isNaN(hours) || hours <= 0) {
+          toast.error('Wöchentliche Stunden müssen größer als 0 sein');
+          return;
+        }
+        if (hours > 168) {
+          toast.error('Wöchentliche Stunden können nicht mehr als 168 sein (24h × 7 Tage)');
+          return;
+        }
+        // Warn if Werkstudent sets more than 40 hours
+        if (formData.employment_type === 'Werkstudent' && hours > 40) {
+          const confirmed = window.confirm(
+            'Als Werkstudent sollten Sie normalerweise nicht mehr als 20 Stunden während des Semesters arbeiten (40 in den Ferien). Möchten Sie wirklich ' + hours + ' Stunden einstellen?'
+          );
+          if (!confirmed) return;
+        }
+      }
+
       setSaving(true);
       await updateUserProfile(userId, formData);
       setProfile({ ...profile, ...formData });
@@ -209,7 +231,7 @@ const UserProfile = ({ userId, onClose }) => {
       toast.success('Profil aktualisiert!');
     } catch (error) {
       console.error('Error saving profile:', error);
-      toast.error('Fehler beim Speichern des Profils');
+      toast.error(error.response?.data?.error || 'Fehler beim Speichern des Profils');
     } finally {
       setSaving(false);
     }
@@ -400,9 +422,11 @@ const UserProfile = ({ userId, onClose }) => {
           <div className="flex overflow-x-auto">
             {[
               { id: 'profile', label: 'Profil', icon: <Eye className="w-4 h-4" /> },
-              { id: 'preferences', label: 'Einstellungen', icon: <Bell className="w-4 h-4" /> },
-              { id: 'contact', label: 'Kontakte', icon: <Globe className="w-4 h-4" /> },
-              { id: 'security', label: 'Sicherheit', icon: <Shield className="w-4 h-4" /> }
+              ...(isOwnProfile ? [
+                { id: 'preferences', label: 'Einstellungen', icon: <Bell className="w-4 h-4" /> },
+                { id: 'contact', label: 'Kontakte', icon: <Globe className="w-4 h-4" /> },
+                { id: 'security', label: 'Sicherheit', icon: <Shield className="w-4 h-4" /> }
+              ] : [])
             ].map(tab => (
               <button
                 key={tab.id}
@@ -426,20 +450,22 @@ const UserProfile = ({ userId, onClose }) => {
             <div className="space-y-6">
               <div className="flex justify-between items-center">
                 <h3 className="text-xl font-semibold">Profilinformationen</h3>
-                <button
-                  onClick={() => editing ? handleSaveProfile() : setEditing(true)}
-                  disabled={saving}
-                  className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 transition"
-                >
-                  {editing ? (
-                    <>
-                      <Save className="w-4 h-4" />
-                      <span>Speichern</span>
-                    </>
-                  ) : (
-                    <span>Bearbeiten</span>
-                  )}
-                </button>
+                {isOwnProfile && (
+                  <button
+                    onClick={() => editing ? handleSaveProfile() : setEditing(true)}
+                    disabled={saving}
+                    className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 transition"
+                  >
+                    {editing ? (
+                      <>
+                        <Save className="w-4 h-4" />
+                        <span>Speichern</span>
+                      </>
+                    ) : (
+                      <span>Bearbeiten</span>
+                    )}
+                  </button>
+                )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -599,11 +625,80 @@ const UserProfile = ({ userId, onClose }) => {
                     <option value="auto">Automatisch</option>
                   </select>
                 </div>
+
+                {/* Work Hours Section - Only editable by owner */}
+                {isOwnProfile && (
+                  <>
+                    <div className="sm:col-span-2 border-t border-gray-200 pt-4 mt-4">
+                      <h4 className="text-lg font-semibold text-gray-900 mb-4">Arbeitszeiten</h4>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Beschäftigungsart</label>
+                      <select
+                        value={formData.employment_type}
+                        onChange={(e) => setFormData({ ...formData, employment_type: e.target.value })}
+                        disabled={!editing}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                      >
+                        <option value="Werkstudent">Werkstudent</option>
+                        <option value="Vollzeit">Vollzeit</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Wöchentliche Stunden
+                        {formData.employment_type === 'Werkstudent' && (
+                          <span className="text-xs text-gray-500 ml-2">(max. 20 während Semester, 40 in Ferien)</span>
+                        )}
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max={formData.employment_type === 'Vollzeit' ? '40' : '40'}
+                        step="0.5"
+                        value={formData.weekly_hours_quota}
+                        onChange={(e) => setFormData({ ...formData, weekly_hours_quota: parseFloat(e.target.value) || 0 })}
+                        disabled={!editing}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        {formData.employment_type === 'Werkstudent'
+                          ? 'Als Werkstudent können Sie Ihre Stunden zwischen 1 und 20 während des Semesters anpassen, bis zu 40 in den Ferien.'
+                          : 'Vollzeitbeschäftigte arbeiten standardmäßig 40 Stunden pro Woche.'}
+                      </p>
+                    </div>
+                  </>
+                )}
+
+                {/* Display-only for viewing other profiles */}
+                {!isOwnProfile && profile && (
+                  <>
+                    <div className="sm:col-span-2 border-t border-gray-200 pt-4 mt-4">
+                      <h4 className="text-lg font-semibold text-gray-900 mb-4">Arbeitszeiten</h4>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Beschäftigungsart</label>
+                      <div className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700">
+                        {profile.employment_type}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Wöchentliche Stunden</label>
+                      <div className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700">
+                        {profile.weekly_hours_quota} Stunden/Woche
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           )}
 
-          {activeTab === 'preferences' && (
+          {activeTab === 'preferences' && isOwnProfile && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
                 <h3 className="text-xl font-semibold">Benachrichtigungseinstellungen</h3>
@@ -746,7 +841,7 @@ const UserProfile = ({ userId, onClose }) => {
             </div>
           )}
 
-          {activeTab === 'security' && (
+          {activeTab === 'security' && isOwnProfile && (
             <div className="space-y-6">
               <div>
                 <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">

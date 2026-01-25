@@ -159,8 +159,33 @@ router.put('/:userId', auth, async (req, res) => {
     const {
       name, status, status_message, bio, position_description,
       phone, phone_mobile, emergency_contact, emergency_phone,
-      address, date_of_birth, timezone, language, theme
+      address, date_of_birth, timezone, language, theme,
+      employment_type, weekly_hours_quota
     } = req.body;
+
+    // Validate work hours if provided
+    if (weekly_hours_quota !== undefined) {
+      const hours = parseFloat(weekly_hours_quota);
+      if (isNaN(hours) || hours <= 0 || hours > 168) {
+        return res.status(400).json({ error: 'Wöchentliche Stunden müssen zwischen 0 und 168 liegen' });
+      }
+
+      // Additional validation for Werkstudent during semester (soft limit)
+      if (employment_type === 'Werkstudent' && hours > 40) {
+        logger.warn('Werkstudent setting hours above 40', {
+          userId,
+          weekly_hours_quota: hours
+        });
+      }
+    }
+
+    // Validate employment type if provided
+    if (employment_type !== undefined) {
+      const allowedTypes = ['Vollzeit', 'Werkstudent'];
+      if (!allowedTypes.includes(employment_type)) {
+        return res.status(400).json({ error: 'Ungültiger Beschäftigungstyp' });
+      }
+    }
 
     const result = await pool.query(
       `UPDATE users SET
@@ -178,13 +203,20 @@ router.put('/:userId', auth, async (req, res) => {
         timezone = COALESCE($12, timezone),
         language = COALESCE($13, language),
         theme = COALESCE($14, theme),
+        employment_type = COALESCE($15, employment_type),
+        weekly_hours_quota = COALESCE($16, weekly_hours_quota),
+        auto_schedule = COALESCE(
+          CASE WHEN $15 IS NOT NULL THEN ($15 = 'Vollzeit') ELSE auto_schedule END,
+          auto_schedule
+        ),
         updated_at = CURRENT_TIMESTAMP
-      WHERE id = $15
+      WHERE id = $17
       RETURNING *`,
       [
         name, status, status_message, bio, position_description,
         phone, phone_mobile, emergency_contact, emergency_phone,
-        address, date_of_birth, timezone, language, theme, userId
+        address, date_of_birth, timezone, language, theme,
+        employment_type, weekly_hours_quota, userId
       ]
     );
 
