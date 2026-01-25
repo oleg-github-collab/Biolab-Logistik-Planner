@@ -3530,7 +3530,7 @@ const DirectMessenger = () => {
   };
 
   const renderDesktopLayout = () => (
-    <div className="flex h-full bg-gradient-to-br from-slate-50 to-slate-100 rounded-2xl overflow-hidden border border-slate-200 shadow-lg">
+    <div className="flex h-full bg-gradient-to-br from-slate-50 to-slate-100 rounded-2xl overflow-hidden border border-slate-200 shadow-lg" style={{ height: '100%', maxHeight: '100%', overflow: 'hidden' }}>
       {showSidebar && (
         <ContactList
           variant="panel"
@@ -3541,7 +3541,7 @@ const DirectMessenger = () => {
         />
       )}
 
-      <div className="flex-1 flex flex-col bg-white min-h-0 messenger-container">
+      <div className="flex-1 flex flex-col bg-white min-h-0 messenger-container" style={{ height: '100%', maxHeight: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {selectedContact || selectedThreadId ? (
           <>
             <div className="messenger-desktop-header">
@@ -3652,7 +3652,7 @@ const DirectMessenger = () => {
               </div>
             )}
 
-            <div className="messenger-messages-container" ref={messagesContainerRef}>
+            <div className="messenger-messages-container" ref={messagesContainerRef} style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', minHeight: 0, maxHeight: 'none' }}>
               {renderMessages()}
 
               {/* Typing Indicators */}
@@ -3676,7 +3676,7 @@ const DirectMessenger = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSendMessage} className="messenger-input-container">
+            <form onSubmit={handleSendMessage} className="messenger-input-container" style={{ flexShrink: 0, position: 'relative', borderTop: '1px solid #e2e8f0', background: 'white', zIndex: 10 }}>
                 {replyToMessage && (
                   <div className="absolute bottom-full left-0 right-0 mb-2 mx-4 flex items-start gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-blue-50 to-slate-50 text-slate-700 shadow-sm border-l-4 border-blue-500">
                     <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-500 text-white flex-shrink-0">
