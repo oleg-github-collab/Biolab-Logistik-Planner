@@ -11,7 +11,16 @@ const Messages = () => {
   }, []);
 
   return (
-    <div className="messenger-page-container">
+    <div
+      className="messenger-page-container"
+      style={{
+        height: 'calc(100vh - 64px)',
+        maxHeight: 'calc(100vh - 64px)',
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column'
+      }}
+    >
       <DirectMessenger />
     </div>
   );
