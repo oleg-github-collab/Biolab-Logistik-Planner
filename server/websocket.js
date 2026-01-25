@@ -132,7 +132,7 @@ const initializeSocket = (server) => {
     }
   });
 
-  io.on('connection', (socket) => {
+  io.on('connection', async (socket) => {
     const userId = socket.userId;
     const userInfo = socket.userInfo;
 
@@ -143,11 +143,22 @@ const initializeSocket = (server) => {
     });
 
     // Add user to active users
+    const now = new Date();
     activeUsers.set(userId, {
       socketId: socket.id,
       userInfo,
-      lastSeen: new Date()
+      lastSeen: now
     });
+
+    // Update last_seen_at in database immediately on connect
+    try {
+      await database.query(
+        'UPDATE users SET last_seen_at = CURRENT_TIMESTAMP WHERE id = $1',
+        [userId]
+      );
+    } catch (error) {
+      logger.error('Failed to update last_seen_at on connection', { userId, error: error.message });
+    }
 
     // Track user presence globally
     setUserOnline(userId, { name: userInfo.name }).catch((error) => {
@@ -631,22 +642,45 @@ const initializeSocket = (server) => {
       logger.info('User left group', { userId, groupId });
     });
 
-    // Handle heartbeat
-    socket.on('heartbeat', () => {
+    // Handle heartbeat - update both memory and database
+    socket.on('heartbeat', async () => {
       const userData = activeUsers.get(userId);
+      const now = new Date();
       if (userData) {
-        userData.lastSeen = new Date();
+        userData.lastSeen = now;
         activeUsers.set(userId, userData);
+      }
+
+      // Update database every heartbeat for accurate last_seen_at
+      try {
+        await database.query(
+          'UPDATE users SET last_seen_at = CURRENT_TIMESTAMP WHERE id = $1',
+          [userId]
+        );
+      } catch (error) {
+        logger.warn('Failed to update last_seen_at on heartbeat', { userId, error: error.message });
       }
     });
 
     // Handle disconnect
-    socket.on('disconnect', (reason) => {
+    socket.on('disconnect', async (reason) => {
+      const disconnectTime = new Date();
+
       logger.info('User disconnected from WebSocket', {
         userId,
         username: userInfo.name,
         reason
       });
+
+      // Update last_seen_at in database immediately on disconnect
+      try {
+        await database.query(
+          'UPDATE users SET last_seen_at = $1 WHERE id = $2',
+          [disconnectTime, userId]
+        );
+      } catch (error) {
+        logger.error('Failed to update last_seen_at on disconnect', { userId, error: error.message });
+      }
 
       // Remove user from active users
       activeUsers.delete(userId);
@@ -654,10 +688,10 @@ const initializeSocket = (server) => {
       // Leave user-specific room
       socket.leave(`user_${userId}`);
 
-      // Notify other users about offline status
+      // Notify other users about offline status with exact timestamp
       socket.broadcast.emit('user_offline', {
         userId,
-        lastSeen: new Date()
+        lastSeen: disconnectTime
       });
 
       setUserOffline(userId).catch((error) => {

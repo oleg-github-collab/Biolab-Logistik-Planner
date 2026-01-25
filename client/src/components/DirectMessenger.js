@@ -133,7 +133,7 @@ const DirectMessenger = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
-  const { isConnected, onConversationEvent, joinConversationRoom } = useWebSocketContext();
+  const { isConnected, onConversationEvent, joinConversationRoom, onlineUsers: wsOnlineUsers } = useWebSocketContext();
   const { isMobile } = useMobile();
 
   const [contacts, setContacts] = useState([]);
@@ -585,6 +585,27 @@ const DirectMessenger = () => {
       setContacts(merged);
     }
   }, [buildContactsFromThreads, contacts, mergeContacts, normalizeContact, threads, user?.id]);
+
+  // Sync online status from WebSocket to contacts
+  useEffect(() => {
+    if (!wsOnlineUsers || wsOnlineUsers.length === 0) return;
+
+    const onlineUserIds = new Set(wsOnlineUsers.map(u => u.userId));
+    const onlineUserMap = new Map(wsOnlineUsers.map(u => [u.userId, u]));
+
+    setContacts(prevContacts =>
+      prevContacts.map(contact => {
+        const isOnline = onlineUserIds.has(contact.id);
+        const wsUser = onlineUserMap.get(contact.id);
+
+        return {
+          ...contact,
+          online: isOnline,
+          last_seen_at: wsUser?.lastSeen || contact.last_seen_at
+        };
+      })
+    );
+  }, [wsOnlineUsers]);
 
   useEffect(() => {
     setSelectedEvent(null);
