@@ -21,6 +21,7 @@ import Kanban from './pages/Kanban';
 import WasteTemplatesAdmin from './pages/WasteTemplatesAdmin';
 import KnowledgeBase from './pages/KnowledgeBase';
 import KistenManagement from './pages/KistenManagement';
+import Datenschutz from './pages/Datenschutz';
 import { WebSocketProvider } from './context/WebSocketContext';
 import { initViewportHeight } from './utils/viewport';
 
@@ -141,6 +142,7 @@ const AppContent = () => {
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/first-setup" element={<FirstSetup />} />
+              <Route path="/datenschutz" element={<Datenschutz />} />
               <Route
                 path="/dashboard"
                 element={

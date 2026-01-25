@@ -667,6 +667,37 @@ router.post('/users', [auth, adminAuth], async (req, res) => {
 
     const newUser = insertResult.rows[0];
 
+    // Add user to general chat automatically
+    try {
+      const generalChatResult = await pool.query(`
+        SELECT id FROM message_conversations
+        WHERE LOWER(name) LIKE '%allgemein%'
+           OR LOWER(name) LIKE '%general%'
+        LIMIT 1
+      `);
+
+      if (generalChatResult.rows.length > 0) {
+        const generalChatId = generalChatResult.rows[0].id;
+        await pool.query(`
+          INSERT INTO message_conversation_members (conversation_id, user_id, role, joined_at)
+          VALUES ($1, $2, 'member', NOW())
+          ON CONFLICT (conversation_id, user_id) DO NOTHING
+        `, [generalChatId, newUser.id]);
+
+        logger.info('User automatically added to general chat', {
+          userId: newUser.id,
+          userName: newUser.name,
+          generalChatId
+        });
+      }
+    } catch (chatError) {
+      // Don't fail user creation if adding to chat fails
+      logger.warn('Failed to add user to general chat', {
+        userId: newUser.id,
+        error: chatError.message
+      });
+    }
+
     // Broadcast new user to all connected clients via WebSocket
     const { getIO } = require('../websocket');
     const io = getIO();
