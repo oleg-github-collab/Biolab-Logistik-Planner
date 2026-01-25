@@ -1,6 +1,7 @@
 const express = require('express');
 const { pool } = require('../config/database');
 const { auth } = require('../middleware/auth');
+const ensureGeneralChatMembership = require('../middleware/ensureGeneralChatMembership');
 const { getIO, sendNotificationToUser } = require('../websocket');
 const logger = require('../utils/logger');
 const blBot = require('../services/blBot');
@@ -263,7 +264,7 @@ router.get('/conversations', auth, async (req, res) => {
 
 // @route   GET /api/messages/threads
 // @desc    Get unified conversations (direct, groups, topics) for current user
-router.get('/threads', auth, async (req, res) => {
+router.get('/threads', auth, ensureGeneralChatMembership, async (req, res) => {
   try {
     const conversations = await listUserConversations(req.user.id);
 
