@@ -1193,4 +1193,80 @@ router.get('/audit-log', [auth, adminAuth], handleAuditLogs);
 router.get('/audit-log/stats', [auth, adminAuth], handleAuditStats);
 router.get('/audit-log/export', [auth, adminAuth], handleAuditExport);
 
+// @route   POST /api/admin/fix-general-chat
+// @desc    Add all active users to general chat (superadmin only)
+router.post('/fix-general-chat', [auth, adminAuth], async (req, res) => {
+  try {
+    // Only superadmin can run this
+    if (req.user.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Nur Superadmin kann diese Operation ausführen' });
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Find general chat
+      const generalChatResult = await client.query(`
+        SELECT id FROM message_conversations
+        WHERE LOWER(name) LIKE '%allgemein%'
+           OR LOWER(name) LIKE '%general%'
+        LIMIT 1
+      `);
+
+      if (generalChatResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Allgemeiner Chat nicht gefunden' });
+      }
+
+      const generalChatId = generalChatResult.rows[0].id;
+
+      // Get all active users not in general chat
+      const usersToAddResult = await client.query(`
+        SELECT u.id, u.name, u.email
+        FROM users u
+        WHERE u.is_active = TRUE
+          AND NOT EXISTS (
+              SELECT 1
+              FROM message_conversation_members mcm
+              WHERE mcm.conversation_id = $1
+                AND mcm.user_id = u.id
+          )
+      `, [generalChatId]);
+
+      const addedUsers = [];
+      for (const user of usersToAddResult.rows) {
+        await client.query(`
+          INSERT INTO message_conversation_members (conversation_id, user_id, role, joined_at)
+          VALUES ($1, $2, 'member', NOW())
+          ON CONFLICT (conversation_id, user_id) DO NOTHING
+        `, [generalChatId, user.id]);
+
+        addedUsers.push({ id: user.id, name: user.name, email: user.email });
+        logger.info('Added user to general chat', { userId: user.id, userName: user.name });
+      }
+
+      await client.query('COMMIT');
+
+      res.json({
+        success: true,
+        generalChatId,
+        addedUsers,
+        count: addedUsers.length,
+        message: `${addedUsers.length} Benutzer zum allgemeinen Chat hinzugefügt`
+      });
+
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+
+  } catch (error) {
+    logger.error('Error fixing general chat', error);
+    res.status(500).json({ error: 'Fehler beim Reparieren des allgemeinen Chats' });
+  }
+});
+
 module.exports = router;

@@ -101,9 +101,6 @@ const CookieConsent = () => {
               <a href="/datenschutz" className="cookie-link">
                 Datenschutzerklärung
               </a>
-              <a href="/impressum" className="cookie-link">
-                Impressum
-              </a>
             </div>
           </div>
 
