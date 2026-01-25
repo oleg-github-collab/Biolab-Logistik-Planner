@@ -213,7 +213,8 @@ const DirectMessenger = () => {
       if (!Array.isArray(thread?.members)) return;
       thread.members.forEach((member) => {
         const userId = normalizeUserId(member?.user_id || member?.id);
-        if (!userId || byId.has(userId)) return;
+        // Exclude current user from contacts
+        if (!userId || byId.has(userId) || userId === user?.id) return;
         byId.set(userId, {
           id: userId,
           name: member?.name || member?.email || `Benutzer ${userId}`,
@@ -225,7 +226,7 @@ const DirectMessenger = () => {
     });
 
     return Array.from(byId.values());
-  }, []);
+  }, [user?.id]);
 
   const mergeContacts = useCallback((primaryList, extraList) => {
     const primary = Array.isArray(primaryList) ? primaryList.filter(Boolean) : [];
@@ -576,14 +577,14 @@ const DirectMessenger = () => {
   // Keep contacts in sync with thread members (fallback when contact API misses users)
   useEffect(() => {
     const extras = buildContactsFromThreads(threads).map(normalizeContact);
-    const merged = mergeContacts(contacts, extras).map(normalizeContact);
+    const merged = mergeContacts(contacts, extras).map(normalizeContact).filter(c => c.id !== user?.id);
     const currentIds = new Set(contacts.map((c) => c.id));
     const mergedIds = new Set(merged.map((c) => c.id));
     const hasDiff = currentIds.size !== mergedIds.size || Array.from(mergedIds).some((id) => !currentIds.has(id));
     if (hasDiff) {
       setContacts(merged);
     }
-  }, [buildContactsFromThreads, contacts, mergeContacts, normalizeContact, threads]);
+  }, [buildContactsFromThreads, contacts, mergeContacts, normalizeContact, threads, user?.id]);
 
   useEffect(() => {
     setSelectedEvent(null);
