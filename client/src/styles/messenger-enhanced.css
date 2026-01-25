@@ -274,12 +274,6 @@
 
 .contact-card__avatar-ring.has-story {
   background: linear-gradient(135deg, #ec4899 0%, #a855f7 50%, #6366f1 100%);
-  animation: pulse-story 2s infinite;
-}
-
-@keyframes pulse-story {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.8; }
 }
 
 .contact-card__avatar-ring.story-unread {
