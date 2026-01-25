@@ -1300,4 +1300,87 @@ router.post('/fix-general-chat', [auth, adminAuth], async (req, res) => {
   }
 });
 
+// POST /api/admin/remove-duplicate-chats - Remove duplicate general chats, keep oldest
+router.post('/remove-duplicate-chats', [auth, adminAuth], async (req, res) => {
+  try {
+    // Only superadmin can run this
+    if (req.user.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Nur Superadmin kann diese Operation ausführen' });
+    }
+
+    logger.info('Starting duplicate chat removal', { userId: req.user.id });
+
+    // Find all general chats ordered by creation date
+    const chatsResult = await pool.query(`
+      SELECT id, name, created_at,
+             (SELECT COUNT(*) FROM message_conversation_members WHERE conversation_id = message_conversations.id) as member_count,
+             (SELECT COUNT(*) FROM messages WHERE conversation_id = message_conversations.id) as message_count
+      FROM message_conversations
+      WHERE LOWER(name) LIKE '%allgemein%' OR LOWER(name) LIKE '%general%'
+      ORDER BY created_at ASC
+    `);
+
+    const chats = chatsResult.rows;
+
+    if (chats.length < 2) {
+      logger.info('No duplicate chats found', { chatCount: chats.length });
+      return res.json({
+        success: true,
+        message: 'Keine doppelten Chats gefunden',
+        chats: chats.map(c => ({ id: c.id, name: c.name, created_at: c.created_at }))
+      });
+    }
+
+    // Keep the oldest chat
+    const keepChat = chats[0];
+    const deletedChats = [];
+
+    // Delete all newer duplicates
+    for (let i = 1; i < chats.length; i++) {
+      const deleteChat = chats[i];
+
+      logger.info('Deleting duplicate chat', {
+        id: deleteChat.id,
+        name: deleteChat.name,
+        created_at: deleteChat.created_at
+      });
+
+      // Delete in correct order (foreign keys)
+      await pool.query('DELETE FROM messages WHERE conversation_id = $1', [deleteChat.id]);
+      await pool.query('DELETE FROM message_conversation_members WHERE conversation_id = $1', [deleteChat.id]);
+      await pool.query('DELETE FROM message_conversations WHERE id = $1', [deleteChat.id]);
+
+      deletedChats.push({
+        id: deleteChat.id,
+        name: deleteChat.name,
+        created_at: deleteChat.created_at,
+        member_count: deleteChat.member_count,
+        message_count: deleteChat.message_count
+      });
+    }
+
+    logger.info('Duplicate chats removed', {
+      kept: keepChat.id,
+      deletedCount: deletedChats.length
+    });
+
+    res.json({
+      success: true,
+      message: `${deletedChats.length} doppelte Chat(s) gelöscht`,
+      keptChat: {
+        id: keepChat.id,
+        name: keepChat.name,
+        created_at: keepChat.created_at,
+        member_count: keepChat.member_count,
+        message_count: keepChat.message_count
+      },
+      deletedChats
+    });
+
+  } catch (error) {
+    logger.error('Error removing duplicate chats', error);
+    res.status(500).json({ error: 'Fehler beim Entfernen doppelter Chats' });
+  }
+});
+
 module.exports = router;
