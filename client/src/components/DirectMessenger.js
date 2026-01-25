@@ -3835,7 +3835,20 @@ const DirectMessenger = () => {
                       height: 'auto',
                       pointerEvents: 'auto',
                       cursor: 'text',
-                      zIndex: 1
+                      zIndex: 1,
+                      color: '#1e293b',
+                      backgroundColor: 'transparent',
+                      fontSize: '15px',
+                      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                      lineHeight: '1.5',
+                      padding: '12px 16px',
+                      border: 'none',
+                      outline: 'none',
+                      resize: 'none',
+                      width: '100%',
+                      opacity: 1,
+                      WebkitTextFillColor: '#1e293b',
+                      caretColor: '#3b82f6'
                     }}
                     onInput={(e) => {
                       e.target.style.height = 'auto';
@@ -4540,7 +4553,24 @@ const DirectMessenger = () => {
                 }
               }}
               className="messenger-text-input"
-              style={{ height: 'auto' }}
+              style={{
+                height: 'auto',
+                color: '#1e293b',
+                backgroundColor: 'transparent',
+                fontSize: '15px',
+                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                lineHeight: '1.5',
+                padding: '12px 16px',
+                border: 'none',
+                outline: 'none',
+                resize: 'none',
+                width: '100%',
+                opacity: 1,
+                WebkitTextFillColor: '#1e293b',
+                caretColor: '#3b82f6',
+                pointerEvents: 'auto',
+                cursor: 'text'
+              }}
               onInput={(e) => {
                 e.target.style.height = 'auto';
                 e.target.style.height = Math.min(e.target.scrollHeight, 88) + 'px';
