@@ -115,13 +115,23 @@ const NotificationDropdown = () => {
     if (!notification.is_read) {
       await handleMarkAsRead(notification.id);
     }
+
+    // Handle message notifications with conversationId
+    if (notification.type === 'message' && notification.metadata?.conversationId) {
+      const conversationId = notification.metadata.conversationId;
+      window.location.href = `/messages?conversation=${conversationId}`;
+      closeDropdown();
+      return;
+    }
+
+    // Handle general action_url
     if (notification.action_url) {
       window.location.href = notification.action_url;
       if (isMobile) {
         closeDropdown();
       }
     }
-  }, [closeDropdown, handleMarkAsRead, isMobile]);
+  }, [closeDropdown, handleMarkAsRead]);
 
   const handleDelete = useCallback(async (notificationId) => {
     try {

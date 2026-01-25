@@ -146,11 +146,14 @@ router.put('/:userId', auth, async (req, res) => {
   try {
     const { userId } = req.params;
 
-    // Only allow users to edit their own profile, unless admin
-    if (parseInt(userId) !== req.user.id &&
-        req.user.role !== 'admin' &&
-        req.user.role !== 'superadmin') {
-      return res.status(403).json({ error: 'Unauthorized' });
+    // CRITICAL SECURITY: Users can ONLY edit their own profile
+    if (parseInt(userId) !== req.user.id) {
+      logger.warn('Unauthorized profile edit attempt', {
+        attemptedUserId: userId,
+        requestingUserId: req.user.id,
+        requestingUserRole: req.user.role
+      });
+      return res.status(403).json({ error: 'Ви можете редагувати лише свій власний профіль' });
     }
 
     const {
@@ -213,10 +216,13 @@ router.post('/:userId/photo', auth, uploadSingleCloudinary('photo', 'avatar'), a
   try {
     const { userId } = req.params;
 
-    if (parseInt(userId) !== req.user.id &&
-        req.user.role !== 'admin' &&
-        req.user.role !== 'superadmin') {
-      return res.status(403).json({ error: 'Unauthorized' });
+    // CRITICAL SECURITY: Users can ONLY upload their own photo
+    if (parseInt(userId) !== req.user.id) {
+      logger.warn('Unauthorized photo upload attempt', {
+        attemptedUserId: userId,
+        requestingUserId: req.user.id
+      });
+      return res.status(403).json({ error: 'Ви можете завантажувати лише свою фотографію' });
     }
 
     if (!req.file) {

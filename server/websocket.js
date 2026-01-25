@@ -382,12 +382,21 @@ const initializeSocket = (server) => {
               : (messageContent || 'Neue Nachricht');
 
             sendNotificationToUser(memberId, {
+              type: 'message',
               title: `${userInfo.name} hat eine neue Nachricht gesendet`,
+              content: preview,
               message: preview,
               icon: '/favicon.ico',
               tag: `conversation_${targetConversationId}`,
+              action_url: `/messages?conversation=${targetConversationId}`,
+              metadata: {
+                conversationId: targetConversationId,
+                messageId: enrichedMessage.id,
+                senderId: userId,
+                senderName: userInfo.name
+              },
               data: {
-                url: '/messages',
+                url: `/messages?conversation=${targetConversationId}`,
                 conversationId: targetConversationId,
                 messageId: enrichedMessage.id
               }
