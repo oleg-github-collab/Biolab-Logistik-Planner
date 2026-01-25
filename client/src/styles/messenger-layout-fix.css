@@ -1,0 +1,72 @@
+/* CRITICAL FIX: Proper scrolling for messenger layout */
+
+/* Desktop layout - messenger should fill viewport height */
+@media (min-width: 1024px) {
+  /* Main messenger container */
+  .messenger-page {
+    height: 100vh !important;
+    overflow: hidden !important;
+  }
+
+  /* Grid layout for desktop messenger */
+  .messenger-page .lg\:grid {
+    height: calc(100vh - 64px) !important; /* Subtract header height */
+    max-height: calc(100vh - 64px) !important;
+    overflow: hidden !important;
+  }
+
+  /* LEFT SIDEBAR - Contacts list */
+  .messenger-page .lg\:grid > div:first-child,
+  .messenger-page .lg\:col-span-3 {
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+  }
+
+  /* Contact list wrapper - this should scroll */
+  .messenger-page .lg\:col-span-3 > div {
+    flex: 1 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    min-height: 0 !important;
+  }
+
+  /* RIGHT SIDE - Chat window */
+  .messenger-page .lg\:col-span-9 {
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+  }
+
+  /* Chat messages container - this should scroll */
+  .messenger-page .messenger-messages-container,
+  .messenger-page [class*="messages"][class*="container"] {
+    flex: 1 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    min-height: 0 !important;
+  }
+
+  /* Input container - fixed at bottom */
+  .messenger-page .messenger-input-container,
+  .messenger-page form[class*="input"] {
+    flex-shrink: 0 !important;
+    position: relative !important;
+    bottom: 0 !important;
+    background: white !important;
+    border-top: 1px solid #e2e8f0 !important;
+    z-index: 10 !important;
+  }
+}
+
+/* Remove any max-height that causes scrolling issues */
+.messenger-page * {
+  max-height: initial !important;
+}
+
+.messenger-page .messenger-messages-container *,
+.messenger-page .lg\:col-span-3 * {
+  max-height: initial !important;
+}

@@ -71,6 +71,7 @@ import '../styles/messenger-desktop-fixed.css';
 import '../styles/scroll-to-bottom-button.css';
 import '../styles/messenger-mobile-hotfix.css';
 import '../styles/messenger-scroll-fix.css';
+import '../styles/messenger-layout-fix.css';
 
 const GENERAL_THREAD_NAMES = ['general chat', 'general', 'allgemein', 'allgemeiner chat', 'teamchat'];
 const BOT_CONTACT_TEMPLATE = {
