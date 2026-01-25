@@ -125,6 +125,9 @@ export const markMentionAsRead = (mentionId) =>
 export const deleteMessage = (messageId) =>
   api.delete(`/messages/${messageId}`);
 
+export const clearConversation = (conversationId) =>
+  api.delete(`/messages/conversations/${conversationId}/clear`);
+
 export const pinMessage = (messageId) =>
   api.post(`/messages/${messageId}/pin`);
 

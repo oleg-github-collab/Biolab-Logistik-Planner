@@ -2867,4 +2867,72 @@ router.delete('/stories/:storyId', auth, async (req, res) => {
   }
 });
 
+// DELETE /api/messages/conversations/:conversationId/clear - Clear all messages in a group chat (superadmin only)
+router.delete('/conversations/:conversationId/clear', auth, async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user.id;
+
+    // Only superadmin can clear entire chats
+    if (req.user.role !== 'superadmin') {
+      logger.warn('Unauthorized chat clear attempt', { userId, conversationId, role: req.user.role });
+      return res.status(403).json({ error: 'Nur Superadmin kann Chats vollständig löschen' });
+    }
+
+    // Verify conversation exists and is a group chat
+    const convResult = await pool.query(
+      'SELECT id, name, type FROM message_conversations WHERE id = $1',
+      [conversationId]
+    );
+
+    if (convResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Unterhaltung nicht gefunden' });
+    }
+
+    const conversation = convResult.rows[0];
+
+    if (conversation.type !== 'group') {
+      return res.status(400).json({ error: 'Nur Gruppenchats können vollständig gelöscht werden' });
+    }
+
+    // Delete all messages in the conversation
+    const deleteResult = await pool.query(
+      'DELETE FROM messages WHERE conversation_id = $1 RETURNING id',
+      [conversationId]
+    );
+
+    const deletedCount = deleteResult.rowCount;
+
+    logger.info('Chat cleared by superadmin', {
+      userId,
+      conversationId,
+      conversationName: conversation.name,
+      deletedMessages: deletedCount
+    });
+
+    // Notify all members via WebSocket
+    const io = getIO();
+    if (io) {
+      io.to(`conversation:${conversationId}`).emit('conversation:cleared', {
+        conversationId,
+        clearedBy: userId,
+        clearedAt: new Date().toISOString(),
+        deletedCount
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `${deletedCount} Nachrichten gelöscht`,
+      conversationId,
+      conversationName: conversation.name,
+      deletedCount
+    });
+
+  } catch (error) {
+    logger.error('Error clearing conversation', error);
+    res.status(500).json({ error: 'Fehler beim Löschen der Nachrichten' });
+  }
+});
+
 module.exports = router;

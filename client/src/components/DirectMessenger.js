@@ -55,7 +55,8 @@ import {
   getCalendarEvents,
   addMessageReaction,
   pinMessage,
-  getPinnedMessages
+  getPinnedMessages,
+  clearConversation
 } from '../utils/apiEnhanced';
 import GifPicker from './GifPicker';
 import TypingIndicator from './TypingIndicator';
@@ -3613,6 +3614,30 @@ const DirectMessenger = () => {
                   >
                     <Users className="w-5 h-5" />
                     <span className="hidden lg:inline">Gruppe</span>
+                  </button>
+                )}
+                {activeThread?.type === 'group' && user?.role === 'superadmin' && (
+                  <button
+                    onClick={async () => {
+                      if (!window.confirm(`Möchten Sie ALLE Nachrichten in "${activeThread.name}" löschen? Dies kann nicht rückgängig gemacht werden!`)) {
+                        return;
+                      }
+                      try {
+                        const response = await clearConversation(selectedThreadId);
+                        showSuccess(`${response.data.deletedCount} Nachrichten gelöscht`);
+                        // Refresh messages
+                        await loadMessages();
+                      } catch (error) {
+                        console.error('Error clearing chat:', error);
+                        showError(error.response?.data?.error || 'Fehler beim Löschen der Nachrichten');
+                      }
+                    }}
+                    className="messenger-desktop-header__action-btn"
+                    style={{ color: '#dc2626' }}
+                    title="Alle Nachrichten löschen (Superadmin)"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                    <span className="hidden lg:inline">Chat leeren</span>
                   </button>
                 )}
                 <button
