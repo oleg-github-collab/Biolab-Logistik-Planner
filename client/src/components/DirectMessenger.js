@@ -257,7 +257,24 @@ const DirectMessenger = () => {
 
     if (!updatedThreads.some((thread) => isGeneralThread(thread))) {
       try {
-        const memberIds = contactsSafe.map((contact) => contact?.id).filter(Boolean);
+        // Get ALL active users for general chat, not just contacts
+        const allUsersResponse = await getAllContacts();
+        const allUsers = Array.isArray(allUsersResponse?.data)
+          ? allUsersResponse.data
+          : [];
+
+        // Include current user and all other active users
+        const memberIds = allUsers
+          .map((u) => u?.id)
+          .filter((id) => Boolean(id) && id !== user?.id);
+
+        // Add current user
+        if (user?.id) {
+          memberIds.push(user.id);
+        }
+
+        console.log('Creating General Chat with all users:', memberIds);
+
         const response = await createConversationThread({
           name: 'Allgemeiner Chat',
           type: 'group',
