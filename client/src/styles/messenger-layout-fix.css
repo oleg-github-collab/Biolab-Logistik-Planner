@@ -1,72 +1,84 @@
-/* CRITICAL FIX: Proper scrolling for messenger layout */
+/* CRITICAL FIX: Proper scrolling for messenger desktop layout
+ * DirectMessenger.js line 3532: renderDesktopLayout
+ * Structure: ContactList panel (left) + messenger-container (right)
+ */
 
-/* Desktop layout - messenger should fill viewport height */
 @media (min-width: 1024px) {
-  /* Main messenger container */
-  .messenger-page {
-    height: 100vh !important;
-    overflow: hidden !important;
-  }
-
-  /* Grid layout for desktop messenger */
-  .messenger-page .lg\:grid {
-    height: calc(100vh - 64px) !important; /* Subtract header height */
-    max-height: calc(100vh - 64px) !important;
-    overflow: hidden !important;
-  }
-
-  /* LEFT SIDEBAR - Contacts list */
-  .messenger-page .lg\:grid > div:first-child,
-  .messenger-page .lg\:col-span-3 {
+  /* Main desktop wrapper (line 3532) */
+  .flex.h-full.bg-gradient-to-br.from-slate-50 {
     height: 100% !important;
+    max-height: 100% !important;
+    overflow: hidden !important;
+  }
+
+  /* Left sidebar - ContactList panel (line 3534-3541) */
+  .flex.h-full.bg-gradient-to-br.from-slate-50 > div:first-child {
+    height: 100% !important;
+    max-height: 100% !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* Right side - messenger-container (line 3544) */
+  .messenger-container {
+    height: 100% !important;
+    max-height: 100% !important;
     display: flex !important;
     flex-direction: column !important;
     overflow: hidden !important;
   }
 
-  /* Contact list wrapper - this should scroll */
-  .messenger-page .lg\:col-span-3 > div {
-    flex: 1 !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-    min-height: 0 !important;
-  }
-
-  /* RIGHT SIDE - Chat window */
-  .messenger-page .lg\:col-span-9 {
-    height: 100% !important;
-    display: flex !important;
-    flex-direction: column !important;
-    overflow: hidden !important;
-  }
-
-  /* Chat messages container - this should scroll */
-  .messenger-page .messenger-messages-container,
-  .messenger-page [class*="messages"][class*="container"] {
-    flex: 1 !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-    min-height: 0 !important;
-  }
-
-  /* Input container - fixed at bottom */
-  .messenger-page .messenger-input-container,
-  .messenger-page form[class*="input"] {
+  /* Desktop header - should not scroll (line 3547) */
+  .messenger-desktop-header {
     flex-shrink: 0 !important;
     position: relative !important;
-    bottom: 0 !important;
+    z-index: 10 !important;
+  }
+
+  /* Messages container - ONLY THIS SCROLLS (line 3655) */
+  .messenger-messages-container {
+    flex: 1 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    min-height: 0 !important;
+    max-height: none !important;
+  }
+
+  /* Input container - FIXED AT BOTTOM (line 3679) */
+  .messenger-input-container {
+    flex-shrink: 0 !important;
+    position: relative !important;
+    bottom: auto !important;
     background: white !important;
     border-top: 1px solid #e2e8f0 !important;
     z-index: 10 !important;
+    max-height: none !important;
+  }
+
+  /* Prevent nested max-height issues */
+  .messenger-messages-container > div,
+  .messenger-messages-container > * {
+    max-height: none !important;
+  }
+
+  /* Ensure contact panel children can scroll */
+  .contact-group__grid {
+    max-height: none !important;
   }
 }
 
-/* Remove any max-height that causes scrolling issues */
-.messenger-page * {
-  max-height: initial !important;
-}
+/* Mobile layout - prevent white space under input */
+@media (max-width: 1023px) {
+  .messenger-mobile-container {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+    overflow: hidden !important;
+  }
 
-.messenger-page .messenger-messages-container *,
-.messenger-page .lg\:col-span-3 * {
-  max-height: initial !important;
+  .messenger-mobile-input {
+    flex-shrink: 0 !important;
+    position: relative !important;
+  }
 }
