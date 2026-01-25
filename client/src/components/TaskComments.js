@@ -58,30 +58,45 @@ const TaskComments = ({ taskId, onNewComment }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!newComment.trim() && attachments.length === 0) return;
+    if (!newComment.trim() && attachments.length === 0) {
+      toast.error('Bitte Kommentar schreiben oder Datei anhängen');
+      return;
+    }
 
     try {
       setLoading(true);
       const formData = new FormData();
-      formData.append('comment_text', newComment);
+      formData.append('comment_text', newComment.trim());
 
       attachments.forEach(att => {
         formData.append('attachments', att.file);
       });
 
-      const response = await api.post(`/kanban/tasks/${taskId}/comments`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+      console.log('Submitting comment:', {
+        taskId,
+        text: newComment.trim(),
+        filesCount: attachments.length
       });
+
+      const response = await api.post(`/kanban/tasks/${taskId}/comments`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      console.log('Comment response:', response.data);
 
       const createdComment = response.data;
       setNewComment('');
       setAttachments([]);
-      loadComments();
+      await loadComments();
       onNewComment?.(createdComment);
-      toast.success('Kommentar hinzugefugt');
+      toast.success('Kommentar erfolgreich hinzugefügt');
     } catch (error) {
       console.error('Error posting comment:', error);
-      toast.error('Fehler beim Senden');
+      console.error('Error response:', error.response?.data);
+      const errorMsg = error.response?.data?.error || 'Fehler beim Senden des Kommentars';
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }

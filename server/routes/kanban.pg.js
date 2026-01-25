@@ -396,7 +396,17 @@ router.post('/tasks/:id/comments', auth, uploadMultiple('attachments', 5), async
     const { id } = req.params;
     const commentText = req.body.comment_text || req.body.comment || '';
 
+    logger.info('Received comment request', {
+      taskId: id,
+      userId: req.user.id,
+      commentText: commentText,
+      hasFiles: req.files && req.files.length > 0,
+      fileCount: req.files ? req.files.length : 0,
+      bodyKeys: Object.keys(req.body)
+    });
+
     if (!commentText.trim() && (!req.files || req.files.length === 0)) {
+      logger.warn('Comment rejected: no text and no files', { taskId: id });
       return res.status(400).json({ error: 'Kommentar oder Anhänge erforderlich' });
     }
 
