@@ -1,0 +1,58 @@
+/* Fix contact list scrolling and white space issues */
+
+/* Ensure messenger container doesn't overflow */
+.messenger-page,
+body.messenger-page {
+  overflow: hidden !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+}
+
+/* Fix sidebar/contact list container */
+.messenger-page .messenger-container {
+  height: 100% !important;
+  max-height: 100vh !important;
+  overflow: hidden !important;
+}
+
+/* Contact list should scroll, not the whole sidebar */
+.messenger-page .contact-list-wrapper,
+.messenger-page [class*="contact"][class*="list"],
+.messenger-page .flex.flex-col.gap-4.overflow-y-auto {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  max-height: 100% !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Prevent white space under input */
+.messenger-page .messenger-input-container,
+.messenger-page form[class*="messenger-input"] {
+  flex-shrink: 0 !important;
+  position: sticky !important;
+  bottom: 0 !important;
+  background: white !important;
+  z-index: 10 !important;
+}
+
+/* Messages container should fill available space */
+.messenger-page .messenger-messages-container {
+  flex: 1 1 auto !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  min-height: 0 !important;
+}
+
+/* Fix for desktop layout */
+@media (min-width: 1024px) {
+  .messenger-page .lg\\:grid {
+    height: 100vh !important;
+    max-height: 100vh !important;
+    overflow: hidden !important;
+  }
+  
+  .messenger-page .lg\\:grid > * {
+    height: 100% !important;
+    overflow-y: auto !important;
+  }
+}

@@ -70,6 +70,7 @@ import { getAssetUrl } from '../utils/media';
 import '../styles/messenger-desktop-fixed.css';
 import '../styles/scroll-to-bottom-button.css';
 import '../styles/messenger-mobile-hotfix.css';
+import '../styles/messenger-scroll-fix.css';
 
 const GENERAL_THREAD_NAMES = ['general chat', 'general', 'allgemein', 'allgemeiner chat', 'teamchat'];
 const BOT_CONTACT_TEMPLATE = {
@@ -161,6 +162,7 @@ const DirectMessenger = () => {
   const [replyToMessage, setReplyToMessage] = useState(null);
   const [pinnedMessages, setPinnedMessages] = useState([]);
   const [showReactionPicker, setShowReactionPicker] = useState(null);
+  const [hoveredMessage, setHoveredMessage] = useState(null);
   const [showContactPicker, setShowContactPicker] = useState(false);
   const [pendingEventShare, setPendingEventShare] = useState(null);
   const [showSearch, setShowSearch] = useState(false);
@@ -2692,6 +2694,7 @@ const DirectMessenger = () => {
       ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white'
       : 'bg-white text-slate-900 border border-slate-200'} messenger-bubble messenger-bubble--${isMine ? 'mine' : 'other'}`;
 
+    const isHovered = hoveredMessage === msg.id;
     const isPinned = pinnedMessages.some((m) => m.id === msg.id);
     const isReactionToolbarOpen = showReactionPicker === msg.id;
     const messageTimestamp = msg.created_at
@@ -2702,6 +2705,8 @@ const DirectMessenger = () => {
     return (
       <div
         className="relative group"
+        onMouseEnter={() => setHoveredMessage(msg.id)}
+        onMouseLeave={() => setHoveredMessage(null)}
         onTouchStart={(e) => handleLongPressStart(e, msg)}
         onTouchEnd={handleLongPressEnd}
         onTouchMove={handleLongPressMove}
