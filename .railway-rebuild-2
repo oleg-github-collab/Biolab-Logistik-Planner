@@ -1,0 +1,3 @@
+Trigger rebuild: 2026-01-25 17:15
+Fixed messenger scrolling CSS to target actual DOM structure
+Created duplicate chat cleanup script
