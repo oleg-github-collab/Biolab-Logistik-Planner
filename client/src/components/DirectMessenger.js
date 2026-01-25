@@ -3676,7 +3676,7 @@ const DirectMessenger = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSendMessage} className="messenger-input-container" style={{ flexShrink: 0, position: 'relative', borderTop: '1px solid #e2e8f0', background: 'white', zIndex: 10 }}>
+            <form onSubmit={handleSendMessage} className="messenger-input-container" style={{ flexShrink: 0, position: 'relative', borderTop: '1px solid #e2e8f0', background: 'white', zIndex: 100 }}>
                 {replyToMessage && (
                   <div className="absolute bottom-full left-0 right-0 mb-2 mx-4 flex items-start gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-blue-50 to-slate-50 text-slate-700 shadow-sm border-l-4 border-blue-500">
                     <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-500 text-white flex-shrink-0">
@@ -3812,6 +3812,7 @@ const DirectMessenger = () => {
                 <div
                   className="messenger-input-wrapper"
                   onClick={() => desktopTextareaRef.current?.focus({ preventScroll: true })}
+                  style={{ position: 'relative', zIndex: 2 }}
                 >
                   <textarea
                     ref={desktopTextareaRef}
@@ -3830,7 +3831,12 @@ const DirectMessenger = () => {
                         : "Nachricht schreiben..."
                     }
                     className="messenger-text-input"
-                    style={{ height: 'auto' }}
+                    style={{
+                      height: 'auto',
+                      pointerEvents: 'auto',
+                      cursor: 'text',
+                      zIndex: 1
+                    }}
                     onInput={(e) => {
                       e.target.style.height = 'auto';
                       e.target.style.height = Math.min(e.target.scrollHeight, 88) + 'px';
