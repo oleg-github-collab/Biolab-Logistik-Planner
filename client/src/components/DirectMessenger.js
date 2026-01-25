@@ -161,7 +161,6 @@ const DirectMessenger = () => {
   const [replyToMessage, setReplyToMessage] = useState(null);
   const [pinnedMessages, setPinnedMessages] = useState([]);
   const [showReactionPicker, setShowReactionPicker] = useState(null);
-  const [hoveredMessage, setHoveredMessage] = useState(null);
   const [showContactPicker, setShowContactPicker] = useState(false);
   const [pendingEventShare, setPendingEventShare] = useState(null);
   const [showSearch, setShowSearch] = useState(false);
@@ -528,22 +527,6 @@ const DirectMessenger = () => {
         const threadContacts = buildContactsFromThreads(sanitizedThreads).map(normalizeContact);
         const mergedContacts = mergeContacts(contactsWithBot, threadContacts).map(normalizeContact).filter(c => c.id !== user?.id);
 
-        console.log('📦 [DirectMessenger] API Responses:', {
-          contactsRes,
-          contactsData: contactsRes?.data,
-          contactsArray,
-          contactsCount: contactsArray.length,
-          threadsCount: rawThreads.length,
-          storiesCount: Array.isArray(storiesRes?.data?.stories) ? storiesRes.data.stories.length : 0
-        });
-        console.log('👥 [DirectMessenger] Merged Contacts with profile_photo:',
-          mergedContacts.map(c => ({
-            id: c.id,
-            name: c.name,
-            profile_photo: c.profile_photo,
-            has_photo: !!c.profile_photo
-          }))
-        );
         setContacts(mergedContacts);
         setThreads(sanitizedThreads);
         const rawStories = Array.isArray(storiesRes?.data?.stories)
@@ -2709,7 +2692,6 @@ const DirectMessenger = () => {
       ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white'
       : 'bg-white text-slate-900 border border-slate-200'} messenger-bubble messenger-bubble--${isMine ? 'mine' : 'other'}`;
 
-    const isHovered = hoveredMessage === msg.id;
     const isPinned = pinnedMessages.some((m) => m.id === msg.id);
     const isReactionToolbarOpen = showReactionPicker === msg.id;
     const messageTimestamp = msg.created_at
@@ -2720,8 +2702,6 @@ const DirectMessenger = () => {
     return (
       <div
         className="relative group"
-        onMouseEnter={() => setHoveredMessage(msg.id)}
-        onMouseLeave={() => setHoveredMessage(null)}
         onTouchStart={(e) => handleLongPressStart(e, msg)}
         onTouchEnd={handleLongPressEnd}
         onTouchMove={handleLongPressMove}
