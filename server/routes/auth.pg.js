@@ -6,6 +6,7 @@ const { auth } = require('../middleware/auth');
 const logger = require('../utils/logger');
 const auditLogger = require('../utils/auditLog');
 const { schemas, validate } = require('../validators');
+const blBot = require('../services/blBot');
 
 const router = express.Router();
 
@@ -224,6 +225,21 @@ router.post('/register', async (req, res) => {
       ip: req.ip,
       userAgent: req.get('user-agent')
     });
+
+    // Send welcome onboarding message from BL_Bot (non-blocking)
+    try {
+      if (!blBot.initialized || !blBot.botUser) {
+        await blBot.initialize();
+      }
+      if (blBot.initialized && blBot.botUser) {
+        await blBot.sendWelcomeMessage(newUser);
+      }
+    } catch (botError) {
+      logger.warn('Failed to send BL_Bot welcome message', {
+        userId: newUser.id,
+        error: botError.message
+      });
+    }
 
     return res.status(201).json({
       user: sanitizedUser,

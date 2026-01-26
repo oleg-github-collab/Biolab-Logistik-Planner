@@ -5,6 +5,195 @@
    ========================================== */
 
 @media (max-width: 1023px) {
+  .mobile-calendar-native {
+    --cal-ink: #0f172a;
+    --cal-muted: #64748b;
+    --cal-accent: #2563eb;
+    --cal-accent-2: #0ea5e9;
+    background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 40%, #f8fafc 100%);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .mobile-calendar-native::before {
+    content: '';
+    position: absolute;
+    inset: -20% 0 0;
+    background: radial-gradient(circle at 20% 0%, rgba(37, 99, 235, 0.12), transparent 45%),
+      radial-gradient(circle at 85% 0%, rgba(14, 165, 233, 0.14), transparent 45%);
+    pointer-events: none;
+    opacity: 0.8;
+  }
+
+  .mobile-calendar-native__header {
+    background: rgba(255, 255, 255, 0.92) !important;
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border-bottom: 1px solid rgba(148, 163, 184, 0.2) !important;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  }
+
+  .mobile-calendar-native__nav {
+    padding: 16px 16px 10px;
+  }
+
+  .mobile-calendar-native__nav-btn {
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+    background: rgba(15, 23, 42, 0.06);
+    color: var(--cal-ink);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+  }
+
+  .mobile-calendar-native__today-btn {
+    border-radius: 14px;
+    background: rgba(37, 99, 235, 0.1);
+    color: #1d4ed8;
+    border: 1px solid rgba(37, 99, 235, 0.25);
+    font-weight: 700;
+  }
+
+  .mobile-calendar-native__title {
+    font-size: 1.1rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--cal-ink);
+  }
+
+  .mobile-calendar-native__filter-btn {
+    border-radius: 14px;
+    background: rgba(15, 23, 42, 0.05);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    color: var(--cal-ink);
+  }
+
+  .mobile-calendar-native__filter-btn.is-active {
+    background: rgba(37, 99, 235, 0.14);
+    color: #1d4ed8;
+    border-color: rgba(37, 99, 235, 0.35);
+  }
+
+  .mobile-calendar-native__views {
+    margin: 0 14px 10px;
+    padding: 6px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.06);
+    gap: 6px;
+  }
+
+  .mobile-calendar-native__view-btn {
+    border-radius: 999px;
+    font-weight: 700;
+    color: var(--cal-muted);
+    padding: 10px 12px;
+  }
+
+  .mobile-calendar-native__view-btn.is-active {
+    background: linear-gradient(135deg, #2563eb, #0ea5e9);
+    color: #ffffff;
+    box-shadow: 0 8px 18px rgba(37, 99, 235, 0.3);
+  }
+
+  .mobile-calendar-native__filters {
+    padding: 6px 12px 12px;
+    background: transparent !important;
+  }
+
+  .mobile-calendar-native__filter-chip {
+    border-radius: 999px;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    background: rgba(255, 255, 255, 0.9);
+  }
+
+  .mobile-calendar-native__filter-chip.is-active {
+    border-color: rgba(37, 99, 235, 0.35);
+    box-shadow: 0 6px 14px rgba(37, 99, 235, 0.18);
+  }
+
+  .mobile-calendar-native__content {
+    position: relative;
+    z-index: 1;
+  }
+
+  .mobile-calendar-native__month-view,
+  .mobile-calendar-native__list-view,
+  .mobile-calendar-native__week-view,
+  .mobile-calendar-native__day-view {
+    background: transparent !important;
+  }
+
+  .mobile-calendar-native__weekdays {
+    background: rgba(255, 255, 255, 0.9);
+  }
+
+  .mobile-calendar-native__month-grid {
+    gap: 6px;
+    padding: 10px 12px 20px;
+  }
+
+  .mobile-calendar-native__day {
+    border: 1px solid rgba(226, 232, 240, 0.9) !important;
+    background: rgba(255, 255, 255, 0.95) !important;
+    border-radius: 16px;
+    padding: 8px 6px;
+    box-shadow: 0 8px 16px rgba(15, 23, 42, 0.08);
+    min-height: 78px;
+  }
+
+  .mobile-calendar-native__day.is-outside {
+    background: rgba(248, 250, 252, 0.7) !important;
+    color: rgba(100, 116, 139, 0.6);
+    box-shadow: none;
+  }
+
+  .mobile-calendar-native__day.is-today {
+    border-color: rgba(37, 99, 235, 0.45) !important;
+    background: linear-gradient(145deg, rgba(37, 99, 235, 0.12), rgba(255, 255, 255, 0.95)) !important;
+    box-shadow: 0 12px 22px rgba(37, 99, 235, 0.18);
+  }
+
+  .mobile-calendar-native__event-chip {
+    border-radius: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+  }
+
+  .mobile-calendar-native__event-more {
+    font-weight: 600;
+  }
+
+  .mobile-calendar-native__section-header {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 16px;
+    margin: 8px 12px;
+    box-shadow: 0 8px 16px rgba(15, 23, 42, 0.08);
+  }
+
+  .mobile-calendar-native__list-view .divide-y > * {
+    border-color: transparent !important;
+  }
+
+  .mobile-calendar-native__list-item,
+  .mobile-calendar-native__day-event,
+  .mobile-calendar-native__week-event {
+    background: rgba(255, 255, 255, 0.96);
+    border-radius: 16px;
+    margin: 10px 12px;
+    box-shadow: 0 10px 18px rgba(15, 23, 42, 0.08);
+    border: 1px solid rgba(226, 232, 240, 0.9);
+  }
+
+  .mobile-calendar-native__week-day {
+    padding: 10px 12px 4px;
+  }
+
+  .mobile-calendar-native__fab {
+    bottom: calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px) + 16px) !important;
+    right: 16px !important;
+    background: linear-gradient(135deg, #2563eb, #0ea5e9) !important;
+    box-shadow: 0 18px 30px rgba(37, 99, 235, 0.35) !important;
+  }
 
   /* ==========================================
      CALENDAR CONTAINER

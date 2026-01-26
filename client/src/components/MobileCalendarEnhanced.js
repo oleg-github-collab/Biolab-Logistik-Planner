@@ -105,49 +105,49 @@ const MobileCalendarEnhanced = ({
 
   // Render calendar header
   const renderHeader = () => (
-    <div className="bg-white border-b border-slate-200 sticky top-0 z-20">
+    <div className="mobile-calendar-native__header bg-white border-b border-slate-200 sticky top-0 z-20">
       {/* Date navigation */}
-      <div className="flex items-center justify-between p-3">
+      <div className="mobile-calendar-native__nav flex items-center justify-between p-3">
         <div className="flex items-center gap-2">
           <button
             onClick={handlePrevious}
-            className="p-2 rounded-lg hover:bg-slate-100 transition"
+            className="mobile-calendar-native__nav-btn p-2 rounded-lg hover:bg-slate-100 transition"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
           <button
             onClick={handleToday}
-            className="px-3 py-1.5 text-sm font-medium rounded-lg bg-slate-100 hover:bg-slate-200 transition"
+            className="mobile-calendar-native__today-btn px-3 py-1.5 text-sm font-medium rounded-lg bg-slate-100 hover:bg-slate-200 transition"
           >
             Heute
           </button>
           <button
             onClick={handleNext}
-            className="p-2 rounded-lg hover:bg-slate-100 transition"
+            className="mobile-calendar-native__nav-btn p-2 rounded-lg hover:bg-slate-100 transition"
           >
             <ChevronRight className="w-5 h-5" />
           </button>
         </div>
 
-        <h2 className="text-lg font-bold text-slate-900">
+        <h2 className="mobile-calendar-native__title text-lg font-bold text-slate-900">
           {format(currentDate, viewType === VIEW_TYPES.MONTH ? 'MMMM yyyy' : 'MMM yyyy', { locale: de })}
         </h2>
 
         <button
           onClick={() => setShowFilters(!showFilters)}
-          className={`p-2 rounded-lg transition ${showFilters ? 'bg-blue-100 text-blue-600' : 'hover:bg-slate-100'}`}
+          className={`mobile-calendar-native__filter-btn p-2 rounded-lg transition ${showFilters ? 'bg-blue-100 text-blue-600 is-active' : 'hover:bg-slate-100'}`}
         >
           <Filter className="w-5 h-5" />
         </button>
       </div>
 
       {/* View switcher */}
-      <div className="flex gap-1 p-2 bg-slate-50">
+      <div className="mobile-calendar-native__views flex gap-1 p-2 bg-slate-50">
         <button
           onClick={() => setViewType(VIEW_TYPES.DAY)}
-          className={`flex-1 py-2 px-3 rounded-lg font-medium text-sm transition ${
+          className={`mobile-calendar-native__view-btn flex-1 py-2 px-3 rounded-lg font-medium text-sm transition ${
             viewType === VIEW_TYPES.DAY
-              ? 'bg-white shadow text-blue-600'
+              ? 'bg-white shadow text-blue-600 is-active'
               : 'text-slate-600 hover:bg-white/50'
           }`}
         >
@@ -155,9 +155,9 @@ const MobileCalendarEnhanced = ({
         </button>
         <button
           onClick={() => setViewType(VIEW_TYPES.WEEK)}
-          className={`flex-1 py-2 px-3 rounded-lg font-medium text-sm transition ${
+          className={`mobile-calendar-native__view-btn flex-1 py-2 px-3 rounded-lg font-medium text-sm transition ${
             viewType === VIEW_TYPES.WEEK
-              ? 'bg-white shadow text-blue-600'
+              ? 'bg-white shadow text-blue-600 is-active'
               : 'text-slate-600 hover:bg-white/50'
           }`}
         >
@@ -165,9 +165,9 @@ const MobileCalendarEnhanced = ({
         </button>
         <button
           onClick={() => setViewType(VIEW_TYPES.MONTH)}
-          className={`flex-1 py-2 px-3 rounded-lg font-medium text-sm transition ${
+          className={`mobile-calendar-native__view-btn flex-1 py-2 px-3 rounded-lg font-medium text-sm transition ${
             viewType === VIEW_TYPES.MONTH
-              ? 'bg-white shadow text-blue-600'
+              ? 'bg-white shadow text-blue-600 is-active'
               : 'text-slate-600 hover:bg-white/50'
           }`}
         >
@@ -175,9 +175,9 @@ const MobileCalendarEnhanced = ({
         </button>
         <button
           onClick={() => setViewType(VIEW_TYPES.LIST)}
-          className={`flex-1 py-2 px-3 rounded-lg font-medium text-sm transition ${
+          className={`mobile-calendar-native__view-btn flex-1 py-2 px-3 rounded-lg font-medium text-sm transition ${
             viewType === VIEW_TYPES.LIST
-              ? 'bg-white shadow text-blue-600'
+              ? 'bg-white shadow text-blue-600 is-active'
               : 'text-slate-600 hover:bg-white/50'
           }`}
         >
@@ -187,15 +187,15 @@ const MobileCalendarEnhanced = ({
 
       {/* Filters */}
       {showFilters && (
-        <div className="p-2 bg-white border-t border-slate-100">
+        <div className="mobile-calendar-native__filters p-2 bg-white border-t border-slate-100">
           <div className="flex gap-1 overflow-x-auto pb-1">
             {eventTypes.map(type => (
               <button
                 key={type.value || 'all'}
                 onClick={() => setSelectedEventType(type.value)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition ${
+                className={`mobile-calendar-native__filter-chip px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition ${
                   selectedEventType === type.value
-                    ? `${type.color} shadow`
+                    ? `${type.color} shadow is-active`
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
@@ -219,9 +219,9 @@ const MobileCalendarEnhanced = ({
     const weekDays = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
     return (
-      <div className="bg-white">
+      <div className="mobile-calendar-native__month-view bg-white">
         {/* Week days header */}
-        <div className="grid grid-cols-7 border-b border-slate-200">
+        <div className="mobile-calendar-native__weekdays grid grid-cols-7 border-b border-slate-200">
           {weekDays.map(day => (
             <div
               key={day}
@@ -233,7 +233,7 @@ const MobileCalendarEnhanced = ({
         </div>
 
         {/* Calendar grid */}
-        <div className="grid grid-cols-7">
+        <div className="mobile-calendar-native__month-grid grid grid-cols-7">
           {days.map(day => {
             const dayEvents = getEventsForDay(day);
             const isCurrentMonth = isSameMonth(day, currentDate);
@@ -253,10 +253,11 @@ const MobileCalendarEnhanced = ({
                   }
                 }}
                 className={`
-                  min-h-[80px] p-1 border-r border-b border-slate-100
+                  mobile-calendar-native__day min-h-[80px] p-1 border-r border-b border-slate-100
                   hover:bg-slate-50 transition text-left
-                  ${!isCurrentMonth ? 'bg-slate-50/50 text-slate-400' : ''}
-                  ${isCurrentDay ? 'bg-blue-50' : ''}
+                  ${!isCurrentMonth ? 'bg-slate-50/50 text-slate-400 is-outside' : ''}
+                  ${isCurrentDay ? 'bg-blue-50 is-today' : ''}
+                  ${dayEvents.length > 0 ? 'has-events' : ''}
                 `}
               >
                 <div className={`text-xs font-semibold mb-1 ${
@@ -273,7 +274,7 @@ const MobileCalendarEnhanced = ({
                       return (
                         <div
                           key={event.id || idx}
-                          className={`text-[10px] px-1 py-0.5 rounded truncate ${
+                          className={`mobile-calendar-native__event-chip text-[10px] px-1 py-0.5 rounded truncate ${
                             eventType === 'Arbeit' ? 'bg-sky-100 text-sky-700' :
                             eventType === 'Meeting' ? 'bg-indigo-100 text-indigo-700' :
                             eventType === 'Urlaub' ? 'bg-amber-100 text-amber-700' :
@@ -286,7 +287,7 @@ const MobileCalendarEnhanced = ({
                       );
                     })}
                     {dayEvents.length > 3 && (
-                      <div className="text-[10px] text-slate-500 px-1">
+                      <div className="mobile-calendar-native__event-more text-[10px] text-slate-500 px-1">
                         +{dayEvents.length - 3} mehr
                       </div>
                     )}
@@ -314,8 +315,8 @@ const MobileCalendarEnhanced = ({
     });
 
     return (
-      <div className="bg-white">
-        <div className="p-3 border-b border-slate-200">
+      <div className="mobile-calendar-native__list-view bg-white">
+        <div className="mobile-calendar-native__section-header p-3 border-b border-slate-200">
           <h3 className="font-semibold text-slate-900">
             Anstehende Termine ({upcomingEvents.length})
           </h3>
@@ -332,11 +333,11 @@ const MobileCalendarEnhanced = ({
               <button
                 key={event.id}
                 onClick={() => onEventClick(event)}
-                className="w-full p-3 hover:bg-slate-50 transition text-left"
+                className="mobile-calendar-native__list-item w-full p-3 hover:bg-slate-50 transition text-left"
               >
                 <div className="flex items-start gap-3">
                   <div className={`
-                    mt-0.5 w-2 h-2 rounded-full flex-shrink-0
+                    mobile-calendar-native__list-dot mt-0.5 w-2 h-2 rounded-full flex-shrink-0
                     ${(event.event_type || event.type) === 'Arbeit' ? 'bg-sky-500' :
                       (event.event_type || event.type) === 'Meeting' ? 'bg-indigo-500' :
                       (event.event_type || event.type) === 'Urlaub' ? 'bg-amber-500' :
@@ -390,14 +391,14 @@ const MobileCalendarEnhanced = ({
     const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
 
     return (
-      <div className="bg-white">
+      <div className="mobile-calendar-native__week-view bg-white">
         <div className="divide-y divide-slate-100">
           {days.map(day => {
             const dayEvents = getEventsForDay(day);
             const isCurrentDay = isToday(day);
 
             return (
-              <div key={day.toISOString()} className="p-3">
+              <div key={day.toISOString()} className="mobile-calendar-native__week-day p-3">
                 <div className={`flex items-center justify-between mb-2 ${
                   isCurrentDay ? 'text-blue-600' : 'text-slate-900'
                 }`}>
@@ -419,7 +420,7 @@ const MobileCalendarEnhanced = ({
                         <button
                           key={event.id}
                           onClick={() => onEventClick(event)}
-                          className={`w-full text-left p-2 rounded-lg text-xs transition hover:shadow ${
+                          className={`mobile-calendar-native__week-event w-full text-left p-2 rounded-lg text-xs transition hover:shadow ${
                             eventType === 'Arbeit' ? 'bg-sky-50 hover:bg-sky-100' :
                             eventType === 'Meeting' ? 'bg-indigo-50 hover:bg-indigo-100' :
                             eventType === 'Urlaub' ? 'bg-amber-50 hover:bg-amber-100' :
@@ -458,8 +459,8 @@ const MobileCalendarEnhanced = ({
     const hours = Array.from({ length: 24 }, (_, i) => i);
 
     return (
-      <div className="bg-white">
-        <div className="p-3 border-b border-slate-200">
+      <div className="mobile-calendar-native__day-view bg-white">
+        <div className="mobile-calendar-native__section-header p-3 border-b border-slate-200">
           <h3 className="font-semibold text-slate-900">
             {format(currentDate, 'EEEE, dd. MMMM yyyy', { locale: de })}
           </h3>
@@ -489,7 +490,7 @@ const MobileCalendarEnhanced = ({
                 <button
                   key={event.id}
                   onClick={() => onEventClick(event)}
-                  className="w-full p-3 hover:bg-slate-50 transition text-left"
+                  className="mobile-calendar-native__day-event w-full p-3 hover:bg-slate-50 transition text-left"
                 >
                   <div className="flex items-start gap-3">
                     <div className={`
@@ -555,10 +556,10 @@ const MobileCalendarEnhanced = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-50">
+    <div className="mobile-calendar-native flex flex-col h-full bg-slate-50">
       {renderHeader()}
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="mobile-calendar-native__content flex-1 overflow-y-auto">
         {loading ? (
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full" />
@@ -571,7 +572,7 @@ const MobileCalendarEnhanced = ({
       {/* Floating add button */}
       <button
         onClick={() => onEventCreate?.({ start: currentDate })}
-        className="fixed bottom-20 right-4 w-14 h-14 bg-blue-500 text-white rounded-full shadow-lg hover:bg-blue-600 transition flex items-center justify-center z-10"
+        className="mobile-calendar-native__fab fixed bottom-20 right-4 w-14 h-14 bg-blue-500 text-white rounded-full shadow-lg hover:bg-blue-600 transition flex items-center justify-center z-10"
       >
         <Plus className="w-6 h-6" />
       </button>

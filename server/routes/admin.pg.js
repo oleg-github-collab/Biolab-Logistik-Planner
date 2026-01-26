@@ -7,6 +7,7 @@ const logger = require('../utils/logger');
 const auditLogger = require('../utils/auditLog');
 const { getIO, getOnlineUsers } = require('../websocket');
 const entsorgungBot = require('../services/entsorgungBot');
+const blBot = require('../services/blBot');
 const createNotification =
   typeof entsorgungBot?.createNotification === 'function'
     ? entsorgungBot.createNotification
@@ -695,6 +696,21 @@ router.post('/users', [auth, adminAuth], async (req, res) => {
       logger.warn('Failed to add user to general chat', {
         userId: newUser.id,
         error: chatError.message
+      });
+    }
+
+    // Send welcome onboarding message from BL_Bot (non-blocking)
+    try {
+      if (!blBot.initialized || !blBot.botUser) {
+        await blBot.initialize();
+      }
+      if (blBot.initialized && blBot.botUser) {
+        await blBot.sendWelcomeMessage(newUser);
+      }
+    } catch (botError) {
+      logger.warn('Failed to send BL_Bot welcome message', {
+        userId: newUser.id,
+        error: botError.message
       });
     }
 

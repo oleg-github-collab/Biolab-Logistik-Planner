@@ -199,12 +199,19 @@ class BLBot {
         [userId]
       );
 
+      const logistics = await this.getLogisticsContext(userId);
+      const teamLogistics = ['admin', 'superadmin'].includes(user.rows[0].role)
+        ? await this.getTeamLogisticsContext()
+        : null;
+
       console.log('✅ getUserContext successful:', {
         userName: user.rows[0].name,
         tasksCount: tasks.rows.length,
         eventsCount: events.rows.length,
         groupMessagesCount: groupMessages.rows.length,
-        notificationsCount: notifications.rows.length
+        notificationsCount: notifications.rows.length,
+        logisticsUpcoming: logistics?.counts?.upcomingDisposals ?? 0,
+        logisticsBins: logistics?.counts?.pendingBins ?? 0
       });
 
       return {
@@ -215,11 +222,102 @@ class BLBot {
         workHistory: workHistory.rows,
         auditLog: [],
         groupMessages: groupMessages.rows,
-        notifications: notifications.rows
+        notifications: notifications.rows,
+        logistics,
+        teamLogistics
       };
     } catch (error) {
       console.error('❌ Error getting user context:', error);
       logger.error('Error getting user context:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get logistics context for a user (assigned waste + bins)
+   */
+  async getLogisticsContext(userId) {
+    try {
+      const [
+        countsResult,
+        wasteItemsResult,
+        disposalResult,
+        binsResult
+      ] = await Promise.all([
+        pool.query(
+          `SELECT
+            (SELECT COUNT(*) FROM waste_disposal_schedule
+              WHERE assigned_to = $1
+                AND scheduled_date >= CURRENT_DATE
+                AND scheduled_date <= CURRENT_DATE + INTERVAL '30 days'
+                AND status IN ('scheduled', 'rescheduled', 'in_progress')) AS upcoming_disposals,
+            (SELECT COUNT(*) FROM waste_disposal_schedule
+              WHERE assigned_to = $1
+                AND scheduled_date < CURRENT_DATE
+                AND status IN ('scheduled', 'rescheduled', 'in_progress')) AS overdue_disposals,
+            (SELECT COUNT(*) FROM waste_items
+              WHERE assigned_to = $1
+                AND status <> 'disposed') AS active_waste_items,
+            (SELECT COUNT(*) FROM storage_bins
+              WHERE (created_by = $1 OR completed_by = $1)
+                AND status = 'pending') AS pending_bins,
+            (SELECT COUNT(*) FROM storage_bins
+              WHERE (created_by = $1 OR completed_by = $1)
+                AND status = 'pending'
+                AND keep_until < CURRENT_DATE) AS overdue_bins`,
+          [userId]
+        ),
+        pool.query(
+          `SELECT wi.id, wi.name, wi.location, wi.status, wi.next_disposal_date, wi.last_disposal_date,
+                  wt.category, wt.hazard_level
+           FROM waste_items wi
+           LEFT JOIN waste_templates wt ON wi.template_id = wt.id
+           WHERE wi.assigned_to = $1
+           ORDER BY wi.next_disposal_date ASC NULLS LAST, wi.created_at DESC
+           LIMIT 15`,
+          [userId]
+        ),
+        pool.query(
+          `SELECT wds.id, wds.scheduled_date, wds.status,
+                  wi.name as waste_name, wi.location, wt.category, wt.hazard_level
+           FROM waste_disposal_schedule wds
+           LEFT JOIN waste_items wi ON wds.waste_item_id = wi.id
+           LEFT JOIN waste_templates wt ON wi.template_id = wt.id
+           WHERE wds.assigned_to = $1
+             AND wds.scheduled_date >= CURRENT_DATE - INTERVAL '7 days'
+             AND wds.scheduled_date <= CURRENT_DATE + INTERVAL '45 days'
+             AND wds.status IN ('scheduled', 'rescheduled', 'in_progress')
+           ORDER BY wds.scheduled_date ASC
+           LIMIT 20`,
+          [userId]
+        ),
+        pool.query(
+          `SELECT id, code, status, keep_until, comment
+           FROM storage_bins
+           WHERE (created_by = $1 OR completed_by = $1)
+             AND status <> 'completed'
+           ORDER BY keep_until ASC NULLS LAST, created_at DESC
+           LIMIT 15`,
+          [userId]
+        )
+      ]);
+
+      const countsRow = countsResult.rows[0] || {};
+
+      return {
+        counts: {
+          upcomingDisposals: parseInt(countsRow.upcoming_disposals, 10) || 0,
+          overdueDisposals: parseInt(countsRow.overdue_disposals, 10) || 0,
+          activeWasteItems: parseInt(countsRow.active_waste_items, 10) || 0,
+          pendingBins: parseInt(countsRow.pending_bins, 10) || 0,
+          overdueBins: parseInt(countsRow.overdue_bins, 10) || 0
+        },
+        wasteItems: wasteItemsResult.rows,
+        upcomingDisposals: disposalResult.rows,
+        pendingBins: binsResult.rows
+      };
+    } catch (error) {
+      logger.error('Error getting logistics context:', error);
       return null;
     }
   }
@@ -307,13 +405,85 @@ class BLBot {
          ORDER BY u.name, status`
       );
 
+      const logistics = await this.getTeamLogisticsContext();
+
       return {
         users: users.rows,
         teamSchedule: teamSchedule.rows,
-        taskStats: taskStats.rows
+        taskStats: taskStats.rows,
+        logistics
       };
     } catch (error) {
       logger.error('Error getting team context:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Team-wide logistics overview (admin only)
+   */
+  async getTeamLogisticsContext() {
+    try {
+      const [countsResult, upcomingDisposals, binsDue] = await Promise.all([
+        pool.query(
+          `SELECT
+            (SELECT COUNT(*) FROM waste_disposal_schedule
+              WHERE scheduled_date >= CURRENT_DATE
+                AND scheduled_date <= CURRENT_DATE + INTERVAL '30 days'
+                AND status IN ('scheduled', 'rescheduled', 'in_progress')) AS upcoming_disposals,
+            (SELECT COUNT(*) FROM waste_disposal_schedule
+              WHERE scheduled_date < CURRENT_DATE
+                AND status IN ('scheduled', 'rescheduled', 'in_progress')) AS overdue_disposals,
+            (SELECT COUNT(*) FROM waste_items
+              WHERE status <> 'disposed') AS active_waste_items,
+            (SELECT COUNT(*) FROM storage_bins
+              WHERE status = 'pending') AS pending_bins,
+            (SELECT COUNT(*) FROM storage_bins
+              WHERE status = 'pending'
+                AND keep_until < CURRENT_DATE) AS overdue_bins`
+        ),
+        pool.query(
+          `SELECT wds.scheduled_date, wds.status,
+                  wi.name as waste_name, wi.location,
+                  wt.category, wt.hazard_level,
+                  u.name as assigned_to_name
+           FROM waste_disposal_schedule wds
+           LEFT JOIN waste_items wi ON wds.waste_item_id = wi.id
+           LEFT JOIN waste_templates wt ON wi.template_id = wt.id
+           LEFT JOIN users u ON wds.assigned_to = u.id
+           WHERE wds.scheduled_date <= CURRENT_DATE + INTERVAL '14 days'
+             AND wds.status IN ('scheduled', 'rescheduled', 'in_progress')
+           ORDER BY wds.scheduled_date ASC
+           LIMIT 12`
+        ),
+        pool.query(
+          `SELECT sb.code, sb.keep_until, sb.status,
+                  u.name as created_by_name
+           FROM storage_bins sb
+           LEFT JOIN users u ON sb.created_by = u.id
+           WHERE sb.status = 'pending'
+             AND sb.keep_until IS NOT NULL
+             AND sb.keep_until <= CURRENT_DATE + INTERVAL '7 days'
+           ORDER BY sb.keep_until ASC
+           LIMIT 12`
+        )
+      ]);
+
+      const countsRow = countsResult.rows[0] || {};
+
+      return {
+        counts: {
+          upcomingDisposals: parseInt(countsRow.upcoming_disposals, 10) || 0,
+          overdueDisposals: parseInt(countsRow.overdue_disposals, 10) || 0,
+          activeWasteItems: parseInt(countsRow.active_waste_items, 10) || 0,
+          pendingBins: parseInt(countsRow.pending_bins, 10) || 0,
+          overdueBins: parseInt(countsRow.overdue_bins, 10) || 0
+        },
+        upcomingDisposals: upcomingDisposals.rows,
+        binsDue: binsDue.rows
+      };
+    } catch (error) {
+      logger.error('Error getting team logistics context:', error);
       return null;
     }
   }
@@ -444,7 +614,7 @@ Bitte versuchen Sie es später erneut oder kontaktieren Sie den Administrator.`;
    * Build system prompt for AI with ethical guidelines
    */
   buildSystemPrompt(userContext, kbArticles) {
-    const { user, tasks, events, schedule, workHistory, auditLog, groupMessages, notifications } = userContext;
+    const { user, tasks, events, schedule, workHistory, auditLog, groupMessages, notifications, logistics, teamLogistics } = userContext;
 
     let prompt = `Du bist BL_Bot, der intelligente und ethische KI-Assistent für Biolab Logistik Planner.
 
@@ -491,10 +661,50 @@ ${groupMessages && groupMessages.length > 15 ? `\n... und ${groupMessages.length
 
 **🔔 Aktuelle Benachrichtigungen (${notifications?.length || 0} gesamt):**
 ${notifications && notifications.length > 0 ? notifications.slice(0, 10).map(n =>
-  `- [${n.type}] ${n.is_read ? '✓' : '✗'} ${n.title}: ${n.message.substring(0, 80)}${n.message.length > 80 ? '...' : ''}`
+  `- [${n.type}] ${n.is_read ? '✓' : '✗'} ${n.title}: ${(n.content || '').substring(0, 80)}${(n.content || '').length > 80 ? '...' : ''}`
 ).join('\n') : '- Keine Benachrichtigungen'}
 ${notifications && notifications.length > 10 ? `\n... und ${notifications.length - 10} weitere Benachrichtigungen` : ''}
 `;
+
+    if (logistics) {
+      prompt += `\n**🚚 LOGISTIK (zugewiesen an dich):**
+- Entsorgungen (nächste 30 Tage): ${logistics.counts?.upcomingDisposals ?? 0}
+- Überfällige Entsorgungen: ${logistics.counts?.overdueDisposals ?? 0}
+- Aktive Abfall-Positionen: ${logistics.counts?.activeWasteItems ?? 0}
+- Offene Kisten/Container: ${logistics.counts?.pendingBins ?? 0}
+- Überfällige Kisten: ${logistics.counts?.overdueBins ?? 0}
+
+**🗓️ Nächste Entsorgungen (bis 45 Tage):**
+${logistics.upcomingDisposals && logistics.upcomingDisposals.length > 0 ? logistics.upcomingDisposals.slice(0, 10).map(item =>
+  `- ${new Date(item.scheduled_date).toLocaleDateString('de-DE')}: ${item.waste_name || 'Abfall'} (${item.location || 'kein Ort'}) [${item.category || 'Kategorie'} | ${item.hazard_level || 'Level'}]`
+).join('\n') : '- Keine geplanten Entsorgungen'}
+
+**📦 Offene Kisten/Container:**
+${logistics.pendingBins && logistics.pendingBins.length > 0 ? logistics.pendingBins.slice(0, 10).map(bin =>
+  `- ${bin.code} (${bin.status})${bin.keep_until ? ` – Frist ${new Date(bin.keep_until).toLocaleDateString('de-DE')}` : ''}`
+).join('\n') : '- Keine offenen Kisten'}
+`;
+    }
+
+    if (teamLogistics) {
+      prompt += `\n**🏭 TEAM-LOGISTIK (Admin-Übersicht):**
+- Entsorgungen (nächste 30 Tage): ${teamLogistics.counts?.upcomingDisposals ?? 0}
+- Überfällige Entsorgungen: ${teamLogistics.counts?.overdueDisposals ?? 0}
+- Aktive Abfall-Positionen: ${teamLogistics.counts?.activeWasteItems ?? 0}
+- Offene Kisten/Container: ${teamLogistics.counts?.pendingBins ?? 0}
+- Überfällige Kisten: ${teamLogistics.counts?.overdueBins ?? 0}
+
+**🔜 Team-Entsorgungen (nächste 14 Tage):**
+${teamLogistics.upcomingDisposals && teamLogistics.upcomingDisposals.length > 0 ? teamLogistics.upcomingDisposals.slice(0, 8).map(item =>
+  `- ${new Date(item.scheduled_date).toLocaleDateString('de-DE')}: ${item.waste_name || 'Abfall'} (${item.location || 'kein Ort'}) – ${item.assigned_to_name || 'unzugewiesen'}`
+).join('\n') : '- Keine geplanten Entsorgungen'}
+
+**📦 Kisten fällig (nächste 7 Tage):**
+${teamLogistics.binsDue && teamLogistics.binsDue.length > 0 ? teamLogistics.binsDue.slice(0, 8).map(bin =>
+  `- ${bin.code} – Frist ${new Date(bin.keep_until).toLocaleDateString('de-DE')} (erstellt von ${bin.created_by_name || 'unbekannt'})`
+).join('\n') : '- Keine fälligen Kisten'}
+`;
+    }
 
     if (kbArticles.length > 0) {
       prompt += `\n**📚 WISSENSDATENBANK (${kbArticles.length} relevante Artikel):**\n`;
@@ -537,6 +747,41 @@ ${notifications && notifications.length > 10 ? `\n... und ${notifications.length
 - Bei Daten: deutsches Format (DD.MM.YYYY)`;
 
     return prompt;
+  }
+
+  /**
+   * Send a welcome/onboarding message to a new user
+   */
+  async sendWelcomeMessage(user) {
+    try {
+      const userId = typeof user === 'object' ? user.id : user;
+      const userName = typeof user === 'object' ? user.name : null;
+
+      if (!userId) {
+        return false;
+      }
+
+      if (!this.initialized || !this.botUser) {
+        logger.warn('BL_Bot not initialized - welcome message skipped', { userId });
+        return false;
+      }
+
+      const message = `👋 Willkommen${userName ? `, ${userName}` : ''}!
+
+**Kurz-Start in 60 Sekunden:**
+1) 🗓️ Öffne den Kalender und prüfe deine Woche.
+2) 💬 Im Messenger findest du dein Team und mich (BL_Bot).
+3) 📚 In der Wissensdatenbank stehen SOPs & Anleitungen.
+4) ⚙️ Profil prüfen: Arbeitszeiten & Benachrichtigungen.
+
+Tipp: Schreib mir **"Logistik Überblick"** oder **"Meine Aufgaben"**, wenn du sofort starten willst.`;
+
+      await this.sendMessage(userId, message);
+      return true;
+    } catch (error) {
+      logger.error('Error sending welcome message:', error);
+      return false;
+    }
   }
 
   /**
@@ -864,6 +1109,22 @@ Schönes Wochenende! 🎉`;
         return await this.handleScheduleQuery(userId);
       }
 
+      // Logistics queries
+      if (
+        lowerMessage.includes('logistik') ||
+        lowerMessage.includes('entsorgung') ||
+        lowerMessage.includes('abfall') ||
+        lowerMessage.includes('waste') ||
+        lowerMessage.includes('kisten') ||
+        lowerMessage.includes('container') ||
+        lowerMessage.includes('логіст') ||
+        lowerMessage.includes('відход') ||
+        lowerMessage.includes('контейнер') ||
+        lowerMessage.includes('ящик')
+      ) {
+        return await this.handleLogisticsQuery(userId, userRole);
+      }
+
       // KNOWLEDGE BASE specific queries
       if (lowerMessage.includes('wie') || lowerMessage.includes('was ist') || lowerMessage.includes('erkläre')) {
         // Extract keywords for KB search
@@ -889,7 +1150,7 @@ Schönes Wochenende! 🎉`;
         return 'Fehler beim Abrufen der Team-Daten.';
       }
 
-      const { users, teamSchedule, taskStats } = teamContext;
+      const { users, teamSchedule, taskStats, logistics } = teamContext;
 
       let response = `👥 **Team-Übersicht**\n\n`;
       response += `**Aktive Mitarbeiter:** ${users.length}\n\n`;
@@ -918,6 +1179,14 @@ Schönes Wochenende! 🎉`;
       Object.entries(tasksByUser).forEach(([userName, stats]) => {
         response += `- ${userName}: ${stats.in_progress} in Arbeit, ${stats.todo} offen, ${stats.done} erledigt\n`;
       });
+
+      if (logistics) {
+        response += `\n**🚚 Logistik-Status:**\n`;
+        response += `- Entsorgungen (30 Tage): ${logistics.counts?.upcomingDisposals ?? 0}\n`;
+        response += `- Überfällige Entsorgungen: ${logistics.counts?.overdueDisposals ?? 0}\n`;
+        response += `- Aktive Abfall-Positionen: ${logistics.counts?.activeWasteItems ?? 0}\n`;
+        response += `- Offene Kisten/Container: ${logistics.counts?.pendingBins ?? 0} (überfällig: ${logistics.counts?.overdueBins ?? 0})\n`;
+      }
 
       return response;
     } catch (error) {
@@ -976,6 +1245,14 @@ Schönes Wochenende! 🎉`;
       Object.entries(eventTypes).forEach(([type, count]) => {
         response += `- ${type}: ${count}\n`;
       });
+
+      if (userContext.logistics) {
+        response += `\n**Logistik:**\n`;
+        response += `- Entsorgungen (30 Tage): ${userContext.logistics.counts?.upcomingDisposals ?? 0}\n`;
+        response += `- Überfällige Entsorgungen: ${userContext.logistics.counts?.overdueDisposals ?? 0}\n`;
+        response += `- Aktive Abfall-Positionen: ${userContext.logistics.counts?.activeWasteItems ?? 0}\n`;
+        response += `- Offene Kisten/Container: ${userContext.logistics.counts?.pendingBins ?? 0}\n`;
+      }
 
       return response;
     } catch (error) {
@@ -1159,6 +1436,59 @@ Schönes Wochenende! 🎉`;
     } catch (error) {
       logger.error('Error handling schedule query:', error);
       return 'Fehler beim Abrufen des Zeitplans.';
+    }
+  }
+
+  /**
+   * Handle logistics queries
+   */
+  async handleLogisticsQuery(userId, userRole) {
+    try {
+      const logistics = await this.getLogisticsContext(userId);
+      if (!logistics) {
+        return 'Fehler beim Abrufen der Logistik-Daten.';
+      }
+
+      let response = `🚚 **Logistik-Überblick**\n\n`;
+      response += `**Entsorgungen (30 Tage):** ${logistics.counts?.upcomingDisposals ?? 0}\n`;
+      response += `**Überfällige Entsorgungen:** ${logistics.counts?.overdueDisposals ?? 0}\n`;
+      response += `**Aktive Abfall-Positionen:** ${logistics.counts?.activeWasteItems ?? 0}\n`;
+      response += `**Offene Kisten/Container:** ${logistics.counts?.pendingBins ?? 0} (überfällig: ${logistics.counts?.overdueBins ?? 0})\n\n`;
+
+      response += `**🗓️ Nächste Entsorgungen:**\n`;
+      if (logistics.upcomingDisposals && logistics.upcomingDisposals.length > 0) {
+        logistics.upcomingDisposals.slice(0, 8).forEach(item => {
+          const dateLabel = new Date(item.scheduled_date).toLocaleDateString('de-DE');
+          response += `- ${dateLabel}: ${item.waste_name || 'Abfall'} (${item.location || 'kein Ort'})\n`;
+        });
+      } else {
+        response += '- Keine geplanten Entsorgungen\n';
+      }
+
+      response += `\n**📦 Offene Kisten/Container:**\n`;
+      if (logistics.pendingBins && logistics.pendingBins.length > 0) {
+        logistics.pendingBins.slice(0, 8).forEach(bin => {
+          const deadline = bin.keep_until ? ` – Frist ${new Date(bin.keep_until).toLocaleDateString('de-DE')}` : '';
+          response += `- ${bin.code} (${bin.status})${deadline}\n`;
+        });
+      } else {
+        response += '- Keine offenen Kisten\n';
+      }
+
+      if (userRole === 'admin' || userRole === 'superadmin') {
+        const teamLogistics = await this.getTeamLogisticsContext();
+        if (teamLogistics) {
+          response += `\n**🏭 Team-Logistik:**\n`;
+          response += `- Entsorgungen (30 Tage): ${teamLogistics.counts?.upcomingDisposals ?? 0}\n`;
+          response += `- Überfällige Entsorgungen: ${teamLogistics.counts?.overdueDisposals ?? 0}\n`;
+          response += `- Offene Kisten/Container: ${teamLogistics.counts?.pendingBins ?? 0} (überfällig: ${teamLogistics.counts?.overdueBins ?? 0})\n`;
+        }
+      }
+
+      return response;
+    } catch (error) {
+      logger.error('Error handling logistics query:', error);
+      return 'Fehler beim Abrufen der Logistik-Informationen.';
     }
   }
 

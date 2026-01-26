@@ -32,8 +32,20 @@
   /* Desktop header - should not scroll (line 3547) */
   .messenger-desktop-header {
     flex-shrink: 0 !important;
-    position: relative !important;
-    z-index: 10 !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 200 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    transform: translateZ(0);
+    pointer-events: auto;
+  }
+
+  .messenger-desktop-header__actions {
+    flex-shrink: 0 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto;
   }
 
   /* Messages container - ONLY THIS SCROLLS (line 3655) */
