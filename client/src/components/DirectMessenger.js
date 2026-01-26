@@ -29,7 +29,8 @@ import {
   Zap,
   FileText,
   Forward,
-  Bot
+  Bot,
+  Keyboard
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useWebSocketContext } from '../context/WebSocketContext';
@@ -56,7 +57,8 @@ import {
   addMessageReaction,
   pinMessage,
   getPinnedMessages,
-  clearConversation
+  clearConversation,
+  deleteConversation
 } from '../utils/apiEnhanced';
 import GifPicker from './GifPicker';
 import TypingIndicator from './TypingIndicator';
@@ -205,6 +207,7 @@ const DirectMessenger = () => {
   const [groupMembersSaving, setGroupMembersSaving] = useState(false);
   const [groupMemberSearch, setGroupMemberSearch] = useState('');
   const [groupInviteIds, setGroupInviteIds] = useState([]);
+  const [voiceMode, setVoiceMode] = useState(false);
 
   const userNameLookup = useMemo(() => {
     const map = {};
@@ -365,6 +368,8 @@ const DirectMessenger = () => {
   const recordingChunksRef = useRef([]);
   const recordingStreamRef = useRef(null);
   const recordingStartedAtRef = useRef(null);
+  const recordingActiveRef = useRef(false);
+  const voicePressActiveRef = useRef(false);
   const uploadCleanupRef = useRef({});
   const lastReadUpdateRef = useRef({});
   const pendingReadTimeoutRef = useRef({});
@@ -472,6 +477,19 @@ const DirectMessenger = () => {
     Object.values(uploadCleanupRef.current || {}).forEach((timeoutId) => {
       clearTimeout(timeoutId);
     });
+  }, []);
+
+  useEffect(() => () => {
+    try {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
+    } catch (error) {
+      console.warn('Failed to stop recorder on unmount', error);
+    }
+    recordingStreamRef.current?.getTracks().forEach((track) => track.stop());
+    recordingStreamRef.current = null;
+    recordingActiveRef.current = false;
   }, []);
 
   const normalizeMessage = useCallback((message) => {
@@ -1124,11 +1142,11 @@ const DirectMessenger = () => {
     return () => {
       window.removeEventListener('resize', updateInputHeight);
     };
-  }, [isMobile, mobileMode, showComposerActions]);
+  }, [isMobile, mobileMode, showComposerActions, voiceMode]);
 
   useEffect(() => {
     if (isMobile) {
-      if (selectedThreadId || selectedContact) {
+      if ((selectedThreadId || selectedContact) && !voiceMode) {
         requestAnimationFrame(() => {
           mobileTextareaRef.current?.focus();
         });
@@ -1138,7 +1156,13 @@ const DirectMessenger = () => {
         desktopTextareaRef.current?.focus({ preventScroll: true });
       });
     }
-  }, [isMobile, selectedThreadId, selectedContact]);
+  }, [isMobile, selectedThreadId, selectedContact, voiceMode]);
+
+  useEffect(() => {
+    if (isMobile && voiceMode) {
+      mobileTextareaRef.current?.blur();
+    }
+  }, [isMobile, voiceMode]);
 
   const loadMessages = useCallback(async (threadId) => {
     if (!threadId) {
@@ -1368,10 +1392,27 @@ const DirectMessenger = () => {
     setGroupMemberSearch('');
   }, [refreshGroupDetails, selectedThreadId, threads]);
 
+  useEffect(() => {
+    if (recordingActiveRef.current && mediaRecorderRef.current?.state !== 'inactive') {
+      try {
+        mediaRecorderRef.current.stop();
+      } catch (error) {
+        console.warn('Failed to stop recording on thread change', error);
+      }
+    }
+    recordingActiveRef.current = false;
+    voicePressActiveRef.current = false;
+    setIsRecording(false);
+    setVoiceMode(false);
+  }, [selectedThreadId, selectedContact]);
+
   // Handle input change with @mention detection and typing indicator
   const handleInputChange = (e) => {
     const value = e.target.value;
     const cursorPos = e.target.selectionStart;
+    if (voiceMode) {
+      setVoiceMode(false);
+    }
 
     // Auto-resize textarea on mobile (1 row → 4 rows max, then scroll)
     if (mobileTextareaRef.current && isMobile) {
@@ -1524,6 +1565,10 @@ const DirectMessenger = () => {
 
   const handleSendMessage = async (event) => {
     event?.preventDefault();
+    if (voiceMode) {
+      setVoiceMode(false);
+      voicePressActiveRef.current = false;
+    }
 
     const trimmed = messageInput?.trim() || '';
     if (!trimmed && (!Array.isArray(pendingAttachments) || pendingAttachments.length === 0) && !selectedEvent) return;
@@ -1759,6 +1804,9 @@ const DirectMessenger = () => {
 
   const handleSelectGif = async (gifData) => {
     if (!selectedThreadId) return;
+    if (voiceMode) {
+      setVoiceMode(false);
+    }
 
     try {
       setSending(true);
@@ -1780,6 +1828,9 @@ const DirectMessenger = () => {
   const handleFileSelect = (event) => {
     const files = Array.from(event.target.files || []);
     if (files.length === 0) return;
+    if (voiceMode) {
+      setVoiceMode(false);
+    }
     const allowedTypes = [
       'application/pdf',
       'application/msword',
@@ -1891,6 +1942,9 @@ const DirectMessenger = () => {
   const storyEntries = useMemo(() => Object.values(storiesByUser), [storiesByUser]);
 
   const startRecording = async () => {
+    if (recordingActiveRef.current) {
+      return;
+    }
     try {
       if (!navigator?.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
         showError('Audioaufnahme wird von diesem Gerät nicht unterstützt');
@@ -1920,6 +1974,12 @@ const DirectMessenger = () => {
         }
       };
 
+      mediaRecorder.onerror = (event) => {
+        console.error('Recording error:', event?.error || event);
+        recordingActiveRef.current = false;
+        setIsRecording(false);
+      };
+
       mediaRecorder.onstop = async () => {
         const stoppedAt = Date.now();
         const startedAt = recordingStartedAtRef.current || stoppedAt;
@@ -1930,30 +1990,90 @@ const DirectMessenger = () => {
           : resolvedMime.includes('mp4')
             ? 'm4a'
             : 'webm';
-        const blob = new Blob(recordingChunksRef.current, { type: resolvedMime });
-        const file = new File([blob], `voice_${Date.now()}.${extension}`, { type: resolvedMime });
-        file.__audioDuration = durationSeconds;
-        setPendingAttachments((prev) => [...prev, file]);
+        if (recordingChunksRef.current.length > 0) {
+          const blob = new Blob(recordingChunksRef.current, { type: resolvedMime });
+          const file = new File([blob], `voice_${Date.now()}.${extension}`, { type: resolvedMime });
+          file.__audioDuration = durationSeconds;
+          setPendingAttachments((prev) => [...prev, file]);
+          showSuccess('Audioaufnahme hinzugefügt');
+        }
 
         recordingStreamRef.current?.getTracks().forEach((track) => track.stop());
         recordingStreamRef.current = null;
-        showSuccess('Audioaufnahme hinzugefügt');
+        mediaRecorderRef.current = null;
+        recordingActiveRef.current = false;
+        setIsRecording(false);
       };
 
       mediaRecorder.start();
+      recordingActiveRef.current = true;
       setIsRecording(true);
     } catch (error) {
+      recordingActiveRef.current = false;
       console.error('Error starting recording:', error);
       showError('Mikrofon-Zugriff verweigert');
     }
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
+    if (!mediaRecorderRef.current) return;
+    if (mediaRecorderRef.current.state === 'inactive') {
+      recordingActiveRef.current = false;
+      setIsRecording(false);
+      return;
+    }
+    if (recordingActiveRef.current || isRecording) {
+      try {
+        mediaRecorderRef.current.stop();
+      } catch (error) {
+        console.error('Error stopping recording:', error);
+      }
+      recordingActiveRef.current = false;
       setIsRecording(false);
     }
   };
+
+  const handleVoicePressStart = useCallback((event) => {
+    if (event?.cancelable) {
+      event.preventDefault();
+    }
+    event?.stopPropagation?.();
+    if (voicePressActiveRef.current || recordingActiveRef.current || isRecording) {
+      return;
+    }
+    voicePressActiveRef.current = true;
+    startRecording();
+  }, [isRecording, startRecording]);
+
+  const handleVoicePressEnd = useCallback((event) => {
+    if (event?.cancelable) {
+      event.preventDefault();
+    }
+    event?.stopPropagation?.();
+    if (!voicePressActiveRef.current) return;
+    voicePressActiveRef.current = false;
+    stopRecording();
+    setVoiceMode(false);
+  }, [stopRecording]);
+
+  const handleVoicePressCancel = useCallback((event) => {
+    if (event?.cancelable) {
+      event.preventDefault();
+    }
+    event?.stopPropagation?.();
+    if (!voicePressActiveRef.current) return;
+    voicePressActiveRef.current = false;
+    stopRecording();
+    setVoiceMode(false);
+  }, [stopRecording]);
+
+  const exitVoiceMode = useCallback(() => {
+    voicePressActiveRef.current = false;
+    if (recordingActiveRef.current || isRecording) {
+      stopRecording();
+    }
+    setVoiceMode(false);
+  }, [isRecording, stopRecording]);
 
   const handleDeleteMessage = async (messageId) => {
     if (!messageId) {
@@ -2370,7 +2490,13 @@ const DirectMessenger = () => {
   }, [loadMobileQuickReplies]);
 
   const toggleComposerActions = useCallback(() => {
-    setShowComposerActions((prev) => !prev);
+    setShowComposerActions((prev) => {
+      const next = !prev;
+      if (next) {
+        setVoiceMode(false);
+      }
+      return next;
+    });
   }, []);
 
   const getBotContact = useCallback(() => {
@@ -2623,6 +2749,36 @@ const DirectMessenger = () => {
     }
   }, [removeConversationMember, selectedThreadId, user?.id]);
 
+  const handleDeleteGroup = useCallback(async () => {
+    if (!selectedThreadId || !activeThread) return;
+    if (user?.role !== 'superadmin') {
+      showError('Nur Superadmin kann Gruppen löschen');
+      return;
+    }
+    const name = activeThread.name || 'diese Gruppe';
+    const confirmed = window.confirm(
+      `Möchtest du die Gruppe "${name}" wirklich löschen? Alle Nachrichten und Mitglieder werden entfernt.`
+    );
+    if (!confirmed) return;
+
+    setGroupMembersSaving(true);
+    try {
+      await deleteConversation(selectedThreadId);
+      setThreads((prev) => prev.filter((thread) => !isSameThreadId(thread.id, selectedThreadId)));
+      setSelectedThreadId(null);
+      setSelectedContact(null);
+      setMessages([]);
+      setShowMembersModal(false);
+      setMobileMode('list');
+      showSuccess('Gruppe gelöscht');
+    } catch (error) {
+      console.error('Error deleting group:', error);
+      showError(error?.response?.data?.error || 'Gruppe konnte nicht gelöscht werden');
+    } finally {
+      setGroupMembersSaving(false);
+    }
+  }, [activeThread, selectedThreadId, user?.role]);
+
   const handleOpenProfile = useCallback((profileId) => {
     if (!profileId) {
       navigate('/profile/me');
@@ -2723,6 +2879,8 @@ const DirectMessenger = () => {
     if (role === 'owner' || role === 'moderator') return true;
     return ['admin', 'superadmin'].includes(user?.role);
   }, [activeThread, user?.role]);
+
+  const isSuperadmin = useMemo(() => user?.role === 'superadmin', [user?.role]);
 
   const decoratedContacts = useMemo(
     () =>
@@ -4022,6 +4180,15 @@ const DirectMessenger = () => {
                     <span className="messenger-recording-dot" />
                     <span>Aufnahme läuft</span>
                     <span className="messenger-recording-time">{formatRecordingTime(recordingSeconds)}</span>
+                    <button
+                      type="button"
+                      onClick={stopRecording}
+                      className="messenger-recording-stop"
+                      aria-label="Aufnahme stoppen"
+                    >
+                      <StopCircle className="w-4 h-4" />
+                      <span>Stop</span>
+                    </button>
                   </div>
                 )}
 
@@ -4043,6 +4210,7 @@ const DirectMessenger = () => {
                       type="button"
                       onClick={() => {
                         fileInputRef.current?.click();
+                        setVoiceMode(false);
                         setShowComposerActions(false);
                       }}
                       className="messenger-composer-menu-item"
@@ -4054,6 +4222,7 @@ const DirectMessenger = () => {
                       type="button"
                       onClick={() => {
                         setShowGifPicker((prev) => !prev);
+                        setVoiceMode(false);
                         setShowComposerActions(false);
                       }}
                       className="messenger-composer-menu-item"
@@ -4065,6 +4234,7 @@ const DirectMessenger = () => {
                       type="button"
                       onClick={() => {
                         openEventPicker();
+                        setVoiceMode(false);
                         setShowComposerActions(false);
                       }}
                       className="messenger-composer-menu-item"
@@ -4076,6 +4246,7 @@ const DirectMessenger = () => {
                       type="button"
                       onClick={() => {
                         setShowQuickReplies(true);
+                        setVoiceMode(false);
                         setShowComposerActions(false);
                       }}
                       className="messenger-composer-menu-item"
@@ -4086,7 +4257,12 @@ const DirectMessenger = () => {
                     <button
                       type="button"
                       onClick={() => {
-                        isRecording ? stopRecording() : startRecording();
+                        if (isMobile) {
+                          setVoiceMode(true);
+                          mobileTextareaRef.current?.blur();
+                        } else {
+                          isRecording ? stopRecording() : startRecording();
+                        }
                         setShowComposerActions(false);
                       }}
                       className="messenger-composer-menu-item"
@@ -4099,6 +4275,7 @@ const DirectMessenger = () => {
                         type="button"
                         onClick={() => {
                           handleAskBot();
+                          setVoiceMode(false);
                           setShowComposerActions(false);
                         }}
                         className="messenger-composer-menu-item"
@@ -4464,6 +4641,15 @@ const DirectMessenger = () => {
           <span className="messenger-recording-dot" />
           <span>Aufnahme läuft</span>
           <span className="messenger-recording-time">{formatRecordingTime(recordingSeconds)}</span>
+          <button
+            type="button"
+            onClick={stopRecording}
+            className="messenger-recording-stop"
+            aria-label="Aufnahme stoppen"
+          >
+            <StopCircle className="w-4 h-4" />
+            <span>Stop</span>
+          </button>
         </div>
       )}
       {renderMobileQuickReplies()}
@@ -4778,6 +4964,7 @@ const DirectMessenger = () => {
                 type="button"
                 onClick={() => {
                   fileInputRef.current?.click();
+                  setVoiceMode(false);
                   setShowComposerActions(false);
                 }}
                 className="messenger-composer-menu-item"
@@ -4789,6 +4976,7 @@ const DirectMessenger = () => {
                 type="button"
                 onClick={() => {
                   setShowGifPicker((prev) => !prev);
+                  setVoiceMode(false);
                   setShowComposerActions(false);
                 }}
                 className="messenger-composer-menu-item"
@@ -4800,6 +4988,7 @@ const DirectMessenger = () => {
                 type="button"
                 onClick={() => {
                   openEventPicker();
+                  setVoiceMode(false);
                   setShowComposerActions(false);
                 }}
                 className="messenger-composer-menu-item"
@@ -4811,6 +5000,7 @@ const DirectMessenger = () => {
                 type="button"
                 onClick={() => {
                   setShowQuickReplies(true);
+                  setVoiceMode(false);
                   setShowComposerActions(false);
                 }}
                 className="messenger-composer-menu-item"
@@ -4821,7 +5011,8 @@ const DirectMessenger = () => {
               <button
                 type="button"
                 onClick={() => {
-                  isRecording ? stopRecording() : startRecording();
+                  setVoiceMode(true);
+                  mobileTextareaRef.current?.blur();
                   setShowComposerActions(false);
                 }}
                 className="messenger-composer-menu-item"
@@ -4834,6 +5025,7 @@ const DirectMessenger = () => {
                   type="button"
                   onClick={() => {
                     handleAskBot();
+                    setVoiceMode(false);
                     setShowComposerActions(false);
                   }}
                   className="messenger-composer-menu-item"
@@ -4846,46 +5038,83 @@ const DirectMessenger = () => {
           )}
 
           {/* Input Wrapper */}
-          <div
-            className="messenger-input-wrapper"
-            onClick={() => mobileTextareaRef.current?.focus()}
-          >
-            <textarea
-              ref={mobileTextareaRef}
-              rows={1}
-              value={messageInput}
-              onChange={handleInputChange}
-              placeholder={
-                activeThread?.type === 'group'
-                  ? "Nachricht... (@BL_Bot für Hilfe)"
-                  : "Nachricht schreiben..."
-              }
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSendMessage();
-                }
-              }}
-              className="messenger-text-input"
-              onInput={(e) => {
-                e.target.style.height = 'auto';
-                e.target.style.height = Math.min(e.target.scrollHeight, 88) + 'px';
-              }}
-            />
-
-            {/* Quick Bot Mention for Groups */}
-            {activeThread?.type === 'group' ? (
+          {voiceMode ? (
+            <div className="messenger-voice-composer">
               <button
                 type="button"
-                onClick={handleAskBot}
-                className="messenger-btn-bot"
-                title="BL_Bot erwähnen"
+                className="messenger-voice-exit"
+                onClick={exitVoiceMode}
+                aria-label="Zur Tastatur wechseln"
               >
-                <Bot />
-                <span>BL_Bot</span>
+                <Keyboard className="w-4 h-4" />
               </button>
-            ) : null}
-          </div>
+              <button
+                type="button"
+                className={`messenger-voice-hold ${isRecording ? 'is-recording' : ''}`}
+                onPointerDown={handleVoicePressStart}
+                onPointerUp={handleVoicePressEnd}
+                onPointerLeave={handleVoicePressCancel}
+                onPointerCancel={handleVoicePressCancel}
+                onTouchStart={handleVoicePressStart}
+                onTouchEnd={handleVoicePressEnd}
+                aria-label="Gedrückt halten, um aufzunehmen"
+              >
+                <Mic className="w-5 h-5" />
+                <div className="messenger-voice-hold__text">
+                  <span className="messenger-voice-hold__title">
+                    {isRecording ? 'Aufnahme läuft' : 'Gedrückt halten'}
+                  </span>
+                  <span className="messenger-voice-hold__subtitle">
+                    {isRecording
+                      ? `${formatRecordingTime(recordingSeconds)} • Loslassen zum Stoppen`
+                      : 'Zum Aufnehmen von Audio'}
+                  </span>
+                </div>
+              </button>
+            </div>
+          ) : (
+            <div
+              className="messenger-input-wrapper"
+              onClick={() => mobileTextareaRef.current?.focus()}
+            >
+              <textarea
+                ref={mobileTextareaRef}
+                rows={1}
+                value={messageInput}
+                onChange={handleInputChange}
+                placeholder={
+                  activeThread?.type === 'group'
+                    ? "Nachricht... (@BL_Bot für Hilfe)"
+                    : "Nachricht schreiben..."
+                }
+                onFocus={() => setVoiceMode(false)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
+                className="messenger-text-input"
+                onInput={(e) => {
+                  e.target.style.height = 'auto';
+                  e.target.style.height = Math.min(e.target.scrollHeight, 88) + 'px';
+                }}
+              />
+
+              {/* Quick Bot Mention for Groups */}
+              {activeThread?.type === 'group' ? (
+                <button
+                  type="button"
+                  onClick={handleAskBot}
+                  className="messenger-btn-bot"
+                  title="BL_Bot erwähnen"
+                >
+                  <Bot />
+                  <span>BL_Bot</span>
+                </button>
+              ) : null}
+            </div>
+          )}
 
           {/* Send Button */}
           <button
@@ -5334,6 +5563,26 @@ const DirectMessenger = () => {
                   })}
                 </div>
               </section>
+
+              {isSuperadmin && activeThread?.type === 'group' && (
+                <section className="group-settings-section group-settings-section--danger">
+                  <div className="group-settings-section__header">
+                    <h4>Superadmin</h4>
+                    <span>Gefahr</span>
+                  </div>
+                  <div className="group-settings-danger">
+                    <p>Diese Aktion löscht die Gruppe dauerhaft inklusive aller Nachrichten.</p>
+                    <button
+                      type="button"
+                      onClick={handleDeleteGroup}
+                      disabled={groupMembersSaving}
+                      className="group-settings-delete"
+                    >
+                      Gruppe löschen
+                    </button>
+                  </div>
+                </section>
+              )}
             </div>
 
             <div className="group-settings-footer">

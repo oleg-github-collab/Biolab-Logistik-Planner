@@ -128,6 +128,9 @@ export const deleteMessage = (messageId) =>
 export const clearConversation = (conversationId) =>
   api.delete(`/messages/conversations/${conversationId}/clear`);
 
+export const deleteConversation = (conversationId) =>
+  api.delete(`/messages/conversations/${conversationId}`);
+
 export const pinMessage = (messageId) =>
   api.post(`/messages/${messageId}/pin`);
 
@@ -233,6 +236,9 @@ export const createStorageBins = (payload) =>
 
 export const completeStorageBin = (binId) =>
   api.post(`/kisten/${binId}/complete`);
+
+export const deleteStorageBin = (binId) =>
+  api.delete(`/kisten/${binId}`);
 
 // ============================================
 // KNOWLEDGE BASE APIs

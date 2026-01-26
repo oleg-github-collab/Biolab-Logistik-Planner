@@ -22,6 +22,8 @@
     overflow-x: hidden !important;
     -webkit-overflow-scrolling: touch !important;
     overscroll-behavior: contain !important;
+    touch-action: pan-y !important;
+    scrollbar-gutter: stable both-edges;
     scroll-padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 16px) !important;
   }
 
@@ -51,6 +53,9 @@
   /* Mobile menu drawer scrolling */
   .mobile-menu-drawer {
     max-height: 100dvh !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
   }
 
   .mobile-menu-drawer .mobile-scroll-container {

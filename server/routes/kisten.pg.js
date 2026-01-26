@@ -359,6 +359,57 @@ router.post('/:id/complete', auth, async (req, res) => {
   }
 });
 
+// DELETE /api/kisten/:id - Delete completed storage bin (superadmin only)
+router.delete('/:id', auth, async (req, res) => {
+  const binId = parseInt(req.params.id, 10);
+  if (!binId) {
+    return res.status(400).json({ error: 'Ungültige Kisten-ID' });
+  }
+
+  if (req.user.role !== 'superadmin') {
+    return res.status(403).json({ error: 'Nur Superadmin kann erledigte Kisten löschen' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const binResult = await client.query('SELECT * FROM storage_bins WHERE id = $1', [binId]);
+    if (binResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Kiste nicht gefunden' });
+    }
+
+    const bin = binResult.rows[0];
+    if (bin.status !== 'completed') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Nur erledigte Kisten können gelöscht werden' });
+    }
+
+    if (bin.barcode_image_path) {
+      deleteBarcodeImage(bin.barcode_image_path);
+    }
+
+    await client.query('DELETE FROM storage_bins WHERE id = $1', [binId]);
+
+    await client.query('COMMIT');
+
+    logger.info('Completed storage bin deleted', {
+      binId,
+      code: bin.code,
+      userId: req.user.id
+    });
+
+    res.json({ success: true, id: binId, code: bin.code });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    logger.error('Error deleting storage bin', { error: error.message });
+    res.status(500).json({ error: 'Server error' });
+  } finally {
+    client.release();
+  }
+});
+
 // POST /api/kisten/:id/barcode - Upload barcode image for a storage bin
 router.post('/:id/barcode', auth, (req, res) => {
   uploadBarcode(req, res, async (err) => {

@@ -28,10 +28,11 @@ import {
   ShieldCheck,
   Eye
 } from 'lucide-react';
-import { getStorageBins, createStorageBins, completeStorageBin } from '../utils/apiEnhanced';
+import { getStorageBins, createStorageBins, completeStorageBin, deleteStorageBin } from '../utils/apiEnhanced';
 import { showError, showSuccess } from '../utils/toast';
 import { playSuccessBeep, playErrorBeep } from '../utils/soundEffects';
 import BarcodeViewer from './BarcodeViewer';
+import { useAuth } from '../context/AuthContext';
 
 const formatDate = (value, withTime = false) => {
   if (!value) return '-';
@@ -77,6 +78,7 @@ const sortOptions = [
 
 const KistenManager = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [bins, setBins] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('pending');
@@ -88,6 +90,7 @@ const KistenManager = () => {
   const [comment, setComment] = useState('');
   const [keepUntil, setKeepUntil] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
   const [scanning, setScanning] = useState(false);
   const [detectorSupported, setDetectorSupported] = useState(false);
   const [cameraError, setCameraError] = useState('');
@@ -314,6 +317,26 @@ const KistenManager = () => {
     }
   };
 
+  const handleDeleteCompleted = async (id) => {
+    if (!id) return;
+    if (user?.role !== 'superadmin') {
+      showError('Nur Superadmin kann erledigte Kisten löschen.');
+      return;
+    }
+    if (!window.confirm('Diese erledigte Kiste wirklich löschen?')) return;
+    setDeletingId(id);
+    try {
+      await deleteStorageBin(id);
+      showSuccess('Erledigte Kiste gelöscht.');
+      await loadBins();
+    } catch (error) {
+      console.error('Fehler beim Löschen der Kiste', error);
+      showError(error?.response?.data?.error || 'Kiste konnte nicht gelöscht werden.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const stats = useMemo(() => {
     const pending = bins.filter((bin) => bin.status === 'pending');
     const completed = bins.filter((bin) => bin.status === 'completed');
@@ -367,6 +390,7 @@ const KistenManager = () => {
 
   const pendingBins = filteredBins.filter((bin) => bin.status === 'pending');
   const completedBins = filteredBins.filter((bin) => bin.status === 'completed');
+  const displayedCompletedBins = statusFilter === 'completed' ? completedBins : completedBins.slice(0, 9);
 
   const upcomingTimeline = useMemo(() => {
     const pendingOnly = bins
@@ -867,7 +891,9 @@ const KistenManager = () => {
               <CheckCircle2 className="w-5 h-5 text-emerald-600" />
               Kürzlich erledigte Kisten
             </h3>
-            <p className="text-xs text-slate-500">Historie der letzten 10 Abschlüsse</p>
+            <p className="text-xs text-slate-500">
+              {statusFilter === 'completed' ? 'Alle erledigten Kisten' : 'Historie der letzten 10 Abschlüsse'}
+            </p>
           </div>
 
           {loading ? (
@@ -881,7 +907,7 @@ const KistenManager = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {completedBins.slice(0, 9).map((bin) => (
+              {displayedCompletedBins.map((bin) => (
                 <div key={`completed-${bin.id}`} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="flex items-center justify-between">
                     <div>
@@ -900,6 +926,26 @@ const KistenManager = () => {
                     <p className="mt-2 text-sm text-slate-600">
                       Hinweis: {bin.comment}
                     </p>
+                  )}
+                  {user?.role === 'superadmin' && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteCompleted(bin.id)}
+                      disabled={deletingId === bin.id}
+                      className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-rose-200 text-rose-600 text-xs font-semibold hover:bg-rose-50 transition disabled:opacity-60"
+                    >
+                      {deletingId === bin.id ? (
+                        <>
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Löschen…
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="w-3 h-3" />
+                          Löschen
+                        </>
+                      )}
+                    </button>
                   )}
                 </div>
               ))}

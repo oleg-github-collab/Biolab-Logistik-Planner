@@ -2874,6 +2874,80 @@ router.delete('/stories/:storyId', auth, async (req, res) => {
   }
 });
 
+// DELETE /api/messages/conversations/:conversationId - Delete a group conversation (superadmin only)
+router.delete('/conversations/:conversationId', auth, async (req, res) => {
+  const conversationId = parseInt(req.params.conversationId, 10);
+  if (!conversationId) {
+    return res.status(400).json({ error: 'Ungültige Konversations-ID' });
+  }
+
+  if (req.user.role !== 'superadmin') {
+    return res.status(403).json({ error: 'Nur Superadmin kann Gruppen löschen' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const conversationResult = await client.query(
+      'SELECT * FROM message_conversations WHERE id = $1',
+      [conversationId]
+    );
+
+    if (conversationResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Unterhaltung nicht gefunden' });
+    }
+
+    const conversation = conversationResult.rows[0];
+    const conversationType = conversation.conversation_type || conversation.type;
+
+    if (conversationType !== 'group') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Nur Gruppenchats können gelöscht werden' });
+    }
+
+    const membersResult = await client.query(
+      'SELECT user_id FROM message_conversation_members WHERE conversation_id = $1',
+      [conversationId]
+    );
+
+    await client.query('DELETE FROM messages WHERE conversation_id = $1', [conversationId]);
+    await client.query('DELETE FROM message_conversation_members WHERE conversation_id = $1', [conversationId]);
+    await client.query('DELETE FROM message_conversations WHERE id = $1', [conversationId]);
+
+    await client.query('COMMIT');
+
+    const io = getIO();
+    if (io) {
+      membersResult.rows.forEach((member) => {
+        io.to(`user_${member.user_id}`).emit('conversation:removed', {
+          conversationId
+        });
+      });
+    }
+
+    logger.info('Group conversation deleted', {
+      userId: req.user.id,
+      conversationId,
+      conversationName: conversation.name
+    });
+
+    res.json({
+      success: true,
+      conversationId,
+      conversationName: conversation.name,
+      message: 'Gruppe gelöscht'
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    logger.error('Error deleting conversation', error);
+    res.status(500).json({ error: 'Fehler beim Löschen der Gruppe' });
+  } finally {
+    client.release();
+  }
+});
+
 // DELETE /api/messages/conversations/:conversationId/clear - Clear all messages in a group chat (superadmin only)
 router.delete('/conversations/:conversationId/clear', auth, async (req, res) => {
   try {
