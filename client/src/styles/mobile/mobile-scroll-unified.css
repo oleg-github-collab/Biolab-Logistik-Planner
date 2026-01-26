@@ -1,0 +1,60 @@
+/* Unified mobile scrolling overrides for all tabs and menu */
+
+@media (max-width: 1023px) {
+  :root {
+    --mobile-header-height: 56px;
+  }
+
+  #mobile-app-root {
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+    max-height: 100dvh !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+  }
+
+  main.mobile-scroll-container {
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior: contain !important;
+    scroll-padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 16px) !important;
+  }
+
+  body.messenger-page main.mobile-scroll-container {
+    overflow: hidden !important;
+    padding-bottom: 0 !important;
+  }
+
+  main.mobile-scroll-container > * {
+    flex-shrink: 0 !important;
+    min-height: 0 !important;
+  }
+
+  .mobile-scroll-container::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+
+  /* Ensure nested scroll panels behave */
+  .mobile-scroll-container .overflow-y-auto,
+  .mobile-scroll-container [class*="overflow-y-auto"] {
+    max-height: none !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-y: contain !important;
+  }
+
+  /* Mobile menu drawer scrolling */
+  .mobile-menu-drawer {
+    max-height: 100dvh !important;
+  }
+
+  .mobile-menu-drawer .mobile-scroll-container {
+    height: 100% !important;
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+  }
+}

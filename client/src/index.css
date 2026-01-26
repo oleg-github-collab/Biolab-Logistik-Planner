@@ -43,6 +43,8 @@
 @import './styles/knowledge-base-premium.css';
 /* Kisten management mobile alignment */
 @import './styles/kisten-mobile.css';
+/* Unified mobile scrolling overrides */
+@import './styles/mobile/mobile-scroll-unified.css';
 
 @tailwind utilities;
 
