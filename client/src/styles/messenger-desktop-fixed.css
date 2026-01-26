@@ -2,15 +2,23 @@
 
 @media (min-width: 1025px) {
 
+  body.messenger-page .messenger-page-container {
+    height: calc(100vh - var(--app-header-height, 80px)) !important;
+    max-height: calc(100vh - var(--app-header-height, 80px)) !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
   /* ==================== КОНТЕЙНЕР МЕСЕНДЖЕРА ==================== */
   div.messenger-container,
   .flex-1.flex.flex-col.messenger-container {
     display: flex !important;
     flex-direction: column !important;
-    height: 100vh !important;
-    max-height: 100vh !important;
+    height: 100% !important;
+    max-height: 100% !important;
     position: relative !important;
     overflow: hidden !important;
+    min-height: 0 !important;
   }
 
   /* FORCE LAYOUT - MESSAGES SCROLL, INPUT STICKY */

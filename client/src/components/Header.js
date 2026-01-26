@@ -41,6 +41,7 @@ const Header = () => {
   const searchInputRef = useRef(null);
   const overflowMenuRef = useRef(null);
   const overflowTriggerRef = useRef(null);
+  const headerRef = useRef(null);
   const { t } = useLocale();
 
   const state = authContext?.state;
@@ -165,11 +166,36 @@ const Header = () => {
     };
   }, [mobileMenuOpen]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const updateHeaderHeight = () => {
+      const height = headerRef.current?.offsetHeight || 0;
+      document.documentElement.style.setProperty('--app-header-height', `${height}px`);
+    };
+
+    updateHeaderHeight();
+
+    let resizeObserver;
+    if (typeof ResizeObserver !== 'undefined' && headerRef.current) {
+      resizeObserver = new ResizeObserver(updateHeaderHeight);
+      resizeObserver.observe(headerRef.current);
+    }
+
+    window.addEventListener('resize', updateHeaderHeight);
+    return () => {
+      window.removeEventListener('resize', updateHeaderHeight);
+      if (resizeObserver) resizeObserver.disconnect();
+    };
+  }, []);
+
   if (!state || !user) return null;
 
   return (
     <>
-      <header className="top-nav-mobile bg-white/95 backdrop-blur border-b border-slate-100 sticky top-0 z-50 shadow-[0_2px_10px_rgba(15,23,42,0.04)]">
+      <header
+        ref={headerRef}
+        className="top-nav-mobile bg-white/95 backdrop-blur border-b border-slate-100 sticky top-0 z-50 shadow-[0_2px_10px_rgba(15,23,42,0.04)]"
+      >
         <div className="max-w-full mx-auto px-3 sm:px-4 lg:px-6">
           <div className="flex justify-between items-center py-3 min-h-[56px]">
 
