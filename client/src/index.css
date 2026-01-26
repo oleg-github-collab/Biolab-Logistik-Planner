@@ -78,6 +78,106 @@
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
+/* Upload progress bars */
+.upload-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.upload-progress__item {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+}
+
+.upload-progress__item.error {
+  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(254, 242, 242, 0.9);
+}
+
+.upload-progress__meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 6px;
+  gap: 12px;
+}
+
+.upload-progress__name {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upload-progress__percent {
+  color: #2563eb;
+  font-variant-numeric: tabular-nums;
+}
+
+.upload-progress__bar {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.2);
+  overflow: hidden;
+  position: relative;
+}
+
+.upload-progress__fill {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #2563eb, #22c55e);
+  border-radius: 999px;
+  transition: width 0.2s ease;
+  position: relative;
+}
+
+.upload-progress__fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.5) 50%, rgba(255, 255, 255, 0) 100%);
+  animation: uploadShimmer 1.2s linear infinite;
+}
+
+@keyframes uploadShimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.upload-progress--floating .upload-progress__item {
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.upload-progress--mobile .upload-progress__item {
+  background: rgba(15, 23, 42, 0.9);
+  color: #f8fafc;
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+.upload-progress--mobile .upload-progress__meta {
+  color: #f8fafc;
+}
+
+.upload-progress--mobile .upload-progress__percent {
+  color: #38bdf8;
+}
+
+.upload-progress--mobile .upload-progress__bar {
+  background: rgba(148, 163, 184, 0.25);
+}
+
 /* Line clamp utility */
 .line-clamp-2 {
   display: -webkit-box;

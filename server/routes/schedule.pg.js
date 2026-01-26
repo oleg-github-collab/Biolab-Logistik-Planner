@@ -1241,14 +1241,16 @@ router.get('/events', auth, async (req, res) => {
     const params = [targetUserId];
     let paramIndex = 2;
 
-    if (actualStartDate) {
-      query += ` AND e.start_time >= $${paramIndex}`;
+    if (actualStartDate && actualEndDate) {
+      query += ` AND e.start_time <= $${paramIndex + 1} AND e.end_time >= $${paramIndex}`;
+      params.push(actualStartDate, actualEndDate);
+      paramIndex += 2;
+    } else if (actualStartDate) {
+      query += ` AND e.end_time >= $${paramIndex}`;
       params.push(actualStartDate);
       paramIndex++;
-    }
-
-    if (actualEndDate) {
-      query += ` AND e.end_time <= $${paramIndex}`;
+    } else if (actualEndDate) {
+      query += ` AND e.start_time <= $${paramIndex}`;
       params.push(actualEndDate);
       paramIndex++;
     }

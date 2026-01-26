@@ -116,6 +116,25 @@ const EventFormModal = ({
   const [audioPreviewUrl, setAudioPreviewUrl] = useState(null);
   const [isUploadingAudio, setIsUploadingAudio] = useState(false);
   const [audioError, setAudioError] = useState('');
+  const [uploadQueue, setUploadQueue] = useState([]);
+
+  const addUploadItem = useCallback((item) => {
+    setUploadQueue((prev) => [...prev, item]);
+  }, []);
+
+  const updateUploadItem = useCallback((id, patch) => {
+    setUploadQueue((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, ...patch } : item))
+    );
+  }, []);
+
+  const removeUploadItem = useCallback((id) => {
+    setUploadQueue((prev) => prev.filter((item) => item.id !== id));
+  }, []);
+
+  const scheduleUploadCleanup = useCallback((id) => {
+    setTimeout(() => removeUploadItem(id), 1400);
+  }, [removeUploadItem]);
 
   // Initialize form data when event changes
   useEffect(() => {
@@ -253,17 +272,32 @@ const EventFormModal = ({
     const uploadForm = new FormData();
     uploadForm.append('file', audioBlob, `event-audio-${Date.now()}.webm`);
     uploadForm.append('context', 'calendar');
+    const uploadId = `audio-${Date.now()}`;
+    addUploadItem({ id: uploadId, name: 'Audioaufnahme', progress: 0, status: 'uploading' });
 
     try {
-      const response = await uploadAttachment(uploadForm);
+      const response = await uploadAttachment(uploadForm, {
+        onUploadProgress: (progressEvent) => {
+          if (!progressEvent.total) return;
+          const progress = Math.min(
+            100,
+            Math.round((progressEvent.loaded / progressEvent.total) * 100)
+          );
+          updateUploadItem(uploadId, { progress });
+        }
+      });
       const uploaded = response.data;
       appendAttachment(uploaded);
       handleChange('audio_url', uploaded.url);
       toast.success('Audio-Anweisung hinzugefügt');
+      updateUploadItem(uploadId, { progress: 100, status: 'done' });
+      scheduleUploadCleanup(uploadId);
     } catch (error) {
       console.error('Error uploading audio attachment', error);
       setAudioError('Audio konnte nicht hochgeladen werden');
       toast.error('Audio konnte nicht hochgeladen werden');
+      updateUploadItem(uploadId, { status: 'error' });
+      scheduleUploadCleanup(uploadId);
     } finally {
       setIsUploadingAudio(false);
       if (previewUrl) {
@@ -293,15 +327,30 @@ const EventFormModal = ({
       const formDataUpload = new FormData();
       formDataUpload.append('file', file);
       formDataUpload.append('context', 'calendar');
+      const uploadId = `photo-${file.name}-${file.lastModified}`;
+      addUploadItem({ id: uploadId, name: file.name, progress: 0, status: 'uploading' });
 
       try {
-        const response = await uploadAttachment(formDataUpload);
+        const response = await uploadAttachment(formDataUpload, {
+          onUploadProgress: (progressEvent) => {
+            if (!progressEvent.total) return;
+            const progress = Math.min(
+              100,
+              Math.round((progressEvent.loaded / progressEvent.total) * 100)
+            );
+            updateUploadItem(uploadId, { progress });
+          }
+        });
         const uploaded = response.data;
         appendAttachment(uploaded);
         previews.push(uploaded);
+        updateUploadItem(uploadId, { progress: 100, status: 'done' });
+        scheduleUploadCleanup(uploadId);
       } catch (error) {
         console.error('Error uploading photo attachment', error);
         toast.error('Foto konnte nicht hochgeladen werden');
+        updateUploadItem(uploadId, { status: 'error' });
+        scheduleUploadCleanup(uploadId);
       }
     }
 
@@ -751,6 +800,27 @@ const EventFormModal = ({
 
             {audioError && (
               <p className="text-sm text-red-600 mt-2">{audioError}</p>
+            )}
+
+            {uploadQueue.length > 0 && (
+              <div className="mt-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">
+                  Uploads
+                </p>
+                <div className="upload-progress">
+                  {uploadQueue.map((item) => (
+                    <div key={item.id} className={`upload-progress__item ${item.status || ''}`}>
+                      <div className="upload-progress__meta">
+                        <span className="upload-progress__name">{item.name}</span>
+                        <span className="upload-progress__percent">{item.progress}%</span>
+                      </div>
+                      <div className="upload-progress__bar">
+                        <span className="upload-progress__fill" style={{ width: `${item.progress}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
 

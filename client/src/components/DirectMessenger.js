@@ -90,6 +90,7 @@ const LONG_PRESS_MENU_WIDTH = 240;
 const LONG_PRESS_MENU_HEIGHT = 300;
 const LONG_PRESS_MENU_PADDING = 12;
 const LONG_PRESS_VIBRATION_MS = 10;
+const MAX_MESSAGE_ATTACHMENT_SIZE = 10 * 1024 * 1024;
 
 const isGeneralThread = (thread) =>
   thread?.type === 'group' &&
@@ -155,7 +156,9 @@ const DirectMessenger = () => {
   const [sending, setSending] = useState(false);
   const [showGifPicker, setShowGifPicker] = useState(false);
   const [pendingAttachments, setPendingAttachments] = useState([]);
+  const [uploadQueue, setUploadQueue] = useState([]);
   const [isRecording, setIsRecording] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [showEventPicker, setShowEventPicker] = useState(false);
   const [eventOptions, setEventOptions] = useState([]);
   const [eventsLoading, setEventsLoading] = useState(false);
@@ -202,6 +205,25 @@ const DirectMessenger = () => {
   const [groupMembersSaving, setGroupMembersSaving] = useState(false);
   const [groupMemberSearch, setGroupMemberSearch] = useState('');
   const [groupInviteIds, setGroupInviteIds] = useState([]);
+
+  const userNameLookup = useMemo(() => {
+    const map = {};
+    contacts.forEach((contact) => {
+      if (contact?.id) {
+        map[contact.id] = contact.name || contact.email || `User ${contact.id}`;
+      }
+    });
+    groupMembers.forEach((member) => {
+      const id = member?.user_id ?? member?.id;
+      if (id) {
+        map[id] = member?.name || member?.user_name || member?.email || map[id];
+      }
+    });
+    if (user?.id) {
+      map[user.id] = user.name || map[user.id];
+    }
+    return map;
+  }, [contacts, groupMembers, user]);
 
   const ensureBotContactExists = useCallback((contactList) => {
     const list = Array.isArray(contactList) ? contactList.filter(Boolean) : [];
@@ -342,6 +364,8 @@ const DirectMessenger = () => {
   const mediaRecorderRef = useRef(null);
   const recordingChunksRef = useRef([]);
   const recordingStreamRef = useRef(null);
+  const recordingStartedAtRef = useRef(null);
+  const uploadCleanupRef = useRef({});
   const lastReadUpdateRef = useRef({});
   const pendingReadTimeoutRef = useRef({});
   const messagesEndRef = useRef(null);
@@ -357,6 +381,98 @@ const DirectMessenger = () => {
       timeoutId = setTimeout(() => func(...args), delay);
     };
   };
+
+  const formatRecordingTime = (seconds) => {
+    const safe = Number.isFinite(seconds) ? Math.max(0, Math.round(seconds)) : 0;
+    const mins = Math.floor(safe / 60);
+    const secs = String(safe % 60).padStart(2, '0');
+    return `${mins}:${secs}`;
+  };
+
+  const buildUploadId = (file, idx) =>
+    `${file.name}-${file.size}-${file.lastModified}-${idx}-${Date.now()}`;
+
+  const normalizeReactionUsers = useCallback((users = []) => {
+    if (!Array.isArray(users)) return [];
+    return users
+      .map((userEntry) => {
+        if (userEntry && typeof userEntry === 'object') {
+          const rawId = userEntry.user_id ?? userEntry.id ?? userEntry.userId;
+          const id = typeof rawId === 'string' && Number.isFinite(Number(rawId)) ? Number(rawId) : rawId;
+          if (!id) return null;
+          return {
+            id,
+            name: userEntry.user_name ?? userEntry.name ?? userNameLookup[id],
+            photo: userEntry.user_photo ?? userEntry.profile_photo ?? userEntry.photo
+          };
+        }
+        if (Number.isInteger(userEntry) || typeof userEntry === 'string') {
+          const id = Number(userEntry);
+          return Number.isNaN(id) ? null : { id, name: userNameLookup[id] };
+        }
+        return null;
+      })
+      .filter(Boolean);
+  }, [userNameLookup]);
+
+  const normalizeReactions = useCallback((rawReactions) => {
+    const reactions = {};
+    if (Array.isArray(rawReactions)) {
+      rawReactions.forEach((reaction) => {
+        if (!reaction?.emoji) return;
+        const users = reaction.users ?? reaction.user_ids ?? reaction.userIds ?? [];
+        reactions[reaction.emoji] = normalizeReactionUsers(users);
+      });
+    } else if (rawReactions && typeof rawReactions === 'object') {
+      Object.entries(rawReactions).forEach(([emoji, users]) => {
+        reactions[emoji] = normalizeReactionUsers(users);
+      });
+    }
+    return reactions;
+  }, [normalizeReactionUsers]);
+
+  const updateUploadQueue = useCallback((id, updater) => {
+    setUploadQueue((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, ...updater } : item))
+    );
+  }, []);
+
+  const removeUploadQueueItem = useCallback((id) => {
+    setUploadQueue((prev) => prev.filter((item) => item.id !== id));
+  }, []);
+
+  const scheduleUploadCleanup = useCallback((id) => {
+    if (uploadCleanupRef.current[id]) {
+      clearTimeout(uploadCleanupRef.current[id]);
+    }
+    uploadCleanupRef.current[id] = setTimeout(() => {
+      removeUploadQueueItem(id);
+      delete uploadCleanupRef.current[id];
+    }, 1400);
+  }, [removeUploadQueueItem]);
+
+  useEffect(() => {
+    if (!isRecording) {
+      setRecordingSeconds(0);
+      recordingStartedAtRef.current = null;
+      return undefined;
+    }
+
+    const startedAt = Date.now();
+    recordingStartedAtRef.current = startedAt;
+    setRecordingSeconds(0);
+    const timer = setInterval(() => {
+      setRecordingSeconds(Math.round((Date.now() - startedAt) / 1000));
+    }, 500);
+
+    return () => clearInterval(timer);
+  }, [isRecording]);
+
+  useEffect(() => () => {
+    Object.values(uploadCleanupRef.current || {}).forEach((timeoutId) => {
+      clearTimeout(timeoutId);
+    });
+  }, []);
 
   const normalizeMessage = useCallback((message) => {
     if (!message) return message;
@@ -398,20 +514,7 @@ const DirectMessenger = () => {
       }
     }
 
-    // Transform reactions from array format to object format
-    // Backend returns: [{ emoji: '👍', count: 2, users: [{user_id: 1, ...}, {user_id: 2, ...}] }]
-    // Frontend expects: { '👍': [1, 2] }
-    let reactions = {};
-    if (Array.isArray(message.reactions)) {
-      message.reactions.forEach((reaction) => {
-        if (reaction.emoji && Array.isArray(reaction.users)) {
-          reactions[reaction.emoji] = reaction.users.map(u => u.user_id);
-        }
-      });
-    } else if (message.reactions && typeof message.reactions === 'object') {
-      // Already in object format
-      reactions = message.reactions;
-    }
+    const reactions = normalizeReactions(message.reactions);
 
     return {
       ...message,
@@ -420,7 +523,7 @@ const DirectMessenger = () => {
       metadata,
       reactions
     };
-  }, []);
+  }, [normalizeReactions]);
 
   const normalizeContact = useCallback((contact) => {
     if (!contact) return contact;
@@ -826,15 +929,7 @@ const DirectMessenger = () => {
           Array.isArray(prev)
             ? prev.map((msg) => {
                 if (msg?.id === data.messageId) {
-                  // Transform reactions from array to object format
-                  let reactions = {};
-                  if (Array.isArray(data.reactions)) {
-                    data.reactions.forEach((reaction) => {
-                      if (reaction.emoji && Array.isArray(reaction.users)) {
-                        reactions[reaction.emoji] = reaction.users.map(u => u.user_id);
-                      }
-                    });
-                  }
+                  const reactions = normalizeReactions(data.reactions);
                   return {
                     ...msg,
                     reactions
@@ -993,6 +1088,7 @@ const DirectMessenger = () => {
     joinConversationRoom,
     markActiveConversationRead,
     normalizeMessage,
+    normalizeReactions,
     normalizeThread,
     normalizeThreadLastMessage,
     onConversationEvent,
@@ -1447,6 +1543,22 @@ const DirectMessenger = () => {
     setReplyToMessage(null);
     setSending(true);
 
+    const attachmentsWithIds = attachments.map((file, idx) => ({
+      file,
+      id: buildUploadId(file, idx)
+    }));
+
+    if (attachmentsWithIds.length > 0) {
+      setUploadQueue(
+        attachmentsWithIds.map(({ file, id }) => ({
+          id,
+          name: file.name,
+          progress: 0,
+          status: 'uploading'
+        }))
+      );
+    }
+
     // Optimistic message for instant feedback
     const optimisticId = `tmp-${Date.now()}`;
     const optimisticMessage = {
@@ -1472,37 +1584,82 @@ const DirectMessenger = () => {
 
     try {
       let attachmentsData = [];
-      if (attachments.length > 0) {
-        attachmentsData = await Promise.all(
-          attachments.map(async (file) => {
+      if (attachmentsWithIds.length > 0) {
+        const uploadResults = await Promise.all(
+          attachmentsWithIds.map(async ({ file, id }) => {
             try {
               const formData = new FormData();
               formData.append('file', file);
               formData.append('context', 'message');
               formData.append('conversationId', selectedThreadId);
-              const res = await uploadAttachment(formData);
-              return res?.data || null;
+              const res = await uploadAttachment(formData, {
+                onUploadProgress: (progressEvent) => {
+                  if (!progressEvent.total) return;
+                  const progress = Math.min(
+                    100,
+                    Math.round((progressEvent.loaded / progressEvent.total) * 100)
+                  );
+                  updateUploadQueue(id, { progress });
+                }
+              });
+              updateUploadQueue(id, { progress: 100, status: 'done' });
+              scheduleUploadCleanup(id);
+              return { data: res?.data || null, file };
             } catch (err) {
               console.error('Error uploading attachment:', err);
-              return null;
+              updateUploadQueue(id, { status: 'error' });
+              scheduleUploadCleanup(id);
+              return { data: null, file };
             }
           })
         );
-        attachmentsData = attachmentsData.filter(a => a !== null);
+
+        if (uploadResults.some((result) => !result.data)) {
+          showError('Einige Anhänge konnten nicht hochgeladen werden');
+        }
+
+        attachmentsData = uploadResults
+          .filter((result) => result.data)
+          .map((result) => {
+            const duration = result.file?.__audioDuration;
+            if (duration && result.data?.type === 'audio') {
+              return { ...result.data, duration };
+            }
+            return result.data;
+          });
       }
 
       setShowGifPicker(false);
 
       const messageBody = trimmed || (eventToShare?.title ? `Kalender: ${eventToShare.title}` : '');
+      if (!messageBody && attachmentsData.length === 0 && !eventToShare?.id) {
+        throw new Error('Keine Anhänge konnten hochgeladen werden');
+      }
+      const audioDuration = attachmentsWithIds
+        .map(({ file }) => file?.__audioDuration || 0)
+        .reduce((max, value) => (value > max ? value : max), 0);
+
+      const hasAudioAttachment = attachmentsData.some(
+        (att) => att?.type === 'audio' || att?.mimeType?.startsWith('audio/')
+      );
+
       const payload = {
         message: messageBody,
-        attachments: attachmentsData
+        attachments: attachmentsData,
+        messageType: hasAudioAttachment && !messageBody ? 'audio' : undefined
       };
 
       if (eventToShare?.id) {
         payload.metadata = {
           ...(payload.metadata || {}),
           shared_event: eventToShare
+        };
+      }
+
+      if (audioDuration) {
+        payload.metadata = {
+          ...(payload.metadata || {}),
+          audio_duration: audioDuration
         };
       }
 
@@ -1623,7 +1780,40 @@ const DirectMessenger = () => {
   const handleFileSelect = (event) => {
     const files = Array.from(event.target.files || []);
     if (files.length === 0) return;
-    setPendingAttachments((prev) => [...prev, ...files.slice(0, 5 - prev.length)]);
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+    const availableSlots = Math.max(0, 5 - pendingAttachments.length);
+    const accepted = [];
+    files.forEach((file) => {
+      const isAllowed =
+        file.type.startsWith('image/') ||
+        file.type.startsWith('audio/') ||
+        file.type.startsWith('video/') ||
+        allowedTypes.includes(file.type) ||
+        (!file.type && ['.pdf', '.doc', '.docx', '.png', '.jpg', '.jpeg', '.gif', '.webm', '.mp4', '.ogg'].some((ext) =>
+          file.name?.toLowerCase().endsWith(ext)
+        ));
+      if (!isAllowed) {
+        showError(`"${file.name}" hat ein nicht unterstütztes Format`);
+        return;
+      }
+      if (file.size > MAX_MESSAGE_ATTACHMENT_SIZE) {
+        showError(`"${file.name}" ist zu groß (max. 10 MB)`);
+        return;
+      }
+      if (accepted.length < availableSlots) {
+        accepted.push(file);
+      }
+    });
+    if (accepted.length > 0) {
+      setPendingAttachments((prev) => [...prev, ...accepted]);
+    }
+    if (event.target) {
+      event.target.value = '';
+    }
   };
 
   const removeAttachment = useCallback((index) => {
@@ -1702,10 +1892,25 @@ const DirectMessenger = () => {
 
   const startRecording = async () => {
     try {
+      if (!navigator?.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+        showError('Audioaufnahme wird von diesem Gerät nicht unterstützt');
+        return;
+      }
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       recordingStreamRef.current = stream;
 
-      const mediaRecorder = new MediaRecorder(stream);
+      const supportedTypes = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/ogg;codecs=opus',
+        'audio/ogg',
+        'audio/mp4'
+      ];
+      const selectedType = supportedTypes.find((type) =>
+        typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(type)
+      );
+      const recorderOptions = selectedType ? { mimeType: selectedType } : undefined;
+      const mediaRecorder = recorderOptions ? new MediaRecorder(stream, recorderOptions) : new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       recordingChunksRef.current = [];
 
@@ -1716,8 +1921,18 @@ const DirectMessenger = () => {
       };
 
       mediaRecorder.onstop = async () => {
-        const blob = new Blob(recordingChunksRef.current, { type: 'audio/webm' });
-        const file = new File([blob], `voice_${Date.now()}.webm`, { type: 'audio/webm' });
+        const stoppedAt = Date.now();
+        const startedAt = recordingStartedAtRef.current || stoppedAt;
+        const durationSeconds = Math.max(1, Math.round((stoppedAt - startedAt) / 1000));
+        const resolvedMime = selectedType || 'audio/webm';
+        const extension = resolvedMime.includes('ogg')
+          ? 'ogg'
+          : resolvedMime.includes('mp4')
+            ? 'm4a'
+            : 'webm';
+        const blob = new Blob(recordingChunksRef.current, { type: resolvedMime });
+        const file = new File([blob], `voice_${Date.now()}.${extension}`, { type: resolvedMime });
+        file.__audioDuration = durationSeconds;
         setPendingAttachments((prev) => [...prev, file]);
 
         recordingStreamRef.current?.getTracks().forEach((track) => track.stop());
@@ -1770,20 +1985,20 @@ const DirectMessenger = () => {
         if (msg.id !== messageId) return msg;
 
         const reactions = { ...(msg.reactions || {}) };
-
-        // ENSURE reactions[emoji] is ALWAYS an array
-        if (!Array.isArray(reactions[emoji])) {
-          reactions[emoji] = [];
-        }
-
-        const userIndex = reactions[emoji].indexOf(user.id);
-        if (userIndex > -1) {
-          reactions[emoji].splice(userIndex, 1);
-          if (reactions[emoji].length === 0) {
+        const currentUsers = normalizeReactionUsers(reactions[emoji]);
+        const userIds = currentUsers.map((entry) => entry.id);
+        if (userIds.includes(user.id)) {
+          const filtered = currentUsers.filter((entry) => entry.id !== user.id);
+          if (filtered.length === 0) {
             delete reactions[emoji];
+          } else {
+            reactions[emoji] = filtered;
           }
         } else {
-          reactions[emoji].push(user.id);
+          reactions[emoji] = [
+            ...currentUsers,
+            { id: user.id, name: user.name || userNameLookup[user.id], photo: user.profile_photo }
+          ];
         }
 
         return { ...msg, reactions };
@@ -1800,7 +2015,7 @@ const DirectMessenger = () => {
       // Revert optimistic update on error
       await loadMessages(selectedThreadId);
     }
-  }, [user, selectedThreadId, loadMessages]);
+  }, [user, selectedThreadId, loadMessages, normalizeReactionUsers, userNameLookup]);
 
   const handleReplyTo = useCallback((message) => {
     setReplyToMessage(message);
@@ -2690,6 +2905,25 @@ const DirectMessenger = () => {
     [removeAttachment]
   );
 
+  const renderUploadQueue = useCallback((className = '') => {
+    if (!uploadQueue.length) return null;
+    return (
+      <div className={`upload-progress ${className}`}>
+        {uploadQueue.map((item) => (
+          <div key={item.id} className={`upload-progress__item ${item.status || ''}`}>
+            <div className="upload-progress__meta">
+              <span className="upload-progress__name">{item.name}</span>
+              <span className="upload-progress__percent">{item.progress}%</span>
+            </div>
+            <div className="upload-progress__bar">
+              <span className="upload-progress__fill" style={{ width: `${item.progress}%` }} />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }, [uploadQueue]);
+
   const renderMessageContent = (msg, isMine) => {
     const baseClassMobile = `message-bubble messenger-bubble messenger-bubble--${isMine ? 'mine' : 'other'} ${isMine ? 'mine' : 'other'}`;
     const baseClassDesktop = `${isMine
@@ -2703,6 +2937,10 @@ const DirectMessenger = () => {
       ? format(parseISO(msg.created_at), 'HH:mm', { locale: de })
       : '';
     const isReadMessage = Boolean(msg.read_status || msg.read);
+    const audioAttachment = (msg.attachments || []).find(
+      (att) => att?.type === 'audio' || att?.mimeType?.startsWith('audio/')
+    );
+    const audioDuration = msg.audio_duration || msg.metadata?.audio_duration || audioAttachment?.duration;
 
     return (
       <div
@@ -2760,10 +2998,10 @@ const DirectMessenger = () => {
           )}
 
           {/* Voice Message Player */}
-          {msg.audio_duration && msg.attachments?.length > 0 && msg.attachments[0].type === 'audio' ? (
+          {audioAttachment && audioDuration ? (
             <VoiceMessagePlayer
-              audioUrl={msg.attachments[0].url}
-              duration={msg.audio_duration}
+              audioUrl={audioAttachment.url}
+              duration={audioDuration}
               className="mt-2"
             />
           ) : msg.message_type === 'gif' || (msg.message && (msg.message.includes('giphy.com') || msg.message.includes('tenor.com') || msg.message.match(/\.(gif|webp)(\?|$)/i))) ? (
@@ -2793,9 +3031,19 @@ const DirectMessenger = () => {
                     />
                   );
                 }
-                if (att.type === 'audio') {
+                if (att.type === 'audio' || att?.mimeType?.startsWith('audio/')) {
                   return (
                     <audio key={`${att.url}-${idx}`} controls src={att.url} className="w-full mt-2" />
+                  );
+                }
+                if (att.type === 'video' || att?.mimeType?.startsWith('video/')) {
+                  return (
+                    <video
+                      key={`${att.url}-${idx}`}
+                      controls
+                      src={att.url}
+                      className="w-full mt-2 rounded-2xl border border-white/10 shadow-lg"
+                    />
                   );
                 }
                 return (
@@ -2885,19 +3133,31 @@ const DirectMessenger = () => {
           {msg.reactions && Object.keys(msg.reactions).length > 0 && (
             <div className="flex flex-wrap gap-1 mt-2">
               {Object.entries(msg.reactions).map(([emoji, userIds]) => {
-                const userIdsArray = Array.isArray(userIds) ? userIds : [];
+                const reactionUsers = normalizeReactionUsers(userIds);
+                const userIdsArray = reactionUsers.map((entry) => entry.id);
+                const tooltipNames = reactionUsers
+                  .map((entry) => entry.name || userNameLookup[entry.id] || `User ${entry.id}`)
+                  .filter(Boolean);
+                const tooltipLabel = tooltipNames.join(', ');
                 return (
                   <button
                     key={emoji}
                     onClick={() => handleReaction(msg.id, emoji)}
-                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${
+                    className={`reaction-chip inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${
                       userIdsArray.includes(user?.id)
                         ? 'bg-blue-100 border border-blue-300'
                         : 'bg-slate-100 border border-slate-200'
                     } hover:scale-110 transition-transform`}
+                    title={tooltipLabel || 'Reaktionen'}
+                    aria-label={`${emoji} (${userIdsArray.length}) ${tooltipLabel}`}
                   >
                     <span>{emoji}</span>
                     <span className="font-semibold">{userIdsArray.length}</span>
+                    {tooltipLabel && (
+                      <span className="reaction-tooltip">
+                        {tooltipLabel}
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -3702,49 +3962,66 @@ const DirectMessenger = () => {
             </div>
 
             <form onSubmit={handleSendMessage} className="messenger-input-container" style={{ flexShrink: 0, position: 'relative', borderTop: '1px solid #e2e8f0', background: 'white', zIndex: 100 }}>
-                {replyToMessage && (
-                  <div className="absolute bottom-full left-0 right-0 mb-2 mx-4 flex items-start gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-blue-50 to-slate-50 text-slate-700 shadow-sm border-l-4 border-blue-500">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-500 text-white flex-shrink-0">
-                      <Reply className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-blue-600 mb-1">Antworten auf {replyToMessage.sender_name}</p>
-                      <p className="text-sm text-slate-600 line-clamp-2">{replyToMessage.message}</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={cancelReply}
-                      className="p-1.5 rounded-full hover:bg-slate-200/80 transition flex-shrink-0"
-                      title="Antwort abbrechen"
-                    >
-                      <X className="w-4 h-4 text-slate-500" />
-                    </button>
+                {(replyToMessage || selectedEvent || pendingAttachments.length > 0 || uploadQueue.length > 0) && (
+                  <div className="messenger-composer-stack">
+                    {replyToMessage && (
+                      <div className="messenger-composer-stack__item flex items-start gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-blue-50 to-slate-50 text-slate-700 shadow-sm border-l-4 border-blue-500">
+                        <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-500 text-white flex-shrink-0">
+                          <Reply className="w-5 h-5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-blue-600 mb-1">Antworten auf {replyToMessage.sender_name}</p>
+                          <p className="text-sm text-slate-600 line-clamp-2">{replyToMessage.message}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={cancelReply}
+                          className="p-1.5 rounded-full hover:bg-slate-200/80 transition flex-shrink-0"
+                          title="Antwort abbrechen"
+                        >
+                          <X className="w-4 h-4 text-slate-500" />
+                        </button>
+                      </div>
+                    )}
+                    {selectedEvent && (
+                      <div className="messenger-composer-stack__item flex items-center gap-3 px-4 py-2 rounded-xl bg-blue-50 text-blue-700 shadow-sm border border-blue-200">
+                        <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-600 text-white">
+                          <CalendarDays className="w-5 h-5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold truncate">{selectedEvent.title}</p>
+                          <p className="text-xs opacity-80">
+                            {formatEventDateRange(selectedEvent.start_time, selectedEvent.end_time)}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={clearSelectedEvent}
+                          className="p-1 rounded-full hover:bg-blue-100 transition"
+                          title="Ereignis entfernen"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                    {pendingAttachments.length > 0 && (
+                      <div className="messenger-composer-stack__item flex flex-wrap gap-2">
+                        {pendingAttachments.map((file, idx) => renderAttachmentPreview(file, idx))}
+                      </div>
+                    )}
+                    {uploadQueue.length > 0 && (
+                      <div className="messenger-composer-stack__item">
+                        {renderUploadQueue('upload-progress--floating')}
+                      </div>
+                    )}
                   </div>
                 )}
-                {selectedEvent && (
-                  <div className="absolute bottom-full left-0 right-0 mb-2 mx-4 flex items-center gap-3 px-4 py-2 rounded-xl bg-blue-50 text-blue-700 shadow-sm border border-blue-200">
-                    <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-600 text-white">
-                      <CalendarDays className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold truncate">{selectedEvent.title}</p>
-                      <p className="text-xs opacity-80">
-                        {formatEventDateRange(selectedEvent.start_time, selectedEvent.end_time)}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={clearSelectedEvent}
-                      className="p-1 rounded-full hover:bg-blue-100 transition"
-                      title="Ereignis entfernen"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                )}
-                {pendingAttachments.length > 0 && (
-                  <div className="absolute bottom-full left-0 right-0 mb-2 mx-4 flex flex-wrap gap-2">
-                    {pendingAttachments.map((file, idx) => renderAttachmentPreview(file, idx))}
+
+                {isRecording && (
+                  <div className="messenger-recording-indicator">
+                    <span className="messenger-recording-dot" />
+                    <span>Aufnahme läuft</span>
+                    <span className="messenger-recording-time">{formatRecordingTime(recordingSeconds)}</span>
                   </div>
                 )}
 
@@ -4175,6 +4452,18 @@ const DirectMessenger = () => {
           <div className="flex gap-2 overflow-x-auto">
             {pendingAttachments.map((file, idx) => renderAttachmentPreview(file, idx))}
           </div>
+        </div>
+      )}
+      {uploadQueue.length > 0 && (
+        <div className="px-4 pb-2 bg-slate-900">
+          {renderUploadQueue('upload-progress--mobile')}
+        </div>
+      )}
+      {isRecording && (
+        <div className="messenger-recording-indicator messenger-recording-indicator--mobile">
+          <span className="messenger-recording-dot" />
+          <span>Aufnahme läuft</span>
+          <span className="messenger-recording-time">{formatRecordingTime(recordingSeconds)}</span>
         </div>
       )}
       {renderMobileQuickReplies()}

@@ -88,7 +88,17 @@ const KanbanBoard = () => {
       setError(null);
       setErrorDetails(null);
       const data = await fetchTasks();
-      setTasks(data);
+      const seen = new Set();
+      const deduped = Array.isArray(data)
+        ? data.filter((task) => {
+            if (!task?.id || seen.has(task.id)) {
+              return false;
+            }
+            seen.add(task.id);
+            return true;
+          })
+        : [];
+      setTasks(deduped);
     } catch (error) {
       console.error('Error loading tasks:', error);
       setError(
@@ -220,7 +230,7 @@ const KanbanBoard = () => {
 
   const handleTaskUpdated = (updatedTask) => {
     setTasks((prev) =>
-      prev.map((task) => (task.id === updatedTask.id ? { ...updatedTask, ...task } : task))
+      prev.map((task) => (task.id === updatedTask.id ? { ...task, ...updatedTask } : task))
     );
     setShowTaskModal(false);
     loadTasks(); // Refresh to get full data

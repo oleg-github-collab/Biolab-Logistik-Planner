@@ -49,7 +49,7 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit
+    fileSize: 10 * 1024 * 1024 // 10MB limit
   },
   fileFilter: function (req, file, cb) {
     const allowedMimes = [
@@ -60,7 +60,14 @@ const upload = multer({
       'audio/mpeg',
       'audio/wav',
       'audio/ogg',
-      'audio/webm'
+      'audio/webm',
+      'video/mp4',
+      'video/webm',
+      'video/quicktime',
+      'video/ogg',
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     ];
 
     if (allowedMimes.includes(file.mimetype)) {
@@ -2871,18 +2878,23 @@ router.delete('/stories/:storyId', auth, async (req, res) => {
 router.delete('/conversations/:conversationId/clear', auth, async (req, res) => {
   try {
     const { conversationId } = req.params;
+    const conversationIdInt = parseInt(conversationId, 10);
     const userId = req.user.id;
+
+    if (!Number.isInteger(conversationIdInt)) {
+      return res.status(400).json({ error: 'Ungültige Konversations-ID' });
+    }
 
     // Only superadmin can clear entire chats
     if (req.user.role !== 'superadmin') {
-      logger.warn('Unauthorized chat clear attempt', { userId, conversationId, role: req.user.role });
+      logger.warn('Unauthorized chat clear attempt', { userId, conversationId: conversationIdInt, role: req.user.role });
       return res.status(403).json({ error: 'Nur Superadmin kann Chats vollständig löschen' });
     }
 
     // Verify conversation exists and is a group chat
     const convResult = await pool.query(
-      'SELECT id, name, type FROM message_conversations WHERE id = $1',
-      [conversationId]
+      'SELECT * FROM message_conversations WHERE id = $1',
+      [conversationIdInt]
     );
 
     if (convResult.rows.length === 0) {
@@ -2890,31 +2902,33 @@ router.delete('/conversations/:conversationId/clear', auth, async (req, res) => 
     }
 
     const conversation = convResult.rows[0];
+    const conversationType = conversation.type || conversation.conversation_type;
 
-    if (conversation.type !== 'group') {
+    if (conversationType !== 'group') {
       return res.status(400).json({ error: 'Nur Gruppenchats können vollständig gelöscht werden' });
     }
 
     // Delete all messages in the conversation
     const deleteResult = await pool.query(
       'DELETE FROM messages WHERE conversation_id = $1 RETURNING id',
-      [conversationId]
+      [conversationIdInt]
     );
 
     const deletedCount = deleteResult.rowCount;
 
     logger.info('Chat cleared by superadmin', {
       userId,
-      conversationId,
+      conversationId: conversationIdInt,
       conversationName: conversation.name,
+      conversationType,
       deletedMessages: deletedCount
     });
 
     // Notify all members via WebSocket
     const io = getIO();
     if (io) {
-      io.to(`conversation:${conversationId}`).emit('conversation:cleared', {
-        conversationId,
+      io.to(`conversation_${conversationIdInt}`).emit('conversation:cleared', {
+        conversationId: conversationIdInt,
         clearedBy: userId,
         clearedAt: new Date().toISOString(),
         deletedCount
@@ -2924,7 +2938,7 @@ router.delete('/conversations/:conversationId/clear', auth, async (req, res) => 
     res.json({
       success: true,
       message: `${deletedCount} Nachrichten gelöscht`,
-      conversationId,
+      conversationId: conversationIdInt,
       conversationName: conversation.name,
       deletedCount
     });

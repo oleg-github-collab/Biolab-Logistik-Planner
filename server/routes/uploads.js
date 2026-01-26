@@ -49,7 +49,14 @@ const ACCEPTED_MIME_TYPES = [
   'audio/wav',
   'audio/ogg',
   'audio/webm',
-  'audio/mp4'
+  'audio/mp4',
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
+  'video/ogg',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 ];
 
 const upload = multer({
@@ -66,7 +73,13 @@ const upload = multer({
 
 const mapFileToPayload = (file, extra = {}) => {
   const url = `/uploads/${path.basename(file.destination)}/${file.filename}`;
-  const type = file.mimetype.startsWith('image/') ? 'image' : file.mimetype.startsWith('audio/') ? 'audio' : 'file';
+  const type = file.mimetype.startsWith('image/')
+    ? 'image'
+    : file.mimetype.startsWith('audio/')
+      ? 'audio'
+      : file.mimetype.startsWith('video/')
+        ? 'video'
+        : 'file';
 
   return {
     id: uuid(),

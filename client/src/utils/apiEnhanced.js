@@ -337,9 +337,10 @@ export const removeConversationMember = (conversationId, memberId) =>
 export const markConversationAsRead = (conversationId) =>
   api.post(`/messages/conversations/${conversationId}/read`);
 
-export const uploadAttachment = (formData) =>
+export const uploadAttachment = (formData, config = {}) =>
   api.post('/uploads', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
+    headers: { 'Content-Type': 'multipart/form-data' },
+    ...config
   });
 
 // ============================================
