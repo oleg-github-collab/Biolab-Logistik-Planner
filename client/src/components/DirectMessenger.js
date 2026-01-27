@@ -4958,83 +4958,90 @@ const DirectMessenger = () => {
           </button>
 
           {/* Composer Actions Menu */}
-          {showComposerActions && (
-            <div className="messenger-composer-menu">
-              <button
-                type="button"
-                onClick={() => {
-                  fileInputRef.current?.click();
-                  setVoiceMode(false);
-                  setShowComposerActions(false);
-                }}
-                className="messenger-composer-menu-item"
-              >
-                <Paperclip />
-                <span>Datei</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowGifPicker((prev) => !prev);
-                  setVoiceMode(false);
-                  setShowComposerActions(false);
-                }}
-                className="messenger-composer-menu-item"
-              >
-                <ImageIcon />
-                <span>GIF</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  openEventPicker();
-                  setVoiceMode(false);
-                  setShowComposerActions(false);
-                }}
-                className="messenger-composer-menu-item"
-              >
-                <CalendarDays />
-                <span>Termin</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowQuickReplies(true);
-                  setVoiceMode(false);
-                  setShowComposerActions(false);
-                }}
-                className="messenger-composer-menu-item"
-              >
-                <Zap />
-                <span>Schnellantworten</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setVoiceMode(true);
-                  mobileTextareaRef.current?.blur();
-                  setShowComposerActions(false);
-                }}
-                className="messenger-composer-menu-item"
-              >
-                {isRecording ? <StopCircle /> : <Mic />}
-                <span>Audio</span>
-              </button>
-              {activeThread?.type === 'group' ? (
+          {showComposerActions && typeof document !== 'undefined' && createPortal(
+            <>
+              <div
+                className="messenger-composer-backdrop"
+                onClick={() => setShowComposerActions(false)}
+              />
+              <div className="messenger-composer-menu">
                 <button
                   type="button"
                   onClick={() => {
-                    handleAskBot();
+                    fileInputRef.current?.click();
                     setVoiceMode(false);
                     setShowComposerActions(false);
                   }}
                   className="messenger-composer-menu-item"
                 >
-                  <Bot />
-                  <span>BL_Bot</span>
+                  <Paperclip />
+                  <span>Datei</span>
                 </button>
-              ) : null}
-            </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowGifPicker((prev) => !prev);
+                    setVoiceMode(false);
+                    setShowComposerActions(false);
+                  }}
+                  className="messenger-composer-menu-item"
+                >
+                  <ImageIcon />
+                  <span>GIF</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    openEventPicker();
+                    setVoiceMode(false);
+                    setShowComposerActions(false);
+                  }}
+                  className="messenger-composer-menu-item"
+                >
+                  <CalendarDays />
+                  <span>Termin</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowQuickReplies(true);
+                    setVoiceMode(false);
+                    setShowComposerActions(false);
+                  }}
+                  className="messenger-composer-menu-item"
+                >
+                  <Zap />
+                  <span>Schnellantworten</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setVoiceMode(true);
+                    mobileTextareaRef.current?.blur();
+                    setShowComposerActions(false);
+                  }}
+                  className="messenger-composer-menu-item"
+                >
+                  {isRecording ? <StopCircle /> : <Mic />}
+                  <span>Audio</span>
+                </button>
+                {activeThread?.type === 'group' ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleAskBot();
+                      setVoiceMode(false);
+                      setShowComposerActions(false);
+                    }}
+                    className="messenger-composer-menu-item"
+                  >
+                    <Bot />
+                    <span>BL_Bot</span>
+                  </button>
+                ) : null}
+              </div>
+            </>,
+            document.body
           )}
 
           {/* Input Wrapper */}
