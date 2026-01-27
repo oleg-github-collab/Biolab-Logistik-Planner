@@ -2749,6 +2749,11 @@ const DirectMessenger = () => {
     }
   }, [removeConversationMember, selectedThreadId, user?.id]);
 
+  const activeThread = useMemo(
+    () => threads.find((thread) => isSameThreadId(thread.id, selectedThreadId)) || null,
+    [selectedThreadId, threads]
+  );
+
   const handleDeleteGroup = useCallback(async () => {
     if (!selectedThreadId || !activeThread) return;
     if (user?.role !== 'superadmin') {
@@ -2867,11 +2872,6 @@ const DirectMessenger = () => {
       return haystack.includes(normalizedSearchTerm);
     });
   }, [groupThreads, normalizedSearchTerm]);
-
-  const activeThread = useMemo(
-    () => threads.find((thread) => isSameThreadId(thread.id, selectedThreadId)) || null,
-    [selectedThreadId, threads]
-  );
 
   const canManageGroup = useMemo(() => {
     if (!activeThread || activeThread.type !== 'group') return false;
