@@ -293,17 +293,33 @@
   body.messenger-page .messenger-mobile-header-enhanced {
     background: var(--mm-surface) !important;
     border-bottom: 1px solid var(--mm-border) !important;
-    padding: calc(8px + env(safe-area-inset-top, 0)) 12px 8px !important;
-    box-shadow: none !important;
+    padding: calc(10px + env(safe-area-inset-top, 0)) 12px 10px !important;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06) !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 25 !important;
+    visibility: visible !important;
   }
 
   body.messenger-page .messenger-mobile-header-enhanced__back {
     width: 36px !important;
     height: 36px !important;
     border-radius: 999px !important;
-    background: var(--mm-surface-2) !important;
-    border: 1px solid var(--mm-border) !important;
-    color: var(--mm-text) !important;
+    background: #ffffff !important;
+    border: 1px solid rgba(15, 23, 42, 0.12) !important;
+    color: #0f172a !important;
+    box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+  }
+
+  body.messenger-page .messenger-mobile-header-enhanced__info {
+    min-width: 0 !important;
   }
 
   body.messenger-page .messenger-mobile-header-enhanced__name {
@@ -323,6 +339,7 @@
     padding: 8px 12px !important;
     gap: 8px !important;
     overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
   }
 
   body.messenger-page .messenger-mobile-header-actions button {
@@ -333,6 +350,7 @@
     padding: 6px 10px !important;
     font-size: 11px !important;
     white-space: nowrap !important;
+    box-shadow: 0 6px 12px rgba(15, 23, 42, 0.06) !important;
   }
 
   /* Messages list */
@@ -346,6 +364,11 @@
     padding: 12px 12px calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0) + var(--messenger-input-height, 86px) + 24px) !important;
     background: var(--mm-bg) !important;
     scroll-padding-bottom: calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0) + var(--messenger-input-height, 86px) + 24px) !important;
+  }
+
+  body.messenger-page .messenger-mobile-messages .text-slate-400,
+  body.messenger-page .messenger-mobile-messages .text-slate-500 {
+    color: #6b7280 !important;
   }
 
   body.messenger-page .messenger-mobile-messages .message-bubble {
@@ -390,13 +413,13 @@
     bottom: calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0)) !important;
     left: 10px !important;
     right: 10px !important;
-    padding: 8px !important;
+    padding: 8px 10px !important;
     z-index: 1000002 !important;
     background: var(--mm-surface) !important;
     border: 1px solid var(--mm-border) !important;
     border-radius: 18px !important;
     display: flex !important;
-    align-items: flex-end !important;
+    align-items: center !important;
     gap: 8px !important;
     box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08) !important;
   }
@@ -432,12 +455,13 @@
   body.messenger-page .messenger-input-wrapper {
     flex: 1 1 auto !important;
     display: flex !important;
-    align-items: flex-end !important;
-    gap: 8px !important;
+    align-items: center !important;
+    gap: 6px !important;
     background: var(--mm-surface-2) !important;
     border: 1px solid var(--mm-border) !important;
     border-radius: 14px !important;
     padding: 8px 12px !important;
+    min-height: 40px !important;
   }
 
   body.messenger-page .messenger-input-wrapper:focus-within {
@@ -445,7 +469,8 @@
     box-shadow: 0 0 0 2px rgba(27, 116, 228, 0.12) !important;
   }
 
-  body.messenger-page .messenger-text-input {
+  body.messenger-page .messenger-text-input,
+  body.messenger-page .messenger-mobile-input .messenger-text-input {
     flex: 1 1 auto !important;
     border: none !important;
     outline: none !important;
@@ -456,9 +481,10 @@
     font-weight: 500 !important;
     padding: 0 !important;
     min-height: 22px !important;
-    max-height: 120px !important;
+    max-height: 110px !important;
     resize: none !important;
     caret-color: var(--mm-accent) !important;
+    box-shadow: none !important;
   }
 
   body.messenger-page .messenger-text-input::placeholder {
@@ -475,6 +501,8 @@
     color: #1e3a8a !important;
     border: 1px solid #c7d2fe !important;
     font-weight: 600 !important;
+    font-size: 12px !important;
+    height: 30px !important;
   }
 
   /* Composer menu */
