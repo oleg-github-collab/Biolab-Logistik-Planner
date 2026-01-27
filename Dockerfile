@@ -15,9 +15,9 @@ RUN cd client && npm ci
 # Copy application code
 COPY . .
 
-# Build client - v12.5 FINAL MESSENGER
-RUN echo "======================================== v12.5 PRODUCTION ========================================" && \
-    echo "Building v12.5-MESSENGER-FINAL (All fixes + superadmin clear chat) at $(date)" && \
+# Build client - v12.6 MOBILE REDESIGN
+RUN echo "======================================== v12.6 PRODUCTION ========================================" && \
+    echo "Building v12.6-MOBILE-REDESIGN (Complete mobile UI overhaul) at $(date)" && \
     echo "================================================================================================="
 # CRITICAL: Set API URL for production build
 ARG REACT_APP_API_URL=/api
@@ -34,7 +34,7 @@ RUN BUILD_ID=${REACT_APP_BUILD_ID:-$(date +%s)} && \
     REACT_APP_BUILD_DATE=$BUILD_DATE \
     npm run build
 RUN echo "=============================================================================================" && \
-    echo "✅ Build v12.5-MESSENGER-FINAL complete!" && \
+    echo "✅ Build v12.6-MOBILE-REDESIGN complete!" && \
     ls -lh client/build/static/js/main.*.js && \
     echo "=============================================================================================" && \
     cat client/build/asset-manifest.json && \
