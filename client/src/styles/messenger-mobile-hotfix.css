@@ -105,8 +105,10 @@ html body.messenger-page {
   body.messenger-page .contact-list {
     flex: 1 !important;
     min-height: 0 !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
+    height: 100% !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
     -webkit-overflow-scrolling: touch !important;
     padding: 12px 14px calc(var(--app-bottom-offset, 72px) + 12px) !important;
     overscroll-behavior: contain !important;
@@ -236,6 +238,8 @@ html body.messenger-page {
     display: flex !important;
     flex-direction: column !important;
     gap: 12px !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
   }
@@ -466,6 +470,10 @@ html body.messenger-page {
     padding-right: 2px !important;
   }
 
+  body.messenger-page .messenger-mobile-input .messenger-btn-bot {
+    display: none !important;
+  }
+
   body.messenger-page .message-meta {
     color: var(--mm-muted) !important;
     font-size: 11px !important;
@@ -568,6 +576,7 @@ html body.messenger-page {
     box-shadow: none !important;
     appearance: none !important;
     border-radius: 0 !important;
+    white-space: pre-wrap !important;
   }
 
   body.messenger-page .messenger-text-input::placeholder {
