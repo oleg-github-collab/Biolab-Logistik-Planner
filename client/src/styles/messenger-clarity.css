@@ -108,6 +108,24 @@ body.messenger-page {
   color: #1d4ed8;
 }
 
+.contact-card__body p.contact-card__last-seen {
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: #64748b !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.contact-card--general .contact-card__pill {
+  background: #1d4ed8 !important;
+  color: #ffffff !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  box-shadow: 0 6px 14px rgba(29, 78, 216, 0.25);
+}
+
 /* Group list chip */
 .contact-list__badge,
 .contact-card__badge {

@@ -2927,12 +2927,7 @@ const DirectMessenger = () => {
     const unread = contactList.filter((item) => item.unreadCount > 0).sort(sortByRecency);
     const remaining = contactList
       .filter((item) => item.unreadCount === 0)
-      .sort((a, b) => {
-        if (Number(b.online) !== Number(a.online)) {
-          return Number(b.online) - Number(a.online);
-        }
-        return sortByRecency(a, b);
-      });
+      .sort(sortByRecency);
     return {
       unreadContacts: unread,
       remainingContacts: remaining
@@ -3594,6 +3589,13 @@ const DirectMessenger = () => {
     const isBot = contact.is_bot || contact.is_system_user ||
                     contact.email?.includes('bl_bot') ||
                     contact.email?.includes('entsorgungsbot');
+    const lastSeenAt = contact.last_seen_at || contact.last_seen;
+    const lastSeenText = lastSeenAt ? formatContactTimestamp(lastSeenAt) : '';
+    const lastSeenLabel = contact.online
+      ? 'Online'
+      : lastSeenText
+        ? `Zuletzt online ${lastSeenText}`
+        : 'Offline';
 
       return (
         <button
@@ -3673,15 +3675,8 @@ const DirectMessenger = () => {
           <div className="contact-card__body">
             <p className="contact-card__name">
               {contact.name}
-              {isBot && <span className="contact-card__pill">Bot</span>}
             </p>
-            <p className="contact-card__message">{contact.lastMessageSnippet}</p>
-            <div className="contact-card__meta">
-              {contact.lastMessageTimeLabel && (
-                <span>{contact.lastMessageTimeLabel}</span>
-              )}
-              {isBot && <span className="contact-card__bot-label">KI-Assistent</span>}
-            </div>
+            <p className="contact-card__last-seen">{lastSeenLabel}</p>
           </div>
         </button>
       );
@@ -4946,7 +4941,7 @@ const DirectMessenger = () => {
       {isMobile ? renderMobileLayout() : renderDesktopLayout()}
 
       {/* MOBILE INPUT - ПОЗА messenger-mobile-container для правильного z-index */}
-      {isMobile && (selectedContact || selectedThreadId) && (
+      {isMobile && mobileMode === 'chat' && (selectedContact || selectedThreadId) && (
         <form ref={mobileInputRef} onSubmit={handleSendMessage} className="messenger-input-container messenger-mobile-input">
           {/* Plus Button */}
           <button

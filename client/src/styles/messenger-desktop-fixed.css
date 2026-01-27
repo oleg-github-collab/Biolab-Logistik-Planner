@@ -565,6 +565,15 @@
     height: 28px;
     color: #60a5fa;
   }
+
+  /* Keep contact cards stable (no hover shift) */
+  body.messenger-page .contact-card {
+    transition: box-shadow 0.2s ease, border-color 0.2s ease !important;
+  }
+
+  body.messenger-page .contact-card:hover {
+    transform: none !important;
+  }
 }
 
 @media (min-width: 1025px) {
