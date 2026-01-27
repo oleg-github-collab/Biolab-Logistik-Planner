@@ -3664,7 +3664,7 @@ const DirectMessenger = () => {
               </div>
             )}
             {unreadCount > 0 && (
-              <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[1.25rem] h-5 flex items-center justify-center px-1.5 shadow-lg">
+              <div className="contact-card__badge absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[1.25rem] h-5 flex items-center justify-center px-1.5 shadow-lg">
                 {unreadCount > 99 ? '99+' : unreadCount}
               </div>
             )}
@@ -3722,7 +3722,7 @@ const DirectMessenger = () => {
               </div>
             </div>
             {unreadCount > 0 && (
-              <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[1.25rem] h-5 flex items-center justify-center px-1.5 shadow-lg">
+              <div className="contact-card__badge absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[1.25rem] h-5 flex items-center justify-center px-1.5 shadow-lg">
                 {unreadCount > 99 ? '99+' : unreadCount}
               </div>
             )}
