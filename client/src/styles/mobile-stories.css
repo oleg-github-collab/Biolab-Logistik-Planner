@@ -12,9 +12,9 @@
     display: block !important;
     background: #fff;
     border-bottom: 1px solid #e5e7eb;
-    position: sticky;
-    top: 0;
-    z-index: 40;
+    position: relative;
+    margin-top: 0;
+    z-index: 1;
   }
 
   /* Оптимізуємо скрол stories */
