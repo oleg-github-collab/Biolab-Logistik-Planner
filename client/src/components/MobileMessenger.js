@@ -265,7 +265,9 @@ const MobileMessenger = ({
   // Render chat view
   const renderChatView = () => {
     const threadId = selectedThreadId || activeThread?.id;
-    const currentMessages = messages.filter(m => m.thread_id === threadId);
+    const currentMessages = messages.filter(m =>
+      m.thread_id === threadId || m.conversation_id === threadId
+    );
 
     // Get contact info
     const contactForHeader = selectedContact || (
@@ -526,7 +528,8 @@ const MobileMessenger = ({
       threadId,
       currentMessages: currentMessages.length,
       allMessages: messages.length,
-      messagesData: currentMessages.slice(0, 3)
+      allThreadIds: [...new Set(messages.map(m => m.thread_id || m.conversation_id))],
+      firstMessage: messages[0]
     });
   }
 
