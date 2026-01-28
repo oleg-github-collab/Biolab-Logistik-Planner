@@ -26,7 +26,6 @@
     min-height: 100dvh !important;
     max-height: 100dvh !important;
     overflow-x: hidden;
-    overflow-y: hidden !important;
     position: fixed !important;
     width: 100%;
     top: 0;
@@ -61,7 +60,6 @@
     display: flex;
     flex-direction: column;
     padding-bottom: 0 !important; /* Видаляємо pb-16 */
-    overflow: hidden;
     position: relative;
   }
 
@@ -106,7 +104,6 @@
     right: 0 !important;
     bottom: 0 !important;
     height: 100dvh !important; /* Dynamic Viewport Height */
-    overflow: hidden !important;
     z-index: auto !important; /* НЕ створюємо stacking context */
   }
 
@@ -119,7 +116,6 @@
     bottom: 0 !important;
     height: 100dvh !important;
     max-height: 100dvh !important;
-    overflow: hidden !important;
     display: flex !important;
     flex-direction: column !important;
   }
@@ -129,14 +125,12 @@
     height: 100% !important;
     display: flex !important;
     flex-direction: column !important;
-    overflow: hidden !important;
   }
 
   /* Contact list - займає доступний простір */
   body.messenger-page .contact-list {
     flex: 1 !important;
     min-height: 0 !important;
-    overflow: hidden !important;
     display: flex !important;
     flex-direction: column !important;
   }
