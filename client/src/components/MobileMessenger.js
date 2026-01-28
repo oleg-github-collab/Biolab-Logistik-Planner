@@ -10,10 +10,13 @@ import {
   Bot,
   Search,
   CheckCheck,
-  StopCircle
+  StopCircle,
+  X
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { getAssetUrl } from '../utils/media';
+import GifPicker from './GifPicker';
+import VoiceMessagePlayer from './VoiceMessagePlayer';
 
 const MobileMessenger = ({
   user,
@@ -42,13 +45,20 @@ const MobileMessenger = ({
   messagesEndRef,
   messagesContainerRef,
   setShowGifPicker,
+  showGifPicker,
+  handleSelectGif,
   openEventPicker,
+  showEventPicker,
+  setShowEventPicker,
+  calendarEvents,
+  handleEventSelect,
   startRecording,
   stopRecording,
   handleBotInvoke,
   setShowStoryComposer,
   storiesLoading,
-  storyEntries
+  storyEntries,
+  handleFileAttachment
 }) => {
   const [mobileMode, setMobileMode] = useState('list'); // 'list' or 'chat'
 
@@ -320,19 +330,6 @@ const MobileMessenger = ({
               }
             </div>
           </div>
-
-          <div className="mobile-messenger-chat-actions">
-            <button className="mobile-messenger-icon-btn">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/>
-              </svg>
-            </button>
-            <button className="mobile-messenger-icon-btn">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56-.35-.12-.74-.03-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/>
-              </svg>
-            </button>
-          </div>
         </div>
 
         {/* Messages */}
@@ -560,9 +557,54 @@ const MobileMessenger = ({
   }
 
   return (
-    <div className="messenger-mobile-container mobile-messenger-container">
-      {mobileMode === 'list' ? renderContactList() : renderChatView()}
-    </div>
+    <>
+      <div className="messenger-mobile-container mobile-messenger-container">
+        {mobileMode === 'list' ? renderContactList() : renderChatView()}
+      </div>
+
+      {/* GIF Picker Modal */}
+      {showGifPicker && (
+        <GifPicker
+          onSelectGif={handleSelectGif}
+          onClose={() => setShowGifPicker(false)}
+        />
+      )}
+
+      {/* Event Picker Modal */}
+      {showEventPicker && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80">
+          <div className="bg-[#0a0a0a] rounded-2xl w-full max-w-md max-h-[80vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-white/10">
+              <h3 className="text-lg font-semibold text-white">Termin auswählen</h3>
+              <button onClick={() => setShowEventPicker(false)} className="text-white/70 hover:text-white">
+                <X size={24} />
+              </button>
+            </div>
+            <div className="overflow-y-auto max-h-[60vh] p-4">
+              {calendarEvents && calendarEvents.length > 0 ? (
+                calendarEvents.map((event) => (
+                  <button
+                    key={event.id}
+                    onClick={() => {
+                      handleEventSelect(event);
+                      setShowEventPicker(false);
+                    }}
+                    className="w-full p-3 mb-2 bg-white/5 hover:bg-white/10 rounded-lg text-left transition"
+                  >
+                    <div className="font-medium text-white">{event.title}</div>
+                    <div className="text-sm text-white/60 mt-1">
+                      {format(new Date(event.start), 'dd.MM.yyyy HH:mm')}
+                    </div>
+                  </button>
+                ))
+              ) : (
+                <p className="text-white/60 text-center py-8">Keine Termine verfügbar</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

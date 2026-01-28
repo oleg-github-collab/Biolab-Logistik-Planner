@@ -5137,13 +5137,20 @@ const DirectMessenger = () => {
           messagesEndRef={messagesEndRef}
           messagesContainerRef={messagesContainerRef}
           setShowGifPicker={setShowGifPicker}
+          showGifPicker={showGifPicker}
+          handleSelectGif={handleSelectGif}
           openEventPicker={openEventPicker}
+          showEventPicker={showEventPicker}
+          setShowEventPicker={setShowEventPicker}
+          calendarEvents={calendarEvents}
+          handleEventSelect={handleEventSelect}
           startRecording={startRecording}
           stopRecording={stopRecording}
           handleBotInvoke={handleAskBot}
           setShowStoryComposer={setShowStoryComposer}
           storiesLoading={storiesLoading}
           storyEntries={storyEntries}
+          handleFileAttachment={handleFileAttachment}
         />
       ) : (
         <>
