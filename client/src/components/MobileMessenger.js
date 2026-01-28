@@ -652,9 +652,9 @@ const MobileMessenger = ({
           <div
             className="fixed bg-white rounded-2xl shadow-2xl overflow-hidden z-[20001]"
             style={{
-              top: longPressMenuCoords?.y || '50%',
-              left: longPressMenuCoords?.x || '50%',
-              transform: 'translate(-50%, -50%)',
+              top: `${longPressMenuCoords?.y || 100}px`,
+              left: `${longPressMenuCoords?.x || 100}px`,
+              transform: 'translate(-50%, 0)',
               minWidth: '200px',
               maxWidth: 'calc(100vw - 40px)',
             }}
