@@ -4,6 +4,7 @@ import './index.css';
 import './styles/calendar.css';
 import './styles/desktop-header.css';
 import './styles/mobile-app-style.css';
+import './styles/mobile-fix-critical.css';
 import App from './App';
 
 // Version control and cache busting

@@ -49,22 +49,22 @@
   /* Header градієнт з важливою інформацією */
   .bg-gradient-to-r.from-blue-600.to-blue-800 {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-    padding: 1.5rem 1rem 1.25rem !important;
-    padding-top: max(1.5rem, calc(env(safe-area-inset-top, 0) + 1rem)) !important;
+    padding: 1rem !important;
+    padding-top: calc(env(safe-area-inset-top, 20px) + 1rem) !important;
+    padding-bottom: 1.5rem !important;
     flex-shrink: 0;
     position: relative;
-    min-height: 200px;
   }
 
   /* Close button */
   .bg-gradient-to-r.from-blue-600.to-blue-800 .absolute.top-4.right-4 {
-    top: max(1rem, calc(env(safe-area-inset-top, 0) + 0.5rem)) !important;
+    top: calc(env(safe-area-inset-top, 20px) + 0.75rem) !important;
     right: 1rem !important;
     width: 40px !important;
     height: 40px !important;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
   }
 
   /* Profile photo container */
