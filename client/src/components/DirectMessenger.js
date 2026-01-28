@@ -1225,19 +1225,41 @@ const DirectMessenger = () => {
 
   const handleThreadSelect = useCallback(async (thread) => {
     if (!thread) return;
+
+    console.log('[handleThreadSelect] Selecting thread:', thread.id, thread.name);
+
     setSelectedThreadId(thread.id);
+    setSelectedContact(null);
     setMobileMode('chat');
+
+    // Join room for real-time updates
+    if (joinConversationRoom) {
+      joinConversationRoom(thread.id);
+    }
 
     // Load messages for this thread
     try {
       const response = await getConversationMessages(thread.id);
-      if (response?.data) {
-        setMessages(response.data.map(normalizeMessage));
+      console.log('[handleThreadSelect] Messages loaded:', response?.data?.length);
+
+      if (response?.data && Array.isArray(response.data)) {
+        const normalized = response.data.map(normalizeMessage).filter(Boolean);
+        setMessages(normalized);
+        console.log('[handleThreadSelect] Set messages:', normalized.length);
+
+        // Mark as read
+        await markConversationAsRead(thread.id);
       }
     } catch (error) {
-      console.error('Error loading messages:', error);
+      console.error('[handleThreadSelect] Error loading messages:', error);
+      setMessages([]);
     }
-  }, [normalizeMessage]);
+
+    // Scroll to bottom after messages load
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+  }, [normalizeMessage, joinConversationRoom, markConversationAsRead]);
 
   const handleContactClick = useCallback(async (contact) => {
     console.log('[DirectMessenger] ===== handleContactClick START =====');
@@ -4679,6 +4701,14 @@ const DirectMessenger = () => {
     const threadId = selectedThreadId || activeThread?.id;
     const currentMessages = messages.filter(m => m.thread_id === threadId);
 
+    // Get contact info for direct chats
+    const contactForHeader = selectedContact || (activeThread?.type === 'direct' && contacts.find(c =>
+      activeThread.members?.some(m => (m.id === c.id || m.user_id === c.id) && c.id !== user?.id)
+    ));
+
+    const displayName = contactForHeader?.name || activeThread?.name || 'Chat';
+    const isOnline = contactForHeader?.online || false;
+
     return (
       <div className="messenger-mobile-chat-view active">
         {/* Chat Header */}
@@ -4690,60 +4720,81 @@ const DirectMessenger = () => {
               setSelectedThreadId(null);
               setSelectedContact(null);
             }}
-            style={{ background: 'transparent', border: 'none', padding: 0 }}
+            style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer' }}
           >
             <ChevronLeft size={24} />
           </button>
 
-        <div className="messenger-mobile-chat-header__avatar">
-          {selectedContact?.profile_photo_url ? (
-            <img
-              className="messenger-mobile-chat-header__img"
-              src={selectedContact.profile_photo_url}
-              alt={selectedContact.name}
-            />
-          ) : (
+          <div className="messenger-mobile-chat-header__avatar">
+            {contactForHeader?.profile_photo || contactForHeader?.profile_photo_url ? (
+              <img
+                className="messenger-mobile-chat-header__img"
+                src={getAssetUrl(contactForHeader.profile_photo || contactForHeader.profile_photo_url)}
+                alt={displayName}
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  e.target.nextElementSibling.style.display = 'flex';
+                }}
+              />
+            ) : null}
             <div
               className="messenger-mobile-chat-header__img"
               style={{
                 background: `linear-gradient(135deg, #5856d6, #007aff)`,
-                display: 'flex',
+                display: contactForHeader?.profile_photo || contactForHeader?.profile_photo_url ? 'none' : 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: 'white',
                 fontSize: '16px',
-                fontWeight: 600
+                fontWeight: 600,
+                width: '100%',
+                height: '100%',
+                borderRadius: '50%'
               }}
             >
-              {selectedContact?.name?.[0]?.toUpperCase() || activeThread?.name?.[0]?.toUpperCase() || '?'}
+              {displayName?.[0]?.toUpperCase() || '?'}
             </div>
-          )}
-        </div>
-
-        <div className="messenger-mobile-chat-header__info">
-          <div className="messenger-mobile-chat-header__name">
-            {selectedContact?.name || activeThread?.name || 'Chat'}
           </div>
-          <div className={`messenger-mobile-chat-header__status ${selectedContact?.online ? '' : 'offline'}`}>
-            {selectedContact?.online ? 'Online' : selectedContact ? 'Offline' :
-             activeThread?.type === 'group' ? `${groupMembers.length} members` : ''}
+
+          <div className="messenger-mobile-chat-header__info">
+            <div className="messenger-mobile-chat-header__name">
+              {displayName}
+            </div>
+            <div className={`messenger-mobile-chat-header__status ${isOnline ? '' : 'offline'}`}>
+              {activeThread?.type === 'group'
+                ? `${groupMembers.length || activeThread.members?.length || 0} Mitglieder`
+                : isOnline ? 'Online' : 'Offline'
+              }
+            </div>
+          </div>
+
+          <div className="messenger-mobile-chat-header__actions">
+            <button
+              className="messenger-mobile-chat-header__action"
+              onClick={() => {
+                // Video call functionality
+                showSuccess('Video call coming soon!');
+              }}
+              style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/>
+              </svg>
+            </button>
+            <button
+              className="messenger-mobile-chat-header__action"
+              onClick={() => {
+                // Call functionality
+                showSuccess('Voice call coming soon!');
+              }}
+              style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56-.35-.12-.74-.03-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/>
+              </svg>
+            </button>
           </div>
         </div>
-
-        <div className="messenger-mobile-chat-header__actions">
-          <button className="messenger-mobile-chat-header__action">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M21 6.5l-4 4V7c-1.24 0-2.45.2-3.57.57L10.5 10.5c.76-2.24 2.88-3.89 5.39-3.99L12 2.5l9 4z"/>
-              <path d="M9 12c0 1.66-1.34 3-3 3s-3-1.34-3-3 1.34-3 3-3 3 1.34 3 3zm9 0c0 1.66-1.34 3-3 3s-3-1.34-3-3 1.34-3 3-3 3 1.34 3 3z"/>
-            </svg>
-          </button>
-          <button className="messenger-mobile-chat-header__action">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56-.35-.12-.74-.03-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/>
-            </svg>
-          </button>
-        </div>
-      </div>
         {/* Messages Area */}
         <div className="messenger-mobile-messages" ref={messagesContainerRef}>
           {currentMessages.length === 0 ? (

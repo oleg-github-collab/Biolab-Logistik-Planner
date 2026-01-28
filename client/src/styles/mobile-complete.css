@@ -417,7 +417,10 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    position: relative;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
     flex-shrink: 0;
     min-height: var(--header-height);
     z-index: 101;
@@ -492,14 +495,14 @@
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 12px 16px;
-    padding-bottom: calc(var(--input-height) + 20px);
+    padding: calc(var(--header-height) + env(safe-area-inset-top) + 12px) 16px calc(var(--input-height) + var(--safe-area-bottom) + 12px);
     display: flex;
     flex-direction: column;
     gap: 16px;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
     position: relative;
+    min-height: 100vh;
   }
 
   .messenger-mobile-messages::-webkit-scrollbar {
