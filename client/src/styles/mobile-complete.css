@@ -1,0 +1,534 @@
+/*
+ * ПОВНИЙ МОБІЛЬНИЙ ДИЗАЙН
+ * Один файл для всього
+ */
+
+@media (max-width: 768px) {
+  /* === ГЛОБАЛЬНІ НАЛАШТУВАННЯ === */
+  html, body {
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* === MESSENGER LIST MODE === */
+
+  /* Contact List Header */
+  .contact-list__header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 14px 16px;
+    padding-top: calc(env(safe-area-inset-top, 0) + 14px);
+    color: white;
+    position: relative;
+  }
+
+  .contact-list__eyebrow {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0 0 4px 0;
+  }
+
+  .contact-list__subheader {
+    font-size: 12px;
+    margin: 0;
+    opacity: 0.9;
+  }
+
+  .contact-list__close {
+    position: absolute;
+    top: calc(env(safe-area-inset-top, 0) + 12px);
+    right: 16px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+  }
+
+  /* Contact List Actions - ВИДИМІ КНОПКИ */
+  .contact-list__actions {
+    display: flex;
+    gap: 8px;
+    padding: 12px 16px;
+    background: white;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .contact-list__action {
+    flex: 1;
+    min-width: 85px;
+    padding: 10px 8px;
+    background: #f3f4f6;
+    border-radius: 12px;
+    border: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    color: #1f2937;
+  }
+
+  .contact-list__action svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .contact-list__action--bot {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+  }
+
+  /* Search */
+  .contact-list__search {
+    padding: 12px 16px;
+    background: white;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .contact-list__search input {
+    width: 100%;
+    padding: 8px 16px 8px 40px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    font-size: 14px;
+  }
+
+  /* Stories */
+  .contact-list__stories {
+    padding: 12px 0;
+    background: white;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .contact-list__stories-header {
+    padding: 0 16px 8px;
+  }
+
+  .contact-list__section-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0 0 2px 0;
+  }
+
+  .contact-list__section-subtitle {
+    font-size: 12px;
+    color: #6b7280;
+    margin: 0;
+  }
+
+  .contact-list__stories-row {
+    padding: 0 16px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Contact Grid */
+  .contact-list__grid {
+    padding: 12px 0;
+    padding-bottom: calc(env(safe-area-inset-bottom, 0) + 100px);
+  }
+
+  /* === MESSENGER CHAT MODE === */
+
+  /* Chat Header */
+  .messenger-mobile-header-enhanced {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 12px 16px;
+    padding-top: calc(env(safe-area-inset-top, 0) + 12px);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .messenger-mobile-header-enhanced__back {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    flex-shrink: 0;
+  }
+
+  .messenger-mobile-header-enhanced__info {
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .messenger-mobile-header-enhanced__name {
+    font-size: 16px;
+    font-weight: 600;
+    color: white;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .messenger-mobile-header-enhanced__status {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.8);
+    margin: 0;
+  }
+
+  .messenger-mobile-header-enhanced__avatar-wrapper {
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .messenger-mobile-header-enhanced__avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 600;
+    font-size: 14px;
+  }
+
+  .messenger-mobile-header-enhanced__status-dot {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid #667eea;
+  }
+
+  .messenger-mobile-header-enhanced__status-dot.online {
+    background: #10b981;
+  }
+
+  .messenger-mobile-header-enhanced__status-dot.offline {
+    background: #6b7280;
+  }
+
+  /* Chat Header Actions */
+  .messenger-mobile-header-actions {
+    display: flex;
+    gap: 8px;
+    padding: 8px 16px;
+    background: white;
+    border-bottom: 1px solid #e5e7eb;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .messenger-mobile-header-actions button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 12px;
+    background: #f3f4f6;
+    border-radius: 12px;
+    border: none;
+    font-size: 11px;
+    color: #1f2937;
+    white-space: nowrap;
+  }
+
+  .messenger-mobile-header-actions button svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* Messages Container */
+  .messenger-mobile-messages-container {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 16px;
+    background: #f3f4f6;
+  }
+
+  /* Message Bubbles */
+  .message-item {
+    margin-bottom: 12px;
+  }
+
+  .message-bubble {
+    max-width: 75%;
+    padding: 10px 14px;
+    border-radius: 16px;
+    word-wrap: break-word;
+  }
+
+  .message-bubble--sent {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    margin-left: auto;
+    border-bottom-right-radius: 4px;
+  }
+
+  .message-bubble--received {
+    background: white;
+    color: #1f2937;
+    border-bottom-left-radius: 4px;
+  }
+
+  .message-time {
+    font-size: 11px;
+    opacity: 0.7;
+    margin-top: 4px;
+  }
+
+  /* LONG PRESS MENU - ЛАЙКИ ТА ДІЇ */
+  .message-long-press-menu {
+    position: fixed;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    padding: 8px;
+    z-index: 10000;
+    min-width: 200px;
+  }
+
+  .message-long-press-menu__reactions {
+    display: flex;
+    gap: 8px;
+    padding: 8px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .message-long-press-menu__reaction {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #f3f4f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    border: none;
+  }
+
+  .message-long-press-menu__actions {
+    padding: 4px 0;
+  }
+
+  .message-long-press-menu__action {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border: none;
+    background: transparent;
+    width: 100%;
+    text-align: left;
+    font-size: 14px;
+    color: #1f2937;
+    border-radius: 8px;
+  }
+
+  .message-long-press-menu__action:active {
+    background: #f3f4f6;
+  }
+
+  .message-long-press-menu__action svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .message-long-press-menu__action--danger {
+    color: #ef4444;
+  }
+
+  /* Message Input */
+  .messenger-mobile-input-container {
+    padding: 12px 16px;
+    padding-bottom: calc(env(safe-area-inset-bottom, 0) + 12px);
+    background: white;
+    border-top: 1px solid #e5e7eb;
+  }
+
+  .messenger-mobile-input-wrapper {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+  }
+
+  .messenger-mobile-input {
+    flex: 1;
+    min-height: 40px;
+    max-height: 120px;
+    padding: 10px 14px;
+    border: 1px solid #e5e7eb;
+    border-radius: 20px;
+    font-size: 14px;
+    resize: none;
+    font-family: inherit;
+  }
+
+  .messenger-mobile-send-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    flex-shrink: 0;
+  }
+
+  .messenger-mobile-send-btn:disabled {
+    opacity: 0.5;
+  }
+
+  /* === MESSENGER ULTIMATE (якщо використовується) === */
+
+  .chats-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 14px 16px;
+    padding-top: calc(env(safe-area-inset-top, 0) + 14px);
+    color: white;
+  }
+
+  .chats-title {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0 0 12px 0;
+  }
+
+  .chats-search-input {
+    width: 100%;
+    padding: 8px 16px 8px 40px;
+    border: none;
+    border-radius: 12px;
+    font-size: 14px;
+    background: rgba(255, 255, 255, 0.95);
+  }
+
+  .chats-list {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0) + 100px);
+  }
+
+  .chat-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid #f3f4f6;
+  }
+
+  .chat-item-avatar {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    margin-right: 12px;
+    flex-shrink: 0;
+  }
+
+  .chat-item-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .chat-item-name {
+    font-weight: 600;
+    font-size: 15px;
+    color: #1f2937;
+  }
+
+  .chat-item-message {
+    font-size: 13px;
+    color: #6b7280;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Chat Header in chat view */
+  .chat-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 12px 16px;
+    padding-top: calc(env(safe-area-inset-top, 0) + 12px);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .chat-back-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+  }
+
+  .chat-user-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 600;
+  }
+
+  .chat-user-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: white;
+    margin: 0;
+  }
+
+  .chat-user-status {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.8);
+    margin: 0;
+  }
+
+  /* === PROFILE === */
+
+  .user-profile-container {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: white;
+  }
+
+  .user-profile-container .bg-gradient-to-r {
+    padding: 16px;
+    padding-top: calc(env(safe-area-inset-top, 0) + 16px);
+  }
+
+  /* === ЗАГАЛЬНІ УТИЛІТИ === */
+
+  /* Touch-friendly buttons */
+  button, a, [role="button"] {
+    min-height: 44px;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Smooth scrolling */
+  .overflow-y-auto, .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Hide scrollbars */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
