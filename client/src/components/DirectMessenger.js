@@ -5110,7 +5110,46 @@ const DirectMessenger = () => {
 
   return (
     <>
-      {renderEventPicker()}
+      {isMobile ? (
+        <MobileMessenger
+          user={user}
+          contacts={contacts}
+          threads={threads}
+          messages={messages}
+          selectedThreadId={selectedThreadId}
+          selectedContact={selectedContact}
+          activeThread={activeThread}
+          messageInput={messageInput}
+          sending={sending}
+          isRecording={isRecording}
+          pendingAttachments={pendingAttachments}
+          typingUsers={typingUsers}
+          showComposerActions={showComposerActions}
+          setShowComposerActions={setShowComposerActions}
+          setSelectedThreadId={setSelectedThreadId}
+          setSelectedContact={setSelectedContact}
+          setMessageInput={setMessageInput}
+          handleSendMessage={handleSendMessage}
+          handleContactClick={handleContactClick}
+          handleThreadSelect={handleThreadSelect}
+          handleInputChange={handleInputChange}
+          fileInputRef={fileInputRef}
+          mobileTextareaRef={mobileTextareaRef}
+          messagesEndRef={messagesEndRef}
+          messagesContainerRef={messagesContainerRef}
+          setShowGifPicker={setShowGifPicker}
+          openEventPicker={openEventPicker}
+          startRecording={startRecording}
+          stopRecording={stopRecording}
+          handleBotInvoke={handleAskBot}
+          setShowStoryComposer={setShowStoryComposer}
+          storiesLoading={storiesLoading}
+          storyEntries={storyEntries}
+        />
+      ) : (
+        <>
+          {renderDesktopLayout()}
+          {renderEventPicker()}
 
       {/* Contact Picker Modal for Event Sharing */}
       {showContactPicker && pendingEventShare && (
@@ -5292,44 +5331,6 @@ const DirectMessenger = () => {
           </div>
         </div>
       )}
-
-      {isMobile ? (
-        <MobileMessenger
-          user={user}
-          contacts={contacts}
-          threads={threads}
-          messages={messages}
-          selectedThreadId={selectedThreadId}
-          selectedContact={selectedContact}
-          activeThread={activeThread}
-          messageInput={messageInput}
-          sending={sending}
-          isRecording={isRecording}
-          pendingAttachments={pendingAttachments}
-          typingUsers={typingUsers}
-          showComposerActions={showComposerActions}
-          setShowComposerActions={setShowComposerActions}
-          setSelectedThreadId={setSelectedThreadId}
-          setSelectedContact={setSelectedContact}
-          setMessageInput={setMessageInput}
-          handleSendMessage={handleSendMessage}
-          handleContactClick={handleContactClick}
-          handleThreadSelect={handleThreadSelect}
-          handleInputChange={handleInputChange}
-          fileInputRef={fileInputRef}
-          mobileTextareaRef={mobileTextareaRef}
-          messagesEndRef={messagesEndRef}
-          messagesContainerRef={messagesContainerRef}
-          setShowGifPicker={setShowGifPicker}
-          openEventPicker={openEventPicker}
-          startRecording={startRecording}
-          stopRecording={stopRecording}
-          handleBotInvoke={handleAskBot}
-          setShowStoryComposer={setShowStoryComposer}
-          storiesLoading={storiesLoading}
-          storyEntries={storyEntries}
-        />
-      ) : renderDesktopLayout()}
 
       {isMobile && showPinnedDrawer && (
         <div className="fixed inset-0 z-[300100] bg-slate-900/70 backdrop-blur-sm flex flex-col justify-end">
@@ -5801,8 +5802,8 @@ const DirectMessenger = () => {
         </div>
       )}
 
-      {/* Mention Autocomplete */}
-      {showMentionSuggestions && mentionSuggestions.length > 0 && (
+          {/* Mention Autocomplete */}
+          {showMentionSuggestions && mentionSuggestions.length > 0 && (
         <div className="fixed bg-white border border-slate-200 rounded-xl shadow-2xl z-50 max-w-xs w-full"
              style={{
                bottom: '120px',
@@ -5829,17 +5830,19 @@ const DirectMessenger = () => {
             ))}
           </div>
         </div>
-      )}
+          )}
 
-      {/* Story Composer Modal */}
-      {showStoryComposer && (
-        <StoryComposer
-          userId={user?.id}
-          onClose={() => setShowStoryComposer(false)}
-          onSuccess={handleStoryCreated}
-          showSuccess={showSuccess}
-          showError={showError}
-        />
+          {/* Story Composer Modal */}
+          {showStoryComposer && (
+            <StoryComposer
+              userId={user?.id}
+              onClose={() => setShowStoryComposer(false)}
+              onSuccess={handleStoryCreated}
+              showSuccess={showSuccess}
+              showError={showError}
+            />
+          )}
+        </>
       )}
     </>
   );
