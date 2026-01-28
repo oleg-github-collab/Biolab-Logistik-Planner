@@ -513,8 +513,22 @@ const MobileMessenger = ({
     messages: messages?.length,
     mobileMode,
     selectedThreadId,
+    selectedContact: selectedContact?.name,
+    activeThread: activeThread?.name,
     user: user?.id
   });
+
+  // When chat view is active, log current messages
+  if (mobileMode === 'chat') {
+    const threadId = selectedThreadId || activeThread?.id;
+    const currentMessages = messages.filter(m => m.thread_id === threadId);
+    console.log('[MobileMessenger] Chat View:', {
+      threadId,
+      currentMessages: currentMessages.length,
+      allMessages: messages.length,
+      messagesData: currentMessages.slice(0, 3)
+    });
+  }
 
   // Fallback if loading
   if (!contacts || !threads || !user) {
