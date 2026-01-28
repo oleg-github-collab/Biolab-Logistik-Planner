@@ -114,8 +114,14 @@ const GifPicker = ({ onSelectGif, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000] p-4 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white rounded-xl w-full max-w-4xl max-h-[80vh] overflow-hidden shadow-2xl transform transition-all">
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000] p-4 pt-20 backdrop-blur-sm animate-fadeIn"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-xl w-full max-w-4xl max-h-[80vh] overflow-hidden shadow-2xl transform transition-all"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-purple-500 to-pink-500">
           <div className="flex items-center justify-between mb-3">
@@ -125,10 +131,11 @@ const GifPicker = ({ onSelectGif, onClose }) => {
             </h3>
             <button
               onClick={onClose}
-              className="text-white hover:bg-white hover:bg-opacity-20 p-1.5 rounded-full transition-colors"
+              className="text-white hover:bg-white hover:bg-opacity-30 p-2 rounded-full transition-colors bg-white bg-opacity-20 hover:scale-110"
+              aria-label="Schließen"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>

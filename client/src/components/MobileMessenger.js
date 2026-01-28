@@ -374,12 +374,13 @@ const MobileMessenger = ({
                     ) : null}
 
                     {/* Audio attachments */}
-                    {message.attachments?.some(a => a.type?.startsWith('audio/')) && (
+                    {message.attachments?.some(a => a.type === 'audio' || a.mimeType?.startsWith('audio/') || a.type?.startsWith('audio/')) && (
                       <div className="mobile-messenger-message-audio">
                         <VoiceMessagePlayer
                           audioUrl={getAssetUrl(
-                            message.attachments.find(a => a.type?.startsWith('audio/')).url
+                            message.attachments.find(a => a.type === 'audio' || a.mimeType?.startsWith('audio/') || a.type?.startsWith('audio/')).url
                           )}
+                          duration={message.audio_duration || message.metadata?.audio_duration}
                         />
                       </div>
                     )}
