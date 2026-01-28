@@ -133,8 +133,11 @@ const VoiceMessagePlayer = ({ audioUrl, duration: providedDuration, className = 
                     isPassed
                       ? 'bg-blue-600 group-hover:bg-blue-700'
                       : 'bg-blue-200 group-hover:bg-blue-300'
-                  }`}
-                  style={{ height: `${height * 100}%` }}
+                  } ${isPlaying && isPassed ? 'animate-pulse' : ''}`}
+                  style={{
+                    height: `${height * 100}%`,
+                    animationDelay: `${index * 50}ms`
+                  }}
                 />
               </div>
             );

@@ -162,6 +162,12 @@
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding-bottom: 80px;
+  scroll-behavior: smooth;
+  overscroll-behavior: contain;
+}
+
+.mobile-messenger-chats::-webkit-scrollbar {
+  display: none;
 }
 
 .mobile-messenger-section-title {
@@ -180,30 +186,39 @@
 .mobile-messenger-chat-item {
   display: flex;
   align-items: center;
-  padding: 14px 16px;
+  padding: 16px;
   cursor: pointer;
-  margin: 0 8px;
-  margin-bottom: 4px;
-  border-radius: 16px;
-  transition: background-color 0.2s ease;
+  margin: 0 12px;
+  margin-bottom: 8px;
+  border-radius: 20px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: linear-gradient(135deg, rgba(26, 26, 26, 0.4), rgba(20, 20, 20, 0.6));
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .mobile-messenger-chat-item:active {
-  background: #1a1a1a;
+  background: linear-gradient(135deg, rgba(30, 30, 30, 0.6), rgba(25, 25, 25, 0.8));
+  transform: scale(0.98);
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
 .mobile-messenger-chat-item:hover {
-  background: #141414;
+  background: linear-gradient(135deg, rgba(28, 28, 28, 0.5), rgba(22, 22, 22, 0.7));
+  border-color: rgba(255, 255, 255, 0.07);
 }
 
 .mobile-messenger-chat-avatar {
-  width: 60px;
-  height: 60px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
-  margin-right: 12px;
+  margin-right: 16px;
   position: relative;
   flex-shrink: 0;
   overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.2);
+  border: 2px solid rgba(0, 122, 255, 0.3);
 }
 
 .mobile-messenger-chat-avatar-img {
@@ -411,6 +426,12 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  scroll-behavior: smooth;
+  overscroll-behavior: contain;
+}
+
+.mobile-messenger-messages::-webkit-scrollbar {
+  display: none;
 }
 
 .mobile-messenger-empty-chat {
