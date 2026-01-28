@@ -27,21 +27,13 @@
 /* Ultra Responsive Design System - Maximum Device & Browser Compatibility */
 @import './styles/ultra-responsive.css';
 
-/* Mobile Menu Fix - Ensure visibility */
-@import './styles/mobile-menu-fix.css';
-
 /* Messenger Clarity - Polished desktop & mobile overrides */
 @import './styles/messenger-clarity.css';
 
-/* Native mobile messenger skin */
-@import './styles/mobile/mobile-messenger-native.css';
-
-/* Knowledge Base Mobile Boost */
-@import './styles/knowledge-base-mobile.css';
+/* Schedule & Knowledge Base Premium */
 @import './styles/schedule-premium.css';
 @import './styles/knowledge-base-premium.css';
-/* Kisten management mobile alignment */
-@import './styles/kisten-mobile.css';
+
 /* Unified mobile scrolling overrides */
 @import './styles/mobile/mobile-scroll-unified.css';
 
