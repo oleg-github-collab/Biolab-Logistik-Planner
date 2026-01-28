@@ -3567,19 +3567,22 @@ const DirectMessenger = () => {
     const [isScrolled, setIsScrolled] = useState(false);
     const scrollContainerRef = useRef(null);
 
-    // Scroll detection for hiding headers/stories on mobile
+    // Disable scroll-collapsing on mobile to avoid layout jumps
     useEffect(() => {
-      if (!isMobile) return;
+      if (isMobile) {
+        setIsScrolled(false);
+        return undefined;
+      }
 
       const container = scrollContainerRef.current;
-      if (!container) return;
+      if (!container) return undefined;
 
       const handleScroll = () => {
         const scrollTop = container.scrollTop;
         setIsScrolled(scrollTop > 50);
       };
 
-      container.addEventListener('scroll', handleScroll);
+      container.addEventListener('scroll', handleScroll, { passive: true });
       return () => container.removeEventListener('scroll', handleScroll);
     }, [isMobile]);
 
@@ -4446,225 +4449,280 @@ const DirectMessenger = () => {
 
   const renderMobileContactListView = () => (
     <div className="messenger-mobile-list-view">
+      {/* Header */}
       <div className="messenger-mobile-list-header">
-        <div>
-          <p className="text-xs uppercase tracking-[0.3em] text-blue-400">Team-Messenger</p>
-          <h2>Kontakte</h2>
+        <div className="messenger-mobile-list-header__top">
+          <h1 className="messenger-mobile-list-header__title">Chats</h1>
+          <div className="messenger-mobile-list-header__actions">
+            <button className="messenger-mobile-list-header__btn" onClick={() => setShowSearch(true)}>
+              <Search size={20} />
+            </button>
+            <button className="messenger-mobile-list-header__btn" onClick={() => setShowCreateGroupModal(true)}>
+              <Plus size={20} />
+            </button>
+          </div>
         </div>
-        <button
-          type="button"
-          className="messenger-mobile-list-add"
-          onClick={() => setShowSearch(true)}
-        >
-          <Plus className="w-4 h-4 text-white" />
-          <span>Nachrichten suchen</span>
+      </div>
+
+      {/* Stories/Pinned Section */}
+      <div className="messenger-mobile-stories">
+        <div className="messenger-mobile-stories__label">Pinned Message</div>
+        <div className="messenger-mobile-stories__scroll">
+          <div className="messenger-mobile-story">
+            <div className="messenger-mobile-story__avatar messenger-mobile-story__avatar--add">
+              <div className="plus-icon">+</div>
+            </div>
+            <div className="messenger-mobile-story__name">Add</div>
+          </div>
+          {contacts.slice(0, 6).map(contact => (
+            <div key={contact.id} className="messenger-mobile-story" onClick={() => handleContactClick(contact)}>
+              <div className="messenger-mobile-story__avatar">
+                <img className="messenger-mobile-story__img"
+                     src={`https://ui-avatars.com/api/?name=${encodeURIComponent(contact.name || 'U')}&background=007aff&color=fff`}
+                     alt={contact.name} />
+              </div>
+              <div className="messenger-mobile-story__name">{contact.name?.split(' ')[0]}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Chat List */}
+      <div className="messenger-mobile-chats">
+        {/* Your Messages Section */}
+        <div className="messenger-mobile-chats__section-title">Your Message</div>
+
+        {sortedThreads.map(thread => {
+          const lastMessage = thread.lastMessage || messages.find(m => m.thread_id === thread.id);
+          const unreadCount = thread.unread_count || 0;
+          const contactForThread = contacts.find(c =>
+            thread.type === 'direct' && thread.members?.some(m => m.id === c.id)
+          );
+
+          return (
+            <div
+              key={thread.id}
+              className="messenger-mobile-chat-item"
+              onClick={() => handleThreadSelect(thread)}
+            >
+              <div className="messenger-mobile-chat-item__avatar">
+                {contactForThread?.profile_photo_url ? (
+                  <img className="messenger-mobile-chat-item__img" src={contactForThread.profile_photo_url} alt="" />
+                ) : (
+                  <div className="messenger-mobile-chat-item__initials">
+                    {thread.name?.[0]?.toUpperCase() || '?'}
+                  </div>
+                )}
+                {contactForThread?.online && (
+                  <div className="messenger-mobile-chat-item__online" />
+                )}
+              </div>
+
+              <div className="messenger-mobile-chat-item__content">
+                <div className="messenger-mobile-chat-item__header">
+                  <div className="messenger-mobile-chat-item__name">
+                    {thread.name || 'Unbenannt'}
+                  </div>
+                  <div className="messenger-mobile-chat-item__time">
+                    {thread.updated_at ? formatMessageTime(thread.updated_at) : ''}
+                  </div>
+                </div>
+
+                <div className="messenger-mobile-chat-item__message">
+                  {lastMessage?.is_mine && (
+                    <CheckCheck size={16} className="messenger-mobile-chat-item__status" />
+                  )}
+                  <div className="messenger-mobile-chat-item__text">
+                    {lastMessage?.message || 'Noch keine Nachrichten'}
+                  </div>
+                  {unreadCount > 0 && (
+                    <div className="messenger-mobile-chat-item__unread">
+                      {unreadCount}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Bottom Navigation */}
+      <div className="messenger-bottom-nav">
+        <button className="messenger-bottom-nav__item active">
+          <div className="messenger-bottom-nav__icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+            </svg>
+          </div>
+          <span className="messenger-bottom-nav__label">Chats</span>
+        </button>
+        <button className="messenger-bottom-nav__item">
+          <div className="messenger-bottom-nav__icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56-.35-.12-.74-.03-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/>
+            </svg>
+          </div>
+          <span className="messenger-bottom-nav__label">Calls</span>
+        </button>
+        <button className="messenger-bottom-nav__item">
+          <div className="messenger-bottom-nav__icon">
+            <Users size={24} />
+          </div>
+          <span className="messenger-bottom-nav__label">Communities</span>
+        </button>
+        <button className="messenger-bottom-nav__item">
+          <div className="messenger-bottom-nav__icon">
+            <Menu size={24} />
+          </div>
+          <span className="messenger-bottom-nav__label">More</span>
         </button>
       </div>
-      <ContactList
-        variant="panel"
-        storyEntries={storyEntries}
-        storyMap={storiesByUser}
-        onStoryOpen={handleStoryOpen}
-        storiesLoading={storiesLoading}
-      />
     </div>
   );
 
   const renderMobileChatView = () => (
-    <div className="messenger-mobile-chat-mode">
-      <div className="messenger-mobile-header-enhanced">
+    <div className="messenger-mobile-chat-view active">
+      {/* Chat Header */}
+      <div className="messenger-mobile-chat-header">
         <button
-          className="messenger-mobile-header-enhanced__back"
+          className="messenger-mobile-chat-header__back"
           onClick={() => {
             setMobileMode('list');
             setSelectedThreadId(null);
             setSelectedContact(null);
           }}
-          aria-label="Zurück zu Kontakten"
         >
-          <ChevronLeft className="w-5 h-5" />
+          <ChevronLeft size={24} />
         </button>
-        <div className="messenger-mobile-header-enhanced__info">
-          <h3 className="messenger-mobile-header-enhanced__name">
-            {selectedContact?.name || activeThread?.name || 'Chat auswählen'}
-          </h3>
-          <p className="messenger-mobile-header-enhanced__status">
-            {selectedContact
-              ? (selectedContact.online ? 'Online' : 'Offline')
-              : activeThread?.type === 'group'
-                ? `${groupMembers.length || (activeThread.participantCount ? activeThread.participantCount + 1 : 0)} Mitglieder`
-                : 'Gruppe'}
-          </p>
-        </div>
-        <button
-          type="button"
-          className="messenger-mobile-header-enhanced__avatar-wrapper"
-          onClick={() => {
-            if (selectedContact?.id) {
-              handleOpenProfile(selectedContact.id);
-            } else if (activeThread?.type === 'group') {
-              setShowMembersModal(true);
-            }
-          }}
-          aria-label="Profil oder Gruppe öffnen"
-        >
-          <div className={`messenger-mobile-header-enhanced__avatar ${
-            !selectedContact && activeThread?.type === 'group'
-              ? 'bg-gradient-to-br from-blue-500 to-purple-600'
-              : ''
-          }`}>
-            {selectedContact
-              ? (selectedContact.name?.[0]?.toUpperCase() || '?')
-              : activeThread?.type === 'group'
-                ? <Users className="w-5 h-5 text-white" />
-                : (user?.name?.[0]?.toUpperCase() || '?')}
-          </div>
-          {selectedContact && (
-            <div className={`messenger-mobile-header-enhanced__status-dot ${selectedContact.online ? 'online' : 'offline'}`}></div>
-          )}
-        </button>
-      </div>
-      {(selectedContact || (selectedThreadId && activeThread)) && (
-        <div className="messenger-mobile-header-actions">
-          {activeThread?.type === 'group' && (
-            <button
-              type="button"
-              onClick={() => setShowMembersModal(true)}
-              aria-label="Gruppenmitglieder"
-              title="Gruppeneinstellungen"
-            >
-              <Users className="w-5 h-5" />
-              <span>Gruppe</span>
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => setShowSearch(true)}
-            aria-label="Nachrichten durchsuchen"
-            title="Nachrichten durchsuchen"
-          >
-            <Search className="w-5 h-5" />
-            <span>Suche</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowPinnedDrawer(true)}
-            disabled={pinnedMessages.length === 0}
-            aria-label="Gepinnte Nachrichten"
-            title="Gepinnte Nachrichten"
-          >
-            <Pin className="w-5 h-5" />
-            <span>Gepinnt</span>
-          </button>
-          <button
-            type="button"
-            onClick={handleAskBot}
-            aria-label="BL_Bot öffnen"
-            title="BL_Bot öffnen"
-          >
-            <Bot className="w-5 h-5" />
-            <span>BL_Bot</span>
-          </button>
-        </div>
-      )}
-      <div className="messenger-mobile-messages" ref={messagesContainerRef}>
-        {renderMessages()}
-        {Object.entries(typingUsers).map(([userId, data]) => (
-          <TypingIndicator key={userId} userName={data.name} />
-        ))}
-        <div ref={messagesEndRef} />
 
-        {/* Scroll to Bottom Button - Mobile */}
-        <button
-          type="button"
-          onClick={scrollToBottom}
-          className={`scroll-to-bottom-btn ${showScrollToBottom ? 'visible' : ''}`}
-          aria-label="Zum Ende scrollen"
-        >
-          <ChevronDown />
-          {unreadCount > 0 && (
-            <span className="unread-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
-          )}
-        </button>
-      </div>
-      {replyToMessage && (
-        <div className="px-4 py-3 bg-slate-900 text-slate-100 flex items-start gap-3 border-t border-slate-700 border-l-4 border-l-blue-400">
-          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-500 text-white flex-shrink-0">
-            <Reply className="w-5 h-5" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-blue-300 mb-1">
-              Antworten auf {replyToMessage.sender_name}
-            </p>
-            <p className="text-sm line-clamp-2">{replyToMessage.message}</p>
-          </div>
-          <button
-            type="button"
-            onClick={cancelReply}
-            className="p-2 rounded-full hover:bg-slate-700 transition flex-shrink-0"
-            title="Antwort abbrechen"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-      {selectedEvent && (
-        <div className="px-4 pb-1">
-          <div className="selected-event-preview">
-            <div className="icon">
-              <CalendarDays className="w-5 h-5 text-white" />
-            </div>
-            <div className="content">
-              <p className="title truncate">{selectedEvent.title || 'Kalendereintrag'}</p>
-              <p className="time">
-                {formatEventDateRange(selectedEvent.start_time, selectedEvent.end_time)}
-              </p>
-              {selectedEvent.location && (
-                <p className="text-xs text-slate-400 mt-1 leading-tight">
-                  Ort: {selectedEvent.location}
-                </p>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={clearSelectedEvent}
-              className="remove"
-              aria-label="Ereignis entfernen"
+        <div className="messenger-mobile-chat-header__avatar">
+          {selectedContact?.profile_photo_url ? (
+            <img
+              className="messenger-mobile-chat-header__img"
+              src={selectedContact.profile_photo_url}
+              alt={selectedContact.name}
+            />
+          ) : (
+            <div
+              className="messenger-mobile-chat-header__img"
+              style={{
+                background: `linear-gradient(135deg, #5856d6, #007aff)`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'white',
+                fontSize: '16px',
+                fontWeight: 600
+              }}
             >
-              <X className="w-4 h-4" />
-            </button>
+              {selectedContact?.name?.[0]?.toUpperCase() || activeThread?.name?.[0]?.toUpperCase() || '?'}
+            </div>
+          )}
+        </div>
+
+        <div className="messenger-mobile-chat-header__info">
+          <div className="messenger-mobile-chat-header__name">
+            {selectedContact?.name || activeThread?.name || 'Chat'}
+          </div>
+          <div className={`messenger-mobile-chat-header__status ${selectedContact?.online ? '' : 'offline'}`}>
+            {selectedContact?.online ? 'Online' : selectedContact ? 'Offline' :
+             activeThread?.type === 'group' ? `${groupMembers.length} members` : ''}
           </div>
         </div>
-      )}
-      {pendingAttachments.length > 0 && (
-        <div className="px-4 py-2 bg-slate-900">
-          <div className="flex gap-2 overflow-x-auto">
-            {pendingAttachments.map((file, idx) => renderAttachmentPreview(file, idx))}
-          </div>
-        </div>
-      )}
-      {uploadQueue.length > 0 && (
-        <div className="px-4 pb-2 bg-slate-900">
-          {renderUploadQueue('upload-progress--mobile')}
-        </div>
-      )}
-      {isRecording && (
-        <div className="messenger-recording-indicator messenger-recording-indicator--mobile">
-          <span className="messenger-recording-dot" />
-          <span>Aufnahme läuft</span>
-          <span className="messenger-recording-time">{formatRecordingTime(recordingSeconds)}</span>
-          <button
-            type="button"
-            onClick={stopRecording}
-            className="messenger-recording-stop"
-            aria-label="Aufnahme stoppen"
-          >
-            <StopCircle className="w-4 h-4" />
-            <span>Stop</span>
+
+        <div className="messenger-mobile-chat-header__actions">
+          <button className="messenger-mobile-chat-header__action">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M21 6.5l-4 4V7c-1.24 0-2.45.2-3.57.57L10.5 10.5c.76-2.24 2.88-3.89 5.39-3.99L12 2.5l9 4z"/>
+              <path d="M9 12c0 1.66-1.34 3-3 3s-3-1.34-3-3 1.34-3 3-3 3 1.34 3 3zm9 0c0 1.66-1.34 3-3 3s-3-1.34-3-3 1.34-3 3-3 3 1.34 3 3z"/>
+            </svg>
+          </button>
+          <button className="messenger-mobile-chat-header__action">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56-.35-.12-.74-.03-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/>
+            </svg>
           </button>
         </div>
-      )}
-      {renderMobileQuickReplies()}
+      </div>
+      {/* Messages Area */}
+      <div className="messenger-mobile-messages" ref={messagesContainerRef}>
+        {messages.map((message, index) => {
+          const isMine = message.sender_id === user?.id;
+          const showAvatar = index === 0 || messages[index - 1]?.sender_id !== message.sender_id;
+
+          return (
+            <div
+              key={message.id}
+              className={`messenger-mobile-message ${isMine ? 'messenger-mobile-message--mine' : 'messenger-mobile-message--other'}`}
+            >
+              <div className="messenger-mobile-message__bubble">
+                {message.attachments?.length > 0 && message.attachments[0].type?.startsWith('image/') ? (
+                  <div className="messenger-mobile-message__image">
+                    <img src={getAssetUrl(message.attachments[0].url)} alt="" />
+                  </div>
+                ) : message.voice_note_url ? (
+                  <div className="messenger-mobile-voice">
+                    <button className="messenger-mobile-voice__play">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M8 5v14l11-7z"/>
+                      </svg>
+                    </button>
+                    <div className="messenger-mobile-voice__waveform">
+                      {[...Array(20)].map((_, i) => (
+                        <div
+                          key={i}
+                          className="messenger-mobile-voice__bar"
+                          style={{ height: `${Math.random() * 100}%` }}
+                        />
+                      ))}
+                    </div>
+                    <span className="messenger-mobile-voice__duration">1:52</span>
+                  </div>
+                ) : (
+                  <>
+                    <p className="messenger-mobile-message__text">{message.message}</p>
+                    <div className="messenger-mobile-message__time">
+                      {formatMessageTime(message.created_at)}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })}
+
+        {Object.entries(typingUsers).map(([userId, data]) => (
+          <div key={userId} className="messenger-mobile-typing">
+            <div className="messenger-mobile-typing__dot" />
+            <div className="messenger-mobile-typing__dot" />
+            <div className="messenger-mobile-typing__dot" />
+          </div>
+        ))}
+
+        <div ref={messagesEndRef} />
+      </div>
+      {/* Input Area */}
+      <form onSubmit={handleSendMessage} className="messenger-mobile-input">
+        <textarea
+          ref={mobileTextareaRef}
+          className="messenger-mobile-input__field"
+          value={messageInput}
+          onChange={(e) => setMessageInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Message"
+          rows="1"
+        />
+        <button
+          type="submit"
+          className="messenger-mobile-input__send"
+          disabled={!messageInput.trim() && pendingAttachments.length === 0}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+          </svg>
+        </button>
+      </form>
     </div>
   );
 
