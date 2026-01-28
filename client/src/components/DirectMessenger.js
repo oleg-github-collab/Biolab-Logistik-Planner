@@ -5324,7 +5324,7 @@ const DirectMessenger = () => {
           openEventPicker={openEventPicker}
           startRecording={startRecording}
           stopRecording={stopRecording}
-          handleBotInvoke={handleBotInvoke}
+          handleBotInvoke={handleAskBot}
           setShowStoryComposer={setShowStoryComposer}
           storiesLoading={storiesLoading}
           storyEntries={storyEntries}
