@@ -5153,6 +5153,21 @@ const DirectMessenger = () => {
           storiesLoading={storiesLoading}
           storyEntries={storyEntries}
           handleFileAttachment={handleFileSelect}
+          handleLongPressStart={handleLongPressStart}
+          handleLongPressEnd={handleLongPressEnd}
+          handleLongPressMove={handleLongPressMove}
+          handleLongPressCancel={handleLongPressCancel}
+          handleLongPressContextMenu={handleLongPressContextMenu}
+          longPressMenuMessage={longPressMenuMessage}
+          closeLongPressMenu={closeLongPressMenu}
+          longPressMenuCoords={longPressMenuCoords}
+          handleReaction={handleReaction}
+          handleForward={handleForward}
+          handleReply={handleReply}
+          handleDelete={handleDelete}
+          handlePin={handlePin}
+          handleUnpin={handleUnpin}
+          pinnedMessages={pinnedMessages}
         />
       ) : (
         <>

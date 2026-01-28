@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ChevronLeft,
   Plus,
@@ -11,7 +12,12 @@ import {
   Search,
   CheckCheck,
   StopCircle,
-  X
+  X,
+  Smile,
+  Reply,
+  Forward,
+  Pin,
+  Trash2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { getAssetUrl } from '../utils/media';
@@ -62,7 +68,22 @@ const MobileMessenger = ({
   handleStoryCreated,
   storiesLoading,
   storyEntries,
-  handleFileAttachment
+  handleFileAttachment,
+  handleLongPressStart,
+  handleLongPressEnd,
+  handleLongPressMove,
+  handleLongPressCancel,
+  handleLongPressContextMenu,
+  longPressMenuMessage,
+  closeLongPressMenu,
+  longPressMenuCoords,
+  handleReaction,
+  handleForward,
+  handleReply,
+  handleDelete,
+  handlePin,
+  handleUnpin,
+  pinnedMessages
 }) => {
   const [mobileMode, setMobileMode] = useState('list'); // 'list' or 'chat'
 
@@ -359,11 +380,17 @@ const MobileMessenger = ({
           ) : (
             currentMessages.map((message) => {
               const isMine = message.sender_id === user?.id;
+              const isPinned = pinnedMessages?.some(p => p.id === message.id);
 
               return (
                 <div
                   key={message.id}
-                  className={`mobile-messenger-message ${isMine ? 'mine' : 'other'}`}
+                  className={`mobile-messenger-message ${isMine ? 'mine' : 'other'} ${isPinned ? 'pinned' : ''}`}
+                  onTouchStart={(e) => handleLongPressStart(e, message)}
+                  onTouchEnd={handleLongPressEnd}
+                  onTouchMove={handleLongPressMove}
+                  onTouchCancel={handleLongPressCancel}
+                  onContextMenu={(e) => handleLongPressContextMenu(e, message)}
                 >
                   <div className="mobile-messenger-message-bubble">
                     {/* Image attachments */}
@@ -385,8 +412,23 @@ const MobileMessenger = ({
                       </div>
                     )}
 
+                    {/* GIF content */}
+                    {(message.message_type === 'gif' ||
+                      (message.message && (message.message.includes('giphy.com') || message.message.includes('tenor.com') || message.message.match(/\.(gif|webp)(\?|$)/i))) ||
+                      (message.content && (message.content.includes('giphy.com') || message.content.includes('tenor.com') || message.content.match(/\.(gif|webp)(\?|$)/i)))) ? (
+                      <img
+                        src={message.message || message.content}
+                        alt="GIF"
+                        loading="lazy"
+                        className="rounded-xl w-full h-auto max-h-[280px] object-contain"
+                      />
+                    ) : null}
+
                     {/* Text content */}
-                    {message.message || message.content ? (
+                    {(message.message || message.content) &&
+                     message.message_type !== 'gif' &&
+                     !(message.message && (message.message.includes('giphy.com') || message.message.includes('tenor.com') || message.message.match(/\.(gif|webp)(\?|$)/i))) &&
+                     !(message.content && (message.content.includes('giphy.com') || message.content.includes('tenor.com') || message.content.match(/\.(gif|webp)(\?|$)/i))) ? (
                       <>
                         <p className="mobile-messenger-message-text">
                           {message.message || message.content}
@@ -596,6 +638,100 @@ const MobileMessenger = ({
           onSelectGif={handleSelectGif}
           onClose={() => setShowGifPicker(false)}
         />
+      )}
+
+      {/* Long Press Context Menu */}
+      {longPressMenuMessage && typeof document !== 'undefined' && createPortal(
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/30 z-[20000]"
+            onClick={closeLongPressMenu}
+            style={{ touchAction: 'none' }}
+          />
+          {/* Context menu */}
+          <div
+            className="fixed bg-white rounded-2xl shadow-2xl overflow-hidden z-[20001]"
+            style={{
+              top: longPressMenuCoords?.y || '50%',
+              left: longPressMenuCoords?.x || '50%',
+              transform: 'translate(-50%, -50%)',
+              minWidth: '200px',
+              maxWidth: 'calc(100vw - 40px)',
+            }}
+          >
+            <div className="py-2">
+              <button
+                type="button"
+                onClick={() => {
+                  handleReaction && handleReaction(longPressMenuMessage);
+                  closeLongPressMenu();
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left text-slate-700 hover:bg-slate-50 active:bg-slate-100 transition-colors"
+              >
+                <Smile className="w-5 h-5 text-blue-500" />
+                <span className="font-medium">Reagieren</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  handleReply && handleReply(longPressMenuMessage);
+                  closeLongPressMenu();
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left text-slate-700 hover:bg-slate-50 active:bg-slate-100 transition-colors"
+              >
+                <Reply className="w-5 h-5 text-green-500" />
+                <span className="font-medium">Antworten</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  handleForward && handleForward(longPressMenuMessage);
+                  closeLongPressMenu();
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left text-slate-700 hover:bg-slate-50 active:bg-slate-100 transition-colors"
+              >
+                <Forward className="w-5 h-5 text-purple-500" />
+                <span className="font-medium">Weiterleiten</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const isPinned = pinnedMessages?.some(p => p.id === longPressMenuMessage.id);
+                  if (isPinned) {
+                    handleUnpin && handleUnpin(longPressMenuMessage.id);
+                  } else {
+                    handlePin && handlePin(longPressMenuMessage);
+                  }
+                  closeLongPressMenu();
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left text-slate-700 hover:bg-slate-50 active:bg-slate-100 transition-colors"
+              >
+                <Pin className={`w-5 h-5 ${pinnedMessages?.some(p => p.id === longPressMenuMessage.id) ? 'text-yellow-500' : 'text-slate-400'}`} />
+                <span className="font-medium">
+                  {pinnedMessages?.some(p => p.id === longPressMenuMessage.id) ? 'Entfestigen' : 'Anpinnen'}
+                </span>
+              </button>
+              {longPressMenuMessage.sender_id === user?.id && (
+                <>
+                  <div className="h-px bg-slate-200 my-1" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleDelete && handleDelete(longPressMenuMessage.id);
+                      closeLongPressMenu();
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left text-red-600 hover:bg-red-50 active:bg-red-100 transition-colors"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                    <span className="font-medium">Löschen</span>
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </>,
+        document.body
       )}
 
       {/* Event Picker Modal */}
