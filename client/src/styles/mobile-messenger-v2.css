@@ -334,15 +334,15 @@
 }
 
 .mobile-messenger-chat-header {
-  padding: 8px 16px 8px;
-  padding-top: 8px;
+  padding: 4px 12px 8px 12px;
   background: rgba(10, 10, 10, 0.95);
   backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 56px;
+  gap: 10px;
+  min-height: 52px;
   position: sticky;
   top: 0;
   z-index: 100;
@@ -526,6 +526,8 @@
 .mobile-messenger-input-btn {
   width: 36px;
   height: 36px;
+  min-width: 36px;
+  min-height: 36px;
   border-radius: 50%;
   background: transparent;
   border: none;
@@ -535,6 +537,8 @@
   color: #007aff;
   cursor: pointer;
   flex-shrink: 0;
+  padding: 0;
+  overflow: hidden;
 }
 
 .mobile-messenger-input-btn:active {
@@ -546,6 +550,7 @@
 .mobile-messenger-input-btn.mic {
   background: #007aff;
   color: white;
+  aspect-ratio: 1 / 1;
 }
 
 .mobile-messenger-input-wrapper {

@@ -455,7 +455,7 @@ const MobileMessenger = ({
                 className="mobile-messenger-action-item"
               >
                 <Paperclip size={24} />
-                <span>Файл</span>
+                <span>Datei</span>
               </button>
               <button
                 type="button"
@@ -466,7 +466,7 @@ const MobileMessenger = ({
                 className="mobile-messenger-action-item"
               >
                 <Mic size={24} />
-                <span>Аудіо</span>
+                <span>Audio</span>
               </button>
               <button
                 type="button"
@@ -477,7 +477,7 @@ const MobileMessenger = ({
                 className="mobile-messenger-action-item"
               >
                 <CalendarDays size={24} />
-                <span>Подія</span>
+                <span>Termin</span>
               </button>
               <button
                 type="button"
@@ -490,17 +490,19 @@ const MobileMessenger = ({
                 <ImageIcon size={24} />
                 <span>GIF</span>
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  handleBotInvoke();
-                  setShowComposerActions(false);
-                }}
-                className="mobile-messenger-action-item"
-              >
-                <Bot size={24} />
-                <span>Бот</span>
-              </button>
+              {activeThread?.type === 'group' && activeThread.members?.some(m => m.user_id === 8 || m.id === 8) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleBotInvoke();
+                    setShowComposerActions(false);
+                  }}
+                  className="mobile-messenger-action-item"
+                >
+                  <Bot size={24} />
+                  <span>Bot</span>
+                </button>
+              )}
             </div>
           </>
         )}
