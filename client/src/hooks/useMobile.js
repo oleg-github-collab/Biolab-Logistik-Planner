@@ -8,7 +8,7 @@ export const useMobile = () => {
   useEffect(() => {
     const checkDevice = () => {
       const width = window.innerWidth;
-      setIsMobile(width < 768);
+      setIsMobile(width <= 1023);
       setIsTablet(width >= 768 && width < 1024);
       setOrientation(window.innerHeight > window.innerWidth ? 'portrait' : 'landscape');
     };
