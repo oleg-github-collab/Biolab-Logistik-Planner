@@ -519,7 +519,7 @@ const MobileMessenger = ({
   // Fallback if loading
   if (!contacts || !threads || !user) {
     return (
-      <div className="mobile-messenger-container">
+      <div className="messenger-mobile-container mobile-messenger-container">
         <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -541,7 +541,7 @@ const MobileMessenger = ({
   }
 
   return (
-    <div className="mobile-messenger-container">
+    <div className="messenger-mobile-container mobile-messenger-container">
       {mobileMode === 'list' ? renderContactList() : renderChatView()}
     </div>
   );
