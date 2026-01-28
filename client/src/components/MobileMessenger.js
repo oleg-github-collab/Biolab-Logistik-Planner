@@ -506,6 +506,29 @@ const MobileMessenger = ({
     );
   };
 
+  // Fallback if no data
+  if (!contacts || !threads) {
+    return (
+      <div className="mobile-messenger-container">
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100%',
+          color: '#ffffff',
+          flexDirection: 'column',
+          gap: '16px'
+        }}>
+          <div style={{ fontSize: '48px' }}>📱</div>
+          <div style={{ fontSize: '18px', fontWeight: 600 }}>Loading...</div>
+          <div style={{ fontSize: '14px', color: '#666' }}>
+            Contacts: {contacts?.length || 0} | Threads: {threads?.length || 0}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mobile-messenger-container">
       {mobileMode === 'list' ? renderContactList() : renderChatView()}
