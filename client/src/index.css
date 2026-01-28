@@ -30,6 +30,9 @@
 /* Messenger Clarity - Polished desktop & mobile overrides */
 @import './styles/messenger-clarity.css';
 
+/* Mobile Messenger V2 - Complete mobile messenger styling */
+@import './styles/mobile-messenger-v2.css';
+
 /* Schedule & Knowledge Base Premium */
 @import './styles/schedule-premium.css';
 @import './styles/knowledge-base-premium.css';
