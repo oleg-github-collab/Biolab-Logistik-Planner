@@ -283,6 +283,16 @@ const MobileMessenger = ({
       m.thread_id === threadId || m.conversation_id === threadId
     );
 
+    // Debug logging
+    console.log('MobileMessenger Debug:', {
+      threadId,
+      selectedThreadId,
+      activeThreadId: activeThread?.id,
+      totalMessages: messages.length,
+      currentMessages: currentMessages.length,
+      allMessages: messages
+    });
+
     // Get contact info
     const contactForHeader = selectedContact || (
       activeThread?.type === 'direct' &&
@@ -356,12 +366,25 @@ const MobileMessenger = ({
                   className={`mobile-messenger-message ${isMine ? 'mine' : 'other'}`}
                 >
                   <div className="mobile-messenger-message-bubble">
+                    {/* Image attachments */}
                     {message.attachments?.length > 0 && message.attachments[0].type?.startsWith('image/') ? (
                       <div className="mobile-messenger-message-image">
                         <img src={getAssetUrl(message.attachments[0].url)} alt="" />
                       </div>
                     ) : null}
 
+                    {/* Audio attachments */}
+                    {message.attachments?.some(a => a.type?.startsWith('audio/')) && (
+                      <div className="mobile-messenger-message-audio">
+                        <VoiceMessagePlayer
+                          audioUrl={getAssetUrl(
+                            message.attachments.find(a => a.type?.startsWith('audio/')).url
+                          )}
+                        />
+                      </div>
+                    )}
+
+                    {/* Text content */}
                     {message.message || message.content ? (
                       <>
                         <p className="mobile-messenger-message-text">
