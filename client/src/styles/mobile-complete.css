@@ -21,6 +21,8 @@
     --m-shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.3);
     --bottom-nav-height: 65px;
     --safe-area-bottom: env(safe-area-inset-bottom);
+    --header-height: 60px;
+    --input-height: 60px;
     font-family: -apple-system, 'SF Pro Display', 'Inter', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -42,13 +44,18 @@
 
   /* Main Mobile Container */
   .messenger-mobile-container {
-    position: relative;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
     display: flex;
     flex-direction: column;
     height: 100vh;
     height: 100dvh;
     background: var(--m-bg);
     overflow: hidden;
+    z-index: 1;
   }
 
   /* Bottom Navigation Bar */
@@ -383,7 +390,7 @@
 
   /* Chat View */
   .messenger-mobile-chat-view {
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 0;
     right: 0;
@@ -393,7 +400,7 @@
     flex-direction: column;
     transform: translateX(100%);
     transition: transform 0.3s ease;
-    z-index: 200;
+    z-index: 100;
   }
 
   .messenger-mobile-chat-view.active {
@@ -410,9 +417,10 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    position: sticky;
-    top: 0;
-    z-index: 100;
+    position: relative;
+    flex-shrink: 0;
+    min-height: var(--header-height);
+    z-index: 101;
   }
 
   .messenger-mobile-chat-header__back {
@@ -483,12 +491,15 @@
   .messenger-mobile-messages {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 12px 16px;
+    padding-bottom: calc(var(--input-height) + 20px);
     display: flex;
     flex-direction: column;
     gap: 16px;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
+    position: relative;
   }
 
   .messenger-mobile-messages::-webkit-scrollbar {
@@ -600,7 +611,12 @@
 
   /* Input Area */
   .messenger-mobile-input {
-    padding: 8px 12px calc(var(--safe-area-bottom) + 8px);
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 8px 12px;
+    padding-bottom: calc(var(--safe-area-bottom) + 8px);
     background: rgba(10, 10, 10, 0.98);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
@@ -608,6 +624,8 @@
     display: flex;
     align-items: flex-end;
     gap: 8px;
+    z-index: 102;
+    min-height: var(--input-height);
   }
 
   .messenger-mobile-input__plus {

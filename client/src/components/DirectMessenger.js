@@ -4674,20 +4674,26 @@ const DirectMessenger = () => {
     );
   };
 
-  const renderMobileChatView = () => (
-    <div className="messenger-mobile-chat-view active">
-      {/* Chat Header */}
-      <div className="messenger-mobile-chat-header">
-        <button
-          className="messenger-mobile-chat-header__back"
-          onClick={() => {
-            setMobileMode('list');
-            setSelectedThreadId(null);
-            setSelectedContact(null);
-          }}
-        >
-          <ChevronLeft size={24} />
-        </button>
+  const renderMobileChatView = () => {
+    // Ensure we have messages loaded for this thread
+    const threadId = selectedThreadId || activeThread?.id;
+    const currentMessages = messages.filter(m => m.thread_id === threadId);
+
+    return (
+      <div className="messenger-mobile-chat-view active">
+        {/* Chat Header */}
+        <div className="messenger-mobile-chat-header">
+          <button
+            className="messenger-mobile-chat-header__back"
+            onClick={() => {
+              setMobileMode('list');
+              setSelectedThreadId(null);
+              setSelectedContact(null);
+            }}
+            style={{ background: 'transparent', border: 'none', padding: 0 }}
+          >
+            <ChevronLeft size={24} />
+          </button>
 
         <div className="messenger-mobile-chat-header__avatar">
           {selectedContact?.profile_photo_url ? (
@@ -4738,52 +4744,70 @@ const DirectMessenger = () => {
           </button>
         </div>
       </div>
-      {/* Messages Area */}
-      <div className="messenger-mobile-messages" ref={messagesContainerRef}>
-        {messages.map((message, index) => {
-          const isMine = message.sender_id === user?.id;
-          const showAvatar = index === 0 || messages[index - 1]?.sender_id !== message.sender_id;
-
-          return (
-            <div
-              key={message.id}
-              className={`messenger-mobile-message ${isMine ? 'messenger-mobile-message--mine' : 'messenger-mobile-message--other'}`}
-            >
-              <div className="messenger-mobile-message__bubble">
-                {message.attachments?.length > 0 && message.attachments[0].type?.startsWith('image/') ? (
-                  <div className="messenger-mobile-message__image">
-                    <img src={getAssetUrl(message.attachments[0].url)} alt="" />
-                  </div>
-                ) : message.voice_note_url ? (
-                  <div className="messenger-mobile-voice">
-                    <button className="messenger-mobile-voice__play">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M8 5v14l11-7z"/>
-                      </svg>
-                    </button>
-                    <div className="messenger-mobile-voice__waveform">
-                      {[...Array(20)].map((_, i) => (
-                        <div
-                          key={i}
-                          className="messenger-mobile-voice__bar"
-                          style={{ height: `${Math.random() * 100}%` }}
-                        />
-                      ))}
-                    </div>
-                    <span className="messenger-mobile-voice__duration">1:52</span>
-                  </div>
-                ) : (
-                  <>
-                    <p className="messenger-mobile-message__text">{message.message}</p>
-                    <div className="messenger-mobile-message__time">
-                      {formatMessageTime(message.created_at)}
-                    </div>
-                  </>
-                )}
-              </div>
+        {/* Messages Area */}
+        <div className="messenger-mobile-messages" ref={messagesContainerRef}>
+          {currentMessages.length === 0 ? (
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '100%',
+              color: 'var(--m-text-secondary)',
+              padding: '20px',
+              textAlign: 'center'
+            }}>
+              <User size={48} style={{ marginBottom: '16px', opacity: 0.5 }} />
+              <p style={{ fontSize: '16px', margin: '0 0 8px' }}>Keine Nachrichten</p>
+              <p style={{ fontSize: '14px', margin: 0, opacity: 0.7 }}>
+                Beginnen Sie eine neue Unterhaltung
+              </p>
             </div>
-          );
-        })}
+          ) : (
+            currentMessages.map((message, index) => {
+              const isMine = message.sender_id === user?.id;
+
+              return (
+                <div
+                  key={message.id}
+                  className={`messenger-mobile-message ${isMine ? 'messenger-mobile-message--mine' : 'messenger-mobile-message--other'}`}
+                >
+                  <div className="messenger-mobile-message__bubble">
+                    {message.attachments?.length > 0 && message.attachments[0].type?.startsWith('image/') ? (
+                      <div className="messenger-mobile-message__image">
+                        <img src={getAssetUrl(message.attachments[0].url)} alt="" />
+                      </div>
+                    ) : message.voice_note_url ? (
+                      <div className="messenger-mobile-voice">
+                        <button className="messenger-mobile-voice__play">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M8 5v14l11-7z"/>
+                          </svg>
+                        </button>
+                        <div className="messenger-mobile-voice__waveform">
+                          {[...Array(20)].map((_, i) => (
+                            <div
+                              key={i}
+                              className="messenger-mobile-voice__bar"
+                              style={{ height: `${Math.random() * 100}%` }}
+                            />
+                          ))}
+                        </div>
+                        <span className="messenger-mobile-voice__duration">1:52</span>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="messenger-mobile-message__text">{message.message || message.content}</p>
+                        <div className="messenger-mobile-message__time">
+                          {formatMessageTime(message.created_at)}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
 
         {Object.entries(typingUsers).map(([userId, data]) => (
           <div key={userId} className="messenger-mobile-typing">
@@ -4907,8 +4931,9 @@ const DirectMessenger = () => {
           </div>
         </>
       )}
-    </div>
-  );
+      </div>
+    );
+  };
 
   const renderMobileLayout = () => {
     const isChatMode = mobileMode === 'chat' && (selectedContact || selectedThreadId);
