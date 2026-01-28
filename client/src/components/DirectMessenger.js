@@ -70,8 +70,10 @@ import MessageForwardModal from './MessageForwardModal';
 import VoiceMessagePlayer from './VoiceMessagePlayer';
 import { showError, showSuccess } from '../utils/toast';
 import { getAssetUrl } from '../utils/media';
+import MobileMessenger from './MobileMessenger';
 import '../styles/messenger-unified-dark.css';
 import '../styles/mobile-complete.css';
+import '../styles/mobile-messenger-v2.css';
 import '../styles/scroll-to-bottom-button.css';
 
 const GENERAL_THREAD_NAMES = ['general chat', 'general', 'allgemein', 'allgemeiner chat', 'teamchat'];
@@ -5291,7 +5293,43 @@ const DirectMessenger = () => {
         </div>
       )}
 
-      {isMobile ? renderMobileLayout() : renderDesktopLayout()}
+      {isMobile ? (
+        <MobileMessenger
+          user={user}
+          contacts={contacts}
+          threads={threads}
+          messages={messages}
+          selectedThreadId={selectedThreadId}
+          selectedContact={selectedContact}
+          activeThread={activeThread}
+          messageInput={messageInput}
+          sending={sending}
+          isRecording={isRecording}
+          pendingAttachments={pendingAttachments}
+          typingUsers={typingUsers}
+          showComposerActions={showComposerActions}
+          setShowComposerActions={setShowComposerActions}
+          setSelectedThreadId={setSelectedThreadId}
+          setSelectedContact={setSelectedContact}
+          setMessageInput={setMessageInput}
+          handleSendMessage={handleSendMessage}
+          handleContactClick={handleContactClick}
+          handleThreadSelect={handleThreadSelect}
+          handleInputChange={handleInputChange}
+          fileInputRef={fileInputRef}
+          mobileTextareaRef={mobileTextareaRef}
+          messagesEndRef={messagesEndRef}
+          messagesContainerRef={messagesContainerRef}
+          setShowGifPicker={setShowGifPicker}
+          openEventPicker={openEventPicker}
+          startRecording={startRecording}
+          stopRecording={stopRecording}
+          handleBotInvoke={handleBotInvoke}
+          setShowStoryComposer={setShowStoryComposer}
+          storiesLoading={storiesLoading}
+          storyEntries={storyEntries}
+        />
+      ) : renderDesktopLayout()}
 
       {isMobile && showPinnedDrawer && (
         <div className="fixed inset-0 z-[300100] bg-slate-900/70 backdrop-blur-sm flex flex-col justify-end">
