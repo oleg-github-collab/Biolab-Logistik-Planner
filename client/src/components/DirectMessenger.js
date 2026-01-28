@@ -4944,7 +4944,29 @@ const DirectMessenger = () => {
               className="messenger-mobile-actions-item"
             >
               <Paperclip size={24} />
-              <span>Datei</span>
+              <span>Файл</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setVoiceMode(true);
+                setShowComposerActions(false);
+              }}
+              className="messenger-mobile-actions-item"
+            >
+              <Mic size={24} />
+              <span>Аудіо</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                openEventPicker();
+                setShowComposerActions(false);
+              }}
+              className="messenger-mobile-actions-item"
+            >
+              <CalendarDays size={24} />
+              <span>Подія</span>
             </button>
             <button
               type="button"
@@ -4960,24 +4982,13 @@ const DirectMessenger = () => {
             <button
               type="button"
               onClick={() => {
-                openEventPicker();
+                handleBotInvoke();
                 setShowComposerActions(false);
               }}
               className="messenger-mobile-actions-item"
             >
-              <CalendarDays size={24} />
-              <span>Termin</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setShowQuickReplies(true);
-                setShowComposerActions(false);
-              }}
-              className="messenger-mobile-actions-item"
-            >
-              <Zap size={24} />
-              <span>Quick</span>
+              <Bot size={24} />
+              <span>Бот</span>
             </button>
           </div>
         </>
