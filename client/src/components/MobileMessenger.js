@@ -506,8 +506,18 @@ const MobileMessenger = ({
     );
   };
 
-  // Fallback if no data
-  if (!contacts || !threads) {
+  // Debug logging
+  console.log('[MobileMessenger] Render:', {
+    contacts: contacts?.length,
+    threads: threads?.length,
+    messages: messages?.length,
+    mobileMode,
+    selectedThreadId,
+    user: user?.id
+  });
+
+  // Fallback if loading
+  if (!contacts || !threads || !user) {
     return (
       <div className="mobile-messenger-container">
         <div style={{
@@ -517,12 +527,13 @@ const MobileMessenger = ({
           height: '100%',
           color: '#ffffff',
           flexDirection: 'column',
-          gap: '16px'
+          gap: '16px',
+          backgroundColor: '#000000'
         }}>
           <div style={{ fontSize: '48px' }}>📱</div>
           <div style={{ fontSize: '18px', fontWeight: 600 }}>Loading...</div>
-          <div style={{ fontSize: '14px', color: '#666' }}>
-            Contacts: {contacts?.length || 0} | Threads: {threads?.length || 0}
+          <div style={{ fontSize: '14px', color: '#999' }}>
+            User: {user ? '✓' : '✗'} | Contacts: {contacts?.length || 0} | Threads: {threads?.length || 0}
           </div>
         </div>
       </div>
