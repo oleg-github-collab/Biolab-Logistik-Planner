@@ -28,7 +28,6 @@
   }
 
   body.messenger-page main.mobile-scroll-container {
-    overflow: hidden !important;
     padding-bottom: 0 !important;
   }
 

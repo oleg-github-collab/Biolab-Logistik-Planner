@@ -657,6 +657,7 @@
   width: 28px;
   height: 28px;
   min-width: 28px;
+  min-height: 28px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.1);
   border: none;
@@ -666,6 +667,8 @@
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s;
+  flex-shrink: 0;
+  padding: 0;
 }
 
 .mobile-messenger-composer-close:active {
@@ -841,4 +844,72 @@
   font-weight: 600;
   font-size: 12px;
   color: #ffffff;
+}
+
+/* Voice Message Player - Compact & Beautiful */
+.voice-player {
+  width: 100%;
+  max-width: 280px;
+}
+
+.voice-player-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.voice-player-btn {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  border-radius: 50%;
+  background: #007aff;
+  color: white;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.voice-player-btn:active {
+  transform: scale(0.95);
+  background: #0056cc;
+}
+
+.voice-player-progress-container {
+  flex: 1;
+  min-width: 0;
+}
+
+.voice-player-progress-bar {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.voice-player-progress-fill {
+  height: 100%;
+  background: #007aff;
+  border-radius: 2px;
+  transition: width 0.1s linear;
+}
+
+.voice-player-time {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+  font-variant-numeric: tabular-nums;
+}
+
+.voice-player-time-sep {
+  opacity: 0.5;
 }

@@ -56,10 +56,10 @@ const MessageForwardModal = ({ message, onClose, onSuccess }) => {
     }
   };
 
-  const filteredContacts = contacts.filter(c =>
+  const filteredContacts = Array.isArray(contacts) ? contacts.filter(c =>
     c.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     c.email?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  ) : [];
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
