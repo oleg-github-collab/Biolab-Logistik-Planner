@@ -2,6 +2,14 @@
 
 /* Mobile Messenger - Professional UI Design */
 @media (max-width: 1023px) {
+  /* HIDE DESKTOP LAYOUT ON MOBILE */
+  body.messenger-page .messenger-container > div:not(.messenger-mobile-container),
+  body.messenger-page .messenger-desktop-header,
+  body.messenger-page .contact-list:not(.messenger-mobile-chats),
+  body.messenger-page .flex.h-full.bg-gradient-to-br {
+    display: none !important;
+  }
+
   body.messenger-page {
     --m-bg: #000000;
     --m-surface: #0a0a0a;
@@ -44,18 +52,18 @@
 
   /* Main Mobile Container */
   .messenger-mobile-container {
-    position: fixed;
+    position: fixed !important;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    display: flex;
+    display: flex !important;
     flex-direction: column;
     height: 100vh;
     height: 100dvh;
     background: var(--m-bg);
     overflow: hidden;
-    z-index: 1;
+    z-index: 10 !important;
   }
 
   /* Bottom Navigation Bar */
