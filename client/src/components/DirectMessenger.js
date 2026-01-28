@@ -5142,7 +5142,7 @@ const DirectMessenger = () => {
           openEventPicker={openEventPicker}
           showEventPicker={showEventPicker}
           setShowEventPicker={setShowEventPicker}
-          calendarEvents={calendarEvents}
+          calendarEvents={eventOptions}
           handleEventSelect={handleEventSelect}
           startRecording={startRecording}
           stopRecording={stopRecording}
