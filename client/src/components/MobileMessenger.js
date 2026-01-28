@@ -25,6 +25,7 @@ import { getAssetUrl } from '../utils/media';
 import GifPicker from './GifPicker';
 import VoiceMessagePlayer from './VoiceMessagePlayer';
 import StoryComposer from './StoryComposer';
+import MessageSearch from './MessageSearch';
 import { showError, showSuccess } from '../utils/toast';
 
 const MobileMessenger = ({
@@ -83,10 +84,20 @@ const MobileMessenger = ({
   handleReply,
   handleDelete,
   handlePin,
-  pinnedMessages
+  pinnedMessages,
+  replyToMessage,
+  setReplyToMessage,
+  selectedEvent,
+  setSelectedEvent,
+  handleMessageSearchSelect
 }) => {
   const navigate = useNavigate();
   const [mobileMode, setMobileMode] = useState('list'); // 'list' or 'chat'
+  const [showReactionPicker, setShowReactionPicker] = useState(null); // message id
+  const [showSearchModal, setShowSearchModal] = useState(false);
+
+  // Common emojis for reactions
+  const REACTION_EMOJIS = ['❤️', '👍', '😂', '😮', '😢', '🔥', '👏', '✅'];
 
   // Format time for messages
   const formatMessageTime = (timestamp) => {
@@ -377,6 +388,13 @@ const MobileMessenger = ({
               }
             </div>
           </div>
+
+          <button
+            className="mobile-messenger-chat-search"
+            onClick={() => setShowSearchModal(true)}
+          >
+            <Search size={20} />
+          </button>
         </div>
 
         {/* Messages */}
@@ -474,6 +492,54 @@ const MobileMessenger = ({
 
           <div ref={messagesEndRef} />
         </div>
+
+        {/* Reply/Event Indicator */}
+        {(replyToMessage || selectedEvent) && (
+          <div className="mobile-messenger-composer-stack">
+            {replyToMessage && (
+              <div className="mobile-messenger-composer-item">
+                <div className="mobile-messenger-composer-icon">
+                  <Reply size={18} />
+                </div>
+                <div className="mobile-messenger-composer-content">
+                  <p className="mobile-messenger-composer-label">
+                    Antworten auf {replyToMessage.sender_name}
+                  </p>
+                  <p className="mobile-messenger-composer-text">
+                    {replyToMessage.message}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReplyToMessage(null)}
+                  className="mobile-messenger-composer-close"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            )}
+            {selectedEvent && (
+              <div className="mobile-messenger-composer-item">
+                <div className="mobile-messenger-composer-icon calendar">
+                  <CalendarDays size={18} />
+                </div>
+                <div className="mobile-messenger-composer-content">
+                  <p className="mobile-messenger-composer-label">Termin teilen</p>
+                  <p className="mobile-messenger-composer-text">
+                    {selectedEvent.title}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedEvent(null)}
+                  className="mobile-messenger-composer-close"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Input */}
         <form className="mobile-messenger-input" onSubmit={handleSendMessage}>
@@ -683,7 +749,7 @@ const MobileMessenger = ({
               <button
                 type="button"
                 onClick={() => {
-                  handleReaction && handleReaction(longPressMenuMessage);
+                  setShowReactionPicker(longPressMenuMessage.id);
                   closeLongPressMenu();
                 }}
                 className="w-full flex items-center gap-3 px-4 py-3 text-left text-slate-700 hover:bg-slate-50 active:bg-slate-100 transition-colors"
@@ -748,6 +814,36 @@ const MobileMessenger = ({
         document.body
       )}
 
+      {/* Reaction Picker Modal */}
+      {showReactionPicker && createPortal(
+        <>
+          <div
+            className="fixed inset-0 bg-black/30 z-[20000]"
+            onClick={() => setShowReactionPicker(null)}
+          />
+          <div
+            className="fixed bottom-24 left-1/2 transform -translate-x-1/2 bg-white rounded-2xl shadow-2xl p-4 z-[20001]"
+            style={{ minWidth: '280px' }}
+          >
+            <div className="grid grid-cols-4 gap-4">
+              {REACTION_EMOJIS.map(emoji => (
+                <button
+                  key={emoji}
+                  onClick={() => {
+                    handleReaction && handleReaction(showReactionPicker, emoji);
+                    setShowReactionPicker(null);
+                  }}
+                  className="text-4xl hover:scale-125 transition-transform active:scale-110 p-2"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>,
+        document.body
+      )}
+
       {/* Event Picker Modal */}
       {showEventPicker && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80">
@@ -803,6 +899,21 @@ const MobileMessenger = ({
         multiple
         accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
       />
+
+      {/* Message Search Modal */}
+      {showSearchModal && (
+        <MessageSearch
+          onClose={() => setShowSearchModal(false)}
+          onMessageSelect={(message) => {
+            handleMessageSearchSelect(message);
+            setShowSearchModal(false);
+          }}
+          contacts={contacts}
+          threads={threads}
+          currentConversationId={selectedThreadId}
+          currentUserId={user?.id}
+        />
+      )}
     </>
   );
 };

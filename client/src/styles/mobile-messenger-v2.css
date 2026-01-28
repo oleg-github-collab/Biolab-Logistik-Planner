@@ -418,6 +418,26 @@
   color: #888888;
 }
 
+.mobile-messenger-chat-search {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #007aff;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mobile-messenger-chat-search:active {
+  background: rgba(0, 122, 255, 0.1);
+  transform: scale(0.95);
+}
+
 .mobile-messenger-chat-status.online {
   color: #34c759;
 }
@@ -566,6 +586,92 @@
 @keyframes typingDot {
   0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
   30% { opacity: 1; transform: translateY(-4px); }
+}
+
+/* Composer Stack (Reply/Event Indicators) */
+.mobile-messenger-composer-stack {
+  position: fixed;
+  bottom: calc(125px + env(safe-area-inset-bottom));
+  left: 0;
+  right: 0;
+  padding: 8px 12px;
+  background: rgba(10, 10, 10, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 199;
+}
+
+.mobile-messenger-composer-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  border-left: 3px solid #007aff;
+}
+
+.mobile-messenger-composer-icon {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  border-radius: 10px;
+  background: #007aff;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobile-messenger-composer-icon.calendar {
+  background: #34c759;
+}
+
+.mobile-messenger-composer-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.mobile-messenger-composer-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #007aff;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.mobile-messenger-composer-text {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.8);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin: 0;
+}
+
+.mobile-messenger-composer-close {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mobile-messenger-composer-close:active {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(0.95);
 }
 
 /* Input */

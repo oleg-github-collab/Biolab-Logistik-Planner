@@ -5167,6 +5167,11 @@ const DirectMessenger = () => {
           handleDelete={handleDeleteMessage}
           handlePin={handlePinMessage}
           pinnedMessages={pinnedMessages}
+          replyToMessage={replyToMessage}
+          setReplyToMessage={setReplyToMessage}
+          selectedEvent={selectedEvent}
+          setSelectedEvent={setSelectedEvent}
+          handleMessageSearchSelect={handleMessageSearchSelect}
         />
       ) : (
         <>
