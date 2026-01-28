@@ -933,8 +933,8 @@ const MobileMessenger = ({
             handleMessageSearchSelect(message);
             setShowSearchModal(false);
           }}
-          contacts={contacts}
-          threads={threads}
+          contacts={contacts || []}
+          threads={threads || []}
           currentConversationId={selectedThreadId}
           currentUserId={user?.id}
         />

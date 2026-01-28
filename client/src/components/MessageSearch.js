@@ -19,6 +19,7 @@ const MessageSearch = ({ onClose, onMessageSelect, contacts = [], threads = [], 
   const [total, setTotal] = useState(0);
 
   const contactOptions = useMemo(() => {
+    if (!Array.isArray(contacts)) return [];
     return contacts
       .filter((contact) => contact?.id)
       .map((contact) => ({
@@ -29,6 +30,7 @@ const MessageSearch = ({ onClose, onMessageSelect, contacts = [], threads = [], 
   }, [contacts]);
 
   const threadOptions = useMemo(() => {
+    if (!Array.isArray(threads)) return [];
     return threads.map((thread) => {
       const isGroup = thread?.type === 'group' || thread?.conversation_type === 'group';
       const memberName = Array.isArray(thread?.members) && thread.members.length > 0
