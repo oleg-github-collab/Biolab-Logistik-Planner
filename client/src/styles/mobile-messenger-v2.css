@@ -108,10 +108,20 @@
   width: 72px;
   height: 72px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #007aff, #5ac8fa);
+  background: #1a1a1a;
   padding: 2px;
   position: relative;
   overflow: hidden;
+}
+
+.mobile-messenger-story-avatar.has-story {
+  background: linear-gradient(135deg, #007aff, #5ac8fa);
+  animation: story-pulse 2s ease-in-out infinite;
+}
+
+@keyframes story-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
 }
 
 .mobile-messenger-story-avatar.add {
@@ -473,6 +483,7 @@
   padding: 10px 14px;
   border-radius: 18px;
   word-break: break-word;
+  position: relative;
 }
 
 .mobile-messenger-message.mine .mobile-messenger-message-bubble {
@@ -485,6 +496,27 @@
   background: #1a1a1a;
   color: #ffffff;
   border-bottom-left-radius: 4px;
+}
+
+.mobile-messenger-message.pinned .mobile-messenger-message-bubble {
+  border: 2px solid #ffd60a;
+  box-shadow: 0 0 12px rgba(255, 214, 10, 0.3);
+}
+
+.mobile-messenger-message-pinned-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #ffd60a;
+  color: #000;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  z-index: 10;
 }
 
 .mobile-messenger-message-text {

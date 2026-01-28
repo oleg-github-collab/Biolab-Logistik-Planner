@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   ChevronLeft,
   Plus,
@@ -84,6 +85,7 @@ const MobileMessenger = ({
   handlePin,
   pinnedMessages
 }) => {
+  const navigate = useNavigate();
   const [mobileMode, setMobileMode] = useState('list'); // 'list' or 'chat'
 
   // Format time for messages
@@ -159,16 +161,19 @@ const MobileMessenger = ({
             </div>
 
             {/* Contacts Stories */}
-            {filteredContacts.slice(0, 6).map(contact => (
-              <div
-                key={contact.id}
-                className="mobile-messenger-story"
-                onClick={() => {
-                  handleContactClick(contact);
-                  setMobileMode('chat');
-                }}
-              >
-                <div className="mobile-messenger-story-avatar">
+            {filteredContacts.slice(0, 6).map(contact => {
+              const hasStory = storyEntries?.some(s => s.user_id === contact.id);
+
+              return (
+                <div
+                  key={contact.id}
+                  className="mobile-messenger-story"
+                  onClick={() => {
+                    handleContactClick(contact);
+                    setMobileMode('chat');
+                  }}
+                >
+                  <div className={`mobile-messenger-story-avatar ${hasStory ? 'has-story' : ''}`}>
                   {contact.profile_photo || contact.profile_photo_url ? (
                     <img
                       src={getAssetUrl(contact.profile_photo || contact.profile_photo_url)}
@@ -185,7 +190,8 @@ const MobileMessenger = ({
                   {contact.name?.split(' ')[0]}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -341,7 +347,14 @@ const MobileMessenger = ({
             <ChevronLeft size={24} />
           </button>
 
-          <div className="mobile-messenger-chat-avatar-header">
+          <button
+            className="mobile-messenger-chat-avatar-header"
+            onClick={() => {
+              if (contactForHeader?.id) {
+                navigate(`/profile/${contactForHeader.id}`);
+              }
+            }}
+          >
             {contactForHeader?.profile_photo || contactForHeader?.profile_photo_url ? (
               <img
                 src={getAssetUrl(contactForHeader.profile_photo || contactForHeader.profile_photo_url)}
@@ -353,7 +366,7 @@ const MobileMessenger = ({
                 {displayName?.[0]?.toUpperCase() || '?'}
               </div>
             )}
-          </div>
+          </button>
 
           <div className="mobile-messenger-chat-info">
             <div className="mobile-messenger-chat-name">{displayName}</div>
@@ -392,6 +405,13 @@ const MobileMessenger = ({
                   onContextMenu={(e) => handleLongPressContextMenu(e, message)}
                 >
                   <div className="mobile-messenger-message-bubble">
+                    {/* Pinned indicator */}
+                    {isPinned && (
+                      <div className="mobile-messenger-message-pinned-badge">
+                        <Pin size={12} />
+                      </div>
+                    )}
+
                     {/* Image attachments */}
                     {message.attachments?.length > 0 && message.attachments[0].type?.startsWith('image/') ? (
                       <div className="mobile-messenger-message-image">
