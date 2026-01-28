@@ -687,6 +687,14 @@ const DirectMessenger = () => {
     }
   }, [isMobile]);
 
+  // Add messenger-page class to body for mobile CSS
+  useEffect(() => {
+    document.body.classList.add('messenger-page');
+    return () => {
+      document.body.classList.remove('messenger-page');
+    };
+  }, []);
+
   // When arriving from main menu, default to contact list view
   useEffect(() => {
     if (location.pathname.includes('/messages')) {
