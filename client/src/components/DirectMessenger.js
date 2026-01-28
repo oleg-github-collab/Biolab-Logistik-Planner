@@ -72,7 +72,6 @@ import { showError, showSuccess } from '../utils/toast';
 import { getAssetUrl } from '../utils/media';
 import MobileMessenger from './MobileMessenger';
 import '../styles/messenger-unified-dark.css';
-import '../styles/mobile-complete.css';
 import '../styles/mobile-messenger-v2.css';
 import '../styles/scroll-to-bottom-button.css';
 
