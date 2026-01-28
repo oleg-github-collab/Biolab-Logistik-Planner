@@ -23,7 +23,8 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  overflow: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Header */
@@ -171,7 +172,7 @@
   flex: 1;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding-bottom: 80px;
+  padding-bottom: calc(75px + env(safe-area-inset-bottom));
   scroll-behavior: smooth;
   overscroll-behavior: contain;
 }
@@ -432,7 +433,7 @@
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding: 16px;
-  padding-bottom: 120px;
+  padding-bottom: calc(140px + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -570,7 +571,7 @@
 /* Input */
 .mobile-messenger-input {
   position: fixed;
-  bottom: 70px;
+  bottom: calc(65px + env(safe-area-inset-bottom));
   left: 0;
   right: 0;
   padding: 10px 12px;
