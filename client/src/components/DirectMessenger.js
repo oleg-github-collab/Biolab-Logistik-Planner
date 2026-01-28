@@ -1201,6 +1201,44 @@ const DirectMessenger = () => {
     }
   }, []);
 
+  const formatMessageTime = (timestamp) => {
+    if (!timestamp) return '';
+    try {
+      const date = new Date(timestamp);
+      const now = new Date();
+      const diffMs = now - date;
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+      if (diffDays === 0) {
+        return format(date, 'HH:mm');
+      } else if (diffDays === 1) {
+        return 'Yesterday';
+      } else if (diffDays < 7) {
+        return format(date, 'EEEE');
+      } else {
+        return format(date, 'dd.MM.yy');
+      }
+    } catch {
+      return '';
+    }
+  };
+
+  const handleThreadSelect = useCallback(async (thread) => {
+    if (!thread) return;
+    setSelectedThreadId(thread.id);
+    setMobileMode('chat');
+
+    // Load messages for this thread
+    try {
+      const response = await getConversationMessages(thread.id);
+      if (response?.data) {
+        setMessages(response.data.map(normalizeMessage));
+      }
+    } catch (error) {
+      console.error('Error loading messages:', error);
+    }
+  }, [normalizeMessage]);
+
   const handleContactClick = useCallback(async (contact) => {
     console.log('[DirectMessenger] ===== handleContactClick START =====');
     console.log('[DirectMessenger] Contact:', contact);
@@ -4447,52 +4485,60 @@ const DirectMessenger = () => {
     );
   };
 
-  const renderMobileContactListView = () => (
-    <div className="messenger-mobile-list-view">
-      {/* Header */}
-      <div className="messenger-mobile-list-header">
-        <div className="messenger-mobile-list-header__top">
-          <h1 className="messenger-mobile-list-header__title">Chats</h1>
-          <div className="messenger-mobile-list-header__actions">
-            <button className="messenger-mobile-list-header__btn" onClick={() => setShowSearch(true)}>
-              <Search size={20} />
-            </button>
-            <button className="messenger-mobile-list-header__btn" onClick={() => setShowCreateGroupModal(true)}>
-              <Plus size={20} />
-            </button>
+  const renderMobileContactListView = () => {
+    // Sort threads by last message time
+    const sortedThreads = [...threads].sort((a, b) => {
+      const timeA = new Date(a.updated_at || a.created_at || 0).getTime();
+      const timeB = new Date(b.updated_at || b.created_at || 0).getTime();
+      return timeB - timeA;
+    });
+
+    return (
+      <div className="messenger-mobile-list-view">
+        {/* Header */}
+        <div className="messenger-mobile-list-header">
+          <div className="messenger-mobile-list-header__top">
+            <h1 className="messenger-mobile-list-header__title">Chats</h1>
+            <div className="messenger-mobile-list-header__actions">
+              <button className="messenger-mobile-list-header__btn" onClick={() => setShowSearch(true)}>
+                <Search size={20} />
+              </button>
+              <button className="messenger-mobile-list-header__btn" onClick={() => setShowCreateGroupModal(true)}>
+                <Plus size={20} />
+              </button>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Stories/Pinned Section */}
-      <div className="messenger-mobile-stories">
-        <div className="messenger-mobile-stories__label">Pinned Message</div>
-        <div className="messenger-mobile-stories__scroll">
-          <div className="messenger-mobile-story">
-            <div className="messenger-mobile-story__avatar messenger-mobile-story__avatar--add">
-              <div className="plus-icon">+</div>
-            </div>
-            <div className="messenger-mobile-story__name">Add</div>
-          </div>
-          {contacts.slice(0, 6).map(contact => (
-            <div key={contact.id} className="messenger-mobile-story" onClick={() => handleContactClick(contact)}>
-              <div className="messenger-mobile-story__avatar">
-                <img className="messenger-mobile-story__img"
-                     src={`https://ui-avatars.com/api/?name=${encodeURIComponent(contact.name || 'U')}&background=007aff&color=fff`}
-                     alt={contact.name} />
+        {/* Stories/Pinned Section */}
+        <div className="messenger-mobile-stories">
+          <div className="messenger-mobile-stories__label">Pinned Message</div>
+          <div className="messenger-mobile-stories__scroll">
+            <div className="messenger-mobile-story">
+              <div className="messenger-mobile-story__avatar messenger-mobile-story__avatar--add">
+                <div className="plus-icon">+</div>
               </div>
-              <div className="messenger-mobile-story__name">{contact.name?.split(' ')[0]}</div>
+              <div className="messenger-mobile-story__name">Add</div>
             </div>
-          ))}
+            {contacts.slice(0, 6).map(contact => (
+              <div key={contact.id} className="messenger-mobile-story" onClick={() => handleContactClick(contact)}>
+                <div className="messenger-mobile-story__avatar">
+                  <img className="messenger-mobile-story__img"
+                       src={`https://ui-avatars.com/api/?name=${encodeURIComponent(contact.name || 'U')}&background=007aff&color=fff`}
+                       alt={contact.name} />
+                </div>
+                <div className="messenger-mobile-story__name">{contact.name?.split(' ')[0]}</div>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
 
-      {/* Chat List */}
-      <div className="messenger-mobile-chats">
-        {/* Your Messages Section */}
-        <div className="messenger-mobile-chats__section-title">Your Message</div>
+        {/* Chat List */}
+        <div className="messenger-mobile-chats">
+          {/* Your Messages Section */}
+          <div className="messenger-mobile-chats__section-title">Your Message</div>
 
-        {sortedThreads.map(thread => {
+          {sortedThreads.map(thread => {
           const lastMessage = thread.lastMessage || messages.find(m => m.thread_id === thread.id);
           const unreadCount = thread.unread_count || 0;
           const contactForThread = contacts.find(c =>
@@ -4579,7 +4625,8 @@ const DirectMessenger = () => {
         </button>
       </div>
     </div>
-  );
+    );
+  };
 
   const renderMobileChatView = () => (
     <div className="messenger-mobile-chat-view active">
