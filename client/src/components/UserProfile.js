@@ -15,7 +15,6 @@ import {
 } from '../utils/apiEnhanced';
 import { getAssetUrl } from '../utils/media';
 import { useMobile } from '../hooks/useMobile';
-import '../styles/user-profile-mobile.css';
 
 const UserProfile = ({ userId, onClose }) => {
   const [profile, setProfile] = useState(null);
