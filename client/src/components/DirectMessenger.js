@@ -71,6 +71,7 @@ import VoiceMessagePlayer from './VoiceMessagePlayer';
 import { showError, showSuccess } from '../utils/toast';
 import { getAssetUrl } from '../utils/media';
 import '../styles/messenger-unified-dark.css';
+import '../styles/mobile-complete.css';
 import '../styles/scroll-to-bottom-button.css';
 
 const GENERAL_THREAD_NAMES = ['general chat', 'general', 'allgemein', 'allgemeiner chat', 'teamchat'];
@@ -3152,7 +3153,7 @@ const DirectMessenger = () => {
             <VoiceMessagePlayer
               audioUrl={audioAttachment.url}
               duration={audioDuration}
-              className="mt-2"
+              className="mt-2 voice-message-player"
             />
           ) : msg.message_type === 'gif' || (msg.message && (msg.message.includes('giphy.com') || msg.message.includes('tenor.com') || msg.message.match(/\.(gif|webp)(\?|$)/i))) ? (
             <img

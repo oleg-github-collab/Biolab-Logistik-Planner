@@ -3,7 +3,6 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import './styles/calendar.css';
 import './styles/desktop-header.css';
-import './styles/mobile-complete.css';
 import App from './App';
 
 // Version control and cache busting
