@@ -270,7 +270,7 @@ const UserProfile = ({ userId, onClose }) => {
 
   return (
     <div
-      className={`user-profile-shell fixed inset-0 bg-black/60 backdrop-blur-sm z-50 ${
+      className={`user-profile-shell fixed inset-0 bg-black/60 backdrop-blur-sm z-[20000] ${
         isMobile ? 'p-0 flex items-stretch justify-center' : 'p-4 flex items-center justify-center'
       }`}
     >

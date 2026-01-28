@@ -19,7 +19,7 @@ html body.messenger-page {
     --mm-accent-strong: #2563eb;
     --mm-success: #22c55e;
     --mm-radius: 16px;
-    --messenger-input-height: 72px;
+    --messenger-input-height: 64px;
     background: var(--mm-bg) !important;
     color: var(--mm-text) !important;
   }
@@ -49,6 +49,7 @@ html body.messenger-page {
     background: var(--mm-bg) !important;
     padding-top: 0 !important;
     box-sizing: border-box !important;
+    touch-action: pan-y !important;
   }
 
   /* List view container */
@@ -59,6 +60,7 @@ html body.messenger-page {
     min-height: 0 !important;
     overflow: hidden !important;
     background: var(--mm-bg) !important;
+    touch-action: pan-y !important;
   }
 
   body.messenger-page .messenger-mobile-list-header {
@@ -67,7 +69,7 @@ html body.messenger-page {
     z-index: 20 !important;
     background: var(--mm-surface) !important;
     border-bottom: 1px solid var(--mm-border) !important;
-    padding: calc(16px + env(safe-area-inset-top, 0)) 16px 12px !important;
+    padding: calc(20px + env(safe-area-inset-top, 0)) 16px 12px !important;
     display: flex !important;
     align-items: center !important;
     justify-content: space-between !important;
@@ -106,13 +108,14 @@ html body.messenger-page {
     flex: 1 !important;
     min-height: 0 !important;
     height: 100% !important;
-    overflow: hidden !important;
+    overflow-y: auto !important;
     display: flex !important;
     flex-direction: column !important;
     -webkit-overflow-scrolling: touch !important;
     padding: 12px 14px calc(env(safe-area-inset-bottom, 0) + 12px) !important;
     overscroll-behavior: contain !important;
     scrollbar-width: none !important;
+    touch-action: pan-y !important;
   }
 
   body.messenger-page .contact-list::-webkit-scrollbar {
@@ -184,6 +187,7 @@ html body.messenger-page {
     box-shadow: none !important;
     padding: 0 !important;
     margin-bottom: 10px !important;
+    min-height: 140px !important;
   }
 
   body.messenger-page .contact-list__stories-header {
@@ -216,6 +220,7 @@ html body.messenger-page {
     gap: 10px !important;
     padding: 0 2px 6px !important;
     overflow-x: auto !important;
+    min-height: 92px !important;
   }
 
   body.messenger-page .story-chip,
@@ -254,6 +259,10 @@ html body.messenger-page {
     color: #e2e8f0 !important;
     border: 1px dashed rgba(148, 163, 184, 0.45) !important;
     background: rgba(15, 23, 42, 0.45) !important;
+    min-height: 96px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
   }
 
   body.messenger-page .story-empty p,
@@ -271,10 +280,11 @@ html body.messenger-page {
     display: flex !important;
     flex-direction: column !important;
     gap: 12px !important;
-    flex: 1 1 auto !important;
+    flex: 0 0 auto !important;
     min-height: 0 !important;
-    overflow-y: auto !important;
+    overflow: visible !important;
     -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-y !important;
   }
 
   body.messenger-page .contact-group {
@@ -413,7 +423,7 @@ html body.messenger-page {
   body.messenger-page .messenger-mobile-header-enhanced {
     background: var(--mm-surface) !important;
     border-bottom: 1px solid var(--mm-border) !important;
-    padding: calc(14px + env(safe-area-inset-top, 0)) 12px 10px !important;
+    padding: calc(20px + env(safe-area-inset-top, 0)) 12px 10px !important;
     box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35) !important;
     display: flex !important;
     align-items: center !important;
@@ -422,7 +432,7 @@ html body.messenger-page {
     top: 0 !important;
     z-index: 25 !important;
     visibility: visible !important;
-    min-height: calc(56px + env(safe-area-inset-top, 0)) !important;
+    min-height: calc(64px + env(safe-area-inset-top, 0)) !important;
     flex-shrink: 0 !important;
   }
 
@@ -463,7 +473,7 @@ html body.messenger-page {
   body.messenger-page .messenger-mobile-header-actions {
     background: var(--mm-surface) !important;
     border-bottom: 1px solid var(--mm-border) !important;
-    padding: 8px 12px 10px !important;
+    padding: 8px 12px 12px !important;
     gap: 8px !important;
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch !important;
@@ -490,10 +500,11 @@ html body.messenger-page {
     overflow-x: hidden !important;
     -webkit-overflow-scrolling: touch !important;
     overscroll-behavior-y: contain !important;
-    padding: 12px 12px calc(var(--messenger-input-height, 72px) + 12px) !important;
+    padding: 12px 12px calc(var(--messenger-input-height, 64px) + 10px) !important;
     background: var(--mm-bg) !important;
-    scroll-padding-bottom: calc(var(--messenger-input-height, 72px) + 12px) !important;
+    scroll-padding-bottom: calc(var(--messenger-input-height, 64px) + 10px) !important;
     overscroll-behavior: contain !important;
+    touch-action: pan-y !important;
   }
 
   body.messenger-page .messenger-mobile-messages .text-slate-400,
@@ -508,7 +519,11 @@ html body.messenger-page {
     box-shadow: 0 8px 18px rgba(0, 0, 0, 0.25) !important;
     background: var(--mm-surface-2) !important;
     color: var(--mm-text) !important;
-    max-width: 84% !important;
+    max-width: 86% !important;
+    display: inline-flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    width: max-content !important;
   }
 
   body.messenger-page .messenger-mobile-messages .message-bubble.mine {
@@ -516,10 +531,12 @@ html body.messenger-page {
     color: #ffffff !important;
     border: 1px solid transparent !important;
     border-radius: 18px 18px 6px 18px !important;
+    align-self: flex-end !important;
   }
 
   body.messenger-page .messenger-mobile-messages .message-bubble.other {
     border-radius: 18px 18px 18px 6px !important;
+    align-self: flex-start !important;
   }
 
   body.messenger-page .message-text {
@@ -535,6 +552,9 @@ html body.messenger-page {
   body.messenger-page .message-meta {
     color: var(--mm-muted) !important;
     font-size: 11px !important;
+    width: 100% !important;
+    white-space: nowrap !important;
+    flex-wrap: nowrap !important;
   }
 
   body.messenger-page .message-day-divider span {
@@ -549,11 +569,11 @@ html body.messenger-page {
     bottom: calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0)) !important;
     left: 10px !important;
     right: 10px !important;
-    padding: 6px 8px !important;
+    padding: 5px 8px !important;
     z-index: 1000002 !important;
     background: var(--mm-surface) !important;
     border: 1px solid var(--mm-border) !important;
-    border-radius: 16px !important;
+    border-radius: 15px !important;
     display: flex !important;
     align-items: center !important;
     gap: 6px !important;
@@ -562,9 +582,9 @@ html body.messenger-page {
 
   body.messenger-page .messenger-btn-plus,
   body.messenger-page .messenger-btn-send {
-    width: 38px !important;
-    height: 38px !important;
-    min-width: 38px !important;
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
     border-radius: 999px !important;
     display: grid !important;
     place-items: center !important;
@@ -582,8 +602,8 @@ html body.messenger-page {
 
   body.messenger-page .messenger-btn-plus svg,
   body.messenger-page .messenger-btn-send svg {
-    width: 17px !important;
-    height: 17px !important;
+    width: 16px !important;
+    height: 16px !important;
   }
 
   body.messenger-page .messenger-btn-plus.active {
@@ -605,10 +625,10 @@ html body.messenger-page {
     gap: 8px !important;
     background: #0b1220 !important;
     border: 1px solid var(--mm-border) !important;
-    border-radius: 16px !important;
-    padding: 8px 12px !important;
-    min-height: 40px !important;
-    max-height: 104px !important;
+    border-radius: 14px !important;
+    padding: 7px 10px !important;
+    min-height: 36px !important;
+    max-height: 96px !important;
   }
 
   body.messenger-page .messenger-input-wrapper:focus-within {
@@ -628,7 +648,7 @@ html body.messenger-page {
     font-weight: 500 !important;
     padding: 0 !important;
     min-height: 24px !important;
-    max-height: 104px !important;
+    max-height: 96px !important;
     resize: none !important;
     caret-color: var(--mm-accent) !important;
     box-shadow: none !important;
@@ -660,7 +680,7 @@ html body.messenger-page {
     position: fixed !important;
     left: 50% !important;
     transform: translateX(-50%) !important;
-    bottom: calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0) + var(--messenger-input-height, 72px)) !important;
+    bottom: calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0) + var(--messenger-input-height, 64px)) !important;
     width: min(420px, 92vw) !important;
     display: grid !important;
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
@@ -709,7 +729,7 @@ html body.messenger-page {
   /* Quick replies */
   body.messenger-page .messenger-quick-replies {
     position: sticky !important;
-    bottom: calc(var(--messenger-input-height, 72px) - 6px) !important;
+    bottom: calc(var(--messenger-input-height, 64px) - 6px) !important;
     z-index: 100000 !important;
     background: rgba(11, 18, 32, 0.98) !important;
     border-top: 1px solid var(--mm-border) !important;

@@ -5100,7 +5100,7 @@ const DirectMessenger = () => {
                 className="messenger-text-input"
                 onInput={(e) => {
                   e.target.style.height = 'auto';
-                  e.target.style.height = Math.min(e.target.scrollHeight, 88) + 'px';
+                  e.target.style.height = Math.min(e.target.scrollHeight, 72) + 'px';
                 }}
               />
 
