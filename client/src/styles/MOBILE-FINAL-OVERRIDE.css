@@ -1,0 +1,295 @@
+/*
+ * ФІНАЛЬНЕ ВИПРАВЛЕННЯ - НАЙВИЩИЙ ПРІОРИТЕТ
+ * Цей файл перекриває ВСЕ інше
+ */
+
+@media (max-width: 768px) {
+  /* ГЛОБАЛЬНЕ СКИДАННЯ */
+  * {
+    margin-top: 0 !important;
+    transform: none !important;
+  }
+
+  html, body {
+    padding-top: 0 !important;
+    margin: 0 !important;
+    overflow-x: hidden !important;
+  }
+
+  /* MESSENGER MOBILE HEADER - ОБОВ'ЯЗКОВО ВИДИМИЙ */
+  .messenger-mobile-header-enhanced {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    padding: 12px 16px !important;
+    padding-top: max(12px, env(safe-area-inset-top, 0px)) !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    z-index: 1000 !important;
+    height: auto !important;
+    min-height: 60px !important;
+  }
+
+  .messenger-mobile-header-enhanced__back {
+    width: 36px !important;
+    height: 36px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .messenger-mobile-header-enhanced__info {
+    flex: 1 !important;
+    overflow: hidden !important;
+  }
+
+  .messenger-mobile-header-enhanced__name {
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    color: white !important;
+    margin: 0 !important;
+  }
+
+  .messenger-mobile-header-enhanced__status {
+    font-size: 12px !important;
+    color: rgba(255, 255, 255, 0.8) !important;
+    margin: 0 !important;
+  }
+
+  .messenger-mobile-header-enhanced__avatar-wrapper {
+    flex-shrink: 0 !important;
+  }
+
+  .messenger-mobile-header-enhanced__avatar {
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 50% !important;
+  }
+
+  /* CONTACT LIST HEADER - ВИДИМИЙ */
+  .contact-list__header {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    padding: 14px 16px !important;
+    padding-top: max(14px, env(safe-area-inset-top, 0px)) !important;
+    z-index: 1000 !important;
+    color: white !important;
+  }
+
+  .contact-list__eyebrow {
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    margin: 0 0 4px 0 !important;
+  }
+
+  .contact-list__subheader {
+    font-size: 12px !important;
+    margin: 0 !important;
+    opacity: 0.9 !important;
+  }
+
+  .contact-list__close {
+    position: absolute !important;
+    top: max(12px, env(safe-area-inset-top, 0px)) !important;
+    right: 16px !important;
+    width: 36px !important;
+    height: 36px !important;
+  }
+
+  /* CONTACT LIST ACTIONS - ВИДИМІ КНОПКИ */
+  .contact-list__actions {
+    position: fixed !important;
+    top: calc(60px + max(0px, env(safe-area-inset-top, 0px))) !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    background: white !important;
+    padding: 12px 16px !important;
+    display: flex !important;
+    gap: 8px !important;
+    z-index: 999 !important;
+    border-bottom: 1px solid #e5e7eb !important;
+  }
+
+  .contact-list__action {
+    flex: 1 !important;
+    min-width: 85px !important;
+    padding: 10px 8px !important;
+    background: #f3f4f6 !important;
+    border-radius: 12px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 6px !important;
+    font-size: 11px !important;
+    font-weight: 500 !important;
+    color: #1f2937 !important;
+    border: none !important;
+  }
+
+  .contact-list__action svg {
+    width: 20px !important;
+    height: 20px !important;
+  }
+
+  .contact-list__action--bot {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    color: white !important;
+  }
+
+  /* SEARCH - під actions */
+  .contact-list__search {
+    position: fixed !important;
+    top: calc(120px + max(0px, env(safe-area-inset-top, 0px))) !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    background: white !important;
+    padding: 12px 16px !important;
+    z-index: 998 !important;
+    border-bottom: 1px solid #e5e7eb !important;
+  }
+
+  .contact-list__search input {
+    width: 100% !important;
+    padding: 8px 16px 8px 40px !important;
+    border: 1px solid #e5e7eb !important;
+    border-radius: 12px !important;
+    font-size: 14px !important;
+    background: white !important;
+  }
+
+  /* STORIES - під search */
+  .contact-list__stories {
+    position: fixed !important;
+    top: calc(180px + max(0px, env(safe-area-inset-top, 0px))) !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    background: white !important;
+    padding: 12px 0 !important;
+    z-index: 997 !important;
+    border-bottom: 1px solid #e5e7eb !important;
+  }
+
+  .contact-list__stories-header {
+    padding: 0 16px 8px !important;
+  }
+
+  .contact-list__section-title {
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    margin: 0 0 2px 0 !important;
+  }
+
+  .contact-list__section-subtitle {
+    font-size: 12px !important;
+    color: #6b7280 !important;
+    margin: 0 !important;
+  }
+
+  .contact-list__stories-row {
+    padding: 0 16px !important;
+    overflow-x: auto !important;
+  }
+
+  /* CONTACT GRID - scrollable content */
+  .contact-list__grid {
+    margin-top: calc(280px + max(0px, env(safe-area-inset-top, 0px))) !important;
+    padding: 12px 0 !important;
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 100px) !important;
+  }
+
+  /* CHAT CONTAINER - з відступом під header */
+  .messenger-mobile-chat-mode {
+    padding-top: calc(60px + max(0px, env(safe-area-inset-top, 0px))) !important;
+  }
+
+  /* LIST CONTAINER - з відступом під всі fixed елементи */
+  .messenger-mobile-list-mode {
+    padding-top: 0 !important;
+  }
+
+  /* CHATS HEADER (MessengerUltimate) */
+  .chats-header {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    padding: 14px 16px !important;
+    padding-top: max(14px, env(safe-area-inset-top, 0px)) !important;
+    z-index: 1000 !important;
+  }
+
+  .chats-title {
+    font-size: 20px !important;
+    font-weight: 700 !important;
+    margin: 0 0 12px 0 !important;
+    color: white !important;
+  }
+
+  .chats-search {
+    margin: 0 !important;
+  }
+
+  .chats-search-input {
+    padding: 8px 16px 8px 40px !important;
+    font-size: 14px !important;
+    border-radius: 12px !important;
+  }
+
+  .chats-list {
+    margin-top: calc(110px + max(0px, env(safe-area-inset-top, 0px))) !important;
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 100px) !important;
+  }
+
+  /* CHAT HEADER (в чаті) */
+  .chat-header {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    padding: 12px 16px !important;
+    padding-top: max(12px, env(safe-area-inset-top, 0px)) !important;
+    z-index: 1000 !important;
+  }
+
+  .messages-container {
+    margin-top: calc(60px + max(0px, env(safe-area-inset-top, 0px))) !important;
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 80px) !important;
+  }
+
+  /* PROFILE */
+  .user-profile-container {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 10000 !important;
+  }
+
+  .user-profile-container .bg-gradient-to-r {
+    padding: 16px !important;
+    padding-top: max(16px, env(safe-area-inset-top, 0px)) !important;
+  }
+}
+
+/* iOS SPECIFIC */
+@supports (-webkit-touch-callout: none) {
+  @media (max-width: 768px) {
+    .messenger-mobile-header-enhanced,
+    .contact-list__header,
+    .chats-header,
+    .chat-header {
+      padding-top: max(16px, env(safe-area-inset-top, 20px)) !important;
+    }
+  }
+}
