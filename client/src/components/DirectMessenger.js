@@ -5160,7 +5160,7 @@ const DirectMessenger = () => {
           handleLongPressContextMenu={handleLongPressContextMenu}
           longPressMenuMessage={longPressMenuMessage}
           closeLongPressMenu={closeLongPressMenu}
-          longPressMenuCoords={longPressMenuCoords}
+          longPressMenuCoords={longPressMenuPosition}
           handleReaction={handleReaction}
           handleForward={handleForward}
           handleReply={handleReply}
