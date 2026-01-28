@@ -5162,11 +5162,10 @@ const DirectMessenger = () => {
           closeLongPressMenu={closeLongPressMenu}
           longPressMenuCoords={longPressMenuPosition}
           handleReaction={handleReaction}
-          handleForward={handleForward}
-          handleReply={handleReply}
-          handleDelete={handleDelete}
-          handlePin={handlePin}
-          handleUnpin={handleUnpin}
+          handleForward={handleForwardMessage}
+          handleReply={handleReplyTo}
+          handleDelete={handleDeleteMessage}
+          handlePin={handlePinMessage}
           pinnedMessages={pinnedMessages}
         />
       ) : (

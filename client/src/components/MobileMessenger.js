@@ -82,7 +82,6 @@ const MobileMessenger = ({
   handleReply,
   handleDelete,
   handlePin,
-  handleUnpin,
   pinnedMessages
 }) => {
   const [mobileMode, setMobileMode] = useState('list'); // 'list' or 'chat'
@@ -697,12 +696,7 @@ const MobileMessenger = ({
               <button
                 type="button"
                 onClick={() => {
-                  const isPinned = pinnedMessages?.some(p => p.id === longPressMenuMessage.id);
-                  if (isPinned) {
-                    handleUnpin && handleUnpin(longPressMenuMessage.id);
-                  } else {
-                    handlePin && handlePin(longPressMenuMessage);
-                  }
+                  handlePin && handlePin(longPressMenuMessage);
                   closeLongPressMenu();
                 }}
                 className="w-full flex items-center gap-3 px-4 py-3 text-left text-slate-700 hover:bg-slate-50 active:bg-slate-100 transition-colors"
