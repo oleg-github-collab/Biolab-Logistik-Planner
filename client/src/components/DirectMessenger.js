@@ -70,10 +70,8 @@ import MessageForwardModal from './MessageForwardModal';
 import VoiceMessagePlayer from './VoiceMessagePlayer';
 import { showError, showSuccess } from '../utils/toast';
 import { getAssetUrl } from '../utils/media';
-import '../styles/messenger-desktop-fixed.css';
+import '../styles/messenger-unified-dark.css';
 import '../styles/scroll-to-bottom-button.css';
-import '../styles/messenger-scroll-fix.css';
-import '../styles/messenger-layout-fix.css';
 
 const GENERAL_THREAD_NAMES = ['general chat', 'general', 'allgemein', 'allgemeiner chat', 'teamchat'];
 const BOT_CONTACT_TEMPLATE = {
@@ -3565,10 +3563,29 @@ const DirectMessenger = () => {
   };
 
   const ContactList = ({ variant, storyEntries, storyMap, onStoryOpen, storiesLoading }) => {
+    const [isScrolled, setIsScrolled] = useState(false);
+    const scrollContainerRef = useRef(null);
+
+    // Scroll detection for hiding headers/stories on mobile
+    useEffect(() => {
+      if (!isMobile) return;
+
+      const container = scrollContainerRef.current;
+      if (!container) return;
+
+      const handleScroll = () => {
+        const scrollTop = container.scrollTop;
+        setIsScrolled(scrollTop > 50);
+      };
+
+      container.addEventListener('scroll', handleScroll);
+      return () => container.removeEventListener('scroll', handleScroll);
+    }, [isMobile]);
+
     const wrapperClass =
       variant === 'overlay'
-        ? 'contact-list contact-list--overlay'
-        : 'contact-list contact-list--panel';
+        ? `contact-list contact-list--overlay ${isScrolled ? 'contact-list--scrolled' : ''}`
+        : `contact-list contact-list--panel ${isScrolled ? 'contact-list--scrolled' : ''}`;
     const humanContacts = contacts.filter((contact) => !isBotContact(contact));
     const totalContacts = humanContacts.length;
     const totalGroups = groupThreads.length;
@@ -3881,7 +3898,7 @@ const DirectMessenger = () => {
           )}
         </div>
 
-        <div className="contact-list__grid">
+        <div className="contact-list__grid" ref={scrollContainerRef}>
           {loading ? (
             <div className="flex items-center justify-center h-32">
               <div className="animate-spin w-8 h-8 border-4 border-white border-t-transparent rounded-full" />
