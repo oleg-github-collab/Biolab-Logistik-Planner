@@ -5152,7 +5152,7 @@ const DirectMessenger = () => {
           handleStoryCreated={handleStoryCreated}
           storiesLoading={storiesLoading}
           storyEntries={storyEntries}
-          handleFileAttachment={handleFileAttachment}
+          handleFileAttachment={handleFileSelect}
         />
       ) : (
         <>
