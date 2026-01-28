@@ -26,6 +26,7 @@ import GifPicker from './GifPicker';
 import VoiceMessagePlayer from './VoiceMessagePlayer';
 import StoryComposer from './StoryComposer';
 import MessageSearch from './MessageSearch';
+import MessageForwardModal from './MessageForwardModal';
 import { showError, showSuccess } from '../utils/toast';
 
 const MobileMessenger = ({
@@ -95,6 +96,8 @@ const MobileMessenger = ({
   const [mobileMode, setMobileMode] = useState('list'); // 'list' or 'chat'
   const [showReactionPicker, setShowReactionPicker] = useState(null); // message id
   const [showSearchModal, setShowSearchModal] = useState(false);
+  const [showForwardModal, setShowForwardModal] = useState(false);
+  const [messageToForward, setMessageToForward] = useState(null);
 
   // Common emojis for reactions
   const REACTION_EMOJIS = ['❤️', '👍', '😂', '😮', '😢', '🔥', '👏', '✅'];
@@ -771,7 +774,8 @@ const MobileMessenger = ({
               <button
                 type="button"
                 onClick={() => {
-                  handleForward && handleForward(longPressMenuMessage);
+                  setMessageToForward(longPressMenuMessage);
+                  setShowForwardModal(true);
                   closeLongPressMenu();
                 }}
                 className="w-full flex items-center gap-3 px-4 py-3 text-left text-slate-700 hover:bg-slate-50 active:bg-slate-100 transition-colors"
@@ -912,6 +916,22 @@ const MobileMessenger = ({
           threads={threads}
           currentConversationId={selectedThreadId}
           currentUserId={user?.id}
+        />
+      )}
+
+      {/* Message Forward Modal */}
+      {showForwardModal && messageToForward && (
+        <MessageForwardModal
+          message={messageToForward}
+          onClose={() => {
+            setShowForwardModal(false);
+            setMessageToForward(null);
+          }}
+          onSuccess={() => {
+            setShowForwardModal(false);
+            setMessageToForward(null);
+            showSuccess('Nachricht erfolgreich weitergeleitet');
+          }}
         />
       )}
     </>
