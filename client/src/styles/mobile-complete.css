@@ -3,11 +3,17 @@
 /* Mobile Messenger - Professional UI Design */
 @media (max-width: 1023px) {
   /* HIDE DESKTOP LAYOUT ON MOBILE */
-  body.messenger-page .messenger-container > div:not(.messenger-mobile-container),
+  body.messenger-page .messenger-container,
   body.messenger-page .messenger-desktop-header,
   body.messenger-page .contact-list:not(.messenger-mobile-chats),
-  body.messenger-page .flex.h-full.bg-gradient-to-br {
+  body.messenger-page .flex.h-full.bg-gradient-to-br,
+  body.messenger-page .messenger-page-container > *:not(.messenger-mobile-container) {
     display: none !important;
+  }
+
+  /* SHOW ONLY MOBILE CONTAINER */
+  body.messenger-page .messenger-mobile-container {
+    display: flex !important;
   }
 
   body.messenger-page {
