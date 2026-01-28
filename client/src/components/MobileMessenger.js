@@ -17,6 +17,8 @@ import { format } from 'date-fns';
 import { getAssetUrl } from '../utils/media';
 import GifPicker from './GifPicker';
 import VoiceMessagePlayer from './VoiceMessagePlayer';
+import StoryComposer from './StoryComposer';
+import { showError, showSuccess } from '../utils/toast';
 
 const MobileMessenger = ({
   user,
@@ -56,6 +58,8 @@ const MobileMessenger = ({
   stopRecording,
   handleBotInvoke,
   setShowStoryComposer,
+  showStoryComposer,
+  handleStoryCreated,
   storiesLoading,
   storyEntries,
   handleFileAttachment
@@ -604,6 +608,27 @@ const MobileMessenger = ({
           </div>
         </div>
       )}
+
+      {/* Story Composer Modal */}
+      {showStoryComposer && (
+        <StoryComposer
+          userId={user?.id}
+          onClose={() => setShowStoryComposer(false)}
+          onSuccess={handleStoryCreated}
+          showSuccess={showSuccess}
+          showError={showError}
+        />
+      )}
+
+      {/* Hidden File Input */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileAttachment}
+        style={{ display: 'none' }}
+        multiple
+        accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+      />
     </>
   );
 };

@@ -5148,6 +5148,8 @@ const DirectMessenger = () => {
           stopRecording={stopRecording}
           handleBotInvoke={handleAskBot}
           setShowStoryComposer={setShowStoryComposer}
+          showStoryComposer={showStoryComposer}
+          handleStoryCreated={handleStoryCreated}
           storiesLoading={storiesLoading}
           storyEntries={storyEntries}
           handleFileAttachment={handleFileAttachment}
