@@ -4755,8 +4755,13 @@ const DirectMessenger = () => {
           ref={mobileTextareaRef}
           className="messenger-mobile-input__field"
           value={messageInput}
-          onChange={(e) => setMessageInput(e.target.value)}
-          onKeyDown={handleKeyDown}
+          onChange={handleInputChange}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              handleSendMessage(e);
+            }
+          }}
           placeholder="Message"
           rows="1"
         />
