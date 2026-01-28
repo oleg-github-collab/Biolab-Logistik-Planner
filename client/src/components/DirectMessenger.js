@@ -4486,11 +4486,23 @@ const DirectMessenger = () => {
   };
 
   const renderMobileContactListView = () => {
+    // Filter out current user from contacts
+    const filteredContacts = contacts.filter(c => c.id !== user?.id);
+
     // Sort threads by last message time
     const sortedThreads = [...threads].sort((a, b) => {
       const timeA = new Date(a.updated_at || a.created_at || 0).getTime();
       const timeB = new Date(b.updated_at || b.created_at || 0).getTime();
       return timeB - timeA;
+    });
+
+    // Get last messages for each thread
+    const threadMessages = {};
+    sortedThreads.forEach(thread => {
+      const threadMsgs = messages.filter(m => m.thread_id === thread.id);
+      if (threadMsgs.length > 0) {
+        threadMessages[thread.id] = threadMsgs[threadMsgs.length - 1];
+      }
     });
 
     return (
@@ -4514,18 +4526,35 @@ const DirectMessenger = () => {
         <div className="messenger-mobile-stories">
           <div className="messenger-mobile-stories__label">Pinned Message</div>
           <div className="messenger-mobile-stories__scroll">
-            <div className="messenger-mobile-story">
+            <div
+              className="messenger-mobile-story"
+              onClick={() => setShowStoryComposer(true)}
+              style={{ cursor: 'pointer' }}
+            >
               <div className="messenger-mobile-story__avatar messenger-mobile-story__avatar--add">
                 <div className="plus-icon">+</div>
               </div>
               <div className="messenger-mobile-story__name">Add</div>
             </div>
-            {contacts.slice(0, 6).map(contact => (
+            {filteredContacts.slice(0, 6).map(contact => (
               <div key={contact.id} className="messenger-mobile-story" onClick={() => handleContactClick(contact)}>
                 <div className="messenger-mobile-story__avatar">
-                  <img className="messenger-mobile-story__img"
-                       src={`https://ui-avatars.com/api/?name=${encodeURIComponent(contact.name || 'U')}&background=007aff&color=fff`}
-                       alt={contact.name} />
+                  {contact.profile_photo || contact.profile_photo_url ? (
+                    <img
+                      className="messenger-mobile-story__img"
+                      src={getAssetUrl(contact.profile_photo || contact.profile_photo_url)}
+                      alt={contact.name}
+                      onError={(e) => {
+                        e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(contact.name || 'U')}&background=007aff&color=fff`;
+                      }}
+                    />
+                  ) : (
+                    <img
+                      className="messenger-mobile-story__img"
+                      src={`https://ui-avatars.com/api/?name=${encodeURIComponent(contact.name || 'U')}&background=007aff&color=fff`}
+                      alt={contact.name}
+                    />
+                  )}
                 </div>
                 <div className="messenger-mobile-story__name">{contact.name?.split(' ')[0]}</div>
               </div>
@@ -4538,60 +4567,77 @@ const DirectMessenger = () => {
           {/* Your Messages Section */}
           <div className="messenger-mobile-chats__section-title">Your Message</div>
 
-          {sortedThreads.map(thread => {
-          const lastMessage = thread.lastMessage || messages.find(m => m.thread_id === thread.id);
-          const unreadCount = thread.unread_count || 0;
-          const contactForThread = contacts.find(c =>
-            thread.type === 'direct' && thread.members?.some(m => m.id === c.id)
-          );
-
-          return (
-            <div
-              key={thread.id}
-              className="messenger-mobile-chat-item"
-              onClick={() => handleThreadSelect(thread)}
-            >
-              <div className="messenger-mobile-chat-item__avatar">
-                {contactForThread?.profile_photo_url ? (
-                  <img className="messenger-mobile-chat-item__img" src={contactForThread.profile_photo_url} alt="" />
-                ) : (
-                  <div className="messenger-mobile-chat-item__initials">
-                    {thread.name?.[0]?.toUpperCase() || '?'}
-                  </div>
-                )}
-                {contactForThread?.online && (
-                  <div className="messenger-mobile-chat-item__online" />
-                )}
-              </div>
-
-              <div className="messenger-mobile-chat-item__content">
-                <div className="messenger-mobile-chat-item__header">
-                  <div className="messenger-mobile-chat-item__name">
-                    {thread.name || 'Unbenannt'}
-                  </div>
-                  <div className="messenger-mobile-chat-item__time">
-                    {thread.updated_at ? formatMessageTime(thread.updated_at) : ''}
-                  </div>
-                </div>
-
-                <div className="messenger-mobile-chat-item__message">
-                  {lastMessage?.is_mine && (
-                    <CheckCheck size={16} className="messenger-mobile-chat-item__status" />
-                  )}
-                  <div className="messenger-mobile-chat-item__text">
-                    {lastMessage?.message || 'Noch keine Nachrichten'}
-                  </div>
-                  {unreadCount > 0 && (
-                    <div className="messenger-mobile-chat-item__unread">
-                      {unreadCount}
-                    </div>
-                  )}
-                </div>
-              </div>
+          {sortedThreads.length === 0 ? (
+            <div style={{ padding: '20px', textAlign: 'center', color: '#a1a1a1' }}>
+              Keine Unterhaltungen
             </div>
-          );
-        })}
-      </div>
+          ) : (
+            sortedThreads.map(thread => {
+              const lastMessage = threadMessages[thread.id] || thread.lastMessage;
+              const unreadCount = thread.unread_count || 0;
+              const contactForThread = filteredContacts.find(c =>
+                thread.type === 'direct' && thread.members?.some(m => m.id === c.id || m.user_id === c.id)
+              );
+
+              return (
+                <div
+                  key={thread.id}
+                  className="messenger-mobile-chat-item"
+                  onClick={() => handleThreadSelect(thread)}
+                >
+                  <div className="messenger-mobile-chat-item__avatar">
+                    {contactForThread?.profile_photo || contactForThread?.profile_photo_url ? (
+                      <img
+                        className="messenger-mobile-chat-item__img"
+                        src={getAssetUrl(contactForThread.profile_photo || contactForThread.profile_photo_url)}
+                        alt=""
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          e.target.nextSibling.style.display = 'flex';
+                        }}
+                      />
+                    ) : null}
+                    <div
+                      className="messenger-mobile-chat-item__initials"
+                      style={{ display: contactForThread?.profile_photo || contactForThread?.profile_photo_url ? 'none' : 'flex' }}
+                    >
+                      {thread.name?.[0]?.toUpperCase() || contactForThread?.name?.[0]?.toUpperCase() || '?'}
+                    </div>
+                    {contactForThread?.online && (
+                      <div className="messenger-mobile-chat-item__online" />
+                    )}
+                  </div>
+
+                  <div className="messenger-mobile-chat-item__content">
+                    <div className="messenger-mobile-chat-item__header">
+                      <div className="messenger-mobile-chat-item__name">
+                        {thread.name || contactForThread?.name || 'Unbenannt'}
+                      </div>
+                      <div className="messenger-mobile-chat-item__time">
+                        {lastMessage?.created_at ? formatMessageTime(lastMessage.created_at) :
+                         thread.updated_at ? formatMessageTime(thread.updated_at) : ''}
+                      </div>
+                    </div>
+
+                    <div className="messenger-mobile-chat-item__message">
+                      {lastMessage?.sender_id === user?.id && (
+                        <CheckCheck size={16} className="messenger-mobile-chat-item__status" />
+                      )}
+                      <div className="messenger-mobile-chat-item__text">
+                        {lastMessage?.message || lastMessage?.content || 'Keine Nachrichten'}
+                      </div>
+                      {unreadCount > 0 && (
+                        <div className="messenger-mobile-chat-item__unread">
+                          {unreadCount}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
 
       {/* Bottom Navigation */}
       <div className="messenger-bottom-nav">
@@ -4749,32 +4795,118 @@ const DirectMessenger = () => {
 
         <div ref={messagesEndRef} />
       </div>
-      {/* Input Area */}
+      {/* Input Area with Plus Button */}
       <form onSubmit={handleSendMessage} className="messenger-mobile-input">
-        <textarea
-          ref={mobileTextareaRef}
-          className="messenger-mobile-input__field"
-          value={messageInput}
-          onChange={handleInputChange}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              handleSendMessage(e);
-            }
-          }}
-          placeholder="Message"
-          rows="1"
-        />
+        {/* Plus/Attachment Button */}
         <button
-          type="submit"
-          className="messenger-mobile-input__send"
-          disabled={!messageInput.trim() && pendingAttachments.length === 0}
+          type="button"
+          className="messenger-mobile-input__plus"
+          onClick={() => setShowComposerActions(!showComposerActions)}
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-          </svg>
+          <Plus size={20} />
         </button>
+
+        {/* Text Input */}
+        <div className="messenger-mobile-input__wrapper">
+          <textarea
+            ref={mobileTextareaRef}
+            className="messenger-mobile-input__field"
+            value={messageInput}
+            onChange={handleInputChange}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSendMessage(e);
+              }
+            }}
+            onInput={(e) => {
+              e.target.style.height = 'auto';
+              e.target.style.height = Math.min(e.target.scrollHeight, 100) + 'px';
+            }}
+            placeholder="Message"
+            rows="1"
+          />
+        </div>
+
+        {/* Send/Mic Button */}
+        {messageInput.trim() || pendingAttachments.length > 0 ? (
+          <button
+            type="submit"
+            className="messenger-mobile-input__send"
+            disabled={sending}
+          >
+            <Send size={20} />
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="messenger-mobile-input__mic"
+            onTouchStart={startRecording}
+            onTouchEnd={stopRecording}
+            onMouseDown={startRecording}
+            onMouseUp={stopRecording}
+            onMouseLeave={stopRecording}
+          >
+            {isRecording ? <StopCircle size={20} /> : <Mic size={20} />}
+          </button>
+        )}
       </form>
+
+      {/* Composer Actions Menu */}
+      {showComposerActions && (
+        <>
+          <div
+            className="messenger-mobile-actions-backdrop"
+            onClick={() => setShowComposerActions(false)}
+          />
+          <div className="messenger-mobile-actions-menu">
+            <button
+              type="button"
+              onClick={() => {
+                fileInputRef.current?.click();
+                setShowComposerActions(false);
+              }}
+              className="messenger-mobile-actions-item"
+            >
+              <Paperclip size={24} />
+              <span>Datei</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowGifPicker(true);
+                setShowComposerActions(false);
+              }}
+              className="messenger-mobile-actions-item"
+            >
+              <ImageIcon size={24} />
+              <span>GIF</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                openEventPicker();
+                setShowComposerActions(false);
+              }}
+              className="messenger-mobile-actions-item"
+            >
+              <CalendarDays size={24} />
+              <span>Termin</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowQuickReplies(true);
+                setShowComposerActions(false);
+              }}
+              className="messenger-mobile-actions-item"
+            >
+              <Zap size={24} />
+              <span>Quick</span>
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 
