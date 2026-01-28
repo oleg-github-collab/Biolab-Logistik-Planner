@@ -114,7 +114,7 @@ const GifPicker = ({ onSelectGif, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-fadeIn">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000] p-4 backdrop-blur-sm animate-fadeIn">
       <div className="bg-white rounded-xl w-full max-w-4xl max-h-[80vh] overflow-hidden shadow-2xl transform transition-all">
         {/* Header */}
         <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-purple-500 to-pink-500">
