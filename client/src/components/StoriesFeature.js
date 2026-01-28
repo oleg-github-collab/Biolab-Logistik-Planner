@@ -535,21 +535,21 @@ const StoriesFeature = ({ userId }) => {
   // Main stories bar component
   return (
     <>
-      <div className="bg-white border-b">
+      <div className="bg-white border-b mobile-stories-container">
         <div className="px-4 py-3">
-          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide mobile-stories-scroll">
             {/* Add Story Button */}
             <div className="flex-shrink-0">
               <button
                 onClick={() => setShowCreateModal(true)}
-                className="relative"
+                className="relative mobile-story-add-btn"
               >
                 <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-gray-100 to-gray-200 flex flex-col items-center justify-center hover:from-gray-200 hover:to-gray-300 transition">
                   <Plus className="w-8 h-8 text-gray-600" />
                   <span className="text-xs text-gray-600 mt-1">Story</span>
                 </div>
                 {myStories.length > 0 && (
-                  <div className="absolute -top-1 -right-1 w-6 h-6 bg-blue-500 text-white text-xs rounded-full flex items-center justify-center">
+                  <div className="absolute -top-1 -right-1 w-6 h-6 bg-blue-500 text-white text-xs rounded-full flex items-center justify-center mobile-story-badge">
                     {myStories.length}
                   </div>
                 )}

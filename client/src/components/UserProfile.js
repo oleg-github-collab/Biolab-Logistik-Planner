@@ -450,6 +450,48 @@ const UserProfile = ({ userId, onClose }) => {
         <div className="flex-1 overflow-y-auto p-6">
           {activeTab === 'profile' && (
             <div className="space-y-6">
+              {/* Mobile: Відображаємо важливу інформацію відразу */}
+              {isMobile && !editing && (
+                <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-4 mb-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-white rounded-lg p-3 shadow-sm">
+                      <p className="text-xs text-gray-500 mb-1">Position</p>
+                      <p className="text-sm font-semibold text-gray-900">
+                        {formData.position_description || 'Nicht angegeben'}
+                      </p>
+                    </div>
+                    <div className="bg-white rounded-lg p-3 shadow-sm">
+                      <p className="text-xs text-gray-500 mb-1">Arbeitstyp</p>
+                      <p className="text-sm font-semibold text-gray-900">
+                        {formData.employment_type || 'Werkstudent'}
+                      </p>
+                    </div>
+                    <div className="bg-white rounded-lg p-3 shadow-sm">
+                      <p className="text-xs text-gray-500 mb-1">Wochenstunden</p>
+                      <p className="text-sm font-semibold text-gray-900">
+                        {formData.weekly_hours_quota || '20'} Std/Woche
+                      </p>
+                    </div>
+                    <div className="bg-white rounded-lg p-3 shadow-sm">
+                      <p className="text-xs text-gray-500 mb-1">Telefon</p>
+                      <p className="text-sm font-semibold text-gray-900">
+                        {formData.phone_mobile || formData.phone || 'Nicht angegeben'}
+                      </p>
+                    </div>
+                  </div>
+                  {formData.bio && (
+                    <div className="mt-3 bg-white rounded-lg p-3 shadow-sm">
+                      <p className="text-xs text-gray-500 mb-1">Über mich</p>
+                      <p className="text-sm text-gray-700">{formData.bio}</p>
+                    </div>
+                  )}
+                  <div className="mt-3 bg-white rounded-lg p-3 shadow-sm">
+                    <p className="text-xs text-gray-500 mb-1">E-Mail</p>
+                    <p className="text-sm font-medium text-gray-900">{profile?.email || 'Nicht verfügbar'}</p>
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-between items-center">
                 <h3 className="text-xl font-semibold">Profilinformationen</h3>
                 {isOwnProfile && (

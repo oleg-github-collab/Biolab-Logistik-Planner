@@ -3,22 +3,28 @@
 /* Desktop базові стилі вже є в компоненті, тут тільки mobile overrides */
 
 @media (max-width: 768px) {
-  .user-profile-shell {
-    background: linear-gradient(180deg, #0b1220 0%, #0b1220 10%, #f8fafc 100%) !important;
-  }
-
   /* Modal Full Screen на мобільному */
-  .fixed.inset-0.bg-black.bg-opacity-50 {
+  .fixed.inset-0.bg-black.bg-opacity-50,
+  .user-profile-modal-overlay {
     padding: 0 !important;
-    background: transparent !important;
+    background: #000 !important;
   }
 
-  .user-profile-shell > .bg-white,
-  .user-profile-shell > .bg-white.rounded-lg {
-    min-height: 100% !important;
-    padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)) !important;
-    background: #f8fafc !important;
-    box-shadow: none !important;
+  .user-profile-container,
+  .bg-white.rounded-lg.shadow-2xl.max-w-4xl.w-full {
+    position: fixed !important;
+    inset: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    max-height: none !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    background: #fff !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
   }
 
   .user-profile-shell .overflow-y-auto,
@@ -40,10 +46,13 @@
     flex-direction: column !important;
   }
 
-  /* Header градієнт */
+  /* Header градієнт з важливою інформацією */
   .bg-gradient-to-r.from-blue-600.to-blue-800 {
-    padding: 1.25rem 1rem !important;
-    padding-top: max(1.25rem, calc(env(safe-area-inset-top, 0) + 0.75rem)) !important;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    padding: 1.5rem 1rem !important;
+    padding-top: max(1.5rem, calc(env(safe-area-inset-top, 0) + 1rem)) !important;
+    flex-shrink: 0;
+    position: relative;
   }
 
   /* Close button */

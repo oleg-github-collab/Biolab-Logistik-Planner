@@ -12,7 +12,8 @@ import {
   CheckCheck,
   Phone,
   Video,
-  Info
+  Info,
+  ArrowLeft
 } from 'lucide-react';
 import { format, isToday, isYesterday, formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
@@ -23,6 +24,7 @@ import {
   sendMessage,
   getThreads
 } from '../utils/api';
+import '../styles/mobile-messenger.css';
 
 const MessengerUltimate = () => {
   const { user } = useAuth();
@@ -190,31 +192,31 @@ const MessengerUltimate = () => {
 
   // Render chat list
   const renderChatList = () => (
-    <div className="h-full flex flex-col bg-white">
+    <div className="chats-list-container">
       {/* Header */}
-      <div className="bg-white border-b px-4 py-3">
-        <h1 className="text-xl font-bold text-gray-900 mb-3">Nachrichten</h1>
+      <div className="chats-header">
+        <h1 className="chats-title">Nachrichten</h1>
 
         {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+        <div className="chats-search">
+          <Search className="chats-search-icon" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Suche nach Kontakten oder Gruppen..."
-            className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="chats-search-input"
           />
         </div>
       </div>
 
       {/* Chat List */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="chats-list">
         {loading ? (
           <div className="p-4 text-center text-gray-500">Lade Chats...</div>
         ) : allChats.length === 0 ? (
-          <div className="p-8 text-center">
-            <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+          <div className="chats-empty">
+            <Users className="chats-empty-icon" />
             <p className="text-gray-500">Keine Chats verfügbar</p>
           </div>
         ) : (
@@ -222,40 +224,34 @@ const MessengerUltimate = () => {
             <button
               key={`${chat.type}-${chat.id}`}
               onClick={() => handleChatSelect(chat, chat.type)}
-              className={`w-full p-4 flex items-center gap-3 hover:bg-gray-50 transition ${
-                selectedChat?.id === chat.id && selectedChat?.type === chat.type ? 'bg-blue-50' : ''
-              }`}
+              className="chat-item"
             >
               {/* Avatar */}
-              <div className="relative flex-shrink-0">
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold ${
-                  chat.type === 'group' ? 'bg-gradient-to-br from-green-400 to-blue-400' : 'bg-gradient-to-br from-blue-400 to-purple-400'
-                }`}>
-                  {chat.type === 'group' ? <Users className="w-6 h-6" /> : chat.name?.[0]?.toUpperCase()}
-                </div>
+              <div className={`chat-item-avatar ${chat.type === 'group' ? 'group-avatar' : ''}`}>
+                {chat.type === 'group' ? <Users className="w-6 h-6" /> : chat.name?.[0]?.toUpperCase()}
                 {chat.type === 'direct' && chat.is_online && (
-                  <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white" />
+                  <div className="online-indicator" />
                 )}
               </div>
 
               {/* Chat Info */}
-              <div className="flex-1 text-left min-w-0">
-                <div className="flex items-center justify-between">
-                  <p className="font-semibold text-gray-900 truncate">{chat.name}</p>
+              <div className="chat-item-content">
+                <div className="chat-item-header">
+                  <p className="chat-item-name">{chat.name}</p>
                   {chat.last_message_at && (
-                    <span className="text-xs text-gray-500">
+                    <span className="chat-item-time">
                       {formatMessageTime(chat.last_message_at)}
                     </span>
                   )}
                 </div>
-                <p className="text-sm text-gray-500 truncate">
+                <p className="chat-item-message">
                   {chat.last_message || chat.displayType}
                 </p>
               </div>
 
               {/* Unread Badge */}
               {chat.unread_count > 0 && (
-                <div className="bg-blue-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                <div className="chat-item-unread">
                   {chat.unread_count}
                 </div>
               )}
@@ -268,27 +264,25 @@ const MessengerUltimate = () => {
 
   // Render chat view
   const renderChat = () => (
-    <div className="h-full flex flex-col bg-white">
+    <div className="messenger-container">
       {/* Chat Header */}
-      <div className="bg-white border-b px-4 py-3 flex items-center gap-3">
+      <div className="chat-header">
         {isMobile && (
           <button
             onClick={() => setView('list')}
-            className="p-2 hover:bg-gray-100 rounded-full transition"
+            className="chat-back-btn"
           >
-            <ChevronLeft className="w-5 h-5" />
+            <ArrowLeft />
           </button>
         )}
 
-        <div className="flex-1 flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${
-            selectedChat?.type === 'group' ? 'bg-gradient-to-br from-green-400 to-blue-400' : 'bg-gradient-to-br from-blue-400 to-purple-400'
-          }`}>
+        <div className="chat-user-info">
+          <div className="chat-user-avatar">
             {selectedChat?.type === 'group' ? <Users className="w-5 h-5" /> : selectedChat?.name?.[0]?.toUpperCase()}
           </div>
-          <div className="flex-1">
-            <p className="font-semibold text-gray-900">{selectedChat?.name}</p>
-            <p className="text-xs text-gray-500">
+          <div className="chat-user-details">
+            <p className="chat-user-name">{selectedChat?.name}</p>
+            <p className="chat-user-status">
               {selectedChat?.type === 'group'
                 ? `${selectedChat.participants_count || 0} Teilnehmer`
                 : selectedChat?.is_online ? 'Online' : 'Offline'
@@ -297,84 +291,75 @@ const MessengerUltimate = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button className="p-2 hover:bg-gray-100 rounded-full transition">
-            <Phone className="w-5 h-5 text-gray-600" />
+        <div className="chat-actions">
+          <button className="chat-action-btn">
+            <Phone className="w-5 h-5" />
           </button>
-          <button className="p-2 hover:bg-gray-100 rounded-full transition">
-            <Video className="w-5 h-5 text-gray-600" />
+          <button className="chat-action-btn">
+            <Video className="w-5 h-5" />
           </button>
-          <button className="p-2 hover:bg-gray-100 rounded-full transition">
-            <Info className="w-5 h-5 text-gray-600" />
+          <button className="chat-action-btn">
+            <Info className="w-5 h-5" />
           </button>
         </div>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`flex ${message.is_mine || message.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}
-          >
-            <div className={`max-w-[70%] ${
-              message.is_mine || message.sender_id === user?.id
-                ? 'bg-blue-500 text-white rounded-l-lg rounded-tr-lg'
-                : 'bg-gray-100 text-gray-900 rounded-r-lg rounded-tl-lg'
-            } px-4 py-2`}>
-              {selectedChat?.type === 'group' && !(message.is_mine || message.sender_id === user?.id) && (
-                <p className="text-xs font-semibold mb-1 opacity-80">{message.sender_name}</p>
-              )}
-              <p className="whitespace-pre-wrap break-words">{message.content}</p>
-              <div className={`flex items-center gap-1 mt-1 ${
-                message.is_mine || message.sender_id === user?.id ? 'justify-end' : 'justify-start'
-              }`}>
-                <span className="text-xs opacity-70">
-                  {formatMessageTime(message.created_at)}
-                </span>
-                {(message.is_mine || message.sender_id === user?.id) && (
-                  message.delivered ? <CheckCheck className="w-3 h-3" /> : <Check className="w-3 h-3" />
+      <div className="messages-container">
+        {messages.map((message) => {
+          const isOwn = message.is_mine || message.sender_id === user?.id;
+          return (
+            <div
+              key={message.id}
+              className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
+            >
+              <div className={`message-bubble ${isOwn ? 'sent' : 'received'}`}>
+                {selectedChat?.type === 'group' && !isOwn && (
+                  <p className="text-xs font-semibold mb-1 opacity-80">{message.sender_name}</p>
                 )}
+                <p>{message.content}</p>
+                <div className="message-time">
+                  {formatMessageTime(message.created_at)}
+                  {isOwn && (
+                    <span className="ml-1">
+                      {message.delivered ? <CheckCheck className="inline w-3 h-3" /> : <Check className="inline w-3 h-3" />}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         <div ref={messagesEndRef} />
       </div>
 
       {/* Message Input */}
-      <form onSubmit={handleSendMessage} className="bg-white border-t p-4">
-        <div className="flex items-center gap-2">
-          <button type="button" className="p-2 hover:bg-gray-100 rounded-full transition">
-            <Plus className="w-5 h-5 text-gray-600" />
-          </button>
+      <form onSubmit={handleSendMessage} className="message-input-container">
+        <button type="button" className="message-attach-btn">
+          <Plus className="w-5 h-5" />
+        </button>
 
-          <div className="flex-1 relative">
-            <input
-              type="text"
-              value={messageText}
-              onChange={(e) => setMessageText(e.target.value)}
-              placeholder="Nachricht eingeben..."
-              className="w-full px-4 py-2 bg-gray-100 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-              disabled={sending}
-            />
-            <button type="button" className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1">
-              <Smile className="w-5 h-5 text-gray-400" />
-            </button>
-          </div>
-
-          <button type="button" className="p-2 hover:bg-gray-100 rounded-full transition">
-            <Paperclip className="w-5 h-5 text-gray-600" />
-          </button>
-
-          <button
-            type="submit"
-            disabled={!messageText.trim() || sending}
-            className="p-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Send className="w-5 h-5" />
+        <div className="message-input-wrapper">
+          <input
+            type="text"
+            value={messageText}
+            onChange={(e) => setMessageText(e.target.value)}
+            placeholder="Nachricht eingeben..."
+            className="message-input"
+            disabled={sending}
+          />
+          <button type="button" className="message-attach-btn">
+            <Smile className="w-5 h-5" />
           </button>
         </div>
+
+        <button
+          type="submit"
+          disabled={!messageText.trim() || sending}
+          className="message-send-btn"
+        >
+          <Send className="w-5 h-5" />
+        </button>
       </form>
     </div>
   );
