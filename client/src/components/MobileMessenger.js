@@ -479,6 +479,27 @@ const MobileMessenger = ({
                       </>
                     ) : null}
                   </div>
+
+                  {/* Reactions display */}
+                  {message.reactions && Object.keys(message.reactions).length > 0 && (
+                    <div className="mobile-messenger-message-reactions">
+                      {Object.entries(message.reactions).map(([emoji, userIds]) => {
+                        const userIdsArray = Array.isArray(userIds) ? userIds :
+                          (typeof userIds === 'object' ? Object.values(userIds).map(u => u.id || u) : []);
+                        const isActive = userIdsArray.includes(user?.id);
+                        return (
+                          <button
+                            key={emoji}
+                            onClick={() => handleReaction && handleReaction(message.id, emoji)}
+                            className={`mobile-messenger-reaction-chip ${isActive ? 'active' : ''}`}
+                          >
+                            <span className="mobile-messenger-reaction-chip-emoji">{emoji}</span>
+                            <span className="mobile-messenger-reaction-chip-count">{userIdsArray.length}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               );
             })

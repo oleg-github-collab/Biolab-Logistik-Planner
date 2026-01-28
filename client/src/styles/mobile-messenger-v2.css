@@ -14,7 +14,6 @@
   color: #ffffff;
   display: flex !important;
   flex-direction: column;
-  overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
 }
 
@@ -797,4 +796,49 @@
 
 .mobile-messenger-action-item:active svg {
   color: white;
+}
+
+/* Reaction Chips (під повідомленнями) */
+.mobile-messenger-message-reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.mobile-messenger-reaction-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 13px;
+  border: 1px solid;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.mobile-messenger-reaction-chip.active {
+  background: rgba(0, 122, 255, 0.15);
+  border-color: #007aff;
+}
+
+.mobile-messenger-reaction-chip:not(.active) {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.mobile-messenger-reaction-chip:active {
+  transform: scale(0.95);
+}
+
+.mobile-messenger-reaction-chip-emoji {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.mobile-messenger-reaction-chip-count {
+  font-weight: 600;
+  font-size: 12px;
+  color: #ffffff;
 }
