@@ -792,6 +792,16 @@
   box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
 }
 
+.contact-card--active .contact-card__name {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.contact-card--active .contact-card__last-seen,
+.contact-card--active .contact-card__message {
+  color: rgba(255, 255, 255, 0.85);
+}
+
 .contact-card__avatar-ring {
   width: 56px;
   height: 56px;

@@ -91,7 +91,8 @@ const MobileMessenger = ({
   setReplyToMessage,
   selectedEvent,
   setSelectedEvent,
-  handleMessageSearchSelect
+  handleMessageSearchSelect,
+  onShowGroupInfo
 }) => {
   const navigate = useNavigate();
   const [mobileMode, setMobileMode] = useState('list'); // 'list' or 'chat'
@@ -425,7 +426,16 @@ const MobileMessenger = ({
             )}
           </button>
 
-          <div className="mobile-messenger-chat-info">
+          <button
+            type="button"
+            className="mobile-messenger-chat-info text-left"
+            onClick={() => {
+              if (activeThread?.type === 'group' && onShowGroupInfo) {
+                onShowGroupInfo();
+              }
+            }}
+            disabled={activeThread?.type !== 'group'}
+          >
             <div className="mobile-messenger-chat-name">{displayName}</div>
             <div className={`mobile-messenger-chat-status ${isOnline ? 'online' : ''}`}>
               {activeThread?.type === 'group'
@@ -433,7 +443,7 @@ const MobileMessenger = ({
                 : isOnline ? 'Online' : 'Offline'
               }
             </div>
-          </div>
+          </button>
 
           <button
             className="mobile-messenger-chat-search"

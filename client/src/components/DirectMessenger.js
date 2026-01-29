@@ -2876,12 +2876,14 @@ const DirectMessenger = () => {
   const normalizedSearchTerm = searchTerm.trim().toLowerCase();
 
   const filteredContacts = useMemo(() => {
-    if (!normalizedSearchTerm) return contacts;
-    return contacts.filter((contact) => {
+    // Виключаємо самого себе з контактів
+    const contactsWithoutSelf = contacts.filter((contact) => contact.id !== user?.id);
+    if (!normalizedSearchTerm) return contactsWithoutSelf;
+    return contactsWithoutSelf.filter((contact) => {
       const haystack = `${contact.name || ''} ${contact.email || ''} ${contact.status || ''}`.toLowerCase();
       return haystack.includes(normalizedSearchTerm);
     });
-  }, [contacts, normalizedSearchTerm]);
+  }, [contacts, normalizedSearchTerm, user?.id]);
 
   const formatContactTimestamp = useCallback((timestamp) => {
     if (!timestamp) return '';
@@ -4088,14 +4090,19 @@ const DirectMessenger = () => {
                         <Users className="w-6 h-6 text-white" />
                       </div>
                     </button>
-                    <div className="messenger-desktop-header__contact-info">
+                    <button
+                      type="button"
+                      className="messenger-desktop-header__contact-info text-left hover:opacity-80 transition-opacity cursor-pointer"
+                      onClick={() => setShowMembersModal(true)}
+                      title="Gruppeninformationen anzeigen"
+                    >
                       <h3 className="messenger-desktop-header__name">
                         {activeThread.name || 'Gruppenchat'}
                       </h3>
                       <p className="messenger-desktop-header__status-text">
                         {groupMembers.length || (activeThread.participantCount ? activeThread.participantCount + 1 : 0)} Mitglieder
                       </p>
-                    </div>
+                    </button>
                   </>
                 ) : null}
               </div>
@@ -5172,6 +5179,7 @@ const DirectMessenger = () => {
           selectedEvent={selectedEvent}
           setSelectedEvent={setSelectedEvent}
           handleMessageSearchSelect={handleMessageSearchSelect}
+          onShowGroupInfo={() => setShowMembersModal(true)}
         />
       ) : (
         <>
@@ -5784,6 +5792,50 @@ const DirectMessenger = () => {
                       </div>
                     );
                   })}
+                </div>
+              </section>
+
+              {/* Group Files Section */}
+              <section className="group-settings-section">
+                <div className="group-settings-section__header">
+                  <h4>Geteilte Dateien</h4>
+                  <span>{messages.filter(m => m.attachments && m.attachments.length > 0).length}</span>
+                </div>
+                <div className="group-settings-files">
+                  {messages.filter(m => m.attachments && m.attachments.length > 0).length === 0 ? (
+                    <p className="group-settings-empty">Keine geteilten Dateien in dieser Gruppe.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {messages
+                        .filter(m => m.attachments && m.attachments.length > 0)
+                        .slice(0, 10)
+                        .map((msg) => msg.attachments.map((attachment, idx) => (
+                          <a
+                            key={`${msg.id}-${idx}`}
+                            href={getAssetUrl(attachment.file_url || attachment.url)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl hover:bg-slate-100 transition group"
+                          >
+                            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                              {attachment.file_type === 'image' || attachment.mime_type?.startsWith('image/') ? (
+                                <ImageIcon className="w-5 h-5 text-blue-600" />
+                              ) : (
+                                <FileText className="w-5 h-5 text-blue-600" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-gray-900 truncate group-hover:text-blue-600 transition">
+                                {attachment.file_name || attachment.name || 'Datei'}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {msg.sender_name || 'Unbekannt'} • {format(new Date(msg.created_at || msg.timestamp), 'dd.MM.yyyy HH:mm')}
+                              </p>
+                            </div>
+                          </a>
+                        )))}
+                    </div>
+                  )}
                 </div>
               </section>
 
