@@ -451,4 +451,4 @@ process.on('unhandledRejection', (reason) => {
 });
 
 console.log('✅ Server initialization complete');
-# Force restart Thu Jan 29 14:29:17 CET 2026
+// Force restart - v12.9 deployment
