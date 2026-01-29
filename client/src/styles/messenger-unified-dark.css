@@ -793,13 +793,15 @@
 }
 
 .contact-card--active .contact-card__name {
-  color: #ffffff;
-  font-weight: 700;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .contact-card--active .contact-card__last-seen,
 .contact-card--active .contact-card__message {
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 255, 255, 0.95) !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .contact-card__avatar-ring {
@@ -860,6 +862,57 @@
   color: var(--messenger-text-muted);
   margin: 0;
   font-weight: 500;
+}
+
+/* Mobile contact cards - compact with online status */
+@media (max-width: 768px) {
+  .contact-card {
+    padding: 10px 14px;
+    gap: 12px;
+    border-radius: 14px;
+  }
+
+  .contact-card__avatar-ring {
+    width: 48px;
+    height: 48px;
+    position: relative;
+  }
+
+  .contact-card__avatar-ring::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2.5px solid var(--messenger-bg);
+    background: #64748b;
+    transition: all 0.3s ease;
+  }
+
+  .contact-card__avatar-ring.online::after {
+    background: #10b981;
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.6);
+  }
+
+  .contact-card__avatar {
+    font-size: 16px;
+  }
+
+  .contact-card__name {
+    font-size: 15px;
+    margin: 0 0 2px 0;
+  }
+
+  .contact-card__last-seen {
+    font-size: 12px;
+  }
+
+  .contact-card__last-seen.online {
+    color: #10b981;
+    font-weight: 600;
+  }
 }
 
 /* ==================== SCROLL TO BOTTOM BUTTON ==================== */
