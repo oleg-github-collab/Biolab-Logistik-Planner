@@ -196,12 +196,12 @@
 .mobile-messenger-chat-item {
   display: flex;
   align-items: center;
-  padding: 16px;
+  padding: 12px;
   cursor: pointer;
-  margin: 0 12px;
-  margin-bottom: 8px;
-  border-radius: 20px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  margin: 0 8px;
+  margin-bottom: 6px;
+  border-radius: 16px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   background: linear-gradient(135deg, rgba(26, 26, 26, 0.4), rgba(20, 20, 20, 0.6));
   border: 1px solid rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(10px);
@@ -220,15 +220,16 @@
 }
 
 .mobile-messenger-chat-avatar {
-  width: 64px;
-  height: 64px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
-  margin-right: 16px;
+  margin-right: 12px;
   position: relative;
   flex-shrink: 0;
   overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.2);
-  border: 2px solid rgba(0, 122, 255, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.15);
+  border: 2px solid rgba(0, 122, 255, 0.25);
+  cursor: pointer;
 }
 
 .mobile-messenger-chat-avatar-img {
@@ -244,17 +245,17 @@
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #5856d6, #007aff);
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
   color: white;
 }
 
 .mobile-messenger-chat-online {
   position: absolute;
-  bottom: 2px;
-  right: 2px;
-  width: 16px;
-  height: 16px;
+  bottom: 0px;
+  right: 0px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   background: #34c759;
   border: 2px solid #000000;

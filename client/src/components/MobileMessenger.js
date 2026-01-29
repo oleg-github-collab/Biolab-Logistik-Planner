@@ -262,7 +262,15 @@ const MobileMessenger = ({
                     setMobileMode('chat');
                   }}
                 >
-                  <div className="mobile-messenger-chat-avatar">
+                  <div
+                    className="mobile-messenger-chat-avatar"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (contactForThread?.id) {
+                        navigate(`/profile/${contactForThread.id}`);
+                      }
+                    }}
+                  >
                     {contactForThread?.profile_photo || contactForThread?.profile_photo_url ? (
                       <img
                         src={getAssetUrl(contactForThread.profile_photo || contactForThread.profile_photo_url)}

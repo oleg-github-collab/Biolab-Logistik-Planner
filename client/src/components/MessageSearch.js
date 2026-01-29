@@ -110,13 +110,23 @@ const MessageSearch = ({ onClose, onMessageSelect, contacts = [], threads = [], 
   };
 
   return (
-    <div className="fixed inset-0 z-[99999] bg-black/50 backdrop-blur-sm flex items-start justify-center pt-4 md:pt-20 px-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] md:max-h-[80vh] overflow-hidden flex flex-col">
+    <div
+      className="fixed inset-0 z-[99999] bg-black/50 backdrop-blur-sm flex items-start justify-center pt-4 md:pt-20 px-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] md:max-h-[80vh] overflow-hidden flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="p-4 border-b border-slate-200">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-lg font-bold text-slate-900">Nachrichten durchsuchen</h3>
-            <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg transition">
+            <button
+              onClick={onClose}
+              className="w-8 h-8 min-w-[32px] min-h-[32px] flex items-center justify-center hover:bg-slate-100 rounded-full transition flex-shrink-0"
+              aria-label="Schließen"
+            >
               <X className="w-5 h-5" />
             </button>
           </div>
