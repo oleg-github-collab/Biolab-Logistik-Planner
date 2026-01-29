@@ -161,12 +161,23 @@ const MobileMessenger = ({
     // Filter out current user
     const filteredContacts = contacts.filter(c => c.id !== user?.id);
 
-    // Sort threads by updated_at
-    const sortedThreads = [...threads].sort((a, b) => {
-      const timeA = new Date(a.updated_at || a.created_at || 0).getTime();
-      const timeB = new Date(b.updated_at || b.created_at || 0).getTime();
-      return timeB - timeA;
-    });
+    // Filter and sort threads - exclude self-chats
+    const sortedThreads = [...threads]
+      .filter(thread => {
+        // Exclude threads where all members are the current user
+        const members = thread.members || [];
+        if (members.length === 0) return true; // Keep if no members info
+        const otherMembers = members.filter(m => {
+          const memberId = m.id || m.user_id;
+          return memberId !== user?.id;
+        });
+        return otherMembers.length > 0; // Only show if there are other members
+      })
+      .sort((a, b) => {
+        const timeA = new Date(a.updated_at || a.created_at || 0).getTime();
+        const timeB = new Date(b.updated_at || b.created_at || 0).getTime();
+        return timeB - timeA;
+      });
 
     return (
       <div className="mobile-messenger-list">
