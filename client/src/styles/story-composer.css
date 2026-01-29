@@ -582,6 +582,22 @@
   .camera-capture-btn,
   .camera-close-btn {
     width: 100%;
+    font-size: 1rem;
+    font-weight: 700;
+    padding: 1rem 1.5rem;
+    min-height: 52px;
+  }
+
+  .camera-capture-btn {
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+    box-shadow: 0 8px 20px rgba(34, 197, 94, 0.4);
+    color: #ffffff;
+  }
+
+  .camera-close-btn {
+    background: rgba(30, 41, 59, 0.95);
+    color: #f1f5f9;
+    border: 2px solid rgba(148, 163, 184, 0.4);
   }
 
   .upload-btn {
