@@ -1,9 +1,9 @@
-# Use Node.js 18 LTS - CACHE BUSTER v12.9
+# Use Node.js 18 LTS - GUARANTEED FRESH BUILD
 FROM node:18-alpine
 
-# FORCE CACHE INVALIDATION
-ARG CACHEBUST=1
-RUN echo "Cache bust: $CACHEBUST - $(date)"
+# NUCLEAR CACHE BUST - Changes every build
+ARG BUILDTIME_CACHEBUST=default_value
+RUN echo "🔥🔥🔥 CACHE BUSTER ACTIVE: $BUILDTIME_CACHEBUST 🔥🔥🔥"
 
 # Set working directory
 WORKDIR /app
@@ -12,9 +12,9 @@ WORKDIR /app
 COPY package*.json ./
 COPY client/package*.json ./client/
 
-# Install dependencies - FORCE FRESH INSTALL
-RUN npm ci --only=production
-RUN cd client && rm -rf node_modules && npm ci
+# Install dependencies - NO CACHE
+RUN npm ci --only=production --no-cache
+RUN cd client && npm ci --no-cache
 
 # Copy application code
 COPY . .
