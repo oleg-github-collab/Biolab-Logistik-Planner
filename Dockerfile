@@ -52,8 +52,14 @@ RUN echo "======================================================================
     cat client/build/asset-manifest.json && \
     echo "============================================================================================="
 
-# Expose port
+# Expose port (Railway will override this with PORT env var)
 EXPOSE 5000
+
+# VERIFY BUILD BEFORE START
+RUN echo "📋 VERIFICATION - Files that will be served:" && \
+    ls -la client/build/static/js/ && \
+    echo "📄 Index.html references:" && \
+    grep -o 'main\.[a-z0-9]*\.js' client/build/index.html
 
 # Start server (server-minimal.js has all routes including /api/messages)
 CMD ["node", "server-minimal.js"]

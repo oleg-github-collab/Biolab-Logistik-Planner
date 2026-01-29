@@ -10,3 +10,4 @@ coverage
 *.log
 logs/
 client/build/
+client/build/
