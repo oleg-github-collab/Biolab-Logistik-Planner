@@ -1,5 +1,9 @@
-# Use Node.js 18 LTS
+# Use Node.js 18 LTS - CACHE BUSTER v12.9
 FROM node:18-alpine
+
+# FORCE CACHE INVALIDATION
+ARG CACHEBUST=1
+RUN echo "Cache bust: $CACHEBUST - $(date)"
 
 # Set working directory
 WORKDIR /app
@@ -21,21 +25,26 @@ RUN echo "======================================== v12.9 MESSENGER FIXES =======
     echo "Building v12.9 (Group info, self-contact fix, better colors) at $(date)" && \
     echo "==========================================================================================================="
 # CRITICAL: Clear ALL caches before build
-RUN cd client && rm -rf node_modules/.cache build .cache dist
+RUN cd client && rm -rf node_modules/.cache build .cache dist tmp
 # CRITICAL: Set API URL for production build
 ARG REACT_APP_API_URL=/api
 ARG REACT_APP_BUILD_ID
 ARG REACT_APP_BUILD_DATE
-RUN BUILD_ID=${REACT_APP_BUILD_ID:-$(date +%s)} && \
-    BUILD_DATE=${REACT_APP_BUILD_DATE:-$(date -u +"%Y-%m-%dT%H:%M:%SZ")} && \
+# FORCE NEW BUILD - NO CACHE
+RUN echo "🔥🔥🔥 FORCING FRESH BUILD - NO CACHE ALLOWED 🔥🔥🔥" && \
+    BUILD_ID=$(date +%s) && \
+    BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ") && \
     cd client && \
     CI=false \
     GENERATE_SOURCEMAP=false \
     DISABLE_ESLINT_PLUGIN=true \
-    REACT_APP_API_URL=${REACT_APP_API_URL} \
+    REACT_APP_API_URL=${REACT_APP_API_URL:-/api} \
     REACT_APP_BUILD_ID=$BUILD_ID \
     REACT_APP_BUILD_DATE=$BUILD_DATE \
-    npm run build
+    npm run build && \
+    echo "🎉 Build completed at $(date)" && \
+    echo "📦 Main bundle:" && \
+    ls -lh build/static/js/main.*.js
 RUN echo "=============================================================================================" && \
     echo "✅ Build v12.9 MESSENGER FIXES complete!" && \
     ls -lh client/build/static/js/main.*.js && \
