@@ -317,7 +317,7 @@ const MobileMessenger = ({
                         className="mobile-messenger-chat-text"
                         data-online={!lastMessage && contactForThread?.online ? "true" : undefined}
                       >
-                        {lastMessage?.message || lastMessage?.content || (contactForThread?.online ? 'Online' : contactForThread?.last_seen ? `Zuletzt online ${formatMessageTime(contactForThread.last_seen)}` : 'Offline')}
+                        {lastMessage?.message || lastMessage?.content || (contactForThread?.online ? 'Online' : contactForThread?.last_seen ? `Zuletzt online ${formatMessageTime(contactForThread.last_seen)}` : 'Zuletzt online')}
                       </div>
                       {unreadCount > 0 && (
                         <div className="mobile-messenger-chat-unread">
