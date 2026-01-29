@@ -322,6 +322,12 @@
   flex: 1;
 }
 
+/* Green "Online" text when contact is online and no message history */
+.mobile-messenger-chat-item .mobile-messenger-chat-text[data-online="true"] {
+  color: #34c759 !important;
+  font-weight: 600;
+}
+
 .mobile-messenger-chat-unread {
   min-width: 20px;
   height: 20px;

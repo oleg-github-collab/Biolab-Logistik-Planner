@@ -313,8 +313,11 @@ const MobileMessenger = ({
                       {lastMessage?.sender_id === user?.id && (
                         <CheckCheck size={16} className="mobile-messenger-chat-status" />
                       )}
-                      <div className="mobile-messenger-chat-text">
-                        {lastMessage?.message || lastMessage?.content || 'Keine Nachrichten'}
+                      <div
+                        className="mobile-messenger-chat-text"
+                        data-online={!lastMessage && contactForThread?.online ? "true" : undefined}
+                      >
+                        {lastMessage?.message || lastMessage?.content || (contactForThread?.online ? 'Online' : contactForThread?.last_seen ? `Zuletzt online ${formatMessageTime(contactForThread.last_seen)}` : 'Offline')}
                       </div>
                       {unreadCount > 0 && (
                         <div className="mobile-messenger-chat-unread">
