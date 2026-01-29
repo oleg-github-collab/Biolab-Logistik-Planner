@@ -8,19 +8,20 @@ WORKDIR /app
 COPY package*.json ./
 COPY client/package*.json ./client/
 
-# Install dependencies
+# Install dependencies - FORCE FRESH INSTALL
 RUN npm ci --only=production
-RUN cd client && npm ci
+RUN cd client && rm -rf node_modules && npm ci
 
 # Copy application code
 COPY . .
 
-# Build client - v12.9 WITH MESSENGER FIXES
+# Build client - v12.9 WITH MESSENGER FIXES - BUST CACHE
 RUN echo "======================================== v12.9 MESSENGER FIXES ========================================" && \
+    echo "🔥 CACHE BUSTER: $(date +%s)" && \
     echo "Building v12.9 (Group info, self-contact fix, better colors) at $(date)" && \
     echo "==========================================================================================================="
-# CRITICAL: Clear cache before build
-RUN cd client && rm -rf node_modules/.cache build .cache
+# CRITICAL: Clear ALL caches before build
+RUN cd client && rm -rf node_modules/.cache build .cache dist
 # CRITICAL: Set API URL for production build
 ARG REACT_APP_API_URL=/api
 ARG REACT_APP_BUILD_ID
