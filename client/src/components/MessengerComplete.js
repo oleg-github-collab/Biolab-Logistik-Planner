@@ -80,6 +80,8 @@ const MessengerComplete = () => {
   const [currentStory, setCurrentStory] = useState(null);
   const [storyFile, setStoryFile] = useState(null);
   const [storyText, setStoryText] = useState('');
+  const [showGroupInfoModal, setShowGroupInfoModal] = useState(false);
+  const [groupInfoData, setGroupInfoData] = useState(null);
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -463,6 +465,34 @@ const MessengerComplete = () => {
     }, 100);
   };
 
+  const handleShowGroupInfo = async () => {
+    if (!selectedConversation) return;
+
+    try {
+      // Завантажуємо учасників групи
+      const membersRes = await api.get(`/messages/conversations/${selectedConversation.id}/members`);
+
+      // Завантажуємо файли з групи
+      const filesRes = await api.get(`/messages/conversations/${selectedConversation.id}/files`);
+
+      setGroupInfoData({
+        conversation: selectedConversation,
+        members: Array.isArray(membersRes?.data) ? membersRes.data : [],
+        files: Array.isArray(filesRes?.data) ? filesRes.data : []
+      });
+      setShowGroupInfoModal(true);
+    } catch (error) {
+      console.error('Error loading group info:', error);
+      // Показуємо модалку навіть якщо є помилка, але з порожніми даними
+      setGroupInfoData({
+        conversation: selectedConversation,
+        members: [],
+        files: []
+      });
+      setShowGroupInfoModal(true);
+    }
+  };
+
   const formatMessageTime = (date) => {
     const messageDate = new Date(date);
     if (isToday(messageDate)) {
@@ -621,8 +651,8 @@ const MessengerComplete = () => {
                       {conv.is_bot && ' 🤖'}
                     </p>
                     {conv.last_message_at && (
-                      <span className={`text-xs font-medium ml-2 ${
-                        selectedConversation?.id === conv.id ? 'text-white/80' : 'text-gray-500'
+                      <span className={`text-xs font-medium ml-2 flex-shrink-0 ${
+                        selectedConversation?.id === conv.id ? 'text-white/90' : 'text-gray-500'
                       }`}>
                         {formatMessageTime(conv.last_message_at)}
                       </span>
@@ -677,7 +707,14 @@ const MessengerComplete = () => {
           </button>
         )}
 
-        <div className="relative z-10 flex-1 flex items-center gap-3">
+        <button
+          onClick={() => {
+            if (selectedConversation?.conversation_type === 'group') {
+              handleShowGroupInfo();
+            }
+          }}
+          className="relative z-10 flex-1 flex items-center gap-3 hover:bg-white/10 rounded-xl p-2 transition-colors cursor-pointer"
+        >
           <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white font-bold shadow-lg ${
             selectedConversation?.conversation_type === 'group'
               ? 'bg-white/20 backdrop-blur-md'
@@ -685,7 +722,7 @@ const MessengerComplete = () => {
           }`}>
             {selectedConversation?.conversation_type === 'group' ? <Users className="w-6 h-6" /> : <User className="w-6 h-6" />}
           </div>
-          <div className="flex-1">
+          <div className="flex-1 text-left">
             <p className="font-bold text-lg">{selectedConversation?.name || 'Chat'}</p>
             <p className="text-xs text-white/80 font-medium">
               {selectedConversation?.conversation_type === 'group'
@@ -694,7 +731,7 @@ const MessengerComplete = () => {
               }
             </p>
           </div>
-        </div>
+        </button>
 
         <div className="relative z-10 flex items-center gap-1">
           <button className="p-2.5 hover:bg-white/20 rounded-xl transition">
@@ -1091,7 +1128,7 @@ const MessengerComplete = () => {
 
             <p className="text-sm font-semibold text-gray-500 mb-2">Teammitglieder:</p>
             <div className="space-y-2">
-              {contacts.map((contact) => (
+              {contacts.filter(contact => contact.id !== user?.id).map((contact) => (
                 <button
                   key={contact.id}
                   onClick={async () => {
@@ -1110,14 +1147,26 @@ const MessengerComplete = () => {
                       console.error('Error creating conversation:', error);
                     }
                   }}
-                  className="w-full p-4 flex items-center gap-3 rounded-xl hover:bg-gray-50 transition-colors"
+                  className="w-full p-3 flex items-center gap-3 rounded-xl hover:bg-gray-50 transition-colors border border-gray-100"
                 >
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold">
-                    {contact.name?.charAt(0)}
+                  <div className="w-11 h-11 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold shadow-md">
+                    {contact.name?.charAt(0) || '?'}
                   </div>
-                  <div className="text-left">
-                    <p className="font-semibold text-gray-900">{contact.name}</p>
-                    <p className="text-sm text-gray-500">{contact.email}</p>
+                  <div className="text-left flex-1 min-w-0">
+                    <p className="font-semibold text-gray-900 truncate">{contact.name}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs text-gray-500 truncate flex-1">{contact.email}</p>
+                      {contact.is_online ? (
+                        <span className="flex items-center gap-1 text-xs text-green-600 font-medium flex-shrink-0">
+                          <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
+                          Online
+                        </span>
+                      ) : contact.last_seen ? (
+                        <span className="text-xs text-gray-400 flex-shrink-0">
+                          {formatDistanceToNow(new Date(contact.last_seen), { addSuffix: true, locale: de })}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                 </button>
               ))}
@@ -1274,6 +1323,131 @@ const MessengerComplete = () => {
     );
   };
 
+  // Group Info Modal
+  const renderGroupInfoModal = () => {
+    if (!showGroupInfoModal || !groupInfoData) return null;
+
+    const { conversation, members, files } = groupInfoData;
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setShowGroupInfoModal(false)}>
+        <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+          {/* Header */}
+          <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-6 rounded-t-2xl relative overflow-hidden">
+            <div className="absolute inset-0 bg-black/10"></div>
+            <div className="relative z-10 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shadow-xl">
+                  <Users className="w-8 h-8 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-white">{conversation.name}</h2>
+                  <p className="text-white/80 text-sm">{members.length} Mitglieder</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowGroupInfoModal(false)}
+                className="p-2 hover:bg-white/20 rounded-full transition"
+              >
+                <X className="w-6 h-6 text-white" />
+              </button>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            {/* Description */}
+            {conversation.description && (
+              <div>
+                <h3 className="text-sm font-bold text-gray-500 uppercase mb-2 flex items-center gap-2">
+                  <Info className="w-4 h-4" />
+                  Beschreibung
+                </h3>
+                <p className="text-gray-700 bg-gray-50 p-4 rounded-xl">{conversation.description}</p>
+              </div>
+            )}
+
+            {/* Members */}
+            <div>
+              <h3 className="text-sm font-bold text-gray-500 uppercase mb-3 flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                Mitglieder ({members.length})
+              </h3>
+              <div className="space-y-2">
+                {members.map((member) => (
+                  <div
+                    key={member.id}
+                    className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold shadow-md">
+                      {member.name?.charAt(0) || member.email?.charAt(0) || '?'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-900 truncate">{member.name || 'Unbekannt'}</p>
+                      <p className="text-sm text-gray-500 truncate">{member.email}</p>
+                    </div>
+                    {member.is_online && (
+                      <div className="flex items-center gap-1 px-2 py-1 bg-green-100 rounded-full">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span className="text-xs font-medium text-green-700">Online</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Files */}
+            {files.length > 0 && (
+              <div>
+                <h3 className="text-sm font-bold text-gray-500 uppercase mb-3 flex items-center gap-2">
+                  <FileText className="w-4 h-4" />
+                  Dateien ({files.length})
+                </h3>
+                <div className="space-y-2">
+                  {files.map((file, idx) => (
+                    <a
+                      key={idx}
+                      href={file.file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl hover:bg-blue-50 transition-colors group"
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                        {file.file_type === 'image' ? (
+                          <Image className="w-5 h-5 text-blue-600" />
+                        ) : (
+                          <FileText className="w-5 h-5 text-blue-600" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-900 truncate group-hover:text-blue-600 transition-colors">
+                          {file.file_name}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {file.sender_name} • {formatMessageTime(file.created_at)}
+                        </p>
+                      </div>
+                      <Download className="w-4 h-4 text-gray-400 group-hover:text-blue-600 transition-colors" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="p-4 border-t bg-gray-50 rounded-b-2xl">
+            <button
+              onClick={() => setShowGroupInfoModal(false)}
+              className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-indigo-700 shadow-md hover:shadow-lg transition-all"
+            >
+              Schließen
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Main render
   if (isMobile) {
     return (
@@ -1284,6 +1458,7 @@ const MessengerComplete = () => {
         {renderNewChatModal()}
         {renderStoryCreateModal()}
         {renderStoryViewModal()}
+        {renderGroupInfoModal()}
       </>
     );
   } else {
@@ -1314,6 +1489,7 @@ const MessengerComplete = () => {
         {renderNewChatModal()}
         {renderStoryCreateModal()}
         {renderStoryViewModal()}
+        {renderGroupInfoModal()}
       </>
     );
   }
