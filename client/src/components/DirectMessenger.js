@@ -2877,6 +2877,7 @@ const DirectMessenger = () => {
 
   const filteredContacts = useMemo(() => {
     // Виключаємо самого себе з контактів
+    console.log('🔥 MESSENGER v12.9 LOADED - Self-contact filter ACTIVE');
     const contactsWithoutSelf = contacts.filter((contact) => contact.id !== user?.id);
     if (!normalizedSearchTerm) return contactsWithoutSelf;
     return contactsWithoutSelf.filter((contact) => {
