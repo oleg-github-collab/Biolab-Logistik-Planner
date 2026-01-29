@@ -53,16 +53,7 @@ body.messenger-page {
   box-shadow: 0 16px 34px rgba(59, 130, 246, 0.22) !important;
 }
 
-.contact-card--active .contact-card__name {
-  color: #ffffff !important;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
-}
-
-.contact-card--active .contact-card__body p:not(.contact-card__name),
-.contact-card--active .contact-card__last-seen {
-  color: rgba(255, 255, 255, 0.95) !important;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-}
+/* REMOVED - using unified approach in messenger-unified-dark.css */
 
 .contact-card--general {
   background: linear-gradient(135deg, #e0f2fe, #f5f3ff) !important;
