@@ -21,6 +21,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { de } from 'date-fns/locale';
 import { getAssetUrl } from '../utils/media';
 import GifPicker from './GifPicker';
 import VoiceMessagePlayer from './VoiceMessagePlayer';
@@ -123,6 +124,29 @@ const MobileMessenger = ({
     } catch {
       return '';
     }
+  };
+
+  // Format event date range
+  const formatEventDateRange = (start, end) => {
+    const startDate = start ? new Date(start) : null;
+    const endDate = end ? new Date(end) : null;
+
+    if (!startDate || isNaN(startDate.getTime())) {
+      return 'Unbekannter Zeitraum';
+    }
+
+    const startLabel = format(startDate, 'dd.MM.yyyy HH:mm', { locale: de });
+
+    if (!endDate || isNaN(endDate.getTime())) {
+      return startLabel;
+    }
+
+    const sameDay =
+      format(startDate, 'dd.MM.yyyy', { locale: de }) === format(endDate, 'dd.MM.yyyy', { locale: de });
+
+    return sameDay
+      ? `${format(startDate, 'dd.MM.yyyy HH:mm', { locale: de })} - ${format(endDate, 'HH:mm', { locale: de })}`
+      : `${format(startDate, 'dd.MM.yyyy HH:mm', { locale: de })} - ${format(endDate, 'dd.MM.yyyy HH:mm', { locale: de })}`;
   };
 
   // Switch to chat mode when thread selected
@@ -500,6 +524,57 @@ const MobileMessenger = ({
                       </div>
                     )}
                   </div>
+
+                  {/* Event Preview */}
+                  {(() => {
+                    const calendarRefsRaw = Array.isArray(message.calendar_refs) ? message.calendar_refs : [];
+                    const metadataEvent = message.metadata?.shared_event;
+                    const calendarRefs = [...calendarRefsRaw];
+
+                    if (!calendarRefs.length && metadataEvent) {
+                      calendarRefs.push({
+                        id: `meta-${message.id}`,
+                        event_id: metadataEvent.id,
+                        event_title: metadataEvent.title,
+                        event_start_time: metadataEvent.start_time,
+                        event_end_time: metadataEvent.end_time,
+                        location: metadataEvent.location || null
+                      });
+                    }
+
+                    if (!calendarRefs.length) return null;
+
+                    return calendarRefs.map((ref) => (
+                      <div
+                        key={`${message.id}-event-${ref.id || ref.event_id}`}
+                        className="mobile-messenger-event-card"
+                      >
+                        <div className="mobile-messenger-event-header">
+                          <div className="mobile-messenger-event-icon">
+                            <CalendarDays size={20} />
+                          </div>
+                          <div className="mobile-messenger-event-info">
+                            <p className="mobile-messenger-event-title">
+                              {ref.event_title || 'Kalenderereignis'}
+                            </p>
+                            <p className="mobile-messenger-event-date">
+                              {formatEventDateRange(ref.event_start_time, ref.event_end_time)}
+                            </p>
+                            {ref.location && (
+                              <p className="mobile-messenger-event-location">📍 {ref.location}</p>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => navigate('/dashboard', { state: { focusEventId: ref.event_id } })}
+                          className="mobile-messenger-event-button"
+                        >
+                          Im Kalender öffnen →
+                        </button>
+                      </div>
+                    ));
+                  })()}
                 </div>
               );
             })
@@ -941,7 +1016,7 @@ const MobileMessenger = ({
       )}
 
       {/* Message Forward Modal */}
-      {showForwardModal && messageToForward && (
+      {showForwardModal && messageToForward && createPortal(
         <MessageForwardModal
           message={messageToForward}
           onClose={() => {
@@ -953,7 +1028,8 @@ const MobileMessenger = ({
             setMessageToForward(null);
             showSuccess('Nachricht erfolgreich weitergeleitet');
           }}
-        />
+        />,
+        document.body
       )}
     </>
   );
