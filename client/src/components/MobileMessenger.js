@@ -302,7 +302,7 @@ const MobileMessenger = ({
                   <div className="mobile-messenger-chat-content">
                     <div className="mobile-messenger-chat-header">
                       <div className="mobile-messenger-chat-name">
-                        {thread.name || contactForThread?.name || 'Unbenannt'}
+                        {thread.type === 'direct' ? (contactForThread?.name || thread.name || 'Unbenannt') : (thread.name || 'Gruppenchat')}
                       </div>
                       <div className="mobile-messenger-chat-time">
                         {lastMessage?.created_at ? formatMessageTime(lastMessage.created_at) : ''}

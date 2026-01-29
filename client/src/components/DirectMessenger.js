@@ -5180,7 +5180,10 @@ const DirectMessenger = () => {
           selectedEvent={selectedEvent}
           setSelectedEvent={setSelectedEvent}
           handleMessageSearchSelect={handleMessageSearchSelect}
-          onShowGroupInfo={() => setShowMembersModal(true)}
+          onShowGroupInfo={() => {
+            console.log('🔥 MOBILE: Opening group info modal');
+            setShowMembersModal(true);
+          }}
         />
       ) : (
         <>
