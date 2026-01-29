@@ -26,11 +26,7 @@
     min-height: 100dvh !important;
     max-height: 100dvh !important;
     overflow-x: hidden;
-    position: fixed !important;
     width: 100%;
-    top: 0;
-    left: 0;
-    right: 0;
   }
 
   /* Messenger залишається фулскрін, інші сторінки можуть скролитись */
@@ -48,7 +44,6 @@
     max-height: 100dvh !important;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
     position: relative;
   }
 
