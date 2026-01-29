@@ -846,7 +846,7 @@
   min-width: 0;
 }
 
-.contact-card__name {
+.contact-card:not(.contact-card--active) .contact-card__name {
   font-size: 16px;
   font-weight: 700;
   color: var(--messenger-text);
@@ -857,7 +857,7 @@
   letter-spacing: -0.2px;
 }
 
-.contact-card__last-seen {
+.contact-card:not(.contact-card--active) .contact-card__last-seen {
   font-size: 13px;
   color: var(--messenger-text-muted);
   margin: 0;

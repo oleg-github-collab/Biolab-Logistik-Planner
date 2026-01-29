@@ -1061,7 +1061,7 @@ body {
     flex-wrap: wrap;
   }
 
-  .contact-card__name {
+  .contact-card:not(.contact-card--active) .contact-card__name {
     margin: 0;
     font-size: 15px;
     font-weight: 700;
