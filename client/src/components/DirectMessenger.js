@@ -654,6 +654,14 @@ const DirectMessenger = () => {
         const threadContacts = buildContactsFromThreads(sanitizedThreads).map(normalizeContact);
         const mergedContacts = mergeContacts(contactsWithBot, threadContacts).map(normalizeContact).filter(c => c.id !== user?.id);
 
+        console.log('📊 CONTACTS LOADED:', mergedContacts.slice(0, 3).map(c => ({
+          id: c.id,
+          name: c.name,
+          last_seen: c.last_seen,
+          last_seen_at: c.last_seen_at,
+          online: c.online
+        })));
+
         setContacts(mergedContacts);
         setThreads(sanitizedThreads);
         const rawStories = Array.isArray(storiesRes?.data?.stories)
@@ -5184,7 +5192,13 @@ const DirectMessenger = () => {
           setSelectedEvent={setSelectedEvent}
           handleMessageSearchSelect={handleMessageSearchSelect}
           onShowGroupInfo={() => {
+            console.log('🔥🔥🔥 DIRECT MESSENGER: onShowGroupInfo called!', {
+              showMembersModal,
+              activeThread: activeThread?.name,
+              threadType: activeThread?.type
+            });
             setShowMembersModal(true);
+            console.log('🔥🔥🔥 DIRECT MESSENGER: setShowMembersModal(true) called');
           }}
         />
       ) : (
@@ -5631,8 +5645,15 @@ const DirectMessenger = () => {
       )}
 
       {/* Group Members Modal */}
-      {showMembersModal && typeof document !== 'undefined' && createPortal(
-        <div className="group-settings-overlay">
+      {(() => {
+        console.log('🔥 MODAL RENDER CHECK:', { showMembersModal, hasDocument: typeof document !== 'undefined' });
+        return showMembersModal && typeof document !== 'undefined' && createPortal(
+        <div className="group-settings-overlay" onClick={(e) => {
+          console.log('🔥 Modal overlay clicked');
+          if (e.target === e.currentTarget) {
+            setShowMembersModal(false);
+          }
+        }}>
           <div className="group-settings-modal">
             <div className="group-settings-header">
               <div>
@@ -5887,7 +5908,8 @@ const DirectMessenger = () => {
           </div>
         </div>,
         document.body
-      )}
+      );
+      })()}
 
           {/* Mention Autocomplete */}
           {showMentionSuggestions && mentionSuggestions.length > 0 && (

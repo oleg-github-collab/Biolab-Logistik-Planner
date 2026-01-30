@@ -395,6 +395,16 @@ const MobileMessenger = ({
     const displayName = contactForHeader?.name || activeThread?.name || 'Chat';
     const isOnline = contactForHeader?.online || false;
 
+    // v13.2.1 DEBUG
+    console.log('📱 MOBILE CHAT HEADER:', {
+      contactForHeader,
+      last_seen: contactForHeader?.last_seen,
+      last_seen_at: contactForHeader?.last_seen_at,
+      isOnline,
+      activeThread: activeThread?.name,
+      threadType: activeThread?.type
+    });
+
     return (
       <div className="mobile-messenger-chat">
         {/* Header */}
@@ -413,9 +423,17 @@ const MobileMessenger = ({
           <button
             className="mobile-messenger-chat-avatar-header"
             onClick={() => {
+              console.log('🔥 AVATAR CLICKED:', {
+                threadType: activeThread?.type,
+                threadName: activeThread?.name,
+                hasCallback: !!onShowGroupInfo,
+                contactId: contactForHeader?.id
+              });
               if (activeThread?.type === 'group' && onShowGroupInfo) {
+                console.log('✅ Calling onShowGroupInfo()');
                 onShowGroupInfo();
               } else if (contactForHeader?.id) {
+                console.log('✅ Navigating to profile:', contactForHeader.id);
                 navigate(`/profile/${contactForHeader.id}`);
               }
             }}
