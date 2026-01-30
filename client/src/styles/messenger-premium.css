@@ -416,16 +416,96 @@ body.messenger-page .group-settings-overlay {
 @media (max-width: 768px) {
   body.messenger-page .group-settings-overlay {
     z-index: 999999 !important;
-    padding: 10px;
+    padding: 0;
+    align-items: flex-end;
   }
 
   body.messenger-page .group-settings-modal {
-    max-height: 95vh;
-    border-radius: 20px;
+    width: 100% !important;
+    max-height: 92vh;
+    border-radius: 24px 24px 0 0;
+    animation: slideUpModal 0.3s ease-out;
+  }
+
+  @keyframes slideUpModal {
+    from {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  body.messenger-page .group-settings-header {
+    padding: 16px 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+  }
+
+  body.messenger-page .group-settings-header h3 {
+    color: white !important;
+    font-size: 20px;
+    font-weight: 700;
+  }
+
+  body.messenger-page .group-settings-eyebrow {
+    color: rgba(255, 255, 255, 0.85) !important;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  body.messenger-page .group-settings-close {
+    background: rgba(255, 255, 255, 0.2);
+    color: white !important;
+    border-radius: 12px;
+    padding: 8px;
   }
 
   body.messenger-page .group-settings-body {
-    max-height: 70vh;
+    max-height: calc(92vh - 180px);
+    padding: 12px;
+  }
+
+  body.messenger-page .group-settings-section {
+    margin-bottom: 16px;
+    background: white;
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  }
+
+  body.messenger-page .group-settings-section__header h4 {
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  body.messenger-page .group-settings-member {
+    padding: 12px;
+    margin-bottom: 8px;
+    border-radius: 12px;
+    background: #f8fafc;
+  }
+
+  body.messenger-page .group-settings-member__avatar {
+    width: 48px;
+    height: 48px;
+    font-size: 18px;
+  }
+
+  body.messenger-page .group-settings-footer {
+    padding: 16px 20px;
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+  }
+
+  body.messenger-page .group-settings-footer button {
+    padding: 14px 24px;
+    font-size: 15px;
+    font-weight: 600;
+    border-radius: 12px;
   }
 }
 

@@ -654,12 +654,14 @@ const DirectMessenger = () => {
         const threadContacts = buildContactsFromThreads(sanitizedThreads).map(normalizeContact);
         const mergedContacts = mergeContacts(contactsWithBot, threadContacts).map(normalizeContact).filter(c => c.id !== user?.id);
 
-        console.log('📊 CONTACTS LOADED:', mergedContacts.slice(0, 3).map(c => ({
+        console.log('📊 CONTACTS LOADED - Full objects:', mergedContacts.slice(0, 2));
+        console.log('📊 CONTACTS LOADED - Keys check:', mergedContacts.slice(0, 3).map(c => ({
           id: c.id,
           name: c.name,
           last_seen: c.last_seen,
           last_seen_at: c.last_seen_at,
-          online: c.online
+          online: c.online,
+          allKeys: Object.keys(c).join(', ')
         })));
 
         setContacts(mergedContacts);
