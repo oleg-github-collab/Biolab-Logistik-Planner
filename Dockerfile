@@ -1,9 +1,9 @@
-# Use Node.js 18 LTS - GUARANTEED FRESH BUILD
+# Use Node.js 18 LTS - v13.0 MOBILE UNIFICATION BUILD
 FROM node:18-alpine
 
-# NUCLEAR CACHE BUST - Changes every build
-ARG BUILDTIME_CACHEBUST=default_value
-RUN echo "🔥🔥🔥 CACHE BUSTER ACTIVE: $BUILDTIME_CACHEBUST 🔥🔥🔥"
+# NUCLEAR CACHE BUST - v13.0 - Mobile Features Complete
+ARG BUILDTIME_CACHEBUST=1769732622
+RUN echo "🔥🔥🔥 v13.0 BUILD - CACHE BUSTER: $BUILDTIME_CACHEBUST 🔥🔥🔥"
 
 # Set working directory
 WORKDIR /app
