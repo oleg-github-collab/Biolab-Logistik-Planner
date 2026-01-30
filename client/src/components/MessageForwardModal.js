@@ -5,6 +5,8 @@ import { forwardMessage } from '../utils/apiEnhanced';
 import { showError, showSuccess } from '../utils/toast';
 
 const MessageForwardModal = ({ message, threads = [], onClose, onSuccess }) => {
+  console.log('📤 FORWARD MODAL v13.0 - Threads:', threads?.length || 0, 'Groups:', threads?.filter(t => t.type === 'group').length || 0);
+
   const [contacts, setContacts] = useState([]);
   const [groups, setGroups] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
