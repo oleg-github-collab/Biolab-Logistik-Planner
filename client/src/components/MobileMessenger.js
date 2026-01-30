@@ -319,7 +319,7 @@ const MobileMessenger = ({
                         className="mobile-messenger-chat-text"
                         data-online={!lastMessage && contactForThread?.online ? "true" : undefined}
                       >
-                        {lastMessage?.message || lastMessage?.content || (contactForThread?.online ? 'Online' : contactForThread?.last_seen ? `Zuletzt online ${formatMessageTime(contactForThread.last_seen)}` : 'Zuletzt online')}
+                        {lastMessage?.message || lastMessage?.content || (contactForThread?.online ? 'Online' : (contactForThread?.last_seen || contactForThread?.last_seen_at) ? `Zuletzt online ${formatMessageTime(contactForThread.last_seen || contactForThread.last_seen_at)}` : 'Zuletzt online')}
                       </div>
                       {unreadCount > 0 && (
                         <div className="mobile-messenger-chat-unread">
@@ -449,8 +449,8 @@ const MobileMessenger = ({
                 ? `${activeThread.members?.length || 0} Mitglieder`
                 : isOnline
                   ? 'Online'
-                  : contactForHeader?.last_seen
-                    ? `Zuletzt online ${formatMessageTime(contactForHeader.last_seen)}`
+                  : (contactForHeader?.last_seen || contactForHeader?.last_seen_at)
+                    ? `Zuletzt online ${formatMessageTime(contactForHeader.last_seen || contactForHeader.last_seen_at)}`
                     : 'Zuletzt online'
               }
             </div>
@@ -930,7 +930,7 @@ const MobileMessenger = ({
                 }}
                 className="w-full flex items-center gap-3 px-4 py-3 text-left text-slate-700 hover:bg-slate-50 active:bg-slate-100 transition-colors"
               >
-                <Forward className="w-5 h-5 text-purple-500" />
+                <Forward className="w-5 h-5 text-blue-600" />
                 <span className="font-medium">Weiterleiten</span>
               </button>
               <button
