@@ -101,8 +101,7 @@ const MobileMessenger = ({
   const [showForwardModal, setShowForwardModal] = useState(false);
   const [messageToForward, setMessageToForward] = useState(null);
 
-  // v13.0.0 - Mobile Complete Unification
-  console.log('🚀 MOBILE MESSENGER v13.0.0 LOADED - Threads:', threads?.length || 0);
+  // v13.1.0 - Mobile Complete Unification
 
   // Common emojis for reactions
   const REACTION_EMOJIS = ['❤️', '👍', '😂', '😮', '😢', '🔥', '👏', '✅'];

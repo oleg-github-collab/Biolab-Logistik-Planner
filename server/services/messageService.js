@@ -232,13 +232,23 @@ const mergeAggregations = (rows, aggregates) => {
   return rows.map((row) => {
     const normalized = normalizeMessageRow(row);
     const messageId = row.id;
+    const metadata = normalized.metadata || {};
+
+    // Extract reply_to from metadata if exists
+    const replyTo = metadata.reply_to || null;
+
     return {
       ...normalized,
       reactions: aggregates.reactions.get(messageId) || [],
       quote: aggregates.quotes.get(messageId) || null,
       mentions: aggregates.mentions.get(messageId) || [],
       calendar_refs: aggregates.calendarRefs.get(messageId) || [],
-      task_refs: aggregates.taskRefs.get(messageId) || []
+      task_refs: aggregates.taskRefs.get(messageId) || [],
+      // Add reply fields for mobile messenger
+      reply_to_message_id: replyTo?.id || null,
+      reply_to_sender_name: replyTo?.sender_name || null,
+      reply_to_message: replyTo?.message || null,
+      reply_to_content: replyTo?.message || null
     };
   });
 };

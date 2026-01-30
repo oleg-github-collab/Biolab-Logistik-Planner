@@ -5181,9 +5181,6 @@ const DirectMessenger = () => {
           setSelectedEvent={setSelectedEvent}
           handleMessageSearchSelect={handleMessageSearchSelect}
           onShowGroupInfo={() => {
-            console.log('🔥 v13.0 MOBILE: Opening group modal');
-            console.log('🔥 v13.0 activeThread:', activeThread?.name, 'type:', activeThread?.type);
-            console.log('🔥 v13.0 showMembersModal before:', showMembersModal);
             setShowMembersModal(true);
           }}
         />

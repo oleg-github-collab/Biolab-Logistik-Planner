@@ -5,8 +5,6 @@ import { forwardMessage } from '../utils/apiEnhanced';
 import { showError, showSuccess } from '../utils/toast';
 
 const MessageForwardModal = ({ message, threads = [], onClose, onSuccess }) => {
-  console.log('📤 FORWARD MODAL v13.0 - Threads:', threads?.length || 0, 'Groups:', threads?.filter(t => t.type === 'group').length || 0);
-
   const [contacts, setContacts] = useState([]);
   const [groups, setGroups] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -197,20 +195,19 @@ const MessageForwardModal = ({ message, threads = [], onClose, onSuccess }) => {
                     : 'bg-slate-50 border-transparent hover:border-slate-200'
                 }`}
               >
-                {isGroup && (
-                  <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
-                    <Users className="w-5 h-5 text-white" />
-                  </div>
-                )}
-                <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition ${
+                <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition flex-shrink-0 ${
                   isSelected
                     ? 'bg-green-600 border-green-600'
                     : 'bg-white border-slate-300'
                 }`}>
                   {isSelected && <Check className="w-4 h-4 text-white" />}
                 </div>
-                {!isGroup && (
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold shadow-md">
+                {isGroup ? (
+                  <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
+                    <Users className="w-5 h-5 text-white" />
+                  </div>
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold shadow-md flex-shrink-0">
                     {displayName?.[0]?.toUpperCase() || '?'}
                   </div>
                 )}

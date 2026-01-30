@@ -2536,8 +2536,23 @@ router.post('/:messageId/forward', auth, async (req, res) => {
       for (const recipientId of recipientIds) {
         const parsedRecipientId = parseInt(recipientId, 10);
 
-        // Ensure conversation exists
-        const conversation = await ensureDirectConversation(client, req.user.id, parsedRecipientId);
+        // Check if recipientId is a group (thread_id) or user
+        const groupCheck = await client.query(
+          'SELECT id, name, members FROM group_chats WHERE id = $1',
+          [parsedRecipientId]
+        );
+
+        let conversation;
+        let isGroupForward = false;
+
+        if (groupCheck.rows.length > 0) {
+          // It's a group - use thread_id directly
+          isGroupForward = true;
+          conversation = { id: parsedRecipientId, type: 'group' };
+        } else {
+          // It's a direct conversation - ensure it exists
+          conversation = await ensureDirectConversation(client, req.user.id, parsedRecipientId);
+        }
 
         // Create forwarded message
         let messageContent = original.message;
@@ -2548,7 +2563,7 @@ router.post('/:messageId/forward', auth, async (req, res) => {
         const result = await createMessageRecord(client, {
           senderId: req.user.id,
           conversationId: conversation.id,
-          receiverId: parsedRecipientId,
+          receiverId: isGroupForward ? null : parsedRecipientId,
           messageContent,
           messageType: original.message_type,
           attachments: original.attachments || [],
@@ -2575,23 +2590,34 @@ router.post('/:messageId/forward', auth, async (req, res) => {
         // Emit WebSocket event
         const io = getIO();
         if (io) {
-          io.to(`user_${parsedRecipientId}`).emit('conversation:new_message', {
-            conversationId: conversation.id,
-            message: result
-          });
+          if (isGroupForward) {
+            // Emit to group room
+            io.to(`group_${parsedRecipientId}`).emit('conversation:new_message', {
+              conversationId: conversation.id,
+              message: result
+            });
+          } else {
+            // Emit to direct user
+            io.to(`user_${parsedRecipientId}`).emit('conversation:new_message', {
+              conversationId: conversation.id,
+              message: result
+            });
+          }
         }
 
         // Send notification
-        sendNotificationToUser(parsedRecipientId, {
-          type: 'message',
-          title: `${req.user.name} hat eine Nachricht weitergeleitet`,
-          message: messageContent.substring(0, 100),
-          data: {
-            url: '/messages',
-            conversationId: conversation.id,
-            messageId: result.id
-          }
-        });
+        if (!isGroupForward) {
+          sendNotificationToUser(parsedRecipientId, {
+            type: 'message',
+            title: `${req.user.name} hat eine Nachricht weitergeleitet`,
+            message: messageContent.substring(0, 100),
+            data: {
+              url: '/messages',
+              conversationId: conversation.id,
+              messageId: result.id
+            }
+          });
+        }
       }
 
       await client.query('COMMIT');
