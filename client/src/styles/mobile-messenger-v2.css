@@ -575,6 +575,52 @@
   z-index: 10;
 }
 
+.mobile-messenger-message-reply-quote {
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  border-left: 3px solid #007aff;
+}
+
+.mobile-messenger-message.mine .mobile-messenger-message-reply-quote {
+  background: rgba(0, 0, 0, 0.15);
+  border-left-color: rgba(255, 255, 255, 0.4);
+}
+
+.mobile-messenger-message-reply-line {
+  width: 3px;
+  background: #007aff;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.mobile-messenger-message-reply-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.mobile-messenger-message-reply-sender {
+  font-size: 12px;
+  font-weight: 600;
+  color: #007aff;
+  margin-bottom: 2px;
+}
+
+.mobile-messenger-message.mine .mobile-messenger-message-reply-sender {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.mobile-messenger-message-reply-text {
+  font-size: 13px;
+  opacity: 0.8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .mobile-messenger-message-text {
   font-size: 15px;
   line-height: 1.4;

@@ -411,7 +411,9 @@ const MobileMessenger = ({
           <button
             className="mobile-messenger-chat-avatar-header"
             onClick={() => {
-              if (contactForHeader?.id) {
+              if (activeThread?.type === 'group' && onShowGroupInfo) {
+                onShowGroupInfo();
+              } else if (contactForHeader?.id) {
                 navigate(`/profile/${contactForHeader.id}`);
               }
             }}
@@ -443,7 +445,11 @@ const MobileMessenger = ({
             <div className={`mobile-messenger-chat-status ${isOnline ? 'online' : ''}`}>
               {activeThread?.type === 'group'
                 ? `${activeThread.members?.length || 0} Mitglieder`
-                : isOnline ? 'Online' : 'Offline'
+                : isOnline
+                  ? 'Online'
+                  : contactForHeader?.last_seen
+                    ? `Zuletzt online ${formatMessageTime(contactForHeader.last_seen)}`
+                    : 'Zuletzt online'
               }
             </div>
           </button>
@@ -526,6 +532,20 @@ const MobileMessenger = ({
                      !(message.message && (message.message.includes('giphy.com') || message.message.includes('tenor.com') || message.message.match(/\.(gif|webp)(\?|$)/i))) &&
                      !(message.content && (message.content.includes('giphy.com') || message.content.includes('tenor.com') || message.content.match(/\.(gif|webp)(\?|$)/i))) ? (
                       <>
+                        {/* Reply quote */}
+                        {message.reply_to_message_id && (
+                          <div className="mobile-messenger-message-reply-quote">
+                            <div className="mobile-messenger-message-reply-line" />
+                            <div className="mobile-messenger-message-reply-content">
+                              <div className="mobile-messenger-message-reply-sender">
+                                {message.reply_to_sender_name || 'User'}
+                              </div>
+                              <div className="mobile-messenger-message-reply-text">
+                                {message.reply_to_message || message.reply_to_content || 'Nachricht'}
+                              </div>
+                            </div>
+                          </div>
+                        )}
                         <p className="mobile-messenger-message-text">
                           {message.message || message.content}
                         </p>
