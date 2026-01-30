@@ -124,23 +124,30 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
 
   const handleCameraClick = async () => {
     setCameraError('');
-    if (navigator.mediaDevices?.getUserMedia) {
-      try {
-        const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
-        setStream(mediaStream);
-        setShowCamera(true);
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraError('Browser unterstützt keine Kamera. Bitte wählen Sie ein Foto aus.');
+      return;
+    }
+
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user' }
+      });
+      setStream(mediaStream);
+      setShowCamera(true);
+
+      // Wait for next frame to ensure videoRef is ready
+      setTimeout(() => {
         if (videoRef.current) {
           videoRef.current.srcObject = mediaStream;
-          videoRef.current.play().catch(() => {});
+          videoRef.current.play().catch((err) => {
+            console.error('Video play error:', err);
+          });
         }
-      } catch (error) {
-        console.error('Camera error:', error);
-        setCameraError('Kamera kann nicht gestartet werden. Bitte Berechtigungen prüfen oder Foto auswählen.');
-        // Видалено автоматичний fallback - користувач сам обере "Foto auswählen"
-      }
-    } else {
-      // Якщо getUserMedia не підтримується, показуємо повідомлення
-      setCameraError('Browser unterstützt keine Kamera. Bitte wählen Sie ein Foto aus.');
+      }, 100);
+    } catch (error) {
+      console.error('Camera error:', error);
+      setCameraError('Kamera kann nicht gestartet werden. Bitte Berechtigungen prüfen oder Foto auswählen.');
     }
   };
 
