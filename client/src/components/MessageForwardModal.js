@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Forward, X, Search, Check, Users } from 'lucide-react';
-import { getAllContacts, getThreads } from '../utils/apiEnhanced';
+import { getAllContacts } from '../utils/apiEnhanced';
 import { forwardMessage } from '../utils/apiEnhanced';
 import { showError, showSuccess } from '../utils/toast';
 
-const MessageForwardModal = ({ message, onClose, onSuccess }) => {
+const MessageForwardModal = ({ message, threads = [], onClose, onSuccess }) => {
   const [contacts, setContacts] = useState([]);
   const [groups, setGroups] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -20,16 +20,13 @@ const MessageForwardModal = ({ message, onClose, onSuccess }) => {
 
   const loadData = async () => {
     try {
-      const [contactsRes, threadsRes] = await Promise.all([
-        getAllContacts(),
-        getThreads()
-      ]);
+      const contactsRes = await getAllContacts();
       setContacts(contactsRes.data || []);
-      const groupThreads = (threadsRes.data || []).filter(t => t.type === 'group');
+      const groupThreads = (threads || []).filter(t => t.type === 'group');
       setGroups(groupThreads);
     } catch (error) {
-      console.error('Error loading data:', error);
-      showError('Fehler beim Laden der Daten');
+      console.error('Error loading contacts:', error);
+      showError('Fehler beim Laden der Kontakte');
     } finally {
       setLoading(false);
     }

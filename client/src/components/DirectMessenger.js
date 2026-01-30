@@ -5619,6 +5619,7 @@ const DirectMessenger = () => {
       {showForwardModal && messageToForward && (
         <MessageForwardModal
           message={messageToForward}
+          threads={threads}
           onClose={() => {
             setShowForwardModal(false);
             setMessageToForward(null);

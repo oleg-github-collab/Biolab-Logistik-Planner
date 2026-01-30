@@ -1071,6 +1071,7 @@ const MobileMessenger = ({
       {showForwardModal && messageToForward && createPortal(
         <MessageForwardModal
           message={messageToForward}
+          threads={threads}
           onClose={() => {
             setShowForwardModal(false);
             setMessageToForward(null);
