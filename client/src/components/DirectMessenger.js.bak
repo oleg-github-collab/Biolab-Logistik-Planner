@@ -5910,6 +5910,272 @@ const DirectMessenger = () => {
         />
       )}
 
+      {/* Group Members Modal */}
+      {(() => {
+        console.log('🔥 MODAL RENDER CHECK:', { showMembersModal, hasDocument: typeof document !== 'undefined' });
+        return showMembersModal && typeof document !== 'undefined' && createPortal(
+        <div className="group-settings-overlay" onClick={(e) => {
+          console.log('🔥 Modal overlay clicked');
+          if (e.target === e.currentTarget) {
+            setShowMembersModal(false);
+          }
+        }}>
+          <div className="group-settings-modal">
+            <div className="group-settings-header">
+              <div>
+                <p className="group-settings-eyebrow">Gruppeneinstellungen</p>
+                <h3>{activeThread?.name || 'Gruppe'}</h3>
+                <p>{groupMembers.length} Mitglieder</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowMembersModal(false)}
+                className="group-settings-close"
+                aria-label="Schließen"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="group-settings-body">
+              <section className="group-settings-section">
+                <div className="group-settings-section__header">
+                  <h4>Gruppendetails</h4>
+                  {!canManageGroup && <span>Nur Admins</span>}
+                </div>
+                {canManageGroup ? (
+                  <div className="group-settings-form">
+                    <label htmlFor="group-name">Gruppenname</label>
+                    <input
+                      id="group-name"
+                      type="text"
+                      value={groupEditName}
+                      onChange={(event) => setGroupEditName(event.target.value)}
+                      placeholder="z.B. Laborplanung"
+                    />
+                    <label htmlFor="group-description">Beschreibung</label>
+                    <textarea
+                      id="group-description"
+                      value={groupEditDescription}
+                      onChange={(event) => setGroupEditDescription(event.target.value)}
+                      placeholder="Kurzbeschreibung der Gruppe"
+                      rows={3}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleUpdateGroupDetails}
+                      disabled={groupEditSaving}
+                      className="group-settings-save"
+                    >
+                      {groupEditSaving ? 'Speichern…' : 'Änderungen speichern'}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="group-settings-readonly">
+                    <p><strong>{groupEditName || activeThread?.name}</strong></p>
+                    <p>{groupEditDescription || activeThread?.description || 'Keine Beschreibung hinterlegt.'}</p>
+                  </div>
+                )}
+              </section>
+
+              <section className="group-settings-section">
+                <div className="group-settings-section__header">
+                  <h4>Mitglieder hinzufügen</h4>
+                  {groupInviteIds.length > 0 && (
+                    <span>{groupInviteIds.length} ausgewählt</span>
+                  )}
+                </div>
+                {canManageGroup ? (
+                  <>
+                    <div className="group-settings-search">
+                      <Search className="w-4 h-4" />
+                      <input
+                        type="text"
+                        value={groupMemberSearch}
+                        onChange={(event) => setGroupMemberSearch(event.target.value)}
+                        placeholder="Kontakte suchen"
+                      />
+                    </div>
+                    <div className="group-settings-candidates">
+                      {groupInviteCandidates.length === 0 ? (
+                        <p className="group-settings-empty">Keine passenden Kontakte gefunden.</p>
+                      ) : (
+                        groupInviteCandidates.map((contact) => (
+                          <button
+                            key={`invite-${contact.id}`}
+                            type="button"
+                            className={`group-settings-candidate ${
+                              groupInviteIds.includes(contact.id) ? 'selected' : ''
+                            }`}
+                            onClick={() => toggleGroupInviteMember(contact.id)}
+                          >
+                            <span>{contact.name || contact.email}</span>
+                            {groupInviteIds.includes(contact.id) && <Check className="w-4 h-4" />}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleAddGroupMembers}
+                      disabled={groupMembersSaving || groupInviteIds.length === 0}
+                      className="group-settings-add"
+                    >
+                      {groupMembersSaving ? 'Hinzufügen…' : 'Mitglieder hinzufügen'}
+                    </button>
+                  </>
+                ) : (
+                  <p className="group-settings-empty">Du kannst keine Mitglieder hinzufügen.</p>
+                )}
+              </section>
+
+              <section className="group-settings-section">
+                <div className="group-settings-section__header">
+                  <h4>Mitglieder</h4>
+                  <span>{groupMembers.length}</span>
+                </div>
+                <div className="group-settings-members">
+                  {groupMembers.map((member) => {
+                    const isSelf = member.user_id === user?.id;
+                    const isOwner = member.role === 'owner';
+                    const canRemove = canManageGroup && !isOwner && !isSelf;
+                    return (
+                      <div key={member.user_id} className="group-settings-member">
+                        <div
+                          className="group-settings-member__avatar"
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => handleOpenProfile(member.user_id)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              handleOpenProfile(member.user_id);
+                            }
+                          }}
+                        >
+                          {member.name?.[0]?.toUpperCase() || '?'}
+                        </div>
+                        <div className="group-settings-member__info">
+                          <div className="group-settings-member__name">
+                            <span>{member.name}</span>
+                            {isSelf && <em>Du</em>}
+                          </div>
+                          <div className="group-settings-member__meta">
+                            <span>{member.email}</span>
+                            {member.role && (
+                              <strong>
+                                {member.role === 'owner'
+                                  ? 'Besitzer'
+                                  : member.role === 'moderator'
+                                    ? 'Moderator'
+                                    : 'Mitglied'}
+                              </strong>
+                            )}
+                          </div>
+                        </div>
+                        {canRemove && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveGroupMember(member.user_id)}
+                            className="group-settings-member__remove"
+                            disabled={groupMembersSaving}
+                          >
+                            Entfernen
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+
+              {/* Group Files Section */}
+              <section className="group-settings-section">
+                <div className="group-settings-section__header">
+                  <h4>Geteilte Dateien</h4>
+                  <span>{messages.filter(m => m.attachments && m.attachments.length > 0).length}</span>
+                </div>
+                <div className="group-settings-files">
+                  {messages.filter(m => m.attachments && m.attachments.length > 0).length === 0 ? (
+                    <p className="group-settings-empty">Keine geteilten Dateien in dieser Gruppe.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {messages
+                        .filter(m => m.attachments && m.attachments.length > 0)
+                        .slice(0, 10)
+                        .map((msg) => msg.attachments.map((attachment, idx) => (
+                          <a
+                            key={`${msg.id}-${idx}`}
+                            href={getAssetUrl(attachment.file_url || attachment.url)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl hover:bg-slate-100 transition group"
+                          >
+                            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                              {attachment.file_type === 'image' || attachment.mime_type?.startsWith('image/') ? (
+                                <ImageIcon className="w-5 h-5 text-blue-600" />
+                              ) : (
+                                <FileText className="w-5 h-5 text-blue-600" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-gray-900 truncate group-hover:text-blue-600 transition">
+                                {attachment.file_name || attachment.name || 'Datei'}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {msg.sender_name || 'Unbekannt'} • {format(new Date(msg.created_at || msg.timestamp), 'dd.MM.yyyy HH:mm')}
+                              </p>
+                            </div>
+                          </a>
+                        )))}
+                    </div>
+                  )}
+                </div>
+              </section>
+
+              {isSuperadmin && activeThread?.type === 'group' && (
+                <section className="group-settings-section group-settings-section--danger">
+                  <div className="group-settings-section__header">
+                    <h4>Superadmin</h4>
+                    <span>Gefahr</span>
+                  </div>
+                  <div className="group-settings-danger">
+                    <p>Diese Aktion löscht die Gruppe dauerhaft inklusive aller Nachrichten.</p>
+                    <button
+                      type="button"
+                      onClick={handleDeleteGroup}
+                      disabled={groupMembersSaving}
+                      className="group-settings-delete"
+                    >
+                      Gruppe löschen
+                    </button>
+                  </div>
+                </section>
+              )}
+            </div>
+
+            <div className="group-settings-footer">
+              <button
+                type="button"
+                onClick={handleLeaveGroup}
+                disabled={groupMembersSaving}
+                className="group-settings-leave"
+              >
+                Gruppe verlassen
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowMembersModal(false)}
+                className="group-settings-close-btn"
+              >
+                Schließen
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      );
+      })()}
 
           {/* Mention Autocomplete */}
           {showMentionSuggestions && mentionSuggestions.length > 0 && (
