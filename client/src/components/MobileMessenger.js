@@ -462,7 +462,7 @@ const MobileMessenger = ({
             disabled={activeThread?.type !== 'group'}
           >
             <div className="mobile-messenger-chat-name">{displayName}</div>
-            <div className={`mobile-messenger-chat-status ${isOnline ? 'online' : ''}`}>
+            <div className={`mobile-messenger-chat-status ${isOnline && activeThread?.type !== 'group' ? 'online' : ''}`}>
               {activeThread?.type === 'group'
                 ? `${activeThread.members?.length || 0} Mitglieder`
                 : isOnline
