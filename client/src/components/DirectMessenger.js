@@ -544,11 +544,14 @@ const DirectMessenger = () => {
 
   const normalizeContact = useCallback((contact) => {
     if (!contact) return contact;
-    return {
+    const normalized = {
       ...contact,
       online: Boolean(contact.online ?? contact.is_online ?? false),
-      is_bot: Boolean(contact.is_bot || contact.is_system_user || isBotContact(contact))
+      is_bot: Boolean(contact.is_bot || contact.is_system_user || isBotContact(contact)),
+      last_seen: contact.last_seen || contact.last_seen_at,
+      last_seen_at: contact.last_seen_at || contact.last_seen
     };
+    return normalized;
   }, []);
 
   const normalizeThreadLastMessage = useCallback((message) => {
@@ -5628,7 +5631,7 @@ const DirectMessenger = () => {
       )}
 
       {/* Group Members Modal */}
-      {showMembersModal && (
+      {showMembersModal && typeof document !== 'undefined' && createPortal(
         <div className="group-settings-overlay">
           <div className="group-settings-modal">
             <div className="group-settings-header">
@@ -5882,7 +5885,8 @@ const DirectMessenger = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
           {/* Mention Autocomplete */}
