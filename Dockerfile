@@ -1,9 +1,9 @@
-# Use Node.js 18 LTS - v13.9.1 CREATED BY INFO
+# Use Node.js 18 LTS - v13.9.2 MOLESKINE STYLE
 FROM node:18-alpine
 
-# NUCLEAR CACHE BUST - v13.9.1 - SHOW CREATOR NAME IN EVENT MODAL
-ARG BUILDTIME_CACHEBUST=1769750100
-RUN echo "👤 v13.9.1 CREATED BY INFO - CACHE BUSTER: $BUILDTIME_CACHEBUST 👤"
+# NUCLEAR CACHE BUST - v13.9.2 - MOLESKINE/GOOGLE CALENDAR STYLE TILES
+ARG BUILDTIME_CACHEBUST=1769750200
+RUN echo "📓 v13.9.2 MOLESKINE STYLE - CACHE BUSTER: $BUILDTIME_CACHEBUST 📓"
 
 # Set working directory
 WORKDIR /app
@@ -19,10 +19,10 @@ RUN cd client && npm ci --no-cache
 # Copy application code
 COPY . .
 
-# Build client - v13.9.1 CREATED BY INFO
-RUN echo "======================================== v13.9.1 CREATED BY INFO ========================================" && \
+# Build client - v13.9.2 MOLESKINE STYLE
+RUN echo "======================================== v13.9.2 MOLESKINE STYLE ========================================" && \
     echo "🔥 CACHE BUSTER: $(date +%s)" && \
-    echo "Building v13.9.1 (Show creator name in event modal) at $(date)" && \
+    echo "Building v13.9.2 (Moleskine/Google Calendar style tiles) at $(date)" && \
     echo "==========================================================================================================="
 # CRITICAL: Clear ALL caches before build
 RUN cd client && rm -rf node_modules/.cache build .cache dist tmp
@@ -46,7 +46,7 @@ RUN echo "🔥🔥🔥 FORCING FRESH BUILD - NO CACHE ALLOWED 🔥🔥🔥" && \
     echo "📦 Main bundle:" && \
     ls -lh build/static/js/main.*.js
 RUN echo "=============================================================================================" && \
-    echo "✅ Build v13.9.1 CREATED BY INFO complete!" && \
+    echo "✅ Build v13.9.2 MOLESKINE STYLE complete!" && \
     ls -lh client/build/static/js/main.*.js && \
     echo "=============================================================================================" && \
     cat client/build/asset-manifest.json && \

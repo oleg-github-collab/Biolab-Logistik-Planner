@@ -245,8 +245,8 @@ const MobileCalendarEnhanced = ({
           ))}
         </div>
 
-        {/* Calendar grid - tight tiles like desktop */}
-        <div className="mobile-calendar-native__month-grid grid grid-cols-7 border-l border-t border-slate-200">
+        {/* Calendar grid - Moleskine/Google Calendar style with tight tiles */}
+        <div className="mobile-calendar-native__month-grid grid grid-cols-7 border border-slate-300 rounded-lg overflow-hidden shadow-sm">
           {days.map(day => {
             const dayEvents = getEventsForDay(day);
             const isCurrentMonth = isSameMonth(day, currentDate);
@@ -267,36 +267,33 @@ const MobileCalendarEnhanced = ({
                   }
                 }}
                 className={`
-                  mobile-calendar-native__day min-h-[100px] p-2 border-r border-b border-slate-200
-                  transition-all duration-150 text-left relative
-                  ${!isCurrentMonth ? 'bg-slate-50/50 text-slate-400 is-outside' : 'bg-white'}
-                  ${isCurrentDay ? 'bg-blue-50/80 border-blue-400 is-today' : ''}
+                  mobile-calendar-native__day min-h-[110px] p-2.5 border-r border-b border-slate-200
+                  transition-all duration-200 text-left relative
+                  ${!isCurrentMonth ? 'bg-slate-50 text-slate-400 is-outside' : 'bg-white'}
+                  ${isCurrentDay ? 'bg-blue-50 ring-2 ring-inset ring-blue-500 is-today' : ''}
                   ${hasEvents ? 'has-events' : ''}
-                  active:bg-slate-100
+                  hover:bg-slate-50 active:bg-slate-100
+                  last:border-r-0 [&:nth-child(7n)]:border-r-0
+                  [&:nth-last-child(-n+7)]:border-b-0
                 `}
               >
-                {/* Day number and event indicator */}
-                <div className="flex items-start justify-between mb-1.5">
-                  <span className={`flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold transition-all ${
+                {/* Day number - Moleskine style */}
+                <div className="flex items-start justify-between mb-2">
+                  <span className={`flex h-8 w-8 items-center justify-center text-base font-semibold transition-all ${
                     isCurrentDay
-                      ? 'bg-blue-600 text-white shadow-md'
+                      ? 'bg-blue-600 text-white rounded-full shadow-sm'
                       : hasEvents
-                        ? 'bg-slate-100 text-slate-700'
+                        ? 'text-slate-900'
                         : 'text-slate-600'
                   }`}>
                     {format(day, 'd')}
                   </span>
-                  {hasEvents && (
-                    <div className="flex flex-col items-end gap-0.5">
-                      <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
-                      <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-blue-600 text-white font-bold">
-                        {dayEvents.length}
-                      </span>
-                    </div>
+                  {hasEvents && !isCurrentDay && (
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
                   )}
                 </div>
 
-                {/* Events - larger and more visible */}
+                {/* Events - Google Calendar style pills */}
                 {dayEvents.length > 0 && (
                   <div className="space-y-1">
                     {dayEvents.slice(0, 2).map((event, idx) => {
@@ -317,23 +314,23 @@ const MobileCalendarEnhanced = ({
                             e.stopPropagation();
                             onEventClick?.(event);
                           }}
-                          className="w-full flex items-center gap-1 rounded-md px-2 py-1.5 text-[11px] font-bold shadow-md hover:shadow-lg transition-all active:scale-98"
+                          className="w-full flex items-center gap-1 rounded px-1.5 py-1 text-[11px] font-medium hover:opacity-90 transition-opacity"
                           style={{
                             backgroundColor: eventColor,
                             color: eventTextColor
                           }}
                         >
                           {isMultiDay && (
-                            <span className="text-[9px] opacity-90 flex-shrink-0 font-extrabold">
+                            <span className="text-[8px] opacity-80 flex-shrink-0">
                               {isStartDay ? '▶' : isContinuing ? '━' : '◀'}
                             </span>
                           )}
-                          <span className="truncate flex-1 text-left leading-tight">{event.title}</span>
+                          <span className="truncate flex-1 text-left">{event.title}</span>
                         </button>
                       );
                     })}
                     {dayEvents.length > 2 && (
-                      <div className="text-[10px] text-blue-600 font-bold px-2 py-1 bg-blue-50 rounded-md">
+                      <div className="text-[9px] text-slate-500 font-medium px-1.5">
                         +{dayEvents.length - 2} більше
                       </div>
                     )}
