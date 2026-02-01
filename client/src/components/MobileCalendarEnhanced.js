@@ -346,9 +346,13 @@ const MobileCalendarEnhanced = ({
       return dateA - dateB;
     });
 
+    const today = startOfDay(new Date());
     const upcomingEvents = sortedEvents.filter(e => {
-      const eventDate = e.start instanceof Date ? e.start : new Date(e.start);
-      return eventDate >= new Date();
+      const eventStart = e.start instanceof Date ? e.start : parseISO(e.start);
+      const eventEnd = e.end ? (e.end instanceof Date ? e.end : parseISO(e.end)) : eventStart;
+      // Show event if it starts today or later, OR if it's a multi-day event that hasn't ended yet
+      return startOfDay(eventStart) >= today ||
+             (startOfDay(eventEnd) >= today && !isSameDay(eventStart, eventEnd));
     });
 
     return (
@@ -366,55 +370,63 @@ const MobileCalendarEnhanced = ({
               <p>Keine anstehenden Termine</p>
             </div>
           ) : (
-            upcomingEvents.map(event => (
-              <button
-                key={event.id}
-                onClick={() => onEventClick(event)}
-                className="mobile-calendar-native__list-item w-full p-3 hover:bg-slate-50 transition text-left"
-              >
-                <div className="flex items-start gap-3">
-                  <div className={`
-                    mobile-calendar-native__list-dot mt-0.5 w-2 h-2 rounded-full flex-shrink-0
-                    ${(event.event_type || event.type) === 'Arbeit' ? 'bg-sky-500' :
-                      (event.event_type || event.type) === 'Meeting' ? 'bg-indigo-500' :
-                      (event.event_type || event.type) === 'Urlaub' ? 'bg-amber-500' :
-                      (event.event_type || event.type) === 'Krankheit' ? 'bg-rose-500' :
-                      'bg-slate-500'}
-                  `} />
+            upcomingEvents.map(event => {
+              const eventStart = event.start instanceof Date ? event.start : parseISO(event.start);
+              const eventEnd = event.end ? (event.end instanceof Date ? event.end : parseISO(event.end)) : eventStart;
+              const isMultiDay = !isSameDay(eventStart, eventEnd);
+              const eventColor = event.color || '#3b82f6';
 
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-semibold text-slate-900 truncate">
-                      {event.title}
-                    </h4>
+              return (
+                <button
+                  key={event.id}
+                  onClick={() => onEventClick(event)}
+                  className="mobile-calendar-native__list-item w-full p-4 hover:bg-slate-50 active:bg-slate-100 transition-all text-left border-l-4"
+                  style={{ borderLeftColor: eventColor }}
+                >
+                  <div className="flex items-start gap-3">
+                    <div
+                      className="mt-0.5 w-3 h-3 rounded-full flex-shrink-0 shadow-sm"
+                      style={{ backgroundColor: eventColor }}
+                    />
 
-                    <div className="flex items-center gap-3 mt-1 text-xs text-slate-600">
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {format(
-                          event.start instanceof Date ? event.start : parseISO(event.start),
-                          'dd.MM.yyyy HH:mm'
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="font-semibold text-slate-900 truncate flex-1">
+                          {event.title}
+                        </h4>
+                        {isMultiDay && (
+                          <span className="text-[10px] px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full font-semibold flex-shrink-0">
+                            {format(eventStart, 'd.M.')} – {format(eventEnd, 'd.M.')}
+                          </span>
                         )}
-                      </span>
+                      </div>
 
-                      {event.location && (
-                        <span className="flex items-center gap-1">
-                          <MapPin className="w-3 h-3" />
-                          {event.location}
+                      <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-600">
+                        <span className="flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5" />
+                          {format(eventStart, isMultiDay ? 'dd.MM.yyyy' : 'dd.MM.yyyy HH:mm')}
                         </span>
+
+                        {event.location && (
+                          <span className="flex items-center gap-1.5 truncate">
+                            <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+                            <span className="truncate">{event.location}</span>
+                          </span>
+                        )}
+                      </div>
+
+                      {event.description && (
+                        <p className="mt-1.5 text-xs text-slate-500 line-clamp-2">
+                          {event.description}
+                        </p>
                       )}
                     </div>
 
-                    {event.description && (
-                      <p className="mt-1 text-xs text-slate-500 line-clamp-2">
-                        {event.description}
-                      </p>
-                    )}
+                    <ChevronRight className="w-5 h-5 text-slate-400 flex-shrink-0 self-center" />
                   </div>
-
-                  <ChevronRight className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                </div>
-              </button>
-            ))
+                </button>
+              );
+            })
           )}
         </div>
       </div>
