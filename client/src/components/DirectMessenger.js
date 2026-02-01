@@ -3651,6 +3651,28 @@ const DirectMessenger = () => {
   const ContactList = ({ variant, storyEntries, storyMap, onStoryOpen, storiesLoading }) => {
     const [isScrolled, setIsScrolled] = useState(false);
     const scrollContainerRef = useRef(null);
+    const scrollPositionRef = useRef(0);
+
+    // Save scroll position before re-render
+    useEffect(() => {
+      const container = scrollContainerRef.current;
+      if (!container) return;
+
+      const saveScrollPosition = () => {
+        scrollPositionRef.current = container.scrollTop;
+      };
+
+      container.addEventListener('scroll', saveScrollPosition, { passive: true });
+      return () => container.removeEventListener('scroll', saveScrollPosition);
+    }, []);
+
+    // Restore scroll position after re-render
+    useEffect(() => {
+      const container = scrollContainerRef.current;
+      if (container && scrollPositionRef.current > 0) {
+        container.scrollTop = scrollPositionRef.current;
+      }
+    });
 
     // Disable scroll-collapsing on mobile to avoid layout jumps
     useEffect(() => {
