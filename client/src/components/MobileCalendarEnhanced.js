@@ -27,7 +27,11 @@ import {
   subMonths,
   addWeeks,
   subWeeks,
-  parseISO
+  parseISO,
+  isAfter,
+  isBefore,
+  startOfDay,
+  endOfDay
 } from 'date-fns';
 import { de } from 'date-fns/locale';
 
@@ -71,14 +75,23 @@ const MobileCalendarEnhanced = ({
     });
   }, [events, selectedEventType]);
 
-  // Get events for a specific day
+  // Get events for a specific day - INCLUDING multi-day events
   const getEventsForDay = useCallback((day) => {
     return filteredEvents.filter(event => {
       // Handle both string dates and Date objects
-      const eventDate = event.start instanceof Date
-        ? event.start
-        : parseISO(event.start);
-      return isSameDay(eventDate, day);
+      const eventStart = event.start instanceof Date ? event.start : parseISO(event.start);
+      const eventEnd = event.end ? (event.end instanceof Date ? event.end : parseISO(event.end)) : eventStart;
+
+      const dayStart = startOfDay(day);
+      const dayEnd = endOfDay(day);
+
+      // Event is on this day if:
+      // 1. It starts on this day, OR
+      // 2. It ends on this day, OR
+      // 3. It spans across this day (starts before AND ends after)
+      return isSameDay(eventStart, day) ||
+             isSameDay(eventEnd, day) ||
+             (isBefore(eventStart, dayStart) && isAfter(eventEnd, dayEnd));
     });
   }, [filteredEvents]);
 
@@ -271,10 +284,17 @@ const MobileCalendarEnhanced = ({
                   <div className="space-y-0.5">
                     {dayEvents.slice(0, 3).map((event, idx) => {
                       const eventType = event.event_type || event.type;
+                      const eventStart = event.start instanceof Date ? event.start : parseISO(event.start);
+                      const eventEnd = event.end ? (event.end instanceof Date ? event.end : parseISO(event.end)) : eventStart;
+                      const isMultiDay = !isSameDay(eventStart, eventEnd);
+                      const isStartDay = isSameDay(eventStart, day);
+                      const isEndDay = isSameDay(eventEnd, day);
+                      const isContinuing = isMultiDay && !isStartDay && !isEndDay;
+
                       return (
                         <div
                           key={event.id || idx}
-                          className={`mobile-calendar-native__event-chip text-[10px] px-1 py-0.5 rounded truncate ${
+                          className={`mobile-calendar-native__event-chip text-[10px] px-1.5 py-0.5 rounded-md truncate flex items-center gap-1 ${
                             eventType === 'Arbeit' ? 'bg-sky-100 text-sky-700' :
                             eventType === 'Meeting' ? 'bg-indigo-100 text-indigo-700' :
                             eventType === 'Urlaub' ? 'bg-amber-100 text-amber-700' :
@@ -282,7 +302,12 @@ const MobileCalendarEnhanced = ({
                             'bg-slate-100 text-slate-700'
                           }`}
                         >
-                          {event.title}
+                          {isMultiDay && (
+                            <span className="text-[8px] font-bold opacity-70">
+                              {isStartDay ? '▶' : isContinuing ? '━' : '◀'}
+                            </span>
+                          )}
+                          <span className="truncate flex-1">{event.title}</span>
                         </div>
                       );
                     })}
