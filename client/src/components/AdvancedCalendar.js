@@ -75,12 +75,7 @@ const AdvancedCalendar = ({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  useEffect(() => {
-    if (!view && isMobile && activeView === 'month') {
-      setInternalView('agenda');
-      onViewChange?.('agenda');
-    }
-  }, [isMobile, view, activeView, onViewChange]);
+  // Removed auto-switch from month to agenda on mobile - month view now works on mobile
 
   // Build list of time slots
   const slotHeight = isMobile ? BASE_SLOT_HEIGHT + 8 : BASE_SLOT_HEIGHT;
@@ -529,30 +524,33 @@ const AdvancedCalendar = ({
         return (
           <div
             key={date.toISOString()}
-            className={`border-b border-r border-slate-100 p-2 transition hover:bg-blue-50/60 ${
+            className={`border-b border-r border-slate-100 transition hover:bg-blue-50/60 ${
               isMuted ? 'bg-slate-50 text-slate-400' : 'bg-white text-slate-600'
-            } ${isToday(date) ? 'border-blue-200 bg-blue-50/70' : ''}`}
-            style={{ minHeight: isMobile ? 110 : 140 }}
+            } ${isToday(date) ? 'border-blue-200 bg-blue-50/70' : ''} ${
+              isMobile ? 'p-1.5 min-h-[90px]' : 'p-2 min-h-[140px]'
+            }`}
             onClick={() => onDateSelect?.(date)}
             onDoubleClick={(e) => openQuickCreate(date, null, e.clientX, e.clientY)}
           >
-            <div className="mb-2 flex items-center justify-between">
+            <div className={`flex items-center justify-between ${isMobile ? 'mb-1' : 'mb-2'}`}>
               <span
-                className={`flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold ${
-                  isToday(date) ? 'bg-blue-600 text-white shadow-sm' : ''
-                }`}
+                className={`flex items-center justify-center rounded-full font-semibold ${
+                  isMobile ? 'h-6 w-6 text-xs' : 'h-7 w-7 text-sm'
+                } ${isToday(date) ? 'bg-blue-600 text-white shadow-sm' : ''}`}
               >
                 {format(date, 'd')}
               </span>
               {dayEvents.length > 0 && (
-                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
+                <span className={`rounded-full bg-blue-100 font-semibold text-blue-700 ${
+                  isMobile ? 'px-1.5 py-0.5 text-[9px]' : 'px-2 py-0.5 text-[10px]'
+                }`}>
                   {dayEvents.length}
                 </span>
               )}
             </div>
 
-            <div className="space-y-1">
-              {dayEvents.slice(0, 3).map((event) => {
+            <div className={isMobile ? 'space-y-0.5' : 'space-y-1'}>
+              {dayEvents.slice(0, isMobile ? 2 : 3).map((event) => {
                 const isMultiDay = event.end && !isSameDay(event.start, event.end);
                 const isStartDay = isSameDay(event.start, date);
                 const isEndDay = isSameDay(event.end, date);
@@ -565,11 +563,13 @@ const AdvancedCalendar = ({
                       e.stopPropagation();
                       onEventClick?.(event);
                     }}
-                    className="flex w-full items-center gap-1 rounded-lg px-2 py-1 text-left text-[11px] font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow relative"
+                    className={`flex w-full items-center gap-1 rounded-lg text-left font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow relative ${
+                      isMobile ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-1 text-[11px]'
+                    }`}
                     style={{ backgroundColor: event.color, color: event.textColor }}
                   >
                     {isMultiDay && (
-                      <span className="text-[9px] opacity-75">
+                      <span className={isMobile ? 'text-[8px] opacity-75' : 'text-[9px] opacity-75'}>
                         {isStartDay ? '▶' : isContinuing ? '━' : '◀'}
                       </span>
                     )}
@@ -578,15 +578,17 @@ const AdvancedCalendar = ({
                 );
               })}
 
-              {dayEvents.length > 3 && (
+              {dayEvents.length > (isMobile ? 2 : 3) && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     onDateSelect?.(date);
                   }}
-                  className="text-[10px] font-semibold text-blue-600 hover:text-blue-800"
+                  className={`font-semibold text-blue-600 hover:text-blue-800 ${
+                    isMobile ? 'text-[9px]' : 'text-[10px]'
+                  }`}
                 >
-                  +{dayEvents.length - 3} weitere
+                  +{dayEvents.length - (isMobile ? 2 : 3)} weitere
                 </button>
               )}
             </div>
