@@ -31,7 +31,8 @@ import {
   isAfter,
   isBefore,
   startOfDay,
-  endOfDay
+  endOfDay,
+  getDay
 } from 'date-fns';
 import { de } from 'date-fns/locale';
 
@@ -245,100 +246,128 @@ const MobileCalendarEnhanced = ({
           ))}
         </div>
 
-        {/* Calendar grid - Moleskine/Google Calendar style with tight tiles */}
-        <div className="mobile-calendar-native__month-grid grid grid-cols-7 border border-slate-300 rounded-lg overflow-hidden shadow-sm">
-          {days.map(day => {
-            const dayEvents = getEventsForDay(day);
-            const isCurrentMonth = isSameMonth(day, currentDate);
-            const isCurrentDay = isToday(day);
-            const hasEvents = dayEvents.length > 0;
+        {/* Calendar container with relative positioning for absolute event overlay */}
+        <div className="relative">
+          {/* Calendar grid - Premium style with multi-day event spans */}
+          <div className="mobile-calendar-native__month-grid grid grid-cols-7 gap-0 bg-white rounded-xl overflow-hidden shadow-lg border border-slate-200">
+            {days.map((day, dayIndex) => {
+              const dayEvents = getEventsForDay(day);
+              const isCurrentMonth = isSameMonth(day, currentDate);
+              const isCurrentDay = isToday(day);
+              const hasEvents = dayEvents.length > 0;
+              const dayOfWeek = getDay(day);
 
-            return (
-              <button
-                key={day.toISOString()}
-                onClick={() => {
-                  if (dayEvents.length === 1) {
-                    onEventClick(dayEvents[0]);
-                  } else if (dayEvents.length > 1) {
-                    setViewType(VIEW_TYPES.DAY);
-                    setCurrentDate(day);
-                  } else {
-                    onEventCreate?.({ start: day });
-                  }
-                }}
-                className={`
-                  mobile-calendar-native__day min-h-[110px] p-2.5 border-r border-b border-slate-200
-                  transition-all duration-200 text-left relative
-                  ${!isCurrentMonth ? 'bg-slate-50 text-slate-400 is-outside' : 'bg-white'}
-                  ${isCurrentDay ? 'bg-blue-50 ring-2 ring-inset ring-blue-500 is-today' : ''}
-                  ${hasEvents ? 'has-events' : ''}
-                  hover:bg-slate-50 active:bg-slate-100
-                  last:border-r-0 [&:nth-child(7n)]:border-r-0
-                  [&:nth-last-child(-n+7)]:border-b-0
-                `}
-              >
-                {/* Day number - Moleskine style */}
-                <div className="flex items-start justify-between mb-2">
-                  <span className={`flex h-8 w-8 items-center justify-center text-base font-semibold transition-all ${
-                    isCurrentDay
-                      ? 'bg-blue-600 text-white rounded-full shadow-sm'
-                      : hasEvents
-                        ? 'text-slate-900'
-                        : 'text-slate-600'
-                  }`}>
-                    {format(day, 'd')}
-                  </span>
-                  {hasEvents && !isCurrentDay && (
-                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
-                  )}
-                </div>
-
-                {/* Events - Google Calendar style pills */}
-                {dayEvents.length > 0 && (
-                  <div className="space-y-1">
-                    {dayEvents.slice(0, 2).map((event, idx) => {
-                      const eventStart = event.start instanceof Date ? event.start : parseISO(event.start);
-                      const eventEnd = event.end ? (event.end instanceof Date ? event.end : parseISO(event.end)) : eventStart;
-                      const isMultiDay = !isSameDay(eventStart, eventEnd);
-                      const isStartDay = isSameDay(eventStart, day);
-                      const isEndDay = isSameDay(eventEnd, day);
-                      const isContinuing = isMultiDay && !isStartDay && !isEndDay;
-
-                      const eventColor = event.color || '#3b82f6';
-                      const eventTextColor = event.textColor || '#ffffff';
-
-                      return (
-                        <button
-                          key={event.id || idx}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onEventClick?.(event);
-                          }}
-                          className="w-full flex items-center gap-1 rounded px-1.5 py-1 text-[11px] font-medium hover:opacity-90 transition-opacity"
-                          style={{
-                            backgroundColor: eventColor,
-                            color: eventTextColor
-                          }}
-                        >
-                          {isMultiDay && (
-                            <span className="text-[8px] opacity-80 flex-shrink-0">
-                              {isStartDay ? '▶' : isContinuing ? '━' : '◀'}
-                            </span>
-                          )}
-                          <span className="truncate flex-1 text-left">{event.title}</span>
-                        </button>
-                      );
-                    })}
-                    {dayEvents.length > 2 && (
-                      <div className="text-[9px] text-slate-500 font-medium px-1.5">
-                        +{dayEvents.length - 2} більше
-                      </div>
-                    )}
+              return (
+                <div
+                  key={day.toISOString()}
+                  className={`
+                    mobile-calendar-native__day min-h-[85px] p-1.5 border-r border-b border-slate-100
+                    text-left relative
+                    ${!isCurrentMonth ? 'bg-slate-50/30 text-slate-400 is-outside' : 'bg-white'}
+                    ${isCurrentDay ? 'is-today' : ''}
+                    ${hasEvents ? 'has-events' : ''}
+                    last:border-r-0 [&:nth-child(7n)]:border-r-0
+                    [&:nth-last-child(-n+7)]:border-b-0
+                  `}
+                >
+                  {/* Day number */}
+                  <div className="relative z-10 mb-1">
+                    <span className={`inline-flex h-7 w-7 items-center justify-center text-sm font-semibold rounded-full transition-all ${
+                      isCurrentDay
+                        ? 'bg-red-500 text-white shadow-md'
+                        : 'text-slate-700'
+                    }`}>
+                      {format(day, 'd')}
+                    </span>
                   </div>
-                )}
-              </button>
-            );
-          })}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Event spans overlay - positioned absolutely over calendar */}
+          <div
+            className="absolute top-0 left-0 right-0 pointer-events-none"
+            style={{
+              height: `calc(85px * ${Math.ceil(days.length / 7)})`
+            }}
+          >
+            {filteredEvents.map((event, eventIdx) => {
+              const eventStart = event.start instanceof Date ? event.start : parseISO(event.start);
+              const eventEnd = event.end ? (event.end instanceof Date ? event.end : parseISO(event.end)) : eventStart;
+              const isMultiDay = !isSameDay(eventStart, eventEnd);
+
+              // Find which row and column this event starts
+              const startDayIndex = days.findIndex(day => isSameDay(day, eventStart));
+              const endDayIndex = days.findIndex(day => isSameDay(day, eventEnd));
+
+              if (startDayIndex === -1) return null;
+
+              const eventColor = event.color || '#3b82f6';
+              const eventTextColor = event.textColor || '#ffffff';
+
+              // Single day event
+              if (!isMultiDay) {
+                const row = Math.floor(startDayIndex / 7);
+                const col = startDayIndex % 7;
+
+                return (
+                  <button
+                    key={`${event.id}-${eventIdx}`}
+                    onClick={() => onEventClick?.(event)}
+                    className="absolute pointer-events-auto h-5 flex items-center px-2 text-[9px] font-medium rounded shadow hover:shadow-md transition-all z-20"
+                    style={{
+                      backgroundColor: eventColor,
+                      color: eventTextColor,
+                      top: `calc(${row * 85}px + 34px)`,
+                      left: `calc(${col * (100/7)}% + 8px)`,
+                      width: `calc(${100/7}% - 16px)`,
+                    }}
+                  >
+                    <span className="truncate">{event.title}</span>
+                  </button>
+                );
+              }
+
+              // Multi-day event - render spans across rows
+              const startRow = Math.floor(startDayIndex / 7);
+              const startCol = startDayIndex % 7;
+              const endRow = Math.floor((endDayIndex === -1 ? days.length - 1 : endDayIndex) / 7);
+              const endCol = endDayIndex === -1 ? 6 : endDayIndex % 7;
+
+              const spans = [];
+              for (let row = startRow; row <= endRow; row++) {
+                const colStart = row === startRow ? startCol : 0;
+                const colEnd = row === endRow ? endCol : 6;
+                const spanWidth = colEnd - colStart + 1;
+
+                const roundedStart = row === startRow;
+                const roundedEnd = row === endRow;
+
+                spans.push(
+                  <button
+                    key={`${event.id}-row${row}`}
+                    onClick={() => onEventClick?.(event)}
+                    className={`absolute pointer-events-auto h-6 flex items-center px-2 text-[10px] font-medium shadow-md hover:shadow-lg transition-all z-20
+                      ${roundedStart ? 'rounded-l-full pl-3' : ''}
+                      ${roundedEnd ? 'rounded-r-full pr-3' : ''}
+                    `}
+                    style={{
+                      backgroundColor: eventColor,
+                      color: eventTextColor,
+                      top: `calc(${row * 85}px + 32px)`,
+                      left: `calc(${colStart * (100/7)}% + 8px)`,
+                      width: `calc(${spanWidth * (100/7)}% - 16px)`,
+                    }}
+                  >
+                    {roundedStart && <span className="truncate">{event.title}</span>}
+                  </button>
+                );
+              }
+
+              return spans;
+            })}
+          </div>
         </div>
       </div>
     );
