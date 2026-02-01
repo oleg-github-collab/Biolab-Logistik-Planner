@@ -147,15 +147,21 @@ router.post('/register', async (req, res) => {
     const requestedRole = allowedRoles.includes(role) ? role : 'employee';
     const userRole = allowOpenRegistration ? 'superadmin' : requestedRole;
 
+    // Observer role doesn't need employment_type or weekly_hours_quota
+    const finalEmploymentType = userRole === 'observer' ? null : (employment_type || 'Werkstudent');
+
     // Calculate weekly hours quota based on employment type
-    let hoursQuota = weekly_hours_quota;
-    if (!hoursQuota) {
-      if (employment_type === 'Vollzeit') {
-        hoursQuota = 40.0;
-      } else if (employment_type === 'Werkstudent') {
-        hoursQuota = 20.0;
-      } else {
-        hoursQuota = 20.0; // Default
+    let hoursQuota = null;
+    if (userRole !== 'observer') {
+      hoursQuota = weekly_hours_quota;
+      if (!hoursQuota) {
+        if (employment_type === 'Vollzeit') {
+          hoursQuota = 40.0;
+        } else if (employment_type === 'Werkstudent') {
+          hoursQuota = 20.0;
+        } else {
+          hoursQuota = 20.0; // Default
+        }
       }
     }
 
@@ -167,7 +173,7 @@ router.post('/register', async (req, res) => {
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)
       RETURNING id, name, email, role, employment_type, weekly_hours_quota,
                 first_login_completed, created_at`,
-      [name, email, hashedPassword, userRole, employment_type, hoursQuota, false]
+      [name, email, hashedPassword, userRole, finalEmploymentType, hoursQuota, false]
     );
 
     const newUser = insertResult.rows[0];
