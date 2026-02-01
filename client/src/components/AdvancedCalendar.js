@@ -521,7 +521,9 @@ const AdvancedCalendar = ({
       ))}
 
       {calendarDates.map((date) => {
-        const dayEvents = normalisedEvents.filter((event) => isSameDay(event.start, date));
+        const dayEvents = normalisedEvents.filter((event) =>
+          isSameDay(event.start, date) || isWithinMultiDay(event, date)
+        );
         const isMuted = !isSameMonth(date, currentDate);
 
         return (
@@ -550,19 +552,31 @@ const AdvancedCalendar = ({
             </div>
 
             <div className="space-y-1">
-              {dayEvents.slice(0, 3).map((event) => (
-                <button
-                  key={`${event.id}-${event.start.toISOString()}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onEventClick?.(event);
-                  }}
-                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-[11px] font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow"
-                  style={{ backgroundColor: event.color, color: event.textColor }}
-                >
-                  <span className="truncate">{event.title}</span>
-                </button>
-              ))}
+              {dayEvents.slice(0, 3).map((event) => {
+                const isMultiDay = event.end && !isSameDay(event.start, event.end);
+                const isStartDay = isSameDay(event.start, date);
+                const isEndDay = isSameDay(event.end, date);
+                const isContinuing = isMultiDay && !isStartDay && !isEndDay;
+
+                return (
+                  <button
+                    key={`${event.id}-${event.start.toISOString()}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEventClick?.(event);
+                    }}
+                    className="flex w-full items-center gap-1 rounded-lg px-2 py-1 text-left text-[11px] font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow relative"
+                    style={{ backgroundColor: event.color, color: event.textColor }}
+                  >
+                    {isMultiDay && (
+                      <span className="text-[9px] opacity-75">
+                        {isStartDay ? '▶' : isContinuing ? '━' : '◀'}
+                      </span>
+                    )}
+                    <span className="truncate flex-1">{event.title}</span>
+                  </button>
+                );
+              })}
 
               {dayEvents.length > 3 && (
                 <button
@@ -586,7 +600,9 @@ const AdvancedCalendar = ({
     <div className="flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="divide-y divide-slate-100">
         {calendarDates.map((date) => {
-          const dayEvents = normalisedEvents.filter((event) => isSameDay(event.start, date));
+          const dayEvents = normalisedEvents.filter((event) =>
+            isSameDay(event.start, date) || isWithinMultiDay(event, date)
+          );
 
           return (
             <div key={date.toISOString()} className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-start">
@@ -617,24 +633,38 @@ const AdvancedCalendar = ({
                   </div>
                 )}
 
-                {dayEvents.map((event) => (
-                  <button
-                    key={`${event.id}-${event.start.toISOString()}`}
-                    onClick={() => onEventClick?.(event)}
-                    className="flex w-full flex-col gap-1 rounded-xl border border-transparent px-4 py-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md"
-                    style={{ backgroundColor: `${event.color}1A` }}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold text-slate-700">{event.title}</span>
-                      <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                        {event.type}
-                      </span>
-                    </div>
-                    <div className="text-xs font-medium text-slate-500">
-                      {event.allDay
-                        ? 'Ganztägig'
-                        : `${format(event.start, 'HH:mm')} – ${format(event.end, 'HH:mm')}`}
-                    </div>
+                {dayEvents.map((event) => {
+                  const isMultiDay = event.end && !isSameDay(event.start, event.end);
+                  const isStartDay = isSameDay(event.start, date);
+                  const isEndDay = isSameDay(event.end, date);
+
+                  return (
+                    <button
+                      key={`${event.id}-${event.start.toISOString()}`}
+                      onClick={() => onEventClick?.(event)}
+                      className="flex w-full flex-col gap-1 rounded-xl border border-transparent px-4 py-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md"
+                      style={{ backgroundColor: `${event.color}1A` }}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          {isMultiDay && (
+                            <span className="text-xs opacity-60 flex-shrink-0">
+                              {isStartDay ? '▶' : isEndDay ? '◀' : '━'}
+                            </span>
+                          )}
+                          <span className="text-sm font-semibold text-slate-700 truncate">{event.title}</span>
+                        </div>
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 flex-shrink-0">
+                          {event.type}
+                        </span>
+                      </div>
+                      <div className="text-xs font-medium text-slate-500">
+                        {event.allDay || isMultiDay
+                          ? isMultiDay
+                            ? `${format(event.start, 'd.M.')} – ${format(event.end, 'd.M.')}`
+                            : 'Ganztägig'
+                          : `${format(event.start, 'HH:mm')} – ${format(event.end, 'HH:mm')}`}
+                      </div>
                     {event.location && (
                       <div className="text-xs text-slate-500">📍 {event.location}</div>
                     )}
@@ -642,7 +672,8 @@ const AdvancedCalendar = ({
                       <div className="text-xs text-slate-500 line-clamp-2">{event.description}</div>
                     )}
                   </button>
-                ))}
+                  );
+                })}
               </div>
             </div>
           );

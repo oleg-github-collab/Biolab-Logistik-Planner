@@ -3686,8 +3686,8 @@ const DirectMessenger = () => {
       ? `${visibleItems} Treffer · ${onlineContacts} online`
       : `${totalContacts} Kontakte · ${totalGroups} Gruppen · ${onlineContacts} online`;
 
-  const renderContactCard = (contact) => {
-    const isSelected = selectedContact?.id === contact.id;
+  // Memoized ContactCard component to prevent unnecessary re-renders
+  const ContactCard = React.memo(({ contact, isSelected, onSelect }) => {
     const contactStory = storyMap?.[contact.id];
     const unreadCount = contact.unreadCount || 0;
     const isBot = contact.is_bot || contact.is_system_user ||
@@ -3703,8 +3703,10 @@ const DirectMessenger = () => {
 
       return (
         <button
-          key={contact.id}
-          onClick={() => handleContactClick(contact)}
+          onClick={(e) => {
+            e.preventDefault();
+            onSelect(contact);
+          }}
           className={`contact-card ${isSelected ? 'contact-card--active' : ''} ${isBot ? 'contact-card--bot' : ''}`}
         >
           <div className="relative">
@@ -3784,11 +3786,30 @@ const DirectMessenger = () => {
           </div>
         </button>
       );
+    }, (prevProps, nextProps) => {
+      // Custom comparison function - only re-render if these specific props changed
+      return prevProps.contact.id === nextProps.contact.id &&
+             prevProps.isSelected === nextProps.isSelected &&
+             prevProps.contact.online === nextProps.contact.online &&
+             prevProps.contact.unreadCount === nextProps.contact.unreadCount &&
+             prevProps.contact.last_seen === nextProps.contact.last_seen &&
+             prevProps.contact.last_seen_at === nextProps.contact.last_seen_at;
+    });
+
+    const renderContactCard = (contact) => {
+      const isSelected = selectedContact?.id === contact.id;
+      return (
+        <ContactCard
+          key={contact.id}
+          contact={contact}
+          isSelected={isSelected}
+          onSelect={handleContactClick}
+        />
+      );
     };
 
-    // Render group chat card
-    const renderGroupChatCard = (groupThread) => {
-      const isSelected = selectedThreadId === groupThread.id;
+    // Memoized GroupChatCard component
+    const GroupChatCard = React.memo(({ groupThread, isSelected, onSelect }) => {
       const unreadCount = groupThread.unreadCount || 0;
       const isGeneral = isGeneralThread(groupThread);
       const displayName = isGeneral ? 'Allgemeiner Chat' : (groupThread.name || 'Gruppenchat');
@@ -3811,8 +3832,10 @@ const DirectMessenger = () => {
 
       return (
         <button
-          key={groupThread.id}
-          onClick={() => handleGroupChatClick(groupThread)}
+          onClick={(e) => {
+            e.preventDefault();
+            onSelect(groupThread);
+          }}
           className={`contact-card ${isSelected ? 'contact-card--active' : ''} ${isGeneral ? 'contact-card--general' : ''}`}
         >
           <div className="relative">
@@ -3840,6 +3863,25 @@ const DirectMessenger = () => {
             </div>
           </div>
         </button>
+      );
+    }, (prevProps, nextProps) => {
+      // Custom comparison function
+      return prevProps.groupThread.id === nextProps.groupThread.id &&
+             prevProps.isSelected === nextProps.isSelected &&
+             prevProps.groupThread.unreadCount === nextProps.groupThread.unreadCount &&
+             prevProps.groupThread.lastMessage?.id === nextProps.groupThread.lastMessage?.id &&
+             prevProps.groupThread.lastMessage?.content === nextProps.groupThread.lastMessage?.content;
+    });
+
+    const renderGroupChatCard = (groupThread) => {
+      const isSelected = selectedThreadId === groupThread.id;
+      return (
+        <GroupChatCard
+          key={groupThread.id}
+          groupThread={groupThread}
+          isSelected={isSelected}
+          onSelect={handleGroupChatClick}
+        />
       );
     };
 
