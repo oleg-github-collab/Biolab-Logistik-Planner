@@ -245,12 +245,13 @@ const MobileCalendarEnhanced = ({
           ))}
         </div>
 
-        {/* Calendar grid */}
-        <div className="mobile-calendar-native__month-grid grid grid-cols-7">
+        {/* Calendar grid - tight tiles like desktop */}
+        <div className="mobile-calendar-native__month-grid grid grid-cols-7 border-l border-t border-slate-200">
           {days.map(day => {
             const dayEvents = getEventsForDay(day);
             const isCurrentMonth = isSameMonth(day, currentDate);
             const isCurrentDay = isToday(day);
+            const hasEvents = dayEvents.length > 0;
 
             return (
               <button
@@ -266,29 +267,38 @@ const MobileCalendarEnhanced = ({
                   }
                 }}
                 className={`
-                  mobile-calendar-native__day min-h-[90px] p-1.5 border-r border-b border-slate-200
-                  hover:bg-blue-50/40 transition-all duration-150 text-left
-                  ${!isCurrentMonth ? 'bg-slate-50 text-slate-400 is-outside' : 'bg-white'}
-                  ${isCurrentDay ? 'bg-blue-50 border-blue-300 is-today' : ''}
-                  ${dayEvents.length > 0 ? 'has-events' : ''}
+                  mobile-calendar-native__day min-h-[100px] p-2 border-r border-b border-slate-200
+                  transition-all duration-150 text-left relative
+                  ${!isCurrentMonth ? 'bg-slate-50/50 text-slate-400 is-outside' : 'bg-white'}
+                  ${isCurrentDay ? 'bg-blue-50/80 border-blue-400 is-today' : ''}
+                  ${hasEvents ? 'has-events' : ''}
+                  active:bg-slate-100
                 `}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${
-                    isCurrentDay ? 'bg-blue-600 text-white shadow-sm' : ''
+                {/* Day number and event indicator */}
+                <div className="flex items-start justify-between mb-1.5">
+                  <span className={`flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold transition-all ${
+                    isCurrentDay
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : hasEvents
+                        ? 'bg-slate-100 text-slate-700'
+                        : 'text-slate-600'
                   }`}>
                     {format(day, 'd')}
                   </span>
-                  {dayEvents.length > 0 && (
-                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 font-semibold">
-                      {dayEvents.length}
-                    </span>
+                  {hasEvents && (
+                    <div className="flex flex-col items-end gap-0.5">
+                      <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
+                      <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-blue-600 text-white font-bold">
+                        {dayEvents.length}
+                      </span>
+                    </div>
                   )}
                 </div>
 
-                {/* Events - styled like desktop */}
+                {/* Events - larger and more visible */}
                 {dayEvents.length > 0 && (
-                  <div className="space-y-0.5">
+                  <div className="space-y-1">
                     {dayEvents.slice(0, 2).map((event, idx) => {
                       const eventStart = event.start instanceof Date ? event.start : parseISO(event.start);
                       const eventEnd = event.end ? (event.end instanceof Date ? event.end : parseISO(event.end)) : eventStart;
@@ -297,7 +307,6 @@ const MobileCalendarEnhanced = ({
                       const isEndDay = isSameDay(eventEnd, day);
                       const isContinuing = isMultiDay && !isStartDay && !isEndDay;
 
-                      // Use event.color like desktop does
                       const eventColor = event.color || '#3b82f6';
                       const eventTextColor = event.textColor || '#ffffff';
 
@@ -308,24 +317,24 @@ const MobileCalendarEnhanced = ({
                             e.stopPropagation();
                             onEventClick?.(event);
                           }}
-                          className="w-full flex items-center gap-1 rounded-lg px-1.5 py-1 text-[10px] font-semibold shadow-sm hover:shadow transition-all"
+                          className="w-full flex items-center gap-1 rounded-md px-2 py-1.5 text-[11px] font-bold shadow-md hover:shadow-lg transition-all active:scale-98"
                           style={{
                             backgroundColor: eventColor,
                             color: eventTextColor
                           }}
                         >
                           {isMultiDay && (
-                            <span className="text-[8px] opacity-75 flex-shrink-0">
+                            <span className="text-[9px] opacity-90 flex-shrink-0 font-extrabold">
                               {isStartDay ? '▶' : isContinuing ? '━' : '◀'}
                             </span>
                           )}
-                          <span className="truncate flex-1 text-left">{event.title}</span>
+                          <span className="truncate flex-1 text-left leading-tight">{event.title}</span>
                         </button>
                       );
                     })}
                     {dayEvents.length > 2 && (
-                      <div className="text-[9px] text-blue-600 font-semibold px-1 py-0.5">
-                        +{dayEvents.length - 2} mehr
+                      <div className="text-[10px] text-blue-600 font-bold px-2 py-1 bg-blue-50 rounded-md">
+                        +{dayEvents.length - 2} більше
                       </div>
                     )}
                   </div>

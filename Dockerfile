@@ -1,9 +1,9 @@
-# Use Node.js 18 LTS - v13.8.1 TERMINE LIST VIEW FIX
+# Use Node.js 18 LTS - v13.9.0 CALENDAR GRID & MODAL REDESIGN
 FROM node:18-alpine
 
-# NUCLEAR CACHE BUST - v13.8.1 - MOBILE TERMINE SHOWING ALL EVENTS
-ARG BUILDTIME_CACHEBUST=1769745500
-RUN echo "📋 v13.8.1 TERMINE LIST FIXED - CACHE BUSTER: $BUILDTIME_CACHEBUST 📋"
+# NUCLEAR CACHE BUST - v13.9.0 - TIGHT CALENDAR TILES & WHITE EVENT MODAL
+ARG BUILDTIME_CACHEBUST=1769750000
+RUN echo "📅 v13.9.0 CALENDAR GRID & MODAL REDESIGN - CACHE BUSTER: $BUILDTIME_CACHEBUST 📅"
 
 # Set working directory
 WORKDIR /app
@@ -19,10 +19,10 @@ RUN cd client && npm ci --no-cache
 # Copy application code
 COPY . .
 
-# Build client - v12.9 WITH MESSENGER FIXES - BUST CACHE
-RUN echo "======================================== v12.9 MESSENGER FIXES ========================================" && \
+# Build client - v13.9.0 CALENDAR GRID & MODAL REDESIGN
+RUN echo "======================================== v13.9.0 CALENDAR & MODAL ========================================" && \
     echo "🔥 CACHE BUSTER: $(date +%s)" && \
-    echo "Building v12.9 (Group info, self-contact fix, better colors) at $(date)" && \
+    echo "Building v13.9.0 (Tight calendar grid tiles, white event modal) at $(date)" && \
     echo "==========================================================================================================="
 # CRITICAL: Clear ALL caches before build
 RUN cd client && rm -rf node_modules/.cache build .cache dist tmp
@@ -46,7 +46,7 @@ RUN echo "🔥🔥🔥 FORCING FRESH BUILD - NO CACHE ALLOWED 🔥🔥🔥" && \
     echo "📦 Main bundle:" && \
     ls -lh build/static/js/main.*.js
 RUN echo "=============================================================================================" && \
-    echo "✅ Build v12.9 MESSENGER FIXES complete!" && \
+    echo "✅ Build v13.9.0 CALENDAR & MODAL REDESIGN complete!" && \
     ls -lh client/build/static/js/main.*.js && \
     echo "=============================================================================================" && \
     cat client/build/asset-manifest.json && \
