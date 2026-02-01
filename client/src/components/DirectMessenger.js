@@ -2965,6 +2965,9 @@ const DirectMessenger = () => {
 
   const isSuperadmin = useMemo(() => user?.role === 'superadmin', [user?.role]);
 
+  // Create a stable reference map for contacts to prevent re-renders
+  const contactRefsMap = useRef(new Map());
+
   const decoratedContacts = useMemo(
     () =>
       filteredContacts.map((contact) => {
@@ -2981,7 +2984,8 @@ const DirectMessenger = () => {
                 ? 'GIF'
                 : messageType.toUpperCase()
           : '';
-        return {
+
+        const newData = {
           ...contact,
           thread,
           unreadCount: thread?.unreadCount || 0,
@@ -2994,6 +2998,21 @@ const DirectMessenger = () => {
           lastMessageTime: timestamp,
           lastMessageTimeLabel: formatContactTimestamp(timestamp)
         };
+
+        // Check if data actually changed
+        const prevData = contactRefsMap.current.get(contact.id);
+        if (prevData &&
+            prevData.unreadCount === newData.unreadCount &&
+            prevData.lastMessageTime === newData.lastMessageTime &&
+            prevData.online === newData.online &&
+            prevData.last_seen === newData.last_seen) {
+          // Return previous reference to prevent re-render
+          return prevData;
+        }
+
+        // Store new reference
+        contactRefsMap.current.set(contact.id, newData);
+        return newData;
       }),
     [filteredContacts, formatContactTimestamp, getThreadTimestamp, threadMapByContact]
   );
