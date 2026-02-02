@@ -49,13 +49,19 @@ const UserRow = memo(({ userItem, currentUserId, onEdit, onDelete }) => {
         </span>
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
-        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-          userItem.employment_type === 'Vollzeit'
-            ? 'bg-blue-100 text-blue-800'
-            : 'bg-orange-100 text-orange-800'
-        }`}>
-          {userItem.employment_type || 'Werkstudent'}
-        </span>
+        {userItem.role === 'observer' ? (
+          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-600">
+            N/A
+          </span>
+        ) : (
+          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+            userItem.employment_type === 'Vollzeit'
+              ? 'bg-blue-100 text-blue-800'
+              : 'bg-orange-100 text-orange-800'
+          }`}>
+            {userItem.employment_type || 'Werkstudent'}
+          </span>
+        )}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
         {new Date(userItem.created_at).toLocaleDateString('de-DE', {
@@ -174,9 +180,13 @@ const UserManagement = () => {
         const userData = {
           name: formData.name,
           email: formData.email,
-          role: formData.role,
-          employment_type: formData.employment_type
+          role: formData.role
         };
+
+        // Only include employment_type for non-observer roles
+        if (formData.role !== 'observer') {
+          userData.employment_type = formData.employment_type;
+        }
 
         if (formData.password) {
           userData.password = formData.password;
@@ -192,7 +202,7 @@ const UserManagement = () => {
           formData.email,
           formData.password,
           formData.role,
-          formData.employment_type
+          formData.role !== 'observer' ? formData.employment_type : undefined
         );
 
         const payload = response.data?.data || response.data;
@@ -400,25 +410,28 @@ const UserManagement = () => {
                 </select>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Beschäftigungsart *
-                </label>
-                <select
-                  name="employment_type"
-                  value={formData.employment_type}
-                  onChange={(e) => setFormData({...formData, employment_type: e.target.value})}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-biolab-blue focus:border-transparent"
-                >
-                  <option value="Werkstudent">Werkstudent</option>
-                  <option value="Vollzeit">Vollzeit</option>
-                </select>
-                <p className="mt-1 text-xs text-gray-500">
-                  {formData.employment_type === 'Vollzeit'
-                    ? '8:00-17:00 wird automatisch geplant'
-                    : 'Buchung von Arbeitszeiten erforderlich'}
-                </p>
-              </div>
+              {/* Only show employment type for non-observer roles */}
+              {formData.role !== 'observer' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Beschäftigungsart *
+                  </label>
+                  <select
+                    name="employment_type"
+                    value={formData.employment_type}
+                    onChange={(e) => setFormData({...formData, employment_type: e.target.value})}
+                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-biolab-blue focus:border-transparent"
+                  >
+                    <option value="Werkstudent">Werkstudent</option>
+                    <option value="Vollzeit">Vollzeit</option>
+                  </select>
+                  <p className="mt-1 text-xs text-gray-500">
+                    {formData.employment_type === 'Vollzeit'
+                      ? '8:00-17:00 wird automatisch geplant'
+                      : 'Buchung von Arbeitszeiten erforderlich'}
+                  </p>
+                </div>
+              )}
             </div>
             
             <div>
