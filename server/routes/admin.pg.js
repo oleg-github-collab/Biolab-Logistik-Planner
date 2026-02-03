@@ -1039,57 +1039,51 @@ router.post('/users/:id/force-delete', [auth, adminAuth], async (req, res) => {
     }
 
     // Step 1: Fix all FK constraints to allow deletion
+    // Each pair in separate savepoint to avoid transaction abort cascade
     logger.info('Fixing FK constraints for user tables', { userId });
 
-    const fkFixes = [
+    const fkFixPairs = [
       // SET NULL for audit fields
-      `ALTER TABLE IF EXISTS kb_article_versions DROP CONSTRAINT IF EXISTS kb_article_versions_created_by_fkey`,
-      `ALTER TABLE IF EXISTS kb_article_versions ADD CONSTRAINT kb_article_versions_created_by_fkey FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL`,
-
-      `ALTER TABLE IF EXISTS kb_articles DROP CONSTRAINT IF EXISTS kb_articles_created_by_fkey`,
-      `ALTER TABLE IF EXISTS kb_articles ADD CONSTRAINT kb_articles_created_by_fkey FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL`,
-
-      `ALTER TABLE IF EXISTS kb_articles DROP CONSTRAINT IF EXISTS kb_articles_updated_by_fkey`,
-      `ALTER TABLE IF EXISTS kb_articles ADD CONSTRAINT kb_articles_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL`,
-
-      `ALTER TABLE IF EXISTS messages DROP CONSTRAINT IF EXISTS messages_user_id_fkey`,
-      `ALTER TABLE IF EXISTS messages ADD CONSTRAINT messages_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL`,
-
-      `ALTER TABLE IF EXISTS kanban_tasks DROP CONSTRAINT IF EXISTS kanban_tasks_created_by_fkey`,
-      `ALTER TABLE IF EXISTS kanban_tasks ADD CONSTRAINT kanban_tasks_created_by_fkey FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL`,
-
-      `ALTER TABLE IF EXISTS kanban_tasks DROP CONSTRAINT IF EXISTS kanban_tasks_assigned_to_fkey`,
-      `ALTER TABLE IF EXISTS kanban_tasks ADD CONSTRAINT kanban_tasks_assigned_to_fkey FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL`,
-
+      ['kb_article_versions', 'created_by', 'SET NULL'],
+      ['kb_articles', 'created_by', 'SET NULL'],
+      ['kb_articles', 'updated_by', 'SET NULL'],
+      ['messages', 'user_id', 'SET NULL'],
+      ['kanban_tasks', 'created_by', 'SET NULL'],
+      ['kanban_tasks', 'assigned_to', 'SET NULL'],
       // CASCADE for user-owned data
-      `ALTER TABLE IF EXISTS calendar_events DROP CONSTRAINT IF EXISTS calendar_events_created_by_fkey`,
-      `ALTER TABLE IF EXISTS calendar_events ADD CONSTRAINT calendar_events_created_by_fkey FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE`,
-
-      `ALTER TABLE IF EXISTS stories DROP CONSTRAINT IF EXISTS stories_user_id_fkey`,
-      `ALTER TABLE IF EXISTS stories ADD CONSTRAINT stories_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE`,
-
-      `ALTER TABLE IF EXISTS time_entries DROP CONSTRAINT IF EXISTS time_entries_user_id_fkey`,
-      `ALTER TABLE IF EXISTS time_entries ADD CONSTRAINT time_entries_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE`,
-
-      `ALTER TABLE IF EXISTS chat_members DROP CONSTRAINT IF EXISTS chat_members_user_id_fkey`,
-      `ALTER TABLE IF EXISTS chat_members ADD CONSTRAINT chat_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE`,
-
-      `ALTER TABLE IF EXISTS message_reads DROP CONSTRAINT IF EXISTS message_reads_user_id_fkey`,
-      `ALTER TABLE IF EXISTS message_reads ADD CONSTRAINT message_reads_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE`,
-
-      `ALTER TABLE IF EXISTS notifications DROP CONSTRAINT IF EXISTS notifications_user_id_fkey`,
-      `ALTER TABLE IF EXISTS notifications ADD CONSTRAINT notifications_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE`,
-
-      `ALTER TABLE IF EXISTS task_assignments DROP CONSTRAINT IF EXISTS task_assignments_user_id_fkey`,
-      `ALTER TABLE IF EXISTS task_assignments ADD CONSTRAINT task_assignments_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE`
+      ['calendar_events', 'created_by', 'CASCADE'],
+      ['stories', 'user_id', 'CASCADE'],
+      ['time_entries', 'user_id', 'CASCADE'],
+      ['chat_members', 'user_id', 'CASCADE'],
+      ['message_reads', 'user_id', 'CASCADE'],
+      ['notifications', 'user_id', 'CASCADE'],
+      ['task_assignments', 'user_id', 'CASCADE']
     ];
 
-    for (const sql of fkFixes) {
+    for (const [table, column, deleteRule] of fkFixPairs) {
+      const constraintName = `${table}_${column}_fkey`;
+      const savepointName = `fix_${table}_${column}`.replace(/[^a-zA-Z0-9_]/g, '_');
+
       try {
-        await client.query(sql);
+        // Each FK fix in its own savepoint to isolate errors
+        await client.query(`SAVEPOINT ${savepointName}`);
+        await client.query(`ALTER TABLE IF EXISTS ${table} DROP CONSTRAINT IF EXISTS ${constraintName}`);
+        await client.query(`ALTER TABLE IF EXISTS ${table} ADD CONSTRAINT ${constraintName} FOREIGN KEY (${column}) REFERENCES users(id) ON DELETE ${deleteRule}`);
+        await client.query(`RELEASE SAVEPOINT ${savepointName}`);
+        logger.info('FK constraint fixed', { table, column, deleteRule });
       } catch (fkError) {
-        // Log but continue - some tables/constraints might not exist
-        logger.warn('FK fix query failed (might not exist)', { sql: sql.substring(0, 100), error: fkError.message });
+        // Rollback this savepoint but continue with others
+        try {
+          await client.query(`ROLLBACK TO SAVEPOINT ${savepointName}`);
+        } catch (rollbackErr) {
+          // Savepoint might not exist if error happened before creation
+        }
+        logger.warn('FK fix failed (table/constraint might not exist)', {
+          table,
+          column,
+          error: fkError.message,
+          code: fkError.code
+        });
       }
     }
 
