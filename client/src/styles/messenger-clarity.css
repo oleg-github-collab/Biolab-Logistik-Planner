@@ -36,10 +36,12 @@ body.messenger-page {
   align-items: center !important;
   border: 1px solid #e2e8f0 !important;
   border-radius: 16px !important;
-  padding: 12px 14px !important;
-  background: #ffffff !important;
+  padding: 14px 16px !important;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%) !important;
   box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08) !important;
   transition: transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s ease !important;
+  position: relative;
+  overflow: hidden;
 }
 
 .contact-card:hover {
@@ -51,6 +53,7 @@ body.messenger-page {
 .contact-card--active {
   border-color: #3b82f6 !important;
   box-shadow: 0 16px 34px rgba(59, 130, 246, 0.22) !important;
+  background: linear-gradient(135deg, #f8fbff 0%, #eef5ff 100%) !important;
 }
 
 /* REMOVED - using unified approach in messenger-unified-dark.css */
@@ -80,22 +83,39 @@ body.messenger-page {
 .contact-card__body {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
 }
 
-.contact-card:not(.contact-card--active) .contact-card__name {
+.contact-card__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.contact-card__name {
   display: flex;
   align-items: center;
   gap: 8px;
   font-weight: 800;
   color: #0f172a;
   font-size: 16px;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.contact-card__body p:not(.contact-card__name) {
-  color: #475569 !important;
-  font-size: 12px !important;
-  font-weight: 600 !important;
+.contact-card__time {
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  background: rgba(148, 163, 184, 0.12);
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
 }
 
 .contact-card__pill {
@@ -110,10 +130,60 @@ body.messenger-page {
   color: #1d4ed8;
 }
 
-.contact-card__body p.contact-card__last-seen {
-  font-size: 12px !important;
+.contact-card__message {
+  color: #475569 !important;
+  font-size: 13px !important;
   font-weight: 600 !important;
-  color: #64748b !important;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contact-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.contact-card__status {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.16);
+  color: #64748b;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.contact-card__status.online {
+  background: rgba(34, 197, 94, 0.16);
+  color: #15803d;
+}
+
+.contact-card__meta-dot {
+  color: #94a3b8;
+}
+
+.contact-card__meta-label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+.contact-card__meta-time {
+  font-size: 11px;
+  color: #475569;
+}
+
+.contact-card__last-seen {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

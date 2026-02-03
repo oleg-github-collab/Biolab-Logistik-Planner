@@ -211,27 +211,29 @@
 .mobile-messenger-chat-item {
   display: flex;
   align-items: center;
-  padding: 10px 12px;
+  padding: 12px 14px;
   cursor: pointer;
   margin: 0 10px;
-  margin-bottom: 3px;
-  border-radius: 12px;
+  margin-bottom: 6px;
+  border-radius: 16px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  background: linear-gradient(135deg, rgba(17, 22, 33, 0.85), rgba(13, 17, 24, 0.9));
-  border: 1px solid rgba(148, 163, 184, 0.12);
+  background: linear-gradient(135deg, rgba(17, 22, 33, 0.88), rgba(14, 18, 26, 0.96));
+  border: 1px solid rgba(148, 163, 184, 0.16);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 10px 22px rgba(2, 6, 23, 0.25);
 }
 
 .mobile-messenger-chat-item:active {
   background: linear-gradient(135deg, rgba(20, 26, 38, 0.9), rgba(15, 19, 28, 0.95));
   transform: scale(0.98);
-  border-color: rgba(148, 163, 184, 0.18);
+  border-color: rgba(148, 163, 184, 0.22);
 }
 
 .mobile-messenger-chat-item:hover {
-  background: linear-gradient(135deg, rgba(22, 28, 40, 0.88), rgba(15, 19, 28, 0.95));
-  border-color: rgba(148, 163, 184, 0.2);
+  background: linear-gradient(135deg, rgba(22, 28, 40, 0.92), rgba(16, 20, 30, 0.98));
+  border-color: rgba(148, 163, 184, 0.24);
+  transform: translateY(-1px);
 }
 
 .mobile-messenger-chat-avatar {
@@ -298,8 +300,8 @@
 }
 
 .mobile-messenger-chat-name {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 14.5px;
+  font-weight: 700;
   color: var(--mm-text);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -310,12 +312,13 @@
   font-size: 12px;
   color: var(--mm-muted);
   margin-left: 8px;
+  font-weight: 600;
 }
 
 .mobile-messenger-chat-message {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 
 .mobile-messenger-chat-status {
@@ -324,7 +327,7 @@
 }
 
 .mobile-messenger-chat-text {
-  font-size: 13px;
+  font-size: 12.5px;
   color: var(--mm-muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -335,7 +338,19 @@
 /* Green "Online" text when contact is online and no message history */
 .mobile-messenger-chat-item .mobile-messenger-chat-text[data-online="true"] {
   color: #34c759 !important;
-  font-weight: 600;
+  font-weight: 700;
+}
+
+.mobile-messenger-chat-pill {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: rgba(34, 197, 94, 0.18);
+  color: #22c55e;
+  flex-shrink: 0;
 }
 
 .mobile-messenger-chat-unread {

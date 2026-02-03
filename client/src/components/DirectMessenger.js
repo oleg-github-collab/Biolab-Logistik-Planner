@@ -1,6 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { format, parseISO, formatDistanceToNow } from 'date-fns';
+import {
+  format,
+  parseISO,
+  formatDistanceToNow,
+  formatDistanceToNowStrict,
+  differenceInCalendarDays
+} from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -225,11 +231,16 @@ const MessengerContactList = React.memo(({
                     contact.email?.includes('entsorgungsbot');
     const lastSeenAt = contact.last_seen_at || contact.last_seen;
     const lastSeenText = lastSeenAt ? formatContactTimestamp(lastSeenAt) : '';
-    const lastSeenLabel = contact.online
-      ? 'Online'
+    const statusLabel = contact.online
+      ? 'Online jetzt'
       : lastSeenText
         ? `Zuletzt online ${lastSeenText}`
-        : 'Offline';
+        : 'Zuletzt online';
+    const statusPrefix = contact.online ? 'Online' : 'Zuletzt online';
+    const statusTime = lastSeenText || (contact.online ? 'jetzt' : 'kürzlich');
+    const hasSnippet = Boolean(contact.lastMessageSnippet);
+    const primaryLine = hasSnippet ? contact.lastMessageSnippet : statusLabel;
+    const timeLabel = hasSnippet ? contact.lastMessageTimeLabel : '';
 
     return (
       <button
@@ -309,10 +320,24 @@ const MessengerContactList = React.memo(({
           )}
         </div>
         <div className="contact-card__body">
-          <p className="contact-card__name">
-            {contact.name}
-          </p>
-          <p className="contact-card__last-seen">{lastSeenLabel}</p>
+          <div className="contact-card__title-row">
+            <p className="contact-card__name">
+              {contact.name}
+            </p>
+            {timeLabel && (
+              <span className="contact-card__time">{timeLabel}</span>
+            )}
+          </div>
+          <p className="contact-card__message">{primaryLine}</p>
+          {hasSnippet && (
+            <div className="contact-card__meta">
+              <span className={`contact-card__status ${contact.online ? 'online' : 'offline'}`}>
+                {statusPrefix}
+              </span>
+              <span className="contact-card__meta-dot">•</span>
+              <span className="contact-card__meta-time">{statusTime}</span>
+            </div>
+          )}
         </div>
       </button>
     );
@@ -3391,7 +3416,11 @@ const DirectMessenger = () => {
     if (!timestamp) return '';
     const date = new Date(timestamp);
     if (Number.isNaN(date.getTime())) return '';
-    return formatDistanceToNow(date, { locale: de, addSuffix: true });
+    const daysDiff = Math.abs(differenceInCalendarDays(new Date(), date));
+    if (daysDiff >= 7) {
+      return format(date, 'dd.MM.yyyy');
+    }
+    return formatDistanceToNowStrict(date, { locale: de, addSuffix: true });
   }, []);
 
   const threadMapByContact = useMemo(() => {
@@ -4308,10 +4337,24 @@ const DirectMessenger = () => {
             )}
           </div>
           <div className="contact-card__body">
-            <p className="contact-card__name">
-              {contact.name}
-            </p>
-            <p className="contact-card__last-seen">{lastSeenLabel}</p>
+            <div className="contact-card__title-row">
+              <p className="contact-card__name">
+                {contact.name}
+              </p>
+              {timeLabel && (
+                <span className="contact-card__time">{timeLabel}</span>
+              )}
+            </div>
+            <p className="contact-card__message">{primaryLine}</p>
+            {hasSnippet && (
+              <div className="contact-card__meta">
+                <span className={`contact-card__status ${contact.online ? 'online' : 'offline'}`}>
+                  {statusPrefix}
+                </span>
+                <span className="contact-card__meta-dot">•</span>
+                <span className="contact-card__meta-time">{statusTime}</span>
+              </div>
+            )}
           </div>
         </button>
       );
@@ -4322,7 +4365,9 @@ const DirectMessenger = () => {
              prevProps.contact.online === nextProps.contact.online &&
              prevProps.contact.unreadCount === nextProps.contact.unreadCount &&
              prevProps.contact.last_seen === nextProps.contact.last_seen &&
-             prevProps.contact.last_seen_at === nextProps.contact.last_seen_at;
+             prevProps.contact.last_seen_at === nextProps.contact.last_seen_at &&
+             prevProps.contact.lastMessageSnippet === nextProps.contact.lastMessageSnippet &&
+             prevProps.contact.lastMessageTimeLabel === nextProps.contact.lastMessageTimeLabel;
     });
 
     const renderContactCard = (contact) => {
@@ -4344,6 +4389,7 @@ const DirectMessenger = () => {
       const displayName = isGeneral ? 'Allgemeiner Chat' : (groupThread.name || 'Gruppenchat');
       const lastMessage = groupThread.lastMessage;
       const timestamp = getThreadTimestamp(groupThread);
+      const lastMessageTimeLabel = timestamp ? formatContactTimestamp(timestamp) : '';
       const typeLabel = lastMessage?.messageType && lastMessage.messageType !== 'text'
         ? lastMessage.messageType === 'image'
           ? 'Bild'
@@ -4385,11 +4431,13 @@ const DirectMessenger = () => {
               {isGeneral && <span className="contact-card__pill">Allgemein</span>}
             </p>
             <p className="contact-card__message">{snippet}</p>
-            <div className="contact-card__meta">
-              {timestamp && (
-                <span>{formatContactTimestamp(timestamp)}</span>
-              )}
-            </div>
+            {lastMessageTimeLabel && (
+              <div className="contact-card__meta">
+                <span className="contact-card__meta-label">Letzte Nachricht</span>
+                <span className="contact-card__meta-dot">•</span>
+                <span className="contact-card__meta-time">{lastMessageTimeLabel}</span>
+              </div>
+            )}
           </div>
         </button>
       );

@@ -387,7 +387,7 @@ const MobileCalendarEnhanced = ({
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-semibold text-slate-900 truncate flex-1">
+                        <h4 className="mobile-calendar-native__event-title font-semibold text-slate-900 truncate flex-1">
                           {event.title}
                         </h4>
                         {isMultiDay && (
@@ -408,7 +408,7 @@ const MobileCalendarEnhanced = ({
                         </div>
                       )}
 
-                      <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-600">
+                      <div className="mobile-calendar-native__event-meta flex items-center gap-3 mt-2">
                         <span className="flex items-center gap-1.5">
                           <Clock className="w-3.5 h-3.5" />
                           {format(eventStart, isMultiDay ? 'dd.MM.yyyy' : 'dd.MM.yyyy HH:mm')}
@@ -423,7 +423,7 @@ const MobileCalendarEnhanced = ({
                       </div>
 
                       {(event.created_by_name || event.createdByName) && (
-                        <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-slate-500">
+                        <div className="mobile-calendar-native__event-meta mobile-calendar-native__event-meta--creator mt-1.5 flex items-center gap-1.5">
                           <User className="w-3.5 h-3.5" />
                           <span>Erstellt von {event.created_by_name || event.createdByName}</span>
                         </div>
@@ -479,30 +479,49 @@ const MobileCalendarEnhanced = ({
                   <div className="space-y-1">
                     {dayEvents.map(event => {
                       const eventType = event.event_type || event.type;
+                      const eventColor = event.color || '#3b82f6';
+                      const pillStyle = {
+                        backgroundColor: toRgba(eventColor, 0.14) || 'rgba(59, 130, 246, 0.14)',
+                        borderColor: toRgba(eventColor, 0.32) || 'rgba(59, 130, 246, 0.32)',
+                        color: eventColor
+                      };
                       return (
                         <button
                           key={event.id}
                           onClick={() => onEventClick(event)}
-                          className={`mobile-calendar-native__week-event w-full text-left p-2 rounded-lg text-xs transition hover:shadow ${
-                            eventType === 'Arbeit' ? 'bg-sky-50 hover:bg-sky-100' :
-                            eventType === 'Meeting' ? 'bg-indigo-50 hover:bg-indigo-100' :
-                            eventType === 'Urlaub' ? 'bg-amber-50 hover:bg-amber-100' :
-                            eventType === 'Krankheit' ? 'bg-rose-50 hover:bg-rose-100' :
-                            'bg-slate-50 hover:bg-slate-100'
-                          }`}
+                          className="mobile-calendar-native__week-event w-full text-left transition"
+                          style={{
+                            borderLeftColor: eventColor,
+                            backgroundColor: toRgba(eventColor, 0.08) || 'rgba(59, 130, 246, 0.08)'
+                          }}
                         >
-                          <div className="flex items-center gap-2">
-                            <Clock className="w-3 h-3 text-slate-400" />
-                            <span className="font-medium">{event.title}</span>
+                          <div className="mobile-calendar-native__week-event-row">
+                            <span className="mobile-calendar-native__week-event-title">{event.title}</span>
+                            {eventType && (
+                              <span className="mobile-calendar-native__event-type" style={pillStyle}>
+                                {eventType}
+                              </span>
+                            )}
                           </div>
-                          {!event.all_day && (
-                            <div className="text-[10px] text-slate-500 ml-5">
-                              {format(
-                                event.start instanceof Date ? event.start : parseISO(event.start),
-                                'HH:mm'
-                              )}
-                            </div>
-                          )}
+                          <div className="mobile-calendar-native__event-meta">
+                            <Clock className="w-3.5 h-3.5" />
+                            {!event.all_day ? (
+                              <span>
+                                {format(
+                                  event.start instanceof Date ? event.start : parseISO(event.start),
+                                  'HH:mm'
+                                )}
+                              </span>
+                            ) : (
+                              <span>Ganztägig</span>
+                            )}
+                            {event.location && (
+                              <span className="flex items-center gap-1">
+                                <MapPin className="w-3.5 h-3.5" />
+                                {event.location}
+                              </span>
+                            )}
+                          </div>
                         </button>
                       );
                     })}
@@ -519,7 +538,6 @@ const MobileCalendarEnhanced = ({
   // Render day view
   const renderDayView = () => {
     const dayEvents = getEventsForDay(currentDate);
-    const hours = Array.from({ length: 24 }, (_, i) => i);
 
     return (
       <div className="mobile-calendar-native__day-view bg-white">
@@ -560,6 +578,7 @@ const MobileCalendarEnhanced = ({
                   key={event.id}
                   onClick={() => onEventClick(event)}
                   className="mobile-calendar-native__day-event w-full p-3 hover:bg-slate-50 transition text-left"
+                  style={{ borderLeftColor: eventColor }}
                 >
                   <div className="flex items-start gap-3">
                     <div className={`
@@ -571,7 +590,7 @@ const MobileCalendarEnhanced = ({
                         'bg-slate-500'}
                     `} />
                     <div className="flex-1">
-                      <h4 className="font-semibold text-slate-900">
+                      <h4 className="mobile-calendar-native__event-title font-semibold text-slate-900">
                         {event.title}
                       </h4>
                       {eventType && (
@@ -585,7 +604,7 @@ const MobileCalendarEnhanced = ({
                         </div>
                       )}
                       {!event.all_day && (
-                        <div className="flex items-center gap-1 mt-1 text-sm text-slate-600">
+                        <div className="mobile-calendar-native__event-meta flex items-center gap-1 mt-2">
                           <Clock className="w-4 h-4" />
                           {format(
                             event.start instanceof Date ? event.start : parseISO(event.start),
@@ -597,13 +616,13 @@ const MobileCalendarEnhanced = ({
                         </div>
                       )}
                       {event.location && (
-                        <div className="flex items-center gap-1 mt-1 text-sm text-slate-600">
+                        <div className="mobile-calendar-native__event-meta flex items-center gap-1 mt-2">
                           <MapPin className="w-4 h-4" />
                           {event.location}
                         </div>
                       )}
                       {(event.created_by_name || event.createdByName) && (
-                        <div className="flex items-center gap-1 mt-1 text-sm text-slate-600">
+                        <div className="mobile-calendar-native__event-meta mobile-calendar-native__event-meta--creator flex items-center gap-1 mt-2">
                           <User className="w-4 h-4" />
                           Erstellt von {event.created_by_name || event.createdByName}
                         </div>

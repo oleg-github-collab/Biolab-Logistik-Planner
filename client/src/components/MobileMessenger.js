@@ -130,6 +130,14 @@ const MobileMessenger = ({
     }
   };
 
+  const formatLastSeenLabel = (contact) => {
+    if (!contact) return '';
+    if (contact.online) return 'Online';
+    const lastSeen = contact.last_seen || contact.last_seen_at;
+    if (!lastSeen) return 'Zuletzt online';
+    return `Zuletzt online ${formatMessageTime(lastSeen)}`;
+  };
+
   // Format event date range
   const formatEventDateRange = (start, end) => {
     const startDate = start ? new Date(start) : null;
@@ -296,6 +304,13 @@ const MobileMessenger = ({
               const threadMessages = messages.filter(m => m.thread_id === thread.id);
               const lastMessage = threadMessages[threadMessages.length - 1];
               const unreadCount = thread.unread_count || 0;
+              const lastMessageTime =
+                lastMessage?.created_at ||
+                lastMessage?.createdAt ||
+                thread.updated_at ||
+                thread.updatedAt ||
+                thread.created_at ||
+                thread.createdAt;
 
               // Get contact for direct chat
               const contactForThread = filteredContacts.find(c =>
@@ -343,7 +358,7 @@ const MobileMessenger = ({
                         {thread.type === 'direct' ? (contactForThread?.name || thread.name || 'Unbenannt') : (thread.name || 'Gruppenchat')}
                       </div>
                       <div className="mobile-messenger-chat-time">
-                        {lastMessage?.created_at ? formatMessageTime(lastMessage.created_at) : ''}
+                        {lastMessageTime ? formatMessageTime(lastMessageTime) : ''}
                       </div>
                     </div>
 
@@ -351,11 +366,18 @@ const MobileMessenger = ({
                       {lastMessage?.sender_id === user?.id && (
                         <CheckCheck size={16} className="mobile-messenger-chat-status" />
                       )}
+                      {thread.type === 'direct' && contactForThread?.online && !lastMessage && (
+                        <span className="mobile-messenger-chat-pill">Online</span>
+                      )}
                       <div
                         className="mobile-messenger-chat-text"
                         data-online={!lastMessage && contactForThread?.online ? "true" : undefined}
                       >
-                        {lastMessage?.message || lastMessage?.content || (contactForThread?.online ? 'Online' : (contactForThread?.last_seen || contactForThread?.last_seen_at) ? `Zuletzt online ${formatMessageTime(contactForThread.last_seen || contactForThread.last_seen_at)}` : 'Zuletzt online')}
+                        {lastMessage?.message ||
+                          lastMessage?.content ||
+                          (thread.type === 'direct'
+                            ? (contactForThread?.online ? 'Jetzt verfügbar' : formatLastSeenLabel(contactForThread))
+                            : (thread.description || 'Letzte Nachricht anzeigen'))}
                       </div>
                       {unreadCount > 0 && (
                         <div className="mobile-messenger-chat-unread">
@@ -415,11 +437,7 @@ const MobileMessenger = ({
                         className="mobile-messenger-chat-text"
                         data-online={contact.online ? 'true' : undefined}
                       >
-                        {contact.online
-                          ? 'Online'
-                          : (contact.last_seen || contact.last_seen_at)
-                            ? `Zuletzt online ${formatMessageTime(contact.last_seen || contact.last_seen_at)}`
-                            : 'Kontakt'}
+                        {formatLastSeenLabel(contact)}
                       </div>
                     </div>
                   </div>

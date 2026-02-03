@@ -180,6 +180,7 @@
     padding: 2px 8px;
     border-radius: 999px;
     border: 1px solid rgba(37, 99, 235, 0.3);
+    box-shadow: 0 6px 12px rgba(15, 23, 42, 0.08);
   }
 
   .mobile-calendar-native__event-more {
@@ -207,17 +208,85 @@
   }
 
   .mobile-calendar-native__list-item,
-  .mobile-calendar-native__day-event,
+  .mobile-calendar-native__day-event {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.96));
+    border-radius: 18px;
+    margin: 10px 12px;
+    box-shadow: 0 12px 20px rgba(15, 23, 42, 0.08);
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    border-left: 4px solid transparent;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .mobile-calendar-native__list-item:active,
+  .mobile-calendar-native__day-event:active {
+    transform: scale(0.99);
+    box-shadow: 0 8px 16px rgba(15, 23, 42, 0.12);
+  }
+
   .mobile-calendar-native__week-event {
     background: rgba(255, 255, 255, 0.96);
-    border-radius: 16px;
-    margin: 10px 12px;
-    box-shadow: 0 10px 18px rgba(15, 23, 42, 0.08);
+    border-radius: 14px;
+    margin: 6px 0;
+    padding: 10px 12px;
     border: 1px solid rgba(226, 232, 240, 0.9);
+    border-left: 4px solid transparent;
+    box-shadow: 0 8px 14px rgba(15, 23, 42, 0.06);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .mobile-calendar-native__week-event:active {
+    transform: scale(0.99);
   }
 
   .mobile-calendar-native__week-day {
     padding: 10px 12px 4px;
+  }
+
+  .mobile-calendar-native__event-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: -0.01em;
+  }
+
+  .mobile-calendar-native__event-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 0.75rem;
+    color: #64748b;
+    font-weight: 600;
+  }
+
+  .mobile-calendar-native__event-meta svg {
+    color: #94a3b8;
+  }
+
+  .mobile-calendar-native__event-meta--creator {
+    color: #475569;
+  }
+
+  .mobile-calendar-native__week-event-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  .mobile-calendar-native__week-event-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #0f172a;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .mobile-calendar-native__fab {
