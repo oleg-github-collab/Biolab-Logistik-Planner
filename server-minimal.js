@@ -1,7 +1,7 @@
 // Minimal production server - only essential features
-// Updated: 2026-01-22 12:00 - ПОВЕРНУТО ОРИГІНАЛЬНИЙ messages.pg.js
+// Updated: 2026-02-03 19:30 - v13.12.1 SAVEPOINT FIX
 console.log('='.repeat(80));
-console.log('🚀 BIOLAB LOGISTIK PLANNER - SERVER v12.0-ORIGINAL-MESSAGES');
+console.log('🚀 BIOLAB LOGISTIK PLANNER - SERVER v13.12.1-SAVEPOINT-FIX');
 console.log('='.repeat(80));
 console.log('Time:', new Date().toISOString());
 console.log('Node:', process.version);
