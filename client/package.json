@@ -2,7 +2,7 @@
   "name": "biolab-logistik-planner-client",
   "version": "13.12.1",
   "private": true,
-  "buildTimestamp": "20260203191500",
+  "buildTimestamp": "20260203192642",
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",
     "@testing-library/jest-dom": "^5.17.0",
