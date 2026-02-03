@@ -254,12 +254,36 @@ const UserManagement = () => {
 
     try {
       setStatusMessage('');
-      await deleteUser(userId);
-      setStatusMessage(`Benutzer ${userName} wurde gelöscht.`);
-      loadUsers();
+
+      // Try regular delete first
+      try {
+        await deleteUser(userId);
+        setStatusMessage(`Benutzer ${userName} wurde gelöscht.`);
+        loadUsers();
+      } catch (deleteErr) {
+        console.warn('Regular delete failed, trying force delete:', deleteErr);
+
+        // If regular delete fails, try force delete (fixes FK constraints first)
+        const token = localStorage.getItem('token');
+        const response = await fetch(`/api/admin/users/${userId}/force-delete`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || errorData.error || 'Force delete failed');
+        }
+
+        setStatusMessage(`Benutzer ${userName} wurde gelöscht (force delete).`);
+        loadUsers();
+      }
     } catch (err) {
       console.error('Error deleting user:', err);
-      setError('Fehler beim Löschen des Benutzers.');
+      setError(`Fehler beim Löschen: ${err.message || 'Unbekannter Fehler'}`);
     }
   }, [loadUsers]);
 

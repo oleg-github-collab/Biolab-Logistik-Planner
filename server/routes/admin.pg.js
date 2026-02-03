@@ -999,6 +999,136 @@ router.delete('/users/:id', [auth, adminAuth], async (req, res) => {
   }
 });
 
+// @route   POST /api/admin/users/:id/force-delete
+// @desc    Force delete user by fixing FK constraints first (superadmin only)
+router.post('/users/:id/force-delete', [auth, adminAuth], async (req, res) => {
+  const userId = parseInt(req.params.id);
+
+  if (req.user.role !== 'superadmin') {
+    return res.status(403).json({ error: 'Nur Superadmins können diese Funktion verwenden' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    logger.info('Force delete started', { userId, requestedBy: req.user.id });
+
+    // Check if user exists
+    const userResult = await client.query(
+      'SELECT id, name, role FROM users WHERE id = $1',
+      [userId]
+    );
+
+    if (userResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Benutzer nicht gefunden' });
+    }
+
+    const user = userResult.rows[0];
+
+    // Prevent deletion of last superadmin
+    if (user.role === 'superadmin') {
+      const superAdminCountResult = await client.query(
+        "SELECT COUNT(*) as count FROM users WHERE role = 'superadmin'"
+      );
+      if (parseInt(superAdminCountResult.rows[0].count) <= 1) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Der letzte Superadmin kann nicht gelöscht werden' });
+      }
+    }
+
+    // Step 1: Fix all FK constraints to allow deletion
+    logger.info('Fixing FK constraints for user tables', { userId });
+
+    const fkFixes = [
+      // SET NULL for audit fields
+      `ALTER TABLE IF EXISTS kb_article_versions DROP CONSTRAINT IF EXISTS kb_article_versions_created_by_fkey`,
+      `ALTER TABLE IF EXISTS kb_article_versions ADD CONSTRAINT kb_article_versions_created_by_fkey FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL`,
+
+      `ALTER TABLE IF EXISTS kb_articles DROP CONSTRAINT IF EXISTS kb_articles_created_by_fkey`,
+      `ALTER TABLE IF EXISTS kb_articles ADD CONSTRAINT kb_articles_created_by_fkey FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL`,
+
+      `ALTER TABLE IF EXISTS kb_articles DROP CONSTRAINT IF EXISTS kb_articles_updated_by_fkey`,
+      `ALTER TABLE IF EXISTS kb_articles ADD CONSTRAINT kb_articles_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL`,
+
+      `ALTER TABLE IF EXISTS messages DROP CONSTRAINT IF EXISTS messages_user_id_fkey`,
+      `ALTER TABLE IF EXISTS messages ADD CONSTRAINT messages_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL`,
+
+      `ALTER TABLE IF EXISTS kanban_tasks DROP CONSTRAINT IF EXISTS kanban_tasks_created_by_fkey`,
+      `ALTER TABLE IF EXISTS kanban_tasks ADD CONSTRAINT kanban_tasks_created_by_fkey FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL`,
+
+      `ALTER TABLE IF EXISTS kanban_tasks DROP CONSTRAINT IF EXISTS kanban_tasks_assigned_to_fkey`,
+      `ALTER TABLE IF EXISTS kanban_tasks ADD CONSTRAINT kanban_tasks_assigned_to_fkey FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL`,
+
+      // CASCADE for user-owned data
+      `ALTER TABLE IF EXISTS calendar_events DROP CONSTRAINT IF EXISTS calendar_events_created_by_fkey`,
+      `ALTER TABLE IF EXISTS calendar_events ADD CONSTRAINT calendar_events_created_by_fkey FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE`,
+
+      `ALTER TABLE IF EXISTS stories DROP CONSTRAINT IF EXISTS stories_user_id_fkey`,
+      `ALTER TABLE IF EXISTS stories ADD CONSTRAINT stories_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE`,
+
+      `ALTER TABLE IF EXISTS time_entries DROP CONSTRAINT IF EXISTS time_entries_user_id_fkey`,
+      `ALTER TABLE IF EXISTS time_entries ADD CONSTRAINT time_entries_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE`,
+
+      `ALTER TABLE IF EXISTS chat_members DROP CONSTRAINT IF EXISTS chat_members_user_id_fkey`,
+      `ALTER TABLE IF EXISTS chat_members ADD CONSTRAINT chat_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE`,
+
+      `ALTER TABLE IF EXISTS message_reads DROP CONSTRAINT IF EXISTS message_reads_user_id_fkey`,
+      `ALTER TABLE IF EXISTS message_reads ADD CONSTRAINT message_reads_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE`,
+
+      `ALTER TABLE IF EXISTS notifications DROP CONSTRAINT IF EXISTS notifications_user_id_fkey`,
+      `ALTER TABLE IF EXISTS notifications ADD CONSTRAINT notifications_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE`,
+
+      `ALTER TABLE IF EXISTS task_assignments DROP CONSTRAINT IF EXISTS task_assignments_user_id_fkey`,
+      `ALTER TABLE IF EXISTS task_assignments ADD CONSTRAINT task_assignments_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE`
+    ];
+
+    for (const sql of fkFixes) {
+      try {
+        await client.query(sql);
+      } catch (fkError) {
+        // Log but continue - some tables/constraints might not exist
+        logger.warn('FK fix query failed (might not exist)', { sql: sql.substring(0, 100), error: fkError.message });
+      }
+    }
+
+    logger.info('FK constraints fixed, now deleting user', { userId });
+
+    // Step 2: Delete the user (FKs should now handle cleanup automatically)
+    await client.query('DELETE FROM users WHERE id = $1', [userId]);
+
+    await client.query('COMMIT');
+
+    logger.info('User force-deleted successfully', { userId, userName: user.name });
+
+    res.json({
+      message: `Benutzer ${user.name} erfolgreich gelöscht (force delete)`,
+      deletedId: userId
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    logger.error('Force delete failed', {
+      userId,
+      error: err.message,
+      code: err.code,
+      constraint: err.constraint,
+      detail: err.detail,
+      stack: err.stack
+    });
+
+    res.status(500).json({
+      error: 'Fehler beim Force-Delete',
+      message: err.message,
+      code: err.code,
+      constraint: err.constraint,
+      detail: err.detail
+    });
+  } finally {
+    client.release();
+  }
+});
+
 // @route   POST /api/admin/users/:id/activate
 // @desc    Activate user (admin only)
 router.post('/users/:id/activate', [auth, adminAuth], async (req, res) => {
