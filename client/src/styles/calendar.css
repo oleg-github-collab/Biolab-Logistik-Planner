@@ -135,7 +135,7 @@
 .modal-backdrop-mobile .modal-bottom-sheet {
   width: min(640px, 100%);
   max-width: 720px;
-  max-height: 90vh;
+  max-height: min(90dvh, 90vh);
   background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
   border-radius: 28px;
   box-shadow: 0 20px 40px rgba(15, 23, 42, 0.25);

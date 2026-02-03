@@ -1162,7 +1162,7 @@ router.post('/absence', auth, async (req, res) => {
         FALSE, NULL, NULL,
         $12, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       )
-      RETURNING *`,
+      RETURNING *, (SELECT name FROM users WHERE id = calendar_events.created_by) AS created_by_name`,
       [
         computedTitle,
         sanitizedDescription,
@@ -1398,7 +1398,7 @@ router.post('/events', auth, async (req, res) => {
         $18, $19, $20,
         $21, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       )
-      RETURNING *`,
+      RETURNING *, (SELECT name FROM users WHERE id = calendar_events.created_by) AS created_by_name`,
       [
         normalizedTitle,
         description ? String(description).trim() : null,
@@ -1613,7 +1613,7 @@ router.put('/events/:id', auth, async (req, res) => {
         recurrence_end_date = $20,
         updated_at = CURRENT_TIMESTAMP
       WHERE id = $21
-      RETURNING *`,
+      RETURNING *, (SELECT name FROM users WHERE id = calendar_events.created_by) AS created_by_name`,
       [
         normalizedTitle,
         description !== undefined ? (description ? String(description).trim() : null) : (event.description || null),
@@ -1856,7 +1856,7 @@ router.post('/events/bulk', auth, async (req, res) => {
             $18, $19, $20,
             $21, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
           )
-          RETURNING *`,
+          RETURNING *, (SELECT name FROM users WHERE id = calendar_events.created_by) AS created_by_name`,
           [
             title,
             event.description ? String(event.description).trim() : null,
@@ -1994,7 +1994,7 @@ router.post('/events/:id/duplicate', auth, async (req, res) => {
         $18, $19, $20,
         $21, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       )
-      RETURNING *`,
+      RETURNING *, (SELECT name FROM users WHERE id = calendar_events.created_by) AS created_by_name`,
       [
         original.title,
         original.description,

@@ -21,7 +21,7 @@
     0 0 1px rgba(148, 163, 184, 0.2);
   max-width: 600px;
   width: 100%;
-  max-height: 90vh;
+  max-height: min(90dvh, 90vh);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -250,10 +250,10 @@
 }
 
 .upload-buttons {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
-  flex-wrap: wrap;
-  justify-content: center;
+  width: 100%;
 }
 
 .upload-btn {
@@ -268,8 +268,14 @@
   cursor: pointer;
   transition: all 0.2s;
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-  min-width: 140px;
+  width: 100%;
   justify-content: center;
+  min-height: 48px;
+  gap: 0.6rem;
+}
+
+.upload-btn svg {
+  margin-right: 0;
 }
 
 .upload-btn:hover {
@@ -440,7 +446,7 @@
 .story-composer-footer {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 1rem;
   padding: 1rem 1.5rem;
   border-top: 1px solid rgba(148, 163, 184, 0.22);
@@ -458,6 +464,11 @@
   border: none;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 48px;
+  min-width: 140px;
+  flex: 1;
 }
 
 .cancel-btn {
@@ -547,7 +558,7 @@
     padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0));
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    max-height: calc(95vh - 140px);
+    max-height: calc(95dvh - 140px);
   }
 
   .upload-area {
@@ -571,8 +582,7 @@
   }
 
   .upload-buttons {
-    flex-direction: column;
-    width: 100%;
+    grid-template-columns: 1fr;
     gap: 0.75rem;
   }
 
@@ -678,10 +688,11 @@
     font-size: 0.875rem;
     border-radius: 14px;
     min-height: 48px;
+    flex: 1;
   }
 
   .publish-btn {
-    flex: 1.5;
+    flex: 1;
   }
 
   .story-composer-grid {
@@ -742,7 +753,7 @@
     }
 
     .story-composer-body {
-      max-height: calc(100vh - 120px);
+      max-height: calc(100dvh - 120px);
     }
 
     .upload-area {

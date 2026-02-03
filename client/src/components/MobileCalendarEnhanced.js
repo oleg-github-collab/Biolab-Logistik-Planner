@@ -11,7 +11,8 @@ import {
   MapPin,
   Users,
   AlertCircle,
-  Filter
+  Filter,
+  User
 } from 'lucide-react';
 import {
   format,
@@ -31,8 +32,7 @@ import {
   isAfter,
   isBefore,
   startOfDay,
-  endOfDay,
-  getDay
+  endOfDay
 } from 'date-fns';
 import { de } from 'date-fns/locale';
 
@@ -41,6 +41,18 @@ const VIEW_TYPES = {
   WEEK: 'week',
   MONTH: 'month',
   LIST: 'list'
+};
+
+const toRgba = (color, alpha) => {
+  if (!color || typeof color !== 'string') return null;
+  if (color.startsWith('rgba') || color.startsWith('rgb')) return color;
+  const hex = color.replace('#', '');
+  if (hex.length !== 6) return null;
+  const r = parseInt(hex.slice(0, 2), 16);
+  const g = parseInt(hex.slice(2, 4), 16);
+  const b = parseInt(hex.slice(4, 6), 16);
+  if ([r, g, b].some(Number.isNaN)) return null;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
 const MobileCalendarEnhanced = ({
@@ -246,16 +258,14 @@ const MobileCalendarEnhanced = ({
           ))}
         </div>
 
-        {/* Calendar container with relative positioning for absolute event overlay */}
+        {/* Calendar container */}
         <div className="relative">
-          {/* Calendar grid - Premium style with multi-day event spans */}
           <div className="mobile-calendar-native__month-grid grid grid-cols-7 gap-0 bg-white rounded-xl overflow-hidden shadow-lg border border-slate-200">
-            {days.map((day, dayIndex) => {
+            {days.map((day) => {
               const dayEvents = getEventsForDay(day);
               const isCurrentMonth = isSameMonth(day, currentDate);
               const isCurrentDay = isToday(day);
               const hasEvents = dayEvents.length > 0;
-              const dayOfWeek = getDay(day);
 
               return (
                 <div
@@ -280,92 +290,37 @@ const MobileCalendarEnhanced = ({
                       {format(day, 'd')}
                     </span>
                   </div>
+
+                  {hasEvents && (
+                    <div className="mobile-calendar-native__day-events">
+                      {dayEvents.slice(0, 2).map((event) => {
+                        const eventColor = event.color || '#3b82f6';
+                        const chipStyle = {
+                          backgroundColor: toRgba(eventColor, 0.16) || 'rgba(59, 130, 246, 0.16)',
+                          borderColor: toRgba(eventColor, 0.35) || 'rgba(59, 130, 246, 0.35)',
+                          color: eventColor
+                        };
+                        return (
+                          <button
+                            key={`day-${day.toISOString()}-${event.id}`}
+                            type="button"
+                            onClick={() => onEventClick?.(event)}
+                            className="mobile-calendar-native__event-chip"
+                            style={chipStyle}
+                          >
+                            <span className="truncate">{event.title}</span>
+                          </button>
+                        );
+                      })}
+                      {dayEvents.length > 2 && (
+                        <div className="mobile-calendar-native__event-more">
+                          +{dayEvents.length - 2}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
-            })}
-          </div>
-
-          {/* Event spans overlay - positioned absolutely over calendar */}
-          <div
-            className="absolute top-0 left-0 right-0 pointer-events-none"
-            style={{
-              height: `calc(85px * ${Math.ceil(days.length / 7)})`
-            }}
-          >
-            {filteredEvents.map((event, eventIdx) => {
-              const eventStart = event.start instanceof Date ? event.start : parseISO(event.start);
-              const eventEnd = event.end ? (event.end instanceof Date ? event.end : parseISO(event.end)) : eventStart;
-              const isMultiDay = !isSameDay(eventStart, eventEnd);
-
-              // Find which row and column this event starts
-              const startDayIndex = days.findIndex(day => isSameDay(day, eventStart));
-              const endDayIndex = days.findIndex(day => isSameDay(day, eventEnd));
-
-              if (startDayIndex === -1) return null;
-
-              const eventColor = event.color || '#3b82f6';
-              const eventTextColor = event.textColor || '#ffffff';
-
-              // Single day event
-              if (!isMultiDay) {
-                const row = Math.floor(startDayIndex / 7);
-                const col = startDayIndex % 7;
-
-                return (
-                  <button
-                    key={`${event.id}-${eventIdx}`}
-                    onClick={() => onEventClick?.(event)}
-                    className="absolute pointer-events-auto h-5 flex items-center px-2 text-[9px] font-medium rounded shadow hover:shadow-md transition-all z-20"
-                    style={{
-                      backgroundColor: eventColor,
-                      color: eventTextColor,
-                      top: `calc(${row * 85}px + 34px)`,
-                      left: `calc(${col * (100/7)}% + 8px)`,
-                      width: `calc(${100/7}% - 16px)`,
-                    }}
-                  >
-                    <span className="truncate">{event.title}</span>
-                  </button>
-                );
-              }
-
-              // Multi-day event - render spans across rows
-              const startRow = Math.floor(startDayIndex / 7);
-              const startCol = startDayIndex % 7;
-              const endRow = Math.floor((endDayIndex === -1 ? days.length - 1 : endDayIndex) / 7);
-              const endCol = endDayIndex === -1 ? 6 : endDayIndex % 7;
-
-              const spans = [];
-              for (let row = startRow; row <= endRow; row++) {
-                const colStart = row === startRow ? startCol : 0;
-                const colEnd = row === endRow ? endCol : 6;
-                const spanWidth = colEnd - colStart + 1;
-
-                const roundedStart = row === startRow;
-                const roundedEnd = row === endRow;
-
-                spans.push(
-                  <button
-                    key={`${event.id}-row${row}`}
-                    onClick={() => onEventClick?.(event)}
-                    className={`absolute pointer-events-auto h-6 flex items-center px-2 text-[10px] font-medium shadow-md hover:shadow-lg transition-all z-20
-                      ${roundedStart ? 'rounded-l-full pl-3' : ''}
-                      ${roundedEnd ? 'rounded-r-full pr-3' : ''}
-                    `}
-                    style={{
-                      backgroundColor: eventColor,
-                      color: eventTextColor,
-                      top: `calc(${row * 85}px + 32px)`,
-                      left: `calc(${colStart * (100/7)}% + 8px)`,
-                      width: `calc(${spanWidth * (100/7)}% - 16px)`,
-                    }}
-                  >
-                    {roundedStart && <span className="truncate">{event.title}</span>}
-                  </button>
-                );
-              }
-
-              return spans;
             })}
           </div>
         </div>
@@ -410,6 +365,12 @@ const MobileCalendarEnhanced = ({
               const eventEnd = event.end ? (event.end instanceof Date ? event.end : parseISO(event.end)) : eventStart;
               const isMultiDay = !isSameDay(eventStart, eventEnd);
               const eventColor = event.color || '#3b82f6';
+              const eventType = event.event_type || event.type;
+              const pillStyle = {
+                backgroundColor: toRgba(eventColor, 0.14) || 'rgba(59, 130, 246, 0.14)',
+                borderColor: toRgba(eventColor, 0.32) || 'rgba(59, 130, 246, 0.32)',
+                color: eventColor
+              };
 
               return (
                 <button
@@ -436,6 +397,17 @@ const MobileCalendarEnhanced = ({
                         )}
                       </div>
 
+                      {eventType && (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            className="mobile-calendar-native__event-type"
+                            style={pillStyle}
+                          >
+                            {eventType}
+                          </span>
+                        </div>
+                      )}
+
                       <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-600">
                         <span className="flex items-center gap-1.5">
                           <Clock className="w-3.5 h-3.5" />
@@ -449,6 +421,13 @@ const MobileCalendarEnhanced = ({
                           </span>
                         )}
                       </div>
+
+                      {(event.created_by_name || event.createdByName) && (
+                        <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-slate-500">
+                          <User className="w-3.5 h-3.5" />
+                          <span>Erstellt von {event.created_by_name || event.createdByName}</span>
+                        </div>
+                      )}
 
                       {event.description && (
                         <p className="mt-1.5 text-xs text-slate-500 line-clamp-2">
@@ -570,6 +549,12 @@ const MobileCalendarEnhanced = ({
           <div className="divide-y divide-slate-100">
             {dayEvents.map(event => {
               const eventType = event.event_type || event.type;
+              const eventColor = event.color || '#3b82f6';
+              const pillStyle = {
+                backgroundColor: toRgba(eventColor, 0.14) || 'rgba(59, 130, 246, 0.14)',
+                borderColor: toRgba(eventColor, 0.32) || 'rgba(59, 130, 246, 0.32)',
+                color: eventColor
+              };
               return (
                 <button
                   key={event.id}
@@ -589,6 +574,16 @@ const MobileCalendarEnhanced = ({
                       <h4 className="font-semibold text-slate-900">
                         {event.title}
                       </h4>
+                      {eventType && (
+                        <div className="mt-1 flex flex-wrap gap-2">
+                          <span
+                            className="mobile-calendar-native__event-type"
+                            style={pillStyle}
+                          >
+                            {eventType}
+                          </span>
+                        </div>
+                      )}
                       {!event.all_day && (
                         <div className="flex items-center gap-1 mt-1 text-sm text-slate-600">
                           <Clock className="w-4 h-4" />
@@ -605,6 +600,12 @@ const MobileCalendarEnhanced = ({
                         <div className="flex items-center gap-1 mt-1 text-sm text-slate-600">
                           <MapPin className="w-4 h-4" />
                           {event.location}
+                        </div>
+                      )}
+                      {(event.created_by_name || event.createdByName) && (
+                        <div className="flex items-center gap-1 mt-1 text-sm text-slate-600">
+                          <User className="w-4 h-4" />
+                          Erstellt von {event.created_by_name || event.createdByName}
                         </div>
                       )}
                       {event.description && (

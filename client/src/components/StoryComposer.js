@@ -272,7 +272,7 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
                     }}
                     className="upload-btn camera-btn"
                   >
-                    <Camera className="w-5 h-5 mr-2" />
+                    <Camera className="w-5 h-5" />
                     Kamera
                   </button>
                   <button
@@ -283,7 +283,7 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
                     }}
                     className="upload-btn"
                   >
-                    <Upload className="w-5 h-5 mr-2" />
+                    <Upload className="w-5 h-5" />
                     Galerie
                   </button>
                 </div>

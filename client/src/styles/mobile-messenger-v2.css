@@ -10,8 +10,16 @@
   right: 0;
   bottom: 0;
   z-index: 9999 !important;
-  background: #000000;
-  color: #ffffff;
+  --mm-bg: var(--messenger-bg, #0b0f14);
+  --mm-surface: var(--messenger-surface, #111621);
+  --mm-surface-strong: rgba(17, 22, 33, 0.92);
+  --mm-surface-border: rgba(148, 163, 184, 0.18);
+  --mm-text: var(--messenger-text, #e5e7eb);
+  --mm-muted: var(--messenger-text-muted, #94a3b8);
+  --mm-accent: var(--messenger-accent, #6366f1);
+  --mm-accent-soft: rgba(99, 102, 241, 0.15);
+  background: var(--mm-bg);
+  color: var(--mm-text);
   display: flex !important;
   flex-direction: column;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
@@ -36,15 +44,17 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #000000;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--mm-surface-strong);
+  border-bottom: 1px solid var(--mm-surface-border);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
 .mobile-messenger-title {
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 700;
   margin: 0;
-  color: #ffffff;
+  color: var(--mm-text);
 }
 
 .mobile-messenger-actions {
@@ -56,9 +66,9 @@
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: #1a1a1a;
+  background: rgba(255, 255, 255, 0.08);
   border: none;
-  color: #007aff;
+  color: var(--mm-accent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -68,13 +78,13 @@
 
 .mobile-messenger-icon-btn:active {
   transform: scale(0.95);
-  background: #2a2a2a;
+  background: rgba(255, 255, 255, 0.14);
 }
 
 /* Stories */
 .mobile-messenger-stories {
   padding: 12px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid var(--mm-surface-border);
 }
 
 .mobile-messenger-stories-label {
@@ -83,7 +93,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: #888888;
+  color: var(--mm-muted);
 }
 
 .mobile-messenger-stories-scroll {
@@ -112,14 +122,14 @@
   width: 72px;
   height: 72px;
   border-radius: 50%;
-  background: #1a1a1a;
+  background: rgba(255, 255, 255, 0.08);
   padding: 2px;
   position: relative;
   overflow: hidden;
 }
 
 .mobile-messenger-story-avatar.has-story {
-  background: linear-gradient(135deg, #007aff, #5ac8fa);
+  background: linear-gradient(135deg, var(--mm-accent), #5ac8fa);
   animation: story-pulse 2s ease-in-out infinite;
 }
 
@@ -129,7 +139,7 @@
 }
 
 .mobile-messenger-story-avatar.add {
-  background: #1a1a1a;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .mobile-messenger-story-plus {
@@ -139,7 +149,7 @@
   align-items: center;
   justify-content: center;
   font-size: 32px;
-  color: #007aff;
+  color: var(--mm-accent);
 }
 
 .mobile-messenger-story-img {
@@ -147,15 +157,15 @@
   height: calc(100% - 4px);
   border-radius: 50%;
   object-fit: cover;
-  border: 2px solid #000000;
+  border: 2px solid var(--mm-bg);
 }
 
 .mobile-messenger-story-initials {
   width: calc(100% - 4px);
   height: calc(100% - 4px);
   border-radius: 50%;
-  background: linear-gradient(135deg, #5856d6, #007aff);
-  border: 2px solid #000000;
+  background: linear-gradient(135deg, #5856d6, var(--mm-accent));
+  border: 2px solid var(--mm-bg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -166,7 +176,7 @@
 
 .mobile-messenger-story-name {
   font-size: 11px;
-  color: #888888;
+  color: var(--mm-muted);
   text-align: center;
 }
 
@@ -189,39 +199,39 @@
   padding: 16px 16px 8px;
   font-size: 20px;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--mm-text);
 }
 
 .mobile-messenger-empty {
   padding: 40px 20px;
   text-align: center;
-  color: #666666;
+  color: var(--mm-muted);
 }
 
 .mobile-messenger-chat-item {
   display: flex;
   align-items: center;
-  padding: 6px 10px;
+  padding: 10px 12px;
   cursor: pointer;
   margin: 0 10px;
   margin-bottom: 3px;
   border-radius: 12px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  background: linear-gradient(135deg, rgba(26, 26, 26, 0.4), rgba(20, 20, 20, 0.6));
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: linear-gradient(135deg, rgba(17, 22, 33, 0.85), rgba(13, 17, 24, 0.9));
+  border: 1px solid rgba(148, 163, 184, 0.12);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
 
 .mobile-messenger-chat-item:active {
-  background: linear-gradient(135deg, rgba(30, 30, 30, 0.6), rgba(25, 25, 25, 0.8));
+  background: linear-gradient(135deg, rgba(20, 26, 38, 0.9), rgba(15, 19, 28, 0.95));
   transform: scale(0.98);
-  border-color: rgba(255, 255, 255, 0.08);
+  border-color: rgba(148, 163, 184, 0.18);
 }
 
 .mobile-messenger-chat-item:hover {
-  background: linear-gradient(135deg, rgba(28, 28, 28, 0.5), rgba(22, 22, 22, 0.7));
-  border-color: rgba(255, 255, 255, 0.07);
+  background: linear-gradient(135deg, rgba(22, 28, 40, 0.88), rgba(15, 19, 28, 0.95));
+  border-color: rgba(148, 163, 184, 0.2);
 }
 
 .mobile-messenger-chat-avatar {
@@ -234,8 +244,8 @@
   position: relative;
   flex-shrink: 0;
   overflow: hidden;
-  box-shadow: 0 2px 6px rgba(0, 122, 255, 0.12);
-  border: 2px solid rgba(0, 122, 255, 0.2);
+  box-shadow: 0 2px 6px rgba(99, 102, 241, 0.12);
+  border: 2px solid rgba(99, 102, 241, 0.2);
   cursor: pointer;
 }
 
@@ -253,7 +263,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #5856d6, #007aff);
+  background: linear-gradient(135deg, #5856d6, var(--mm-accent));
   font-size: 15px;
   font-weight: 700;
   color: white;
@@ -270,9 +280,9 @@
   min-height: 14px;
   border-radius: 50%;
   background: #34c759;
-  border: 2px solid #000000;
+  border: 2px solid var(--mm-bg);
   flex-shrink: 0;
-  box-shadow: 0 0 0 2px #000000;
+  box-shadow: 0 0 0 2px var(--mm-bg);
 }
 
 .mobile-messenger-chat-content {
@@ -290,7 +300,7 @@
 .mobile-messenger-chat-name {
   font-size: 14px;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--mm-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -298,7 +308,7 @@
 
 .mobile-messenger-chat-time {
   font-size: 12px;
-  color: #888888;
+  color: var(--mm-muted);
   margin-left: 8px;
 }
 
@@ -309,13 +319,13 @@
 }
 
 .mobile-messenger-chat-status {
-  color: #007aff;
+  color: var(--mm-accent);
   flex-shrink: 0;
 }
 
 .mobile-messenger-chat-text {
   font-size: 13px;
-  color: #888888;
+  color: var(--mm-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -333,7 +343,7 @@
   height: 20px;
   padding: 0 6px;
   border-radius: 10px;
-  background: #007aff;
+  background: var(--mm-accent);
   color: white;
   font-size: 12px;
   font-weight: 600;
@@ -350,9 +360,9 @@
   right: 0;
   height: calc(65px + env(safe-area-inset-bottom));
   padding-bottom: env(safe-area-inset-bottom);
-  background: rgba(10, 10, 10, 0.95);
+  background: var(--mm-surface-strong);
   backdrop-filter: blur(20px);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid var(--mm-surface-border);
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   z-index: 1000;
@@ -367,12 +377,12 @@
   padding: 8px 0;
   background: none;
   border: none;
-  color: #888888;
+  color: var(--mm-muted);
   cursor: pointer;
 }
 
 .mobile-messenger-nav-item.active {
-  color: #007aff;
+  color: var(--mm-accent);
 }
 
 .mobile-messenger-nav-item span {
@@ -390,19 +400,19 @@
 }
 
 .mobile-messenger-chat-header {
-  padding: 12px 12px 10px 12px;
-  margin-top: 70px;
-  background: rgba(10, 10, 10, 0.95);
+  padding: max(env(safe-area-inset-top), 12px) 12px 10px 12px;
+  margin-top: 0;
+  background: var(--mm-surface-strong);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid var(--mm-surface-border);
   display: flex;
   align-items: center;
   gap: 10px;
   min-height: 56px;
   position: sticky;
-  top: 70px;
-  z-index: 100;
+  top: 0;
+  z-index: 120;
 }
 
 .mobile-messenger-chat-back {
@@ -411,7 +421,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #007aff;
+  color: var(--mm-accent);
   background: none;
   border: none;
   cursor: pointer;
@@ -444,7 +454,7 @@
 
 .mobile-messenger-chat-status {
   font-size: 12px;
-  color: #888888;
+  color: var(--mm-muted);
 }
 
 .mobile-messenger-chat-status.online {
@@ -462,13 +472,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #007aff;
+  color: var(--mm-accent);
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .mobile-messenger-chat-search:active {
-  background: rgba(0, 122, 255, 0.1);
+  background: var(--mm-accent-soft);
   transform: scale(0.95);
 }
 
@@ -488,12 +498,13 @@
   overflow-x: hidden !important;
   -webkit-overflow-scrolling: touch;
   padding: 16px;
-  padding-bottom: calc(140px + env(safe-area-inset-bottom));
+  padding-bottom: calc(110px + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   gap: 16px;
   scroll-behavior: smooth;
   overscroll-behavior: contain;
+  background: var(--mm-bg);
 }
 
 .mobile-messenger-messages::-webkit-scrollbar {
@@ -506,7 +517,7 @@
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: #666666;
+  color: var(--mm-muted);
   text-align: center;
 }
 
@@ -543,14 +554,14 @@
 }
 
 .mobile-messenger-message.mine .mobile-messenger-message-bubble {
-  background: #007aff;
+  background: var(--mm-accent);
   color: white;
   border-bottom-right-radius: 4px;
 }
 
 .mobile-messenger-message.other .mobile-messenger-message-bubble {
-  background: #1a1a1a;
-  color: #ffffff;
+  background: rgba(17, 22, 33, 0.9);
+  color: var(--mm-text);
   border-bottom-left-radius: 4px;
 }
 
@@ -582,7 +593,7 @@
   margin-bottom: 8px;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 8px;
-  border-left: 3px solid #007aff;
+  border-left: 3px solid var(--mm-accent);
 }
 
 .mobile-messenger-message.mine .mobile-messenger-message-reply-quote {
@@ -592,7 +603,7 @@
 
 .mobile-messenger-message-reply-line {
   width: 3px;
-  background: #007aff;
+  background: var(--mm-accent);
   border-radius: 2px;
   flex-shrink: 0;
 }
@@ -605,7 +616,7 @@
 .mobile-messenger-message-reply-sender {
   font-size: 12px;
   font-weight: 600;
-  color: #007aff;
+  color: var(--mm-accent);
   margin-bottom: 2px;
 }
 
@@ -629,7 +640,7 @@
 
 .mobile-messenger-message-time {
   font-size: 11px;
-  opacity: 0.7;
+  color: rgba(148, 163, 184, 0.8);
   margin-top: 4px;
 }
 
@@ -642,7 +653,7 @@
   display: flex;
   gap: 4px;
   padding: 12px 14px;
-  background: #1a1a1a;
+  background: var(--mm-surface);
   border-radius: 18px;
   align-self: flex-start;
   max-width: 60px;
@@ -652,7 +663,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #888888;
+  background: var(--mm-muted);
   animation: typingDot 1.4s infinite;
 }
 
@@ -672,14 +683,14 @@
 /* Composer Stack (Reply/Event Indicators) */
 .mobile-messenger-composer-stack {
   position: fixed;
-  bottom: calc(125px + env(safe-area-inset-bottom));
+  bottom: calc(92px + env(safe-area-inset-bottom));
   left: 0;
   right: 0;
   padding: 8px 12px;
-  background: rgba(10, 10, 10, 0.95);
+  background: var(--mm-surface-strong);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid var(--mm-surface-border);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -691,9 +702,9 @@
   align-items: center;
   gap: 12px;
   padding: 12px;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.06);
   border-radius: 12px;
-  border-left: 3px solid #007aff;
+  border-left: 3px solid var(--mm-accent);
 }
 
 .mobile-messenger-composer-icon {
@@ -701,7 +712,7 @@
   height: 36px;
   min-width: 36px;
   border-radius: 10px;
-  background: #007aff;
+  background: var(--mm-accent);
   color: white;
   display: flex;
   align-items: center;
@@ -720,7 +731,7 @@
 .mobile-messenger-composer-label {
   font-size: 11px;
   font-weight: 600;
-  color: #007aff;
+  color: var(--mm-accent);
   margin-bottom: 4px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -728,7 +739,7 @@
 
 .mobile-messenger-composer-text {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(148, 163, 184, 0.9);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -741,9 +752,9 @@
   min-width: 28px;
   min-height: 28px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.12);
   border: none;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--mm-muted);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -761,14 +772,14 @@
 /* Input */
 .mobile-messenger-input {
   position: fixed;
-  bottom: calc(65px + env(safe-area-inset-bottom));
+  bottom: env(safe-area-inset-bottom);
   left: 0;
   right: 0;
   padding: 10px 12px;
-  background: rgba(10, 10, 10, 0.98);
+  background: var(--mm-surface-strong);
   backdrop-filter: blur(30px);
   -webkit-backdrop-filter: blur(30px);
-  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  border-top: 1px solid var(--mm-surface-border);
   display: flex !important;
   align-items: flex-end;
   gap: 10px;
@@ -787,7 +798,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #007aff;
+  color: var(--mm-accent);
   cursor: pointer;
   flex-shrink: 0;
   padding: 0;
@@ -796,12 +807,12 @@
 
 .mobile-messenger-input-btn:active {
   transform: scale(0.95);
-  background: #1a1a1a;
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .mobile-messenger-input-btn.send,
 .mobile-messenger-input-btn.mic {
-  background: #007aff;
+  background: var(--mm-accent);
   color: white;
   aspect-ratio: 1 / 1;
 }
@@ -810,7 +821,7 @@
   flex: 1;
   display: flex;
   align-items: center;
-  background: #1a1a1a;
+  background: rgba(255, 255, 255, 0.08);
   border-radius: 20px;
   padding: 0 12px;
   min-height: 36px;
@@ -823,7 +834,7 @@
   padding: 8px 0;
   background: transparent;
   border: none;
-  color: #ffffff;
+  color: var(--mm-text);
   font-size: 16px;
   line-height: 1.4;
   resize: none;
@@ -831,7 +842,7 @@
 }
 
 .mobile-messenger-input-field::placeholder {
-  color: #666666;
+  color: var(--mm-muted);
 }
 
 /* Actions Menu */
@@ -847,7 +858,7 @@
   bottom: calc(60px + env(safe-area-inset-bottom));
   left: 12px;
   right: 12px;
-  background: #1a1a1a;
+  background: var(--mm-surface);
   border-radius: 16px;
   padding: 12px;
   display: grid;
@@ -862,21 +873,21 @@
   align-items: center;
   gap: 6px;
   padding: 12px 8px;
-  background: #2a2a2a;
+  background: rgba(255, 255, 255, 0.08);
   border: none;
   border-radius: 12px;
-  color: #ffffff;
+  color: var(--mm-text);
   font-size: 11px;
   cursor: pointer;
 }
 
 .mobile-messenger-action-item:active {
   transform: scale(0.95);
-  background: #007aff;
+  background: var(--mm-accent);
 }
 
 .mobile-messenger-action-item svg {
-  color: #007aff;
+  color: var(--mm-accent);
 }
 
 .mobile-messenger-action-item:active svg {
@@ -904,13 +915,13 @@
 }
 
 .mobile-messenger-reaction-chip.active {
-  background: rgba(0, 122, 255, 0.15);
-  border-color: #007aff;
+  background: var(--mm-accent-soft);
+  border-color: var(--mm-accent);
 }
 
 .mobile-messenger-reaction-chip:not(.active) {
   background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: rgba(148, 163, 184, 0.25);
 }
 
 .mobile-messenger-reaction-chip:active {
@@ -925,7 +936,7 @@
 .mobile-messenger-reaction-chip-count {
   font-weight: 600;
   font-size: 12px;
-  color: #ffffff;
+  color: var(--mm-text);
 }
 
 /* Voice Message Player - Compact & Beautiful */
@@ -945,7 +956,7 @@
   height: 36px;
   min-width: 36px;
   border-radius: 50%;
-  background: #007aff;
+  background: var(--mm-accent);
   color: white;
   border: none;
   display: flex;
@@ -958,7 +969,7 @@
 
 .voice-player-btn:active {
   transform: scale(0.95);
-  background: #0056cc;
+  background: #4f46e5;
 }
 
 .voice-player-progress-container {
@@ -977,7 +988,7 @@
 
 .voice-player-progress-fill {
   height: 100%;
-  background: #007aff;
+  background: var(--mm-accent);
   border-radius: 2px;
   transition: width 0.1s linear;
 }
@@ -988,7 +999,7 @@
   gap: 4px;
   margin-top: 4px;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(148, 163, 184, 0.85);
   font-variant-numeric: tabular-nums;
 }
 
@@ -999,11 +1010,11 @@
 /* Event Card - Calendar Event Preview */
 .mobile-messenger-event-card {
   margin-top: 10px;
-  background: linear-gradient(135deg, rgba(0, 122, 255, 0.12) 0%, rgba(0, 122, 255, 0.06) 100%);
-  border: 1.5px solid rgba(0, 122, 255, 0.25);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.18) 0%, rgba(99, 102, 241, 0.08) 100%);
+  border: 1.5px solid rgba(99, 102, 241, 0.28);
   border-radius: 14px;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.15);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.18);
 }
 
 .mobile-messenger-event-header {
@@ -1019,13 +1030,13 @@
   min-width: 44px;
   min-height: 44px;
   border-radius: 12px;
-  background: linear-gradient(135deg, #007aff 0%, #0056cc 100%);
+  background: linear-gradient(135deg, var(--mm-accent) 0%, #4f46e5 100%);
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.4);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
 }
 
 .mobile-messenger-event-info {
@@ -1050,7 +1061,7 @@
 
 .mobile-messenger-event-location {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.65);
+  color: rgba(148, 163, 184, 0.8);
   margin: 0;
   font-weight: 400;
 }
@@ -1058,10 +1069,10 @@
 .mobile-messenger-event-button {
   width: 100%;
   padding: 12px;
-  background: rgba(0, 122, 255, 0.2);
+  background: rgba(99, 102, 241, 0.18);
   border: none;
-  border-top: 1.5px solid rgba(0, 122, 255, 0.3);
-  color: #5ac8fa;
+  border-top: 1.5px solid rgba(99, 102, 241, 0.28);
+  color: rgba(99, 102, 241, 0.95);
   font-size: 13px;
   font-weight: 700;
   text-align: center;
@@ -1071,7 +1082,7 @@
 }
 
 .mobile-messenger-event-button:active {
-  background: rgba(0, 122, 255, 0.3);
+  background: rgba(99, 102, 241, 0.28);
   transform: scale(0.98);
 }
 
@@ -1087,9 +1098,9 @@
 }
 
 .mobile-messenger-message.mine .mobile-messenger-message-bubble {
-  background: linear-gradient(135deg, #007aff 0%, #0062e6 50%, #0056cc 100%);
+  background: linear-gradient(135deg, var(--mm-accent) 0%, #4f46e5 50%, #4338ca 100%);
   border-bottom-right-radius: 6px;
-  box-shadow: 0 2px 12px rgba(0, 122, 255, 0.3), 0 1px 3px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 12px rgba(99, 102, 241, 0.3), 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .mobile-messenger-message.other .mobile-messenger-message-bubble {
@@ -1097,7 +1108,7 @@
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-bottom-left-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.18);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 

@@ -2490,6 +2490,7 @@ body {
   width: 100%;
   max-width: 32rem;
   max-height: calc(100vh - 2rem);
+  max-height: calc(100dvh - 2rem);
   overflow: hidden;
   z-index: var(--z-modal);
   animation: slideInUp 0.3s ease-out;
@@ -2530,6 +2531,7 @@ body {
   width: 100%;
   max-width: min(1100px, 100%);
   max-height: calc(100vh - 2rem);
+  max-height: calc(100dvh - 2rem);
   overflow: hidden;
   outline: none;
 }

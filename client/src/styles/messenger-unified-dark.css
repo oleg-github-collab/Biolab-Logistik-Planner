@@ -38,6 +38,24 @@
     background: var(--messenger-bg);
   }
 
+  body.messenger-page .contact-list {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  body.messenger-page .contact-list__grid {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 16px 0 20px;
+    scrollbar-width: thin;
+  }
+
   /* ==================== DESKTOP HEADER ==================== */
   .messenger-desktop-header {
     position: sticky;

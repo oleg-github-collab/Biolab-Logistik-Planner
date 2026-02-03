@@ -401,6 +401,8 @@ export const transformApiEventToUi = (apiEvent) => {
     attachments,
     cover_image: apiEvent.cover_image || null,
     audio_url: apiEvent.audio_url || null,
+    created_by: apiEvent.created_by ?? apiEvent.createdBy ?? null,
+    created_by_name: apiEvent.created_by_name || apiEvent.createdByName || null,
     raw: apiEvent
   };
 };

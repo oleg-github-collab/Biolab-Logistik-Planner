@@ -93,6 +93,12 @@ const LONG_PRESS_MENU_PADDING = 12;
 const LONG_PRESS_VIBRATION_MS = 10;
 const MAX_MESSAGE_ATTACHMENT_SIZE = 10 * 1024 * 1024;
 
+const debug = (...args) => {
+  if (process.env.NODE_ENV !== 'production' && typeof console !== 'undefined') {
+    console.log(...args);
+  }
+};
+
 const isGeneralThread = (thread) =>
   thread?.type === 'group' &&
   GENERAL_THREAD_NAMES.some((name) => (thread?.name || '').toLowerCase().includes(name));
@@ -133,6 +139,488 @@ const normalizeStory = (story = {}) => ({
   viewerHasSeen: Boolean(story.viewed_by_me ?? story.viewerHasSeen ?? false),
   profilePhoto: story.profile_photo_url ?? story.profilePhotoUrl ?? story.profilePhoto
 });
+
+const MessengerContactList = React.memo(({
+  variant,
+  storyEntries,
+  storyMap,
+  onStoryOpen,
+  storiesLoading,
+  isMobile,
+  contacts,
+  groupThreads,
+  filteredGroupThreads,
+  filteredContacts,
+  decoratedContacts,
+  groupedContacts,
+  normalizedSearchTerm,
+  selectedContact,
+  selectedThreadId,
+  handleContactClick,
+  handleGroupChatClick,
+  setShowSidebar,
+  handleOpenProfile,
+  openCreateGroupModal,
+  handleAskBot,
+  searchTerm,
+  setSearchTerm,
+  setShowStoryComposer,
+  getAssetUrl,
+  formatContactTimestamp,
+  getThreadTimestamp,
+  isGeneralThread,
+  isBotContact,
+  loading
+}) => {
+  const [isScrolled, setIsScrolled] = useState(false);
+  const scrollContainerRef = useRef(null);
+  const scrollPositionRef = useRef(0);
+
+  // Save scroll position before re-render
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const saveScrollPosition = () => {
+      scrollPositionRef.current = container.scrollTop;
+    };
+
+    container.addEventListener('scroll', saveScrollPosition, { passive: true });
+    return () => container.removeEventListener('scroll', saveScrollPosition);
+  }, []);
+
+  // Restore scroll position after re-render
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (container && scrollPositionRef.current > 0) {
+      container.scrollTop = scrollPositionRef.current;
+    }
+  });
+
+  useEffect(() => {
+    setIsScrolled(false);
+  }, [isMobile]);
+
+  const wrapperClass =
+    variant === 'overlay'
+      ? `contact-list contact-list--overlay ${isScrolled ? 'contact-list--scrolled' : ''}`
+      : `contact-list contact-list--panel ${isScrolled ? 'contact-list--scrolled' : ''}`;
+  const humanContacts = contacts.filter((contact) => !isBotContact(contact));
+  const totalContacts = humanContacts.length;
+  const totalGroups = groupThreads.length;
+  const onlineContacts = humanContacts.filter((contact) => contact.online).length;
+  const filteredCount = filteredContacts.length;
+  const visibleGroups = filteredGroupThreads.length;
+  const visibleItems = filteredCount + visibleGroups;
+  const summaryLabel = normalizedSearchTerm
+    ? `${visibleItems} Treffer · ${onlineContacts} online`
+    : `${totalContacts} Kontakte · ${totalGroups} Gruppen · ${onlineContacts} online`;
+
+  // Memoized ContactCard component to prevent unnecessary re-renders
+  const ContactCard = React.memo(({ contact, isSelected, onSelect }) => {
+    const contactStory = storyMap?.[contact.id];
+    const unreadCount = contact.unreadCount || 0;
+    const isBot = contact.is_bot || contact.is_system_user ||
+                    contact.email?.includes('bl_bot') ||
+                    contact.email?.includes('entsorgungsbot');
+    const lastSeenAt = contact.last_seen_at || contact.last_seen;
+    const lastSeenText = lastSeenAt ? formatContactTimestamp(lastSeenAt) : '';
+    const lastSeenLabel = contact.online
+      ? 'Online'
+      : lastSeenText
+        ? `Zuletzt online ${lastSeenText}`
+        : 'Offline';
+
+    return (
+      <button
+        onClick={(e) => {
+          e.preventDefault();
+          onSelect(contact);
+        }}
+        className={`contact-card ${isSelected ? 'contact-card--active' : ''} ${isBot ? 'contact-card--bot' : ''}`}
+      >
+        <div className="relative">
+          <div
+            className={`contact-card__avatar-ring ${contactStory ? 'has-story' : ''} ${
+              contactStory && !contactStory.viewerHasSeen ? 'story-unread' : ''
+            } ${isBot ? 'bot-ring' : ''}`}
+            role="button"
+            tabIndex={0}
+            onClick={(event) => {
+              event.stopPropagation();
+              handleOpenProfile(contact.id);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                event.stopPropagation();
+                handleOpenProfile(contact.id);
+              }
+            }}
+          >
+            <div className={`contact-card__avatar ${isBot ? 'bot-avatar' : ''}`}>
+              {contact.profile_photo ? (
+                <>
+                  <img
+                    src={getAssetUrl(contact.profile_photo)}
+                    alt={contact.name}
+                    className="w-full h-full object-cover rounded-full"
+                    style={{ display: 'block' }}
+                    onError={(e) => {
+                      console.error('Failed to load avatar:', contact.name, getAssetUrl(contact.profile_photo));
+                      e.target.style.display = 'none';
+                      const fallback = e.target.nextElementSibling;
+                      if (fallback) fallback.style.display = 'flex';
+                    }}
+                  />
+                  <div className="flex items-center justify-center w-full h-full" style={{ display: 'none' }}>
+                    {isBot ? (
+                      <Bot className="w-5 h-5" />
+                    ) : (
+                      contact.name?.[0]?.toUpperCase() || contact.email?.[0]?.toUpperCase() || '?'
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center justify-center w-full h-full">
+                  {isBot ? (
+                    <Bot className="w-5 h-5" />
+                  ) : (
+                    contact.name?.[0]?.toUpperCase() || contact.email?.[0]?.toUpperCase() || '?'
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+          {/* Online status indicator */}
+          {contact.online && !isBot && (
+            <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white shadow-sm" />
+          )}
+          {/* Bot badge */}
+          {isBot && (
+            <div className="absolute bottom-0 right-0 w-5 h-5 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full border-2 border-white shadow-sm flex items-center justify-center">
+              <Bot className="w-3 h-3 text-white" />
+            </div>
+          )}
+          {unreadCount > 0 && (
+            <div className="contact-card__badge absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[1.25rem] h-5 flex items-center justify-center px-1.5 shadow-lg">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </div>
+          )}
+        </div>
+        <div className="contact-card__body">
+          <p className="contact-card__name">
+            {contact.name}
+          </p>
+          <p className="contact-card__last-seen">{lastSeenLabel}</p>
+        </div>
+      </button>
+    );
+  }, (prevProps, nextProps) => {
+    // Custom comparison function - only re-render if these specific props changed
+    return prevProps.contact.id === nextProps.contact.id &&
+           prevProps.isSelected === nextProps.isSelected &&
+           prevProps.contact.online === nextProps.contact.online &&
+           prevProps.contact.unreadCount === nextProps.contact.unreadCount &&
+           prevProps.contact.last_seen === nextProps.contact.last_seen &&
+           prevProps.contact.last_seen_at === nextProps.contact.last_seen_at;
+  });
+
+  const renderContactCard = (contact) => {
+    const isSelected = selectedContact?.id === contact.id;
+    return (
+      <ContactCard
+        key={contact.id}
+        contact={contact}
+        isSelected={isSelected}
+        onSelect={handleContactClick}
+      />
+    );
+  };
+
+  // Memoized GroupChatCard component
+  const GroupChatCard = React.memo(({ groupThread, isSelected, onSelect }) => {
+    const unreadCount = groupThread.unreadCount || 0;
+    const isGeneral = isGeneralThread(groupThread);
+    const displayName = isGeneral ? 'Allgemeiner Chat' : (groupThread.name || 'Gruppenchat');
+    const lastMessage = groupThread.lastMessage;
+    const timestamp = getThreadTimestamp(groupThread);
+    const typeLabel = lastMessage?.messageType && lastMessage.messageType !== 'text'
+      ? lastMessage.messageType === 'image'
+        ? 'Bild'
+        : lastMessage.messageType === 'audio'
+          ? 'Audio'
+          : lastMessage.messageType === 'gif'
+            ? 'GIF'
+            : lastMessage.messageType.toUpperCase()
+      : '';
+    const snippet = lastMessage?.content ||
+      lastMessage?.message ||
+      typeLabel ||
+      groupThread.description ||
+      'Gruppenchat';
+
+    return (
+      <button
+        onClick={(e) => {
+          e.preventDefault();
+          onSelect(groupThread);
+        }}
+        className={`contact-card ${isSelected ? 'contact-card--active' : ''} ${isGeneral ? 'contact-card--general' : ''}`}
+      >
+        <div className="relative">
+          <div className="contact-card__avatar-ring">
+            <div className="contact-card__avatar bg-gradient-to-br from-blue-500 to-purple-600">
+              <Users className="w-6 h-6 text-white" />
+            </div>
+          </div>
+          {unreadCount > 0 && (
+            <div className="contact-card__badge absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[1.25rem] h-5 flex items-center justify-center px-1.5 shadow-lg">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </div>
+          )}
+        </div>
+        <div className="contact-card__body">
+          <p className="contact-card__name">
+            {displayName}
+            {isGeneral && <span className="contact-card__pill">Allgemein</span>}
+          </p>
+          <p className="contact-card__message">{snippet}</p>
+          <div className="contact-card__meta">
+            {timestamp && (
+              <span>{formatContactTimestamp(timestamp)}</span>
+            )}
+          </div>
+        </div>
+      </button>
+    );
+  }, (prevProps, nextProps) => {
+    // Custom comparison function
+    return prevProps.groupThread.id === nextProps.groupThread.id &&
+           prevProps.isSelected === nextProps.isSelected &&
+           prevProps.groupThread.unreadCount === nextProps.groupThread.unreadCount &&
+           prevProps.groupThread.lastMessage?.id === nextProps.groupThread.lastMessage?.id &&
+           prevProps.groupThread.lastMessage?.content === nextProps.groupThread.lastMessage?.content;
+  });
+
+  const renderGroupChatCard = (groupThread) => {
+    const isSelected = selectedThreadId === groupThread.id;
+    return (
+      <GroupChatCard
+        key={groupThread.id}
+        groupThread={groupThread}
+        isSelected={isSelected}
+        onSelect={handleGroupChatClick}
+      />
+    );
+  };
+
+  return (
+    <div className={wrapperClass}>
+      <div className="contact-list__header">
+        <div>
+          <p className="contact-list__eyebrow">Team-Messenger</p>
+          <h2>Nachrichten im Griff</h2>
+          <p className="contact-list__subheader">{summaryLabel}</p>
+        </div>
+        {variant === 'overlay' && (
+          <button
+            onClick={() => setShowSidebar(false)}
+            className="contact-list__close"
+            aria-label="Kontakte schließen"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
+      </div>
+
+      <div className="contact-list__actions">
+        <button
+          type="button"
+          className="contact-list__action"
+          onClick={() => handleOpenProfile()}
+        >
+          <User className="w-4 h-4" />
+          <span>Mein Profil</span>
+        </button>
+        <button
+          type="button"
+          className="contact-list__action"
+          onClick={openCreateGroupModal}
+        >
+          <Users className="w-4 h-4" />
+          <span>Neue Gruppe</span>
+        </button>
+        <button
+          type="button"
+          className="contact-list__action contact-list__action--bot"
+          onClick={handleAskBot}
+        >
+          <Bot className="w-4 h-4" />
+          <span>BL_Bot</span>
+        </button>
+      </div>
+
+      <div className="contact-list__search">
+        <Search className="w-4 h-4 text-slate-500" />
+        <input
+          type="text"
+          placeholder="Kontakte und Gruppen suchen"
+          aria-label="Kontakte und Gruppen suchen"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+      </div>
+
+      <div className="contact-list__stories">
+        <div className="contact-list__stories-header">
+          <div>
+            <p className="contact-list__section-title">Storys</p>
+            <p className="contact-list__section-subtitle">Neuigkeiten aus dem Team</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowStoryComposer(true)}
+            className="story-header-btn"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Story erstellen</span>
+          </button>
+        </div>
+        {storiesLoading || storyEntries.length > 0 ? (
+          <div className="contact-list__stories-row">
+            {storiesLoading && (
+              Array.from({ length: 3 }).map((_, idx) => (
+                <div key={`story-skeleton-${idx}`} className="story-chip story-chip--skeleton" />
+              ))
+            )}
+            {!storiesLoading && storyEntries.map((story) => {
+              const preview = story.mediaUrl ? getAssetUrl(story.mediaUrl) : null;
+              const timestamp = story.updatedAt || story.createdAt;
+              return (
+                <button
+                  key={story.id}
+                  type="button"
+                  onClick={() => onStoryOpen(story.id)}
+                  className={`story-chip ${story.viewerHasSeen ? 'seen' : 'new'}`}
+                  aria-label={`Story von ${story.userName || 'Team'}${
+                    story.viewerHasSeen ? ', bereits gesehen' : ', neu'
+                  }`}
+                  title={`${story.userName || 'Story'} - ${
+                    story.viewerHasSeen ? 'bereits angesehen' : 'neu'
+                  }`}
+                >
+                  <div
+                    className={`story-chip__ring ${story.viewerHasSeen ? 'seen' : 'has-story'}`}
+                    aria-hidden="true"
+                  >
+                    <div className="story-chip__avatar" aria-hidden={!preview}>
+                      {preview ? (
+                        <img
+                          src={preview}
+                          alt={`${story.userName || 'Story'} media`}
+                          className="story-chip__avatar-img"
+                        />
+                      ) : (
+                        <span>{story.userName?.charAt(0)?.toUpperCase() || '?'}</span>
+                      )}
+                    </div>
+                  </div>
+                  <span className="story-chip__name">{story.userName || 'Story'}</span>
+                  <small className="story-chip__meta">
+                    {timestamp
+                      ? formatDistanceToNow(new Date(timestamp), { addSuffix: true, locale: de })
+                      : 'vor kurzem'}
+                  </small>
+                </button>
+              );
+            })}
+            {!storiesLoading && storyEntries.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowStoryComposer(true)}
+                className="story-add-btn"
+                aria-label="Story erstellen"
+              >
+                <div className="story-add-btn__circle">
+                  <Plus className="w-6 h-6" />
+                </div>
+                <span className="story-add-btn__label">Story</span>
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="story-empty">
+            <p>Noch keine Storys.</p>
+            <button type="button" onClick={() => setShowStoryComposer(true)}>
+              Erste Story erstellen
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="contact-list__grid" ref={scrollContainerRef}>
+        {loading ? (
+          <div className="flex items-center justify-center h-32">
+            <div className="animate-spin w-8 h-8 border-4 border-white border-t-transparent rounded-full" />
+          </div>
+        ) : (
+          <>
+            {/* Group Chats Section */}
+            {filteredGroupThreads.length > 0 && (
+              <div className="contact-group mb-4">
+                <p className="contact-group__heading flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  <span>Gruppen-Chats</span>
+                  <span className="ml-auto text-xs bg-gradient-to-r from-blue-500 to-purple-600 text-white px-2 py-0.5 rounded-full font-semibold">
+                    {filteredGroupThreads.length}
+                  </span>
+                </p>
+                <div className="contact-group__grid">
+                  {filteredGroupThreads.map(thread => renderGroupChatCard(thread))}
+                </div>
+              </div>
+            )}
+
+            {/* Divider between groups and contacts */}
+            {filteredGroupThreads.length > 0 && decoratedContacts.length > 0 && (
+              <div className="border-t border-slate-200 my-4" />
+            )}
+
+            {/* Individual Contacts Sections */}
+            {decoratedContacts.length === 0 && filteredGroupThreads.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-32 text-slate-400 gap-2">
+                <Users className="w-12 h-12" />
+                <p>Keine Unterhaltungen gefunden</p>
+              </div>
+            ) : (
+              <>
+                {groupedContacts.unreadContacts.length > 0 && (
+                  <div className="contact-group">
+                    <p className="contact-group__heading">Unbeantwortete Nachrichten</p>
+                    <div className="contact-group__grid">
+                      {groupedContacts.unreadContacts.map((contact) => renderContactCard(contact))}
+                    </div>
+                  </div>
+                )}
+                {decoratedContacts.length > 0 && (
+                  <div className="contact-group">
+                    <p className="contact-group__heading">Alle Kontakte</p>
+                    <div className="contact-group__grid">
+                      {decoratedContacts.map((contact) => renderContactCard(contact))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+});
+
+MessengerContactList.displayName = 'MessengerContactList';
 
 const DirectMessenger = () => {
   const navigate = useNavigate();
@@ -300,7 +788,7 @@ const DirectMessenger = () => {
           memberIds.push(user.id);
         }
 
-        console.log('Creating General Chat with all users:', memberIds);
+        debug('Creating General Chat with all users:', memberIds);
 
         const response = await createConversationThread({
           name: 'Allgemeiner Chat',
@@ -620,7 +1108,7 @@ const DirectMessenger = () => {
       try {
         setLoading(true);
         setStoriesLoading(true);
-        console.log('🔍 [DirectMessenger] Starting to load contacts, threads, and stories...');
+        debug('🔍 [DirectMessenger] Starting to load contacts, threads, and stories...');
         const [contactsRes, threadsRes, storiesRes] = await Promise.all([
           getAllContacts().catch(err => {
             console.error('❌ Error loading contacts:', err);
@@ -654,8 +1142,8 @@ const DirectMessenger = () => {
         const threadContacts = buildContactsFromThreads(sanitizedThreads).map(normalizeContact);
         const mergedContacts = mergeContacts(contactsWithBot, threadContacts).map(normalizeContact).filter(c => c.id !== user?.id);
 
-        console.log('📊 CONTACTS LOADED - Full objects:', mergedContacts.slice(0, 2));
-        console.log('📊 CONTACTS LOADED - Keys check:', mergedContacts.slice(0, 3).map(c => ({
+        debug('📊 CONTACTS LOADED - Full objects:', mergedContacts.slice(0, 2));
+        debug('📊 CONTACTS LOADED - Keys check:', mergedContacts.slice(0, 3).map(c => ({
           id: c.id,
           name: c.name,
           last_seen: c.last_seen,
@@ -1248,7 +1736,7 @@ const DirectMessenger = () => {
   const handleThreadSelect = useCallback(async (thread) => {
     if (!thread) return;
 
-    console.log('[handleThreadSelect] Selecting thread:', thread.id, thread.name);
+    debug('[handleThreadSelect] Selecting thread:', thread.id, thread.name);
 
     setSelectedThreadId(thread.id);
     setSelectedContact(null);
@@ -1262,12 +1750,12 @@ const DirectMessenger = () => {
     // Load messages for this thread
     try {
       const response = await getConversationMessages(thread.id);
-      console.log('[handleThreadSelect] Messages loaded:', response?.data?.length);
+      debug('[handleThreadSelect] Messages loaded:', response?.data?.length);
 
       if (response?.data && Array.isArray(response.data)) {
         const normalized = response.data.map(normalizeMessage).filter(Boolean);
         setMessages(normalized);
-        console.log('[handleThreadSelect] Set messages:', normalized.length);
+        debug('[handleThreadSelect] Set messages:', normalized.length);
 
         // Mark as read
         await markConversationAsRead(thread.id);
@@ -1284,9 +1772,9 @@ const DirectMessenger = () => {
   }, [normalizeMessage, joinConversationRoom, markConversationAsRead]);
 
   const handleContactClick = useCallback(async (contact) => {
-    console.log('[DirectMessenger] ===== handleContactClick START =====');
-    console.log('[DirectMessenger] Contact:', contact);
-    console.log('[DirectMessenger] Threads length:', threads?.length);
+    debug('[DirectMessenger] ===== handleContactClick START =====');
+    debug('[DirectMessenger] Contact:', contact);
+    debug('[DirectMessenger] Threads length:', threads?.length);
 
     if (!contact?.id) {
       console.error('[DirectMessenger] ERROR: No contact ID');
@@ -1295,10 +1783,10 @@ const DirectMessenger = () => {
     }
 
     try {
-      console.log('[DirectMessenger] Setting selected contact...');
+      debug('[DirectMessenger] Setting selected contact...');
       setSelectedContact(contact);
 
-      console.log('[DirectMessenger] Searching for existing thread...');
+      debug('[DirectMessenger] Searching for existing thread...');
       const existingThread = Array.isArray(threads)
         ? threads.find(
             (t) =>
@@ -1310,27 +1798,27 @@ const DirectMessenger = () => {
           )
         : null;
 
-      console.log('[DirectMessenger] Existing thread:', existingThread);
+      debug('[DirectMessenger] Existing thread:', existingThread);
 
       if (existingThread?.id) {
-        console.log('[DirectMessenger] Using existing thread:', existingThread.id);
+        debug('[DirectMessenger] Using existing thread:', existingThread.id);
         setSelectedThreadId(existingThread.id);
         await loadMessages(existingThread.id);
         // DON'T mark as read immediately - wait for user to actually read
         // Mark as read will be called after 2s delay or when scrolled to bottom
         setShowScrollToBottom(false);
       } else {
-        console.log('[DirectMessenger] Creating new thread...');
+        debug('[DirectMessenger] Creating new thread...');
         const response = await createConversationThread({
           name: contact.name || 'Unbekannt',
           type: 'direct',
           memberIds: [normalizeUserId(contact.id)]
         });
 
-        console.log('[DirectMessenger] Create thread response:', response);
+        debug('[DirectMessenger] Create thread response:', response);
 
         if (response?.data?.id) {
-          console.log('[DirectMessenger] Thread created successfully:', response.data.id);
+          debug('[DirectMessenger] Thread created successfully:', response.data.id);
           const normalizedThread = normalizeThread(response.data);
           setSelectedThreadId(normalizedThread.id);
           setMessages([]);
@@ -1347,12 +1835,12 @@ const DirectMessenger = () => {
         }
       }
 
-      console.log('[DirectMessenger] Mobile check:', isMobile);
+      debug('[DirectMessenger] Mobile check:', isMobile);
       if (isMobile) {
         setMobileMode('chat');
       }
 
-      console.log('[DirectMessenger] ===== handleContactClick SUCCESS =====');
+      debug('[DirectMessenger] ===== handleContactClick SUCCESS =====');
     } catch (error) {
       console.error('[DirectMessenger] ===== handleContactClick ERROR =====');
       console.error('[DirectMessenger] Error object:', error);
@@ -1449,7 +1937,7 @@ const DirectMessenger = () => {
       try {
         await markConversationAsRead(selectedThreadId);
         clearThreadUnread(selectedThreadId);
-        console.log('✅ Auto-marked conversation as read after 3s:', selectedThreadId);
+        debug('✅ Auto-marked conversation as read after 3s:', selectedThreadId);
       } catch (err) {
         console.error('❌ Failed to auto-mark as read:', err);
       }
@@ -2890,7 +3378,7 @@ const DirectMessenger = () => {
 
   const filteredContacts = useMemo(() => {
     // Виключаємо самого себе з контактів
-    console.log('🔥 MESSENGER v12.9 LOADED - Self-contact filter ACTIVE');
+    debug('🔥 MESSENGER v12.9 LOADED - Self-contact filter ACTIVE');
     const contactsWithoutSelf = contacts.filter((contact) => contact.id !== user?.id);
     if (!normalizedSearchTerm) return contactsWithoutSelf;
     return contactsWithoutSelf.filter((contact) => {
@@ -4134,12 +4622,37 @@ const DirectMessenger = () => {
   const renderDesktopLayout = () => (
     <div className="flex h-full bg-gradient-to-br from-slate-50 to-slate-100 rounded-2xl overflow-hidden border border-slate-200 shadow-lg" style={{ height: '100%', maxHeight: '100%', overflow: 'hidden' }}>
       {showSidebar && (
-        <ContactList
+        <MessengerContactList
           variant="panel"
           storyEntries={storyEntries}
           storyMap={storiesByUser}
           onStoryOpen={handleStoryOpen}
           storiesLoading={storiesLoading}
+          isMobile={isMobile}
+          contacts={contacts}
+          groupThreads={groupThreads}
+          filteredGroupThreads={filteredGroupThreads}
+          filteredContacts={filteredContacts}
+          decoratedContacts={decoratedContacts}
+          groupedContacts={groupedContacts}
+          normalizedSearchTerm={normalizedSearchTerm}
+          selectedContact={selectedContact}
+          selectedThreadId={selectedThreadId}
+          handleContactClick={handleContactClick}
+          handleGroupChatClick={handleGroupChatClick}
+          setShowSidebar={setShowSidebar}
+          handleOpenProfile={handleOpenProfile}
+          openCreateGroupModal={openCreateGroupModal}
+          handleAskBot={handleAskBot}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          setShowStoryComposer={setShowStoryComposer}
+          getAssetUrl={getAssetUrl}
+          formatContactTimestamp={formatContactTimestamp}
+          getThreadTimestamp={getThreadTimestamp}
+          isGeneralThread={isGeneralThread}
+          isBotContact={isBotContact}
+          loading={loading}
         />
       )}
 
@@ -5215,10 +5728,10 @@ const DirectMessenger = () => {
     <>
       {/* Group Members Modal - MUST BE FIRST for proper React rendering */}
       {(() => {
-        console.log('🔥 MODAL RENDER CHECK:', { showMembersModal, hasDocument: typeof document !== 'undefined', isMobile });
+        debug('🔥 MODAL RENDER CHECK:', { showMembersModal, hasDocument: typeof document !== 'undefined', isMobile });
         return showMembersModal && typeof document !== 'undefined' && createPortal(
           <div className="group-settings-overlay" onClick={(e) => {
-            console.log('🔥 Modal overlay clicked');
+            debug('🔥 Modal overlay clicked');
             if (e.target === e.currentTarget) {
               setShowMembersModal(false);
             }
@@ -5543,14 +6056,15 @@ const DirectMessenger = () => {
           setSelectedEvent={setSelectedEvent}
           handleMessageSearchSelect={handleMessageSearchSelect}
           onShowGroupInfo={() => {
-            console.log('🔥🔥🔥 DIRECT MESSENGER: onShowGroupInfo called!', {
+            debug('🔥🔥🔥 DIRECT MESSENGER: onShowGroupInfo called!', {
               showMembersModal,
               activeThread: activeThread?.name,
               threadType: activeThread?.type
             });
             setShowMembersModal(true);
-            console.log('🔥🔥🔥 DIRECT MESSENGER: setShowMembersModal(true) called');
+            debug('🔥🔥🔥 DIRECT MESSENGER: setShowMembersModal(true) called');
           }}
+          onCreateGroup={openCreateGroupModal}
         />
       ) : (
         <>

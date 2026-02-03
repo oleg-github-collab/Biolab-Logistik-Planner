@@ -1,9 +1,9 @@
-# Use Node.js 18 LTS - v13.10.2 OBSERVER GUARANTEED DEPLOY
+# Use Node.js 18 LTS - v13.11.0 UX POLISH & DELETE FIX
 FROM node:18-alpine
 
-# NUCLEAR CACHE BUST - v13.10.2 - FORCE FRESH BUILD WITH MIGRATIONS
-ARG BUILDTIME_CACHEBUST=1769751200
-RUN echo "🚀 v13.10.2 OBSERVER GUARANTEED DEPLOY - CACHE BUSTER: $BUILDTIME_CACHEBUST 🚀"
+# NUCLEAR CACHE BUST - v13.11.0 - UX IMPROVEMENTS + USER DELETE FIX
+ARG BUILDTIME_CACHEBUST=1769751300
+RUN echo "✨ v13.11.0 UX POLISH & DELETE FIX - CACHE BUSTER: $BUILDTIME_CACHEBUST ✨"
 
 # Set working directory
 WORKDIR /app
@@ -19,11 +19,11 @@ RUN cd client && npm ci --no-cache
 # Copy application code
 COPY . .
 
-# Build client - v13.10.2 GUARANTEED FRESH DEPLOY
-RUN echo "======================================== v13.10.2 GUARANTEED DEPLOY ========================================" && \
+# Build client - v13.11.0 UX POLISH & DELETE FIX
+RUN echo "======================================== v13.11.0 UX POLISH & DELETE FIX ========================================" && \
     echo "🔥 CACHE BUSTER: $(date +%s)" && \
-    echo "Building v13.10.2 (Force fresh build with DB migrations) at $(date)" && \
-    echo "==========================================================================================================="
+    echo "Building v13.11.0 (UX improvements + user delete with FK fix) at $(date)" && \
+    echo "=============================================================================================================="
 # CRITICAL: Clear ALL caches before build
 RUN cd client && rm -rf node_modules/.cache build .cache dist tmp
 # CRITICAL: Set API URL for production build
@@ -46,7 +46,7 @@ RUN echo "🔥🔥🔥 FORCING FRESH BUILD - NO CACHE ALLOWED 🔥🔥🔥" && \
     echo "📦 Main bundle:" && \
     ls -lh build/static/js/main.*.js
 RUN echo "=============================================================================================" && \
-    echo "✅ Build v13.10.2 GUARANTEED DEPLOY complete!" && \
+    echo "✅ Build v13.11.0 UX POLISH & DELETE FIX complete!" && \
     ls -lh client/build/static/js/main.*.js && \
     echo "=============================================================================================" && \
     cat client/build/asset-manifest.json && \

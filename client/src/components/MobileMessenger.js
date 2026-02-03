@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -92,7 +92,8 @@ const MobileMessenger = ({
   selectedEvent,
   setSelectedEvent,
   handleMessageSearchSelect,
-  onShowGroupInfo
+  onShowGroupInfo,
+  onCreateGroup
 }) => {
   const navigate = useNavigate();
   const [mobileMode, setMobileMode] = useState('list'); // 'list' or 'chat'
@@ -161,8 +162,35 @@ const MobileMessenger = ({
 
   // Render contact list view
   const renderContactList = () => {
-    // Filter out current user
-    const filteredContacts = contacts.filter(c => c.id !== user?.id);
+    const contactMap = new Map();
+    const contactSource = Array.isArray(contacts) ? contacts : [];
+
+    contactSource.forEach((contact) => {
+      if (!contact?.id || contact.id === user?.id) return;
+      contactMap.set(contact.id, contact);
+    });
+
+    if (Array.isArray(threads)) {
+      threads.forEach((thread) => {
+        const members = Array.isArray(thread.members) ? thread.members : [];
+        members.forEach((member) => {
+          const memberId = member.id || member.user_id;
+          if (!memberId || memberId === user?.id || contactMap.has(memberId)) return;
+          contactMap.set(memberId, {
+            id: memberId,
+            name: member.name || member.user_name || member.username || member.email || 'Kontakt',
+            email: member.email,
+            profile_photo: member.profile_photo || member.profile_photo_url,
+            profile_photo_url: member.profile_photo_url,
+            online: member.online,
+            last_seen: member.last_seen,
+            last_seen_at: member.last_seen_at
+          });
+        });
+      });
+    }
+
+    const filteredContacts = Array.from(contactMap.values());
 
     // Filter and sort threads - exclude self-chats
     const sortedThreads = [...threads]
@@ -188,10 +216,18 @@ const MobileMessenger = ({
         <div className="mobile-messenger-header">
           <h1 className="mobile-messenger-title">Chats</h1>
           <div className="mobile-messenger-actions">
-            <button className="mobile-messenger-icon-btn">
+            <button
+              className="mobile-messenger-icon-btn"
+              onClick={() => setShowSearchModal(true)}
+              aria-label="Nachrichten durchsuchen"
+            >
               <Search size={20} />
             </button>
-            <button className="mobile-messenger-icon-btn">
+            <button
+              className="mobile-messenger-icon-btn"
+              onClick={() => onCreateGroup && onCreateGroup()}
+              aria-label="Neue Gruppe erstellen"
+            >
               <Plus size={20} />
             </button>
           </div>
@@ -332,6 +368,65 @@ const MobileMessenger = ({
               );
             })
           )}
+
+          {filteredContacts.length > 0 && (
+            <>
+              <div className="mobile-messenger-section-title">Kontakte</div>
+              {filteredContacts.map((contact) => (
+                <div
+                  key={`contact-${contact.id}`}
+                  className="mobile-messenger-chat-item"
+                  onClick={() => {
+                    handleContactClick(contact);
+                    setMobileMode('chat');
+                  }}
+                >
+                  <div
+                    className="mobile-messenger-chat-avatar"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/profile/${contact.id}`);
+                    }}
+                  >
+                    {contact.profile_photo || contact.profile_photo_url ? (
+                      <img
+                        src={getAssetUrl(contact.profile_photo || contact.profile_photo_url)}
+                        alt=""
+                        className="mobile-messenger-chat-avatar-img"
+                      />
+                    ) : (
+                      <div className="mobile-messenger-chat-avatar-initials">
+                        {contact.name?.[0]?.toUpperCase() || '?'}
+                      </div>
+                    )}
+                    {contact.online && (
+                      <div className="mobile-messenger-chat-online" />
+                    )}
+                  </div>
+
+                  <div className="mobile-messenger-chat-content">
+                    <div className="mobile-messenger-chat-header">
+                      <div className="mobile-messenger-chat-name">
+                        {contact.name || 'Kontakt'}
+                      </div>
+                    </div>
+                    <div className="mobile-messenger-chat-message">
+                      <div
+                        className="mobile-messenger-chat-text"
+                        data-online={contact.online ? 'true' : undefined}
+                      >
+                        {contact.online
+                          ? 'Online'
+                          : (contact.last_seen || contact.last_seen_at)
+                            ? `Zuletzt online ${formatMessageTime(contact.last_seen || contact.last_seen_at)}`
+                            : 'Kontakt'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
         </div>
 
         {/* Bottom Navigation */}
@@ -372,16 +467,6 @@ const MobileMessenger = ({
       m.thread_id === threadId || m.conversation_id === threadId
     );
 
-    // Debug logging
-    console.log('MobileMessenger Debug:', {
-      threadId,
-      selectedThreadId,
-      activeThreadId: activeThread?.id,
-      totalMessages: messages.length,
-      currentMessages: currentMessages.length,
-      allMessages: messages
-    });
-
     // Get contact info
     const contactForHeader = selectedContact || (
       activeThread?.type === 'direct' &&
@@ -394,16 +479,6 @@ const MobileMessenger = ({
 
     const displayName = contactForHeader?.name || activeThread?.name || 'Chat';
     const isOnline = contactForHeader?.online || false;
-
-    // v13.2.1 DEBUG
-    console.log('📱 MOBILE CHAT HEADER:', {
-      contactForHeader,
-      last_seen: contactForHeader?.last_seen,
-      last_seen_at: contactForHeader?.last_seen_at,
-      isOnline,
-      activeThread: activeThread?.name,
-      threadType: activeThread?.type
-    });
 
     return (
       <div className="mobile-messenger-chat">
@@ -423,17 +498,9 @@ const MobileMessenger = ({
           <button
             className="mobile-messenger-chat-avatar-header"
             onClick={() => {
-              console.log('🔥 AVATAR CLICKED:', {
-                threadType: activeThread?.type,
-                threadName: activeThread?.name,
-                hasCallback: !!onShowGroupInfo,
-                contactId: contactForHeader?.id
-              });
               if (activeThread?.type === 'group' && onShowGroupInfo) {
-                console.log('✅ Calling onShowGroupInfo()');
                 onShowGroupInfo();
               } else if (contactForHeader?.id) {
-                console.log('✅ Navigating to profile:', contactForHeader.id);
                 navigate(`/profile/${contactForHeader.id}`);
               }
             }}
@@ -832,31 +899,6 @@ const MobileMessenger = ({
       </div>
     );
   };
-
-  // Debug logging
-  console.log('[MobileMessenger] Render:', {
-    contacts: contacts?.length,
-    threads: threads?.length,
-    messages: messages?.length,
-    mobileMode,
-    selectedThreadId,
-    selectedContact: selectedContact?.name,
-    activeThread: activeThread?.name,
-    user: user?.id
-  });
-
-  // When chat view is active, log current messages
-  if (mobileMode === 'chat') {
-    const threadId = selectedThreadId || activeThread?.id;
-    const currentMessages = messages.filter(m => m.thread_id === threadId);
-    console.log('[MobileMessenger] Chat View:', {
-      threadId,
-      currentMessages: currentMessages.length,
-      allMessages: messages.length,
-      allThreadIds: [...new Set(messages.map(m => m.thread_id || m.conversation_id))],
-      firstMessage: messages[0]
-    });
-  }
 
   // Fallback if loading
   if (!contacts || !threads || !user) {

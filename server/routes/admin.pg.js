@@ -813,20 +813,106 @@ router.post('/users/bulk', [auth, adminAuth], async (req, res) => {
 // @desc    Delete user (admin only)
 router.delete('/users/:id', [auth, adminAuth], async (req, res) => {
   const { id } = req.params;
+  const userId = parseInt(id, 10);
+
+  if (Number.isNaN(userId)) {
+    return res.status(400).json({ error: 'Ungültige Benutzer-ID' });
+  }
 
   // Prevent deleting the current admin user
-  if (parseInt(id, 10) === req.user.id) {
+  if (userId === req.user.id) {
     return res.status(400).json({ error: 'Sie können Ihr eigenes Konto nicht löschen' });
   }
 
+  const cleanupUserReferences = async (client, targetUserId) => {
+    const fkRows = await client.query(
+      `
+        SELECT
+          tc.table_schema,
+          tc.table_name,
+          kcu.column_name
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.key_column_usage kcu
+          ON tc.constraint_name = kcu.constraint_name
+         AND tc.table_schema = kcu.table_schema
+        JOIN information_schema.constraint_column_usage ccu
+          ON ccu.constraint_name = tc.constraint_name
+         AND ccu.table_schema = tc.table_schema
+        WHERE tc.constraint_type = 'FOREIGN KEY'
+          AND ccu.table_name = 'users'
+          AND ccu.table_schema = 'public'
+      `
+    );
+
+    const handled = new Set();
+    for (const row of fkRows.rows) {
+      const schema = row.table_schema || 'public';
+      const table = row.table_name;
+      const column = row.column_name;
+
+      if (!table || !column || table === 'users') continue;
+
+      const key = `${schema}.${table}.${column}`;
+      if (handled.has(key)) continue;
+      handled.add(key);
+
+      const nullableResult = await client.query(
+        `
+          SELECT is_nullable
+          FROM information_schema.columns
+          WHERE table_schema = $1
+            AND table_name = $2
+            AND column_name = $3
+          LIMIT 1
+        `,
+        [schema, table, column]
+      );
+
+      if (nullableResult.rows.length === 0) continue;
+
+      const isNullable = nullableResult.rows[0].is_nullable === 'YES';
+      const safeSchema = schema.replace(/"/g, '""');
+      const safeTable = table.replace(/"/g, '""');
+      const safeColumn = column.replace(/"/g, '""');
+      const qualifiedTable = `"${safeSchema}"."${safeTable}"`;
+      const qualifiedColumn = `"${safeColumn}"`;
+
+      try {
+        if (isNullable) {
+          await client.query(
+            `UPDATE ${qualifiedTable} SET ${qualifiedColumn} = NULL WHERE ${qualifiedColumn} = $1`,
+            [targetUserId]
+          );
+        } else {
+          await client.query(
+            `DELETE FROM ${qualifiedTable} WHERE ${qualifiedColumn} = $1`,
+            [targetUserId]
+          );
+        }
+      } catch (cleanupError) {
+        logger.error('Failed to cleanup user reference', {
+          table: `${schema}.${table}`,
+          column,
+          userId: targetUserId,
+          error: cleanupError.message
+        });
+        throw cleanupError;
+      }
+    }
+  };
+
+  const client = await pool.connect();
   try {
+    await client.query('BEGIN');
+
     // Check if user exists
-    const userResult = await pool.query(
+    const userResult = await client.query(
       'SELECT id, name, role FROM users WHERE id = $1',
-      [id]
+      [userId]
     );
 
     if (userResult.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Benutzer nicht gefunden' });
     }
 
@@ -834,27 +920,53 @@ router.delete('/users/:id', [auth, adminAuth], async (req, res) => {
 
     if (user.role === 'superadmin') {
       if (req.user.role !== 'superadmin') {
+        await client.query('ROLLBACK');
         return res.status(403).json({ error: 'Nur Superadmins können Superadmin-Konten löschen' });
       }
 
-      const superAdminCountResult = await pool.query(
+      const superAdminCountResult = await client.query(
         "SELECT COUNT(*) as count FROM users WHERE role = 'superadmin'"
       );
       if (parseInt(superAdminCountResult.rows[0].count) <= 1) {
+        await client.query('ROLLBACK');
         return res.status(400).json({ error: 'Der letzte Superadmin kann nicht gelöscht werden' });
       }
     }
 
-    // Delete user
-    await pool.query('DELETE FROM users WHERE id = $1', [id]);
+    const deleteUserRecord = () =>
+      client.query('DELETE FROM users WHERE id = $1', [userId]);
+
+    try {
+      // Attempt direct delete first (preferred when FKs are configured with ON DELETE)
+      await deleteUserRecord();
+    } catch (deleteError) {
+      // Foreign key violation -> cleanup and retry
+      if (deleteError.code === '23503') {
+        await cleanupUserReferences(client, userId);
+        await deleteUserRecord();
+      } else {
+        throw deleteError;
+      }
+    }
+
+    await client.query('COMMIT');
 
     res.json({
       message: `Benutzer ${user.name} erfolgreich gelöscht`,
-      deletedId: id
+      deletedId: userId
     });
   } catch (err) {
-    console.error('Fehler beim Löschen des Benutzers:', err.message);
+    await client.query('ROLLBACK');
+    logger.error('Fehler beim Löschen des Benutzers', {
+      userId,
+      error: err.message,
+      detail: err.detail,
+      constraint: err.constraint,
+      code: err.code
+    });
     res.status(500).json({ error: 'Serverfehler beim Löschen des Benutzers' });
+  } finally {
+    client.release();
   }
 });
 

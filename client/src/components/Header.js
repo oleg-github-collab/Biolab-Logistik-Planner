@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -36,6 +36,7 @@ const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [globalSearch, setGlobalSearch] = useState('');
   const [desktopOverflowOpen, setDesktopOverflowOpen] = useState(false);
+  const [overflowMenuPosition, setOverflowMenuPosition] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
   const [mobileMenuPortalRoot, setMobileMenuPortalRoot] = useState(null);
   const searchInputRef = useRef(null);
@@ -99,6 +100,21 @@ const Header = () => {
     return raw && raw !== 'mobile.search.placeholder' ? raw : 'Suche...';
   })();
 
+  const updateOverflowMenuPosition = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    const trigger = overflowTriggerRef.current;
+    if (!trigger) return;
+    const rect = trigger.getBoundingClientRect();
+    const menuWidth = 224;
+    const padding = 12;
+    const left = Math.min(
+      Math.max(rect.right - menuWidth, padding),
+      window.innerWidth - menuWidth - padding
+    );
+    const top = rect.bottom + 8;
+    setOverflowMenuPosition({ top, left });
+  }, []);
+
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
     handleResize();
@@ -126,6 +142,9 @@ const Header = () => {
 
   useEffect(() => {
     if (!desktopOverflowOpen) return undefined;
+    updateOverflowMenuPosition();
+
+    const handleReposition = () => updateOverflowMenuPosition();
 
     const handleClickAway = (event) => {
       const menuEl = overflowMenuRef.current;
@@ -148,12 +167,16 @@ const Header = () => {
 
     document.addEventListener('mousedown', handleClickAway);
     document.addEventListener('keydown', handleKey);
+    window.addEventListener('resize', handleReposition);
+    window.addEventListener('scroll', handleReposition, true);
 
     return () => {
       document.removeEventListener('mousedown', handleClickAway);
       document.removeEventListener('keydown', handleKey);
+      window.removeEventListener('resize', handleReposition);
+      window.removeEventListener('scroll', handleReposition, true);
     };
-  }, [desktopOverflowOpen]);
+  }, [desktopOverflowOpen, updateOverflowMenuPosition]);
 
   useEffect(() => {
     if (!mobileMenuOpen) return undefined;
@@ -194,7 +217,7 @@ const Header = () => {
     <>
       <header
         ref={headerRef}
-        className="top-nav-mobile bg-white/95 backdrop-blur border-b border-slate-100 sticky top-0 z-50 shadow-[0_2px_10px_rgba(15,23,42,0.04)]"
+        className="top-nav-mobile bg-white/95 backdrop-blur border-b border-slate-100 sticky top-0 z-[1000] shadow-[0_2px_10px_rgba(15,23,42,0.04)]"
       >
         <div className="max-w-full mx-auto px-3 sm:px-4 lg:px-6">
           <div className="flex justify-between items-center py-3 min-h-[56px]">
@@ -246,40 +269,46 @@ const Header = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
                   </button>
-                  {desktopOverflowOpen && (
-                    <div
-                      ref={overflowMenuRef}
-                      className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-xl z-50"
-                      role="menu"
-                    >
-                      <div className="py-2">
-                        {overflowNavItems.map((item) => (
-                          <Link
-                            key={item.to}
-                            to={item.to}
-                            onClick={() => setDesktopOverflowOpen(false)}
-                            className={`flex items-center gap-2 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 ${
-                              location.pathname === item.to ? 'text-blue-600 font-semibold' : ''
-                            }`}
+                  {desktopOverflowOpen && overflowMenuPosition && typeof document !== 'undefined' &&
+                    ReactDOM.createPortal(
+                      <div
+                        ref={overflowMenuRef}
+                        className="fixed w-56 bg-white border border-slate-200 rounded-2xl shadow-xl z-[2000000]"
+                        role="menu"
+                        style={{
+                          top: `${overflowMenuPosition?.top ?? 0}px`,
+                          left: `${overflowMenuPosition?.left ?? 0}px`
+                        }}
+                      >
+                        <div className="py-2">
+                          {overflowNavItems.map((item) => (
+                            <Link
+                              key={item.to}
+                              to={item.to}
+                              onClick={() => setDesktopOverflowOpen(false)}
+                              className={`flex items-center gap-2 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 ${
+                                location.pathname === item.to ? 'text-blue-600 font-semibold' : ''
+                              }`}
+                            >
+                              <span>{item.icon}</span>
+                              {t(item.labelKey)}
+                            </Link>
+                          ))}
+                          <div className="border-t border-slate-200 my-2" />
+                          <button
+                            onClick={() => {
+                              setDesktopOverflowOpen(false);
+                              handleLogout();
+                            }}
+                            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 font-semibold"
                           >
-                            <span>{item.icon}</span>
-                            {t(item.labelKey)}
-                          </Link>
-                        ))}
-                        <div className="border-t border-slate-200 my-2" />
-                        <button
-                          onClick={() => {
-                            setDesktopOverflowOpen(false);
-                            handleLogout();
-                          }}
-                          className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 font-semibold"
-                        >
-                          <span>🚪</span>
-                          <span>Abmelden</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                            <span>🚪</span>
+                            <span>Abmelden</span>
+                          </button>
+                        </div>
+                      </div>,
+                      document.body
+                    )}
                 </div>
               )}
             </div>

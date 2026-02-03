@@ -470,10 +470,11 @@ const EventFormModal = ({
     <BaseModal
       isOpen={isOpen}
       onClose={onClose}
-      dialogClassName="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[calc(100vh-4rem)] my-8 flex flex-col overflow-hidden"
+      overlayClassName="modal-backdrop-mobile backdrop-blur-sm"
+      dialogClassName="modal-bottom-sheet bg-white sm:modal sm:rounded-2xl w-full sm:max-w-2xl shadow-2xl border border-slate-200"
     >
       {/* Header */}
-      <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl z-10 flex-shrink-0">
+      <div className="modal-header-mobile sm:sticky sm:top-0 sm:bg-white sm:border-b sm:border-gray-200 sm:px-6 sm:py-4 sm:rounded-t-2xl flex items-center justify-between z-10 flex-shrink-0">
           <h2 className="text-2xl font-bold text-gray-900">
             {mode === 'edit' ? 'Termin bearbeiten' : 'Neuer Termin'}
           </h2>
@@ -487,7 +488,7 @@ const EventFormModal = ({
         </div>
 
       {/* Form */}
-      <form id="event-form" onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto flex-1">
+      <form id="event-form" onSubmit={handleSubmit} className="modal-body-mobile sm:p-6 sm:space-y-6 overflow-y-auto flex-1">
           {/* Title */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -975,11 +976,11 @@ const EventFormModal = ({
       </form>
 
       {/* Actions - Footer fixed at bottom */}
-      <div className="flex gap-3 p-6 border-t border-gray-200 bg-gray-50 flex-shrink-0">
+      <div className="modal-footer-mobile sm:flex sm:gap-3 sm:p-6 sm:border-t sm:border-gray-200 sm:bg-gray-50 flex-shrink-0">
         <button
           type="button"
           onClick={onClose}
-          className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors"
+          className="btn-mobile btn-secondary sm:flex-1 sm:px-6 sm:py-3 sm:border-2 sm:border-gray-300 sm:text-gray-700 sm:rounded-xl sm:font-semibold sm:hover:bg-gray-50 transition-colors"
           disabled={isSubmitting}
         >
           Abbrechen
@@ -987,7 +988,7 @@ const EventFormModal = ({
         <button
           type="submit"
           form="event-form"
-          className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="btn-mobile btn-primary sm:flex-1 sm:px-6 sm:py-3 sm:bg-blue-600 sm:text-white sm:rounded-xl sm:font-semibold sm:hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           disabled={isSubmitting}
         >
           {isSubmitting ? (
