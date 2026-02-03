@@ -936,15 +936,30 @@ router.delete('/users/:id', [auth, adminAuth], async (req, res) => {
     const deleteUserRecord = () =>
       client.query('DELETE FROM users WHERE id = $1', [userId]);
 
+    logger.info('Attempting to delete user', { userId, userName: user.name });
+
     try {
       // Attempt direct delete first (preferred when FKs are configured with ON DELETE)
       await deleteUserRecord();
+      logger.info('User deleted successfully without cleanup', { userId });
     } catch (deleteError) {
       // Foreign key violation -> cleanup and retry
       if (deleteError.code === '23503') {
+        logger.warn('FK violation detected, running cleanup', {
+          userId,
+          constraint: deleteError.constraint,
+          detail: deleteError.detail
+        });
         await cleanupUserReferences(client, userId);
+        logger.info('Cleanup complete, retrying delete', { userId });
         await deleteUserRecord();
+        logger.info('User deleted successfully after cleanup', { userId });
       } else {
+        logger.error('Non-FK error during delete', {
+          userId,
+          code: deleteError.code,
+          message: deleteError.message
+        });
         throw deleteError;
       }
     }
@@ -962,9 +977,23 @@ router.delete('/users/:id', [auth, adminAuth], async (req, res) => {
       error: err.message,
       detail: err.detail,
       constraint: err.constraint,
-      code: err.code
+      code: err.code,
+      table: err.table,
+      column: err.column,
+      stack: err.stack
     });
-    res.status(500).json({ error: 'Serverfehler beim Löschen des Benutzers' });
+
+    // Return detailed error for debugging
+    const errorDetails = {
+      error: 'Serverfehler beim Löschen des Benutzers',
+      message: err.message,
+      code: err.code,
+      constraint: err.constraint,
+      detail: err.detail
+    };
+
+    logger.error('DELETE USER ERROR DETAILS:', errorDetails);
+    res.status(500).json(errorDetails);
   } finally {
     client.release();
   }
