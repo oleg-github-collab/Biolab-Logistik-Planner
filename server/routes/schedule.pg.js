@@ -2061,6 +2061,8 @@ router.get('/team-week/:weekStart', auth, async (req, res) => {
   try {
     const { weekStart } = req.params;
 
+    const isPrivileged = ['admin', 'superadmin'].includes(req.user.role);
+
     // Get all active users with their schedules (excluding bots)
     const result = await pool.query(
       `SELECT
@@ -2081,8 +2083,9 @@ router.get('/team-week/:weekStart', auth, async (req, res) => {
        WHERE u.is_active = TRUE
          AND u.role NOT IN ('system')
          AND LOWER(u.email) NOT LIKE '%bot%'
+         AND ($2::boolean = TRUE OR u.id = $3)
        ORDER BY u.name, ws.day_of_week`,
-      [weekStart]
+      [weekStart, isPrivileged, req.user.id]
     );
 
     // Group schedules by user
@@ -2150,6 +2153,117 @@ router.get('/team-week/:weekStart', auth, async (req, res) => {
 
   } catch (error) {
     logger.error('Error fetching team schedule', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// @route   GET /api/schedule/work-hours
+// @desc    Get work hours as calendar events (team for admins, self for others)
+router.get('/work-hours', auth, async (req, res) => {
+  try {
+    const { start, end, scope } = req.query;
+    const startDate = parseDateOnly(start);
+    const endDate = parseDateOnly(end || start);
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({ error: 'Start- und Enddatum sind erforderlich' });
+    }
+
+    const rangeStart = startDate <= endDate ? startDate : endDate;
+    const rangeEnd = endDate >= startDate ? endDate : startDate;
+
+    const includeTeam = scope === 'team' && ['admin', 'superadmin'].includes(req.user.role);
+
+    const weekStarts = [];
+    let cursor = getMonday(rangeStart);
+    const lastWeekStart = getMonday(rangeEnd);
+    while (cursor <= lastWeekStart) {
+      const formatted = formatDateForDB(cursor);
+      if (formatted) weekStarts.push(formatted);
+      cursor = addDays(cursor, 7);
+    }
+
+    if (weekStarts.length === 0) {
+      return res.json([]);
+    }
+
+    const result = await pool.query(
+      `SELECT
+        ws.user_id,
+        ws.week_start,
+        ws.day_of_week,
+        ws.is_working,
+        ws.start_time,
+        ws.end_time,
+        ws.notes,
+        u.name,
+        u.profile_photo,
+        u.employment_type
+       FROM weekly_schedules ws
+       JOIN users u ON u.id = ws.user_id
+       WHERE ws.week_start = ANY($1)
+         AND u.is_active = TRUE
+         AND u.role NOT IN ('system')
+         AND LOWER(u.email) NOT LIKE '%bot%'
+         AND ($2::boolean = TRUE OR u.id = $3)
+       ORDER BY u.name, ws.week_start, ws.day_of_week`,
+      [weekStarts, includeTeam, req.user.id]
+    );
+
+    const events = [];
+
+    result.rows.forEach((row) => {
+      if (!row.is_working) return;
+
+      const weekStartDate = parseDateOnly(row.week_start);
+      if (!weekStartDate) return;
+
+      const dayDate = addDays(weekStartDate, row.day_of_week || 0);
+
+      const blocks = parseTimeBlocksFromNotes(
+        row.notes,
+        row.start_time ? row.start_time.substring(0, 5) : null,
+        row.end_time ? row.end_time.substring(0, 5) : null
+      );
+
+      if (!blocks.length) return;
+
+      blocks.forEach((block, index) => {
+        const startTimestamp = combineDateAndTime(formatDateForDB(dayDate), block.start);
+        const endTimestamp = combineDateAndTime(formatDateForDB(dayDate), block.end);
+
+        if (!startTimestamp || !endTimestamp) return;
+
+        if (endTimestamp < rangeStart || startTimestamp > rangeEnd) return;
+
+        events.push({
+          id: `work-${row.user_id}-${row.week_start}-${row.day_of_week}-${index}`,
+          title: `${row.name} · Arbeit`,
+          description: `Arbeitszeit ${block.start} - ${block.end}`,
+          start_time: startTimestamp.toISOString(),
+          end_time: endTimestamp.toISOString(),
+          all_day: false,
+          event_type: 'Arbeit',
+          color: '#22c55e',
+          created_by: row.user_id,
+          created_by_name: row.name,
+          source: 'work_hours',
+          work_hours: {
+            user_id: row.user_id,
+            user_name: row.name,
+            employment_type: row.employment_type,
+            week_start: row.week_start,
+            day_of_week: row.day_of_week,
+            start_time: block.start,
+            end_time: block.end
+          }
+        });
+      });
+    });
+
+    res.json(events);
+  } catch (error) {
+    logger.error('Error fetching work hours calendar events', error);
     res.status(500).json({ error: 'Serverfehler' });
   }
 });

@@ -143,10 +143,12 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
     normalizedEvent.created_by_id ??
     normalizedEvent.createdById;
   const isAdmin = ['admin', 'superadmin'].includes(user?.role);
-  const canManage = Boolean(isAdmin || (creatorId && user?.id && Number(creatorId) === Number(user.id)));
+  const isWorkHoursEvent = normalizedEvent.isWorkHours || normalizedEvent.read_only || normalizedEvent.raw?.source === 'work_hours';
+  const canManage = Boolean(!isWorkHoursEvent && (isAdmin || (creatorId && user?.id && Number(creatorId) === Number(user.id))));
   const canEdit = canManage && typeof onEdit === 'function';
   const canDelete = canManage && typeof onDelete === 'function';
   const canDuplicate = canManage && typeof onDuplicate === 'function';
+  const workHoursMeta = normalizedEvent.raw?.work_hours || normalizedEvent.work_hours;
 
   useEffect(() => {
     if (!canDelete) {
@@ -207,6 +209,11 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
                       {normalizedEvent.type}
                     </span>
                   </div>
+                  {isWorkHoursEvent && (
+                    <div className="flex items-center gap-1.5 bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200">
+                      <span className="text-xs font-semibold text-emerald-700">Arbeitszeit (Auto)</span>
+                    </div>
+                  )}
                   {normalizedEvent.priority && (
                     <div className="flex items-center gap-1.5 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
                       <span className="text-base">{getPriorityIcon(normalizedEvent.priority)}</span>
@@ -258,6 +265,25 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
                 </p>
                 <p className="text-sm text-slate-600">
                   {normalizedEvent.isAllDay ? 'Ganztägig' : 'Zeitraum'}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Work hours details */}
+          {isWorkHoursEvent && workHoursMeta && (
+            <div className="flex items-center gap-4 p-4 bg-emerald-50 rounded-lg border border-emerald-200">
+              <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-emerald-900 text-base">
+                  {workHoursMeta.user_name || normalizedEvent.created_by_name || 'Teammitglied'}
+                </p>
+                <p className="text-sm text-emerald-700">
+                  {workHoursMeta.start_time} - {workHoursMeta.end_time}
                 </p>
               </div>
             </div>

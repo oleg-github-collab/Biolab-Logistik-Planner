@@ -9,6 +9,7 @@
 import { format } from 'date-fns';
 import {
   getEvents as getEventsBase,
+  getWorkHoursEvents as getWorkHoursEventsBase,
   createEvent as createEventBase,
   updateEvent as updateEventBase,
   deleteEvent as deleteEventBase,
@@ -69,7 +70,23 @@ export const fetchEvents = async (start, end, type, priority) => {
       ? response.data.data
       : [];
 
-    return { data: payload, noChange: false };
+    const shouldIncludeWorkHours = (!type || type === 'Arbeit') && !priority;
+    let workHoursPayload = [];
+
+    if (shouldIncludeWorkHours) {
+      try {
+        const workHoursResponse = await getWorkHoursEventsBase(start, end, 'team');
+        workHoursPayload = Array.isArray(workHoursResponse?.data)
+          ? workHoursResponse.data
+          : Array.isArray(workHoursResponse?.data?.data)
+            ? workHoursResponse.data.data
+            : [];
+      } catch (workHoursError) {
+        console.warn('Error fetching work hours events:', workHoursError);
+      }
+    }
+
+    return { data: [...payload, ...workHoursPayload], noChange: false };
   } catch (error) {
     console.error('Error fetching events:', error);
     throw error;
@@ -372,6 +389,8 @@ export const transformApiEventToUi = (apiEvent) => {
 
   const recurring = Boolean(apiEvent.is_recurring);
 
+  const isWorkHours = apiEvent.source === 'work_hours' || apiEvent.is_work_hours || Boolean(apiEvent.work_hours);
+
   return {
     id: apiEvent.id,
     title: apiEvent.title,
@@ -403,6 +422,8 @@ export const transformApiEventToUi = (apiEvent) => {
     audio_url: apiEvent.audio_url || null,
     created_by: apiEvent.created_by ?? apiEvent.createdBy ?? null,
     created_by_name: apiEvent.created_by_name || apiEvent.createdByName || null,
+    isWorkHours,
+    read_only: isWorkHours || Boolean(apiEvent.read_only),
     raw: apiEvent
   };
 };

@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Users, Clock } from 'lucide-react';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
 import { getAssetUrl } from '../utils/media';
+import { useMobile } from '../hooks/useMobile';
 
 const DAYS_OF_WEEK = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
 
@@ -29,6 +30,7 @@ const TeamScheduleCalendar = () => {
   const [currentWeekStart, setCurrentWeekStart] = useState(getMonday(new Date()));
   const [teamSchedules, setTeamSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { isMobile } = useMobile();
 
   const loadTeamSchedule = useCallback(async () => {
     try {
@@ -102,6 +104,124 @@ const TeamScheduleCalendar = () => {
           <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
           <p className="text-sm text-gray-600">Lade Team-Stundenplan...</p>
         </div>
+      </div>
+    );
+  }
+
+  if (isMobile) {
+    return (
+      <div className="team-schedule-mobile">
+        {/* Header */}
+        <div className="team-schedule-mobile__header">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+              <Users className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">Team-Stundenplan</h2>
+              <p className="text-sm text-gray-600">
+                {weekDates[0].toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} - {weekDates[6].toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={goToPreviousWeek}
+              className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
+              aria-label="Vorherige Woche"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <button
+              onClick={goToCurrentWeek}
+              className="px-4 py-2 rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-semibold shadow-lg shadow-blue-500/40 transition-all transform-gpu hover:-translate-y-[1px] hover:shadow-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-300"
+            >
+              Diese Woche
+            </button>
+            <button
+              onClick={goToNextWeek}
+              className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
+              aria-label="Nächste Woche"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {teamSchedules.length === 0 ? (
+          <div className="team-schedule-mobile__empty">Keine Mitarbeiter gefunden</div>
+        ) : (
+          <div className="team-schedule-mobile__list">
+            {teamSchedules.map((user) => (
+              <div key={user.user_id} className="team-schedule-mobile__card">
+                <div className="team-schedule-mobile__card-header">
+                  <div className="flex items-center gap-3">
+                    {user.profile_photo ? (
+                      <img
+                        src={getAssetUrl(user.profile_photo)}
+                        alt={user.name}
+                        className="w-10 h-10 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                        {user.name?.charAt(0) || 'U'}
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 truncate">{user.name}</p>
+                      <p className="text-xs text-gray-500 truncate">{user.employment_type}</p>
+                    </div>
+                  </div>
+                  <div className="text-sm font-semibold text-emerald-600">
+                    {Number(user.total_hours || 0).toFixed(1)}h
+                  </div>
+                </div>
+
+                <div className="team-schedule-mobile__days">
+                  {weekDates.map((date, dayOfWeek) => {
+                    const daySchedule = getDayScheduleForUser(user.user_id, dayOfWeek);
+                    const isWorking = daySchedule?.is_working;
+                    return (
+                      <div
+                        key={`${user.user_id}-${dayOfWeek}`}
+                        className={`team-schedule-mobile__day ${isToday(date) ? 'is-today' : ''}`}
+                      >
+                        <div className="team-schedule-mobile__day-label">
+                          <span>{DAYS_OF_WEEK[dayOfWeek].substring(0, 2)}</span>
+                          <span>{formatDateShort(date)}</span>
+                        </div>
+                        <div className="team-schedule-mobile__day-body">
+                          {isWorking ? (
+                            daySchedule.time_blocks && daySchedule.time_blocks.length > 0 ? (
+                              daySchedule.time_blocks.map((block, blockIdx) => (
+                                <div key={blockIdx} className="team-schedule-mobile__block">
+                                  <Clock className="w-3 h-3" />
+                                  <span>{formatTime(block.start)}</span>
+                                  <span className="team-schedule-mobile__block-sep">–</span>
+                                  <span>{formatTime(block.end)}</span>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="team-schedule-mobile__block">
+                                <Clock className="w-3 h-3" />
+                                <span>{formatTime(daySchedule.start_time)}</span>
+                                <span className="team-schedule-mobile__block-sep">–</span>
+                                <span>{formatTime(daySchedule.end_time)}</span>
+                              </div>
+                            )
+                          ) : (
+                            <span className="team-schedule-mobile__off">frei</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   }

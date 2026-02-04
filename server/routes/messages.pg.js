@@ -2511,6 +2511,15 @@ router.post('/:messageId/forward', auth, async (req, res) => {
     if (!Array.isArray(recipientIds) || recipientIds.length === 0) {
       return res.status(400).json({ error: 'Mindestens ein Empfänger erforderlich' });
     }
+    const cleanedRecipientIds = Array.from(new Set(
+      recipientIds
+        .map((id) => parseInt(id, 10))
+        .filter((id) => Number.isInteger(id) && id !== req.user.id)
+    ));
+
+    if (cleanedRecipientIds.length === 0) {
+      return res.status(400).json({ error: 'Empfänger ungültig oder nicht erlaubt' });
+    }
 
     // Get original message
     const canBypass = req.user.role === 'superadmin';
@@ -2543,8 +2552,7 @@ router.post('/:messageId/forward', auth, async (req, res) => {
 
       const forwardedMessages = [];
 
-      for (const recipientId of recipientIds) {
-        const parsedRecipientId = parseInt(recipientId, 10);
+      for (const parsedRecipientId of cleanedRecipientIds) {
 
         // Check if recipientId is a group conversation or user
         const groupCheck = await client.query(

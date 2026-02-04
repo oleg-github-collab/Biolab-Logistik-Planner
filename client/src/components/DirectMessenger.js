@@ -241,6 +241,7 @@ const MessengerContactList = React.memo(({
     const hasSnippet = Boolean(contact.lastMessageSnippet);
     const primaryLine = hasSnippet ? contact.lastMessageSnippet : statusLabel;
     const timeLabel = hasSnippet ? contact.lastMessageTimeLabel : '';
+    const showMeta = Boolean(statusPrefix || statusTime);
 
     return (
       <button
@@ -329,7 +330,7 @@ const MessengerContactList = React.memo(({
             )}
           </div>
           <p className="contact-card__message">{primaryLine}</p>
-          {hasSnippet && (
+          {showMeta && (
             <div className="contact-card__meta">
               <span className={`contact-card__status ${contact.online ? 'online' : 'offline'}`}>
                 {statusPrefix}
@@ -370,6 +371,7 @@ const MessengerContactList = React.memo(({
     const displayName = isGeneral ? 'Allgemeiner Chat' : (groupThread.name || 'Gruppenchat');
     const lastMessage = groupThread.lastMessage;
     const timestamp = getThreadTimestamp(groupThread);
+    const lastMessageTimeLabel = timestamp ? formatContactTimestamp(timestamp) : '';
     const typeLabel = lastMessage?.messageType && lastMessage.messageType !== 'text'
       ? lastMessage.messageType === 'image'
         ? 'Bild'
@@ -411,11 +413,13 @@ const MessengerContactList = React.memo(({
             {isGeneral && <span className="contact-card__pill">Allgemein</span>}
           </p>
           <p className="contact-card__message">{snippet}</p>
-          <div className="contact-card__meta">
-            {timestamp && (
-              <span>{formatContactTimestamp(timestamp)}</span>
-            )}
-          </div>
+          {lastMessageTimeLabel && (
+            <div className="contact-card__meta">
+              <span className="contact-card__meta-label">Letzte Nachricht</span>
+              <span className="contact-card__meta-dot">•</span>
+              <span className="contact-card__meta-time">{lastMessageTimeLabel}</span>
+            </div>
+          )}
         </div>
       </button>
     );
@@ -4317,11 +4321,17 @@ const DirectMessenger = () => {
                     contact.email?.includes('entsorgungsbot');
     const lastSeenAt = contact.last_seen_at || contact.last_seen;
     const lastSeenText = lastSeenAt ? formatContactTimestamp(lastSeenAt) : '';
-    const lastSeenLabel = contact.online
-      ? 'Online'
+    const statusLabel = contact.online
+      ? 'Online jetzt'
       : lastSeenText
         ? `Zuletzt online ${lastSeenText}`
-        : 'Offline';
+        : 'Zuletzt online';
+    const statusPrefix = contact.online ? 'Online' : 'Zuletzt online';
+    const statusTime = lastSeenText || (contact.online ? 'jetzt' : 'kürzlich');
+    const hasSnippet = Boolean(contact.lastMessageSnippet);
+    const primaryLine = hasSnippet ? contact.lastMessageSnippet : statusLabel;
+    const timeLabel = hasSnippet ? contact.lastMessageTimeLabel : '';
+    const showMeta = Boolean(statusPrefix || statusTime);
 
       return (
         <button
@@ -4410,7 +4420,7 @@ const DirectMessenger = () => {
               )}
             </div>
             <p className="contact-card__message">{primaryLine}</p>
-            {hasSnippet && (
+            {showMeta && (
               <div className="contact-card__meta">
                 <span className={`contact-card__status ${contact.online ? 'online' : 'offline'}`}>
                   {statusPrefix}

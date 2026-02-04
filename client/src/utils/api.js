@@ -146,6 +146,14 @@ export const getEvents = (start, end, type, priority) => {
   return api.get(`/schedule/events${params.toString() ? `?${params.toString()}` : ''}`);
 };
 
+export const getWorkHoursEvents = (start, end, scope = 'team') => {
+  const params = new URLSearchParams();
+  if (start) params.append('start', start);
+  if (end) params.append('end', end);
+  if (scope) params.append('scope', scope);
+  return api.get(`/schedule/work-hours${params.toString() ? `?${params.toString()}` : ''}`);
+};
+
 export const createEvent = (eventData) =>
   api.post('/schedule/events', eventData);
 

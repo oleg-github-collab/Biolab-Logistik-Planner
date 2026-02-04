@@ -22,7 +22,7 @@ const MessageForwardModal = ({ message, threads = [], onClose, onSuccess }) => {
     try {
       const contactsRes = await getAllContacts();
       setContacts(contactsRes.data || []);
-      const groupThreads = (threads || []).filter(t => t.type === 'group');
+      const groupThreads = (threads || []).filter(t => ['group', 'topic'].includes(t.type || t.conversation_type));
       setGroups(groupThreads);
     } catch (error) {
       console.error('Error loading contacts:', error);
@@ -182,7 +182,8 @@ const MessageForwardModal = ({ message, threads = [], onClose, onSuccess }) => {
           )}
 
           {!loading && displayItems.map((item) => {
-            const isGroup = item.type === 'group';
+            const itemType = item.type || item.conversation_type;
+            const isGroup = itemType === 'group' || itemType === 'topic';
             const itemId = item.id;
             const isSelected = selectedIds.includes(itemId);
             const displayName = item.name || item.email || 'Unbenannt';

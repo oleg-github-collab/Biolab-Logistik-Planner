@@ -279,6 +279,23 @@ const MobileCalendarEnhanced = ({
                     last:border-r-0 [&:nth-child(7n)]:border-r-0
                     [&:nth-last-child(-n+7)]:border-b-0
                   `}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => {
+                    setCurrentDate(day);
+                    setViewType(VIEW_TYPES.DAY);
+                    onDateChange?.(day);
+                    onViewChange?.(VIEW_TYPES.DAY);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      setCurrentDate(day);
+                      setViewType(VIEW_TYPES.DAY);
+                      onDateChange?.(day);
+                      onViewChange?.(VIEW_TYPES.DAY);
+                    }
+                  }}
                 >
                   {/* Day number */}
                   <div className="relative z-10 mb-1">
@@ -304,7 +321,10 @@ const MobileCalendarEnhanced = ({
                           <button
                             key={`day-${day.toISOString()}-${event.id}`}
                             type="button"
-                            onClick={() => onEventClick?.(event)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEventClick?.(event);
+                            }}
                             className="mobile-calendar-native__event-chip"
                             style={chipStyle}
                           >

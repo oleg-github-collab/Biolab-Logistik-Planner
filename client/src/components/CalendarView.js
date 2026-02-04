@@ -160,6 +160,7 @@ const CalendarView = ({
   // Handle event drag-and-drop (move)
   const handleEventDrop = useCallback(async ({ event, start, end }) => {
     if (!onEventUpdate) return;
+    if (event?.resource?.read_only || event?.resource?.isWorkHours) return;
 
     try {
       setDraggedEvent(event.id);
@@ -193,6 +194,7 @@ const CalendarView = ({
   // Handle event resize
   const handleEventResize = useCallback(async ({ event, start, end }) => {
     if (!onEventUpdate) return;
+    if (event?.resource?.read_only || event?.resource?.isWorkHours) return;
 
     try {
       setDraggedEvent(event.id);
@@ -668,8 +670,8 @@ const CalendarView = ({
             onEventResize={handleEventResize}
             selectable
             resizable
-            draggableAccessor={() => true}
-            resizableAccessor={() => true}
+            draggableAccessor={(event) => !(event?.resource?.read_only || event?.resource?.isWorkHours)}
+            resizableAccessor={(event) => !(event?.resource?.read_only || event?.resource?.isWorkHours)}
             messages={messages}
             style={{
               height: calendarHeight,
