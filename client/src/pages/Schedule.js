@@ -4,6 +4,7 @@ import HoursCalendar from '../components/HoursCalendar';
 import MonthlyHoursCalculator from '../components/MonthlyHoursCalculator';
 import TeamScheduleCalendar from '../components/TeamScheduleCalendar';
 import axios from 'axios';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 const Schedule = () => {
   const auth = useAuth(); const user = auth?.user;
@@ -11,6 +12,9 @@ const Schedule = () => {
   const [initializingSchedule, setInitializingSchedule] = useState(false);
   const tabsScrollRef = useRef(null);
   const [showTabsHint, setShowTabsHint] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [focusDate, setFocusDate] = useState(null);
 
   useEffect(() => {
     const container = tabsScrollRef.current;
@@ -65,6 +69,24 @@ const Schedule = () => {
 
     initializeDefaultSchedule();
   }, [user, initializingSchedule, auth]);
+
+  useEffect(() => {
+    let nextFocus = null;
+    if (location?.state?.focusDate) {
+      const parsed = new Date(location.state.focusDate);
+      if (!Number.isNaN(parsed.getTime())) {
+        nextFocus = parsed;
+      }
+    } else if (location?.hash === '#today') {
+      nextFocus = new Date();
+    }
+
+    if (nextFocus) {
+      setFocusDate(nextFocus);
+      setActiveTab('calendar');
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, navigate]);
 
   return (
     <div className="schedule-page min-h-screen bg-slate-50 pt-4 pb-20 px-3 sm:px-6">
@@ -171,7 +193,7 @@ const Schedule = () => {
 
         {/* Content */}
         <div className="schedule-content space-y-8">
-          {activeTab === 'calendar' && <HoursCalendar />}
+          {activeTab === 'calendar' && <HoursCalendar focusDate={focusDate} />}
           {activeTab === 'monthly' && <MonthlyHoursCalculator />}
           {activeTab === 'team' && <TeamScheduleCalendar />}
         </div>

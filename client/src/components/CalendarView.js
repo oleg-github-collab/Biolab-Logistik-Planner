@@ -19,6 +19,7 @@ import {
 } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { safeEventDates, formatTimeRange } from '../utils/dateHelpers';
+import { useNavigate } from 'react-router-dom';
 
 // Initialize moment with German locale
 moment.locale('de');
@@ -67,6 +68,11 @@ const CalendarView = ({
     setDate(normalizeDate(value));
   }, []);
   const [draggedEvent, setDraggedEvent] = useState(null);
+  const navigate = useNavigate();
+
+  const handleOpenWorkHoursToday = useCallback(() => {
+    navigate('/schedule', { state: { focusDate: new Date() } });
+  }, [navigate]);
 
   // Transform events for BigCalendar with proper date parsing
   const calendarEvents = useMemo(() => {
@@ -635,6 +641,18 @@ const CalendarView = ({
           </div>
         )}
       </div>
+      )}
+
+      {view === 'day' && (
+        <div className="calendar-workhours-cta">
+          <button
+            type="button"
+            onClick={handleOpenWorkHoursToday}
+            className="calendar-workhours-btn"
+          >
+            Arbeitsstunden heute
+          </button>
+        </div>
       )}
 
       {isMobile && (

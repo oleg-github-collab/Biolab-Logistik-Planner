@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   ChevronLeft,
   ChevronRight,
@@ -63,10 +64,15 @@ const MobileCalendarEnhanced = ({
   onDateChange,
   loading = false
 }) => {
+  const navigate = useNavigate();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewType, setViewType] = useState(VIEW_TYPES.MONTH);
   const [selectedEventType, setSelectedEventType] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
+
+  const handleOpenWorkHoursToday = useCallback(() => {
+    navigate('/schedule', { state: { focusDate: new Date() } });
+  }, [navigate]);
 
   // Event types for filtering
   const eventTypes = [
@@ -570,6 +576,13 @@ const MobileCalendarEnhanced = ({
               {dayEvents.length} {dayEvents.length === 1 ? 'Termin' : 'Termine'}
             </p>
           )}
+          <button
+            type="button"
+            onClick={handleOpenWorkHoursToday}
+            className="mt-3 inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-100 text-emerald-700 text-xs font-semibold uppercase tracking-wide"
+          >
+            Arbeitsstunden heute
+          </button>
         </div>
 
         {dayEvents.length === 0 ? (

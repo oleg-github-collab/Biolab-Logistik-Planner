@@ -26,7 +26,7 @@ const normalizeBlocks = (rawBlocks, fallbackStart, fallbackEnd) => {
   return [];
 };
 
-const HoursCalendar = () => {
+const HoursCalendar = ({ focusDate = null }) => {
   const [currentWeekStart, setCurrentWeekStart] = useState(getMonday(new Date()));
   const [schedule, setSchedule] = useState([]);
   const [hoursSummary, setHoursSummary] = useState(null);
@@ -34,6 +34,14 @@ const HoursCalendar = () => {
   const [saving, setSaving] = useState(false);
   const saveTimeouts = useRef({});
   const { isMobile } = useMobile();
+  const dayRefs = useRef([]);
+
+  useEffect(() => {
+    if (!focusDate) return;
+    const parsed = new Date(focusDate);
+    if (Number.isNaN(parsed.getTime())) return;
+    setCurrentWeekStart(getMonday(parsed));
+  }, [focusDate]);
 
   const loadSchedule = useCallback(async () => {
     try {
@@ -71,6 +79,20 @@ const HoursCalendar = () => {
       Object.values(timeoutsSnapshot).forEach((timeoutId) => clearTimeout(timeoutId));
     };
   }, [loadSchedule]);
+
+  useEffect(() => {
+    if (!focusDate || schedule.length === 0) return;
+    const parsed = new Date(focusDate);
+    if (Number.isNaN(parsed.getTime())) return;
+    const monday = getMonday(parsed);
+    const diffDays = Math.floor((startOfDay(parsed) - startOfDay(monday)) / (24 * 60 * 60 * 1000));
+    if (diffDays >= 0 && diffDays < dayRefs.current.length) {
+      const target = dayRefs.current[diffDays];
+      if (target && typeof target.scrollIntoView === 'function') {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  }, [focusDate, schedule]);
 
   const queueSave = (dayIndex, draftDay) => {
     if (saveTimeouts.current[dayIndex]) {
@@ -366,6 +388,7 @@ const HoursCalendar = () => {
             return (
               <div
                 key={day.id || index}
+                ref={(el) => { dayRefs.current[index] = el; }}
                 className={`hours-calendar__day-card relative rounded-2xl border p-4 sm:p-5 transition-all shadow-sm ${
                   day.is_working ? 'border-emerald-200 bg-emerald-50/70' : 'border-slate-200 bg-slate-50/60'
                 } ${isTodayDay ? 'ring-2 ring-blue-200' : ''} ${saving ? 'opacity-75 pointer-events-none' : ''}`}
@@ -526,6 +549,10 @@ function formatDateForAPI(date) {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function startOfDay(date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
 function addDays(date, days) {

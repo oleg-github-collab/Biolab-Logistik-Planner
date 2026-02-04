@@ -2532,8 +2532,28 @@ body {
   max-width: min(1100px, 100%);
   max-height: calc(100vh - 2rem);
   max-height: calc(100dvh - 2rem);
-  overflow: hidden;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   outline: none;
+}
+
+/* Shared modal layout helpers */
+.modal-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: calc(100vh - 2rem);
+  max-height: calc(100dvh - 2rem);
+}
+
+.modal-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 @keyframes slideInUp {
