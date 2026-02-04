@@ -2,6 +2,29 @@
    MOBILE MESSENGER V2 - БЕЗ MEDIA QUERY
    ======================================== */
 
+@media (max-width: 1023px) {
+  body.messenger-page .top-nav-mobile,
+  body.messenger-page .bottom-nav-mobile,
+  body.messenger-page .mobile-bottom-nav {
+    display: none !important;
+  }
+
+  body.messenger-page .mobile-messenger-container {
+    position: fixed !important;
+    inset: 0 !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    z-index: 200000 !important;
+  }
+
+  body.messenger-page .mobile-messenger-chat-header,
+  body.messenger-page .mobile-messenger-input {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+}
+
 /* Main Container */
 .mobile-messenger-container {
   position: fixed !important;
