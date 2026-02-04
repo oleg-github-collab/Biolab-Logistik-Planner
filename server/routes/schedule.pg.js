@@ -72,6 +72,60 @@ function parseBoolean(value, fallback = false) {
   return fallback;
 }
 
+function normalizeTemplatePattern(pattern = {}) {
+  const daysInput = Array.isArray(pattern.days) ? pattern.days : [];
+  const normalizedDays = Array.from({ length: 7 }).map((_, dayOfWeek) => {
+    const match = daysInput.find((d) => Number(d.dayOfWeek ?? d.day_of_week) === dayOfWeek) || {};
+    const isWorking = parseBoolean(match.is_working ?? match.isWorking, false);
+    const timeBlocks = sanitizeTimeBlocks(
+      match.time_blocks ?? match.timeBlocks ?? [],
+      match.start_time ?? match.startTime ?? null,
+      match.end_time ?? match.endTime ?? null
+    );
+    return {
+      dayOfWeek,
+      is_working: isWorking && timeBlocks.length > 0,
+      time_blocks: isWorking ? timeBlocks : []
+    };
+  });
+
+  return { days: normalizedDays };
+}
+
+async function resolveTemplateForWeek(client, userId, weekStartDate) {
+  const weekStart = formatDateForDB(weekStartDate);
+  const weekEnd = formatDateForDB(addDays(weekStartDate, 6));
+
+  if (!weekStart || !weekEnd) return null;
+
+  const assignmentResult = await client.query(
+    `SELECT st.*
+       FROM schedule_template_assignments sta
+       JOIN schedule_templates st ON st.id = sta.template_id
+      WHERE sta.user_id = $1
+        AND sta.is_active = TRUE
+        AND sta.start_date <= $3
+        AND (sta.end_date IS NULL OR sta.end_date >= $2)
+      ORDER BY sta.priority DESC, sta.start_date DESC
+      LIMIT 1`,
+    [userId, weekStart, weekEnd]
+  );
+
+  if (assignmentResult.rows.length > 0) {
+    return assignmentResult.rows[0];
+  }
+
+  const defaultResult = await client.query(
+    `SELECT *
+       FROM schedule_templates
+      WHERE is_default = TRUE
+      ORDER BY id ASC
+      LIMIT 1`
+  );
+
+  return defaultResult.rows[0] || null;
+}
+
 function toDate(value) {
   if (value instanceof Date) {
     return Number.isNaN(value.getTime()) ? null : value;
@@ -427,23 +481,37 @@ router.get('/week/:weekStart', auth, async (req, res) => {
       [targetUserId, weekStart]
     );
 
-    // If no schedule exists for this week, create schedule with defaults for Vollzeit
+    // If no schedule exists for this week, create schedule based on templates or defaults
     if (result.rows.length === 0) {
-      // Get user's employment type to set default hours
+      const template = await resolveTemplateForWeek(pool, targetUserId, new Date(weekStart));
+      const pattern = template ? normalizeTemplatePattern(template.pattern || {}) : null;
+
+      // Get user's employment type to set default hours if no template
       const userInfo = await pool.query('SELECT weekly_hours_quota FROM users WHERE id = $1', [targetUserId]);
       const isVollzeit = userInfo.rows.length > 0 && userInfo.rows[0].weekly_hours_quota >= 40;
 
       const days = [];
       for (let i = 0; i < 7; i++) {
-        // For Vollzeit: Mon-Fri 8:00-16:30, Sat-Sun off
-        const isWeekday = i >= 0 && i <= 4; // Mon=0, Fri=4
-        const isWorking = isVollzeit ? isWeekday : false;
-        const defaultBlocks = isWorking
-          ? sanitizeTimeBlocks([
-              { start: '08:00', end: '12:00' },
-              { start: '12:30', end: '16:30' }
-            ])
-          : [];
+        let isWorking = false;
+        let defaultBlocks = [];
+
+        if (pattern) {
+          const dayConfig = pattern.days.find((d) => d.dayOfWeek === i);
+          if (dayConfig && dayConfig.is_working) {
+            defaultBlocks = sanitizeTimeBlocks(dayConfig.time_blocks || []);
+            isWorking = defaultBlocks.length > 0;
+          }
+        } else {
+          const isWeekday = i >= 0 && i <= 4; // Mon=0, Fri=4
+          isWorking = isVollzeit ? isWeekday : false;
+          defaultBlocks = isWorking
+            ? sanitizeTimeBlocks([
+                { start: '08:00', end: '12:00' },
+                { start: '12:30', end: '16:30' }
+              ])
+            : [];
+        }
+
         const firstBlock = defaultBlocks[0] || { start: null, end: null };
 
         const insertResult = await pool.query(
@@ -475,7 +543,7 @@ router.get('/week/:weekStart', auth, async (req, res) => {
       logger.info('Created schedule for week', {
         userId: targetUserId,
         weekStart,
-        type: isVollzeit ? 'Vollzeit (8:00-16:30)' : 'Empty'
+        type: pattern ? `Template: ${template?.name}` : (isVollzeit ? 'Vollzeit (8:00-16:30)' : 'Empty')
       });
 
       return res.json(days);
@@ -1087,6 +1155,265 @@ router.get('/users', auth, async (req, res) => {
 
   } catch (error) {
     logger.error('Error fetching users schedule overview', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// @route   GET /api/schedule/templates
+// @desc    Get schedule templates (admin sees all, others see global)
+router.get('/templates', auth, async (req, res) => {
+  try {
+    const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
+    const query = isAdmin
+      ? `SELECT * FROM schedule_templates ORDER BY is_default DESC, name`
+      : `SELECT * FROM schedule_templates WHERE is_global = TRUE ORDER BY is_default DESC, name`;
+
+    const result = await pool.query(query);
+    res.json(result.rows);
+  } catch (error) {
+    logger.error('Error fetching schedule templates', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// @route   POST /api/schedule/templates
+// @desc    Create schedule template (admin only)
+router.post('/templates', auth, async (req, res) => {
+  try {
+    if (!['admin', 'superadmin'].includes(req.user.role)) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { name, description, is_global = true, is_default = false, pattern } = req.body;
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return res.status(400).json({ error: 'Name ist erforderlich' });
+    }
+
+    const normalizedPattern = normalizeTemplatePattern(pattern || {});
+
+    if (parseBoolean(is_default, false)) {
+      await pool.query('UPDATE schedule_templates SET is_default = FALSE WHERE is_default = TRUE');
+    }
+
+    const result = await pool.query(
+      `INSERT INTO schedule_templates (name, description, is_global, is_default, pattern, created_by)
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6)
+       RETURNING *`,
+      [
+        name.trim(),
+        description ? String(description).trim() : null,
+        parseBoolean(is_global, true),
+        parseBoolean(is_default, false),
+        JSON.stringify(normalizedPattern),
+        req.user.id
+      ]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    logger.error('Error creating schedule template', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// @route   PUT /api/schedule/templates/:id
+// @desc    Update schedule template (admin only)
+router.put('/templates/:id', auth, async (req, res) => {
+  try {
+    if (!['admin', 'superadmin'].includes(req.user.role)) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const templateId = parseInt(req.params.id, 10);
+    if (!Number.isInteger(templateId)) {
+      return res.status(400).json({ error: 'Ungültige Vorlage' });
+    }
+
+    const { name, description, is_global, is_default, pattern } = req.body;
+    const normalizedPattern = normalizeTemplatePattern(pattern || {});
+
+    if (parseBoolean(is_default, false)) {
+      await pool.query('UPDATE schedule_templates SET is_default = FALSE WHERE is_default = TRUE');
+    }
+
+    const result = await pool.query(
+      `UPDATE schedule_templates
+          SET name = COALESCE($1, name),
+              description = COALESCE($2, description),
+              is_global = COALESCE($3, is_global),
+              is_default = COALESCE($4, is_default),
+              pattern = COALESCE($5::jsonb, pattern),
+              updated_at = CURRENT_TIMESTAMP
+        WHERE id = $6
+        RETURNING *`,
+      [
+        name ? String(name).trim() : null,
+        description !== undefined ? String(description).trim() : null,
+        is_global !== undefined ? parseBoolean(is_global, true) : null,
+        is_default !== undefined ? parseBoolean(is_default, false) : null,
+        pattern ? JSON.stringify(normalizedPattern) : null,
+        templateId
+      ]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Vorlage не gefunden' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    logger.error('Error updating schedule template', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// @route   DELETE /api/schedule/templates/:id
+// @desc    Delete schedule template (admin only)
+router.delete('/templates/:id', auth, async (req, res) => {
+  try {
+    if (!['admin', 'superadmin'].includes(req.user.role)) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const templateId = parseInt(req.params.id, 10);
+    if (!Number.isInteger(templateId)) {
+      return res.status(400).json({ error: 'Ungültige Vorlage' });
+    }
+
+    await pool.query('DELETE FROM schedule_templates WHERE id = $1', [templateId]);
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Error deleting schedule template', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// @route   GET /api/schedule/template-assignments
+// @desc    Get template assignments
+router.get('/template-assignments', auth, async (req, res) => {
+  try {
+    const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
+    const requestedUserId = req.query.userId ? parseInt(req.query.userId, 10) : req.user.id;
+
+    if (!isAdmin && requestedUserId !== req.user.id) {
+      return res.status(403).json({ error: 'Kein Zugriff' });
+    }
+
+    const result = await pool.query(
+      `SELECT sta.*, st.name as template_name
+         FROM schedule_template_assignments sta
+         JOIN schedule_templates st ON st.id = sta.template_id
+        WHERE sta.user_id = $1
+        ORDER BY sta.start_date DESC, sta.priority DESC`,
+      [requestedUserId]
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    logger.error('Error fetching template assignments', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// @route   POST /api/schedule/template-assignments
+// @desc    Create template assignment (admin only)
+router.post('/template-assignments', auth, async (req, res) => {
+  try {
+    if (!['admin', 'superadmin'].includes(req.user.role)) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { user_id, template_id, start_date, end_date, priority = 0, is_active = true } = req.body;
+    if (!user_id || !template_id || !start_date) {
+      return res.status(400).json({ error: 'User, Vorlage und Startdatum sind erforderlich' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO schedule_template_assignments
+        (user_id, template_id, start_date, end_date, priority, is_active, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [
+        parseInt(user_id, 10),
+        parseInt(template_id, 10),
+        start_date,
+        end_date || null,
+        parseInt(priority, 10) || 0,
+        parseBoolean(is_active, true),
+        req.user.id
+      ]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    logger.error('Error creating template assignment', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// @route   PUT /api/schedule/template-assignments/:id
+// @desc    Update template assignment (admin only)
+router.put('/template-assignments/:id', auth, async (req, res) => {
+  try {
+    if (!['admin', 'superadmin'].includes(req.user.role)) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const assignmentId = parseInt(req.params.id, 10);
+    if (!Number.isInteger(assignmentId)) {
+      return res.status(400).json({ error: 'Ungültige Zuweisung' });
+    }
+
+    const { template_id, start_date, end_date, priority, is_active } = req.body;
+
+    const result = await pool.query(
+      `UPDATE schedule_template_assignments
+          SET template_id = COALESCE($1, template_id),
+              start_date = COALESCE($2, start_date),
+              end_date = $3,
+              priority = COALESCE($4, priority),
+              is_active = COALESCE($5, is_active),
+              updated_at = CURRENT_TIMESTAMP
+        WHERE id = $6
+        RETURNING *`,
+      [
+        template_id ? parseInt(template_id, 10) : null,
+        start_date || null,
+        end_date || null,
+        priority !== undefined ? parseInt(priority, 10) || 0 : null,
+        is_active !== undefined ? parseBoolean(is_active, true) : null,
+        assignmentId
+      ]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Zuweisung nicht gefunden' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    logger.error('Error updating template assignment', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// @route   DELETE /api/schedule/template-assignments/:id
+// @desc    Delete template assignment (admin only)
+router.delete('/template-assignments/:id', auth, async (req, res) => {
+  try {
+    if (!['admin', 'superadmin'].includes(req.user.role)) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const assignmentId = parseInt(req.params.id, 10);
+    if (!Number.isInteger(assignmentId)) {
+      return res.status(400).json({ error: 'Ungültige Zuweisung' });
+    }
+
+    await pool.query('DELETE FROM schedule_template_assignments WHERE id = $1', [assignmentId]);
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Error deleting template assignment', error);
     res.status(500).json({ error: 'Serverfehler' });
   }
 });
@@ -2298,7 +2625,7 @@ router.post('/initialize-default', auth, async (req, res) => {
       return res.status(400).json({ error: 'Zeitplan bereits initialisiert' });
     }
 
-    // Determine daily hours based on employment type
+    // Determine daily hours based on employment type (fallback if no template)
     let dailyHours = 8; // Default for Vollzeit
     if (user.employment_type === 'Werkstudent') {
       // For Werkstudent, calculate from weekly quota
@@ -2323,8 +2650,13 @@ router.post('/initialize-default', auth, async (req, res) => {
       weekEnd.setDate(weekEnd.getDate() + 6);
       const holidays = await workingDaysService.getPublicHolidays(weekStart, weekEnd);
 
-      // Create schedule for Mon-Fri (0-4)
-      for (let dayOffset = 0; dayOffset < 5; dayOffset++) {
+      const template = await resolveTemplateForWeek(client, user.id, weekStart);
+      const pattern = template ? normalizeTemplatePattern(template.pattern || {}) : null;
+
+      // Create schedule for all days (template) or Mon-Fri (fallback)
+      const dayRange = pattern ? 7 : 5;
+
+      for (let dayOffset = 0; dayOffset < dayRange; dayOffset++) {
         const dayDate = new Date(weekStart);
         dayDate.setDate(dayDate.getDate() + dayOffset);
         const dayDateStr = formatDateForDB(dayDate);
@@ -2334,20 +2666,40 @@ router.post('/initialize-default', auth, async (req, res) => {
           continue;
         }
 
-        // Calculate start and end times for this day
-        const startTime = '08:00';
-        const endTime = dailyHours === 8
-          ? '17:00' // 8am-5pm with 1h lunch = 8h
-          : `${String(8 + Math.floor(dailyHours)).padStart(2, '0')}:${String(Math.round((dailyHours % 1) * 60)).padStart(2, '0')}`;
+        let isWorking = false;
+        let timeBlocks = [];
+        let startTime = null;
+        let endTime = null;
 
-        // Create time blocks
-        const timeBlocks = [{ start: startTime, end: endTime }];
+        if (pattern) {
+          const dayConfig = pattern.days.find((d) => d.dayOfWeek === dayOffset);
+          if (dayConfig && dayConfig.is_working) {
+            timeBlocks = sanitizeTimeBlocks(dayConfig.time_blocks || []);
+            if (timeBlocks.length > 0) {
+              isWorking = true;
+              startTime = timeBlocks[0].start;
+              endTime = timeBlocks[0].end;
+            }
+          }
+        } else {
+          // Fallback: weekday 08:00 - end based on quota
+          const startFallback = '08:00';
+          const endFallback = dailyHours === 8
+            ? '17:00'
+            : `${String(8 + Math.floor(dailyHours)).padStart(2, '0')}:${String(Math.round((dailyHours % 1) * 60)).padStart(2, '0')}`;
+          timeBlocks = [{ start: startFallback, end: endFallback }];
+          isWorking = true;
+          startTime = startFallback;
+          endTime = endFallback;
+        }
+
+        if (!isWorking) continue;
 
         schedules.push({
           userId: user.id,
           weekStart: weekStartStr,
           dayOfWeek: dayOffset,
-          isWorking: true,
+          isWorking,
           startTime,
           endTime,
           notes: serializeTimeBlocksToNotes(timeBlocks)

@@ -60,6 +60,7 @@ import {
   deleteStory,
   linkCalendarToMessage,
   getCalendarEvents,
+  createCalendarEvent,
   addMessageReaction,
   pinMessage,
   getPinnedMessages,
@@ -98,6 +99,181 @@ const LONG_PRESS_MENU_HEIGHT = 300;
 const LONG_PRESS_MENU_PADDING = 12;
 const LONG_PRESS_VIBRATION_MS = 10;
 const MAX_MESSAGE_ATTACHMENT_SIZE = 10 * 1024 * 1024;
+const MEET_COMMAND_REGEX = /^\/meet\b/i;
+const MEET_DEFAULT_DURATION_MINUTES = 60;
+const MEET_DEFAULT_TITLE = 'Meeting';
+
+const toDateOnly = (date) =>
+  new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+const parseMeetDateToken = (token, now = new Date()) => {
+  if (!token) return null;
+  const cleaned = token.trim().toLowerCase();
+
+  if (['today', 'heute'].includes(cleaned)) return toDateOnly(now);
+  if (['tomorrow', 'morgen'].includes(cleaned)) {
+    const base = toDateOnly(now);
+    base.setDate(base.getDate() + 1);
+    return base;
+  }
+  if (['yesterday', 'gestern'].includes(cleaned)) {
+    const base = toDateOnly(now);
+    base.setDate(base.getDate() - 1);
+    return base;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(cleaned)) {
+    const [year, month, day] = cleaned.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    if (date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day) {
+      return date;
+    }
+    return null;
+  }
+
+  if (/^\d{1,2}[./]\d{1,2}([./]\d{2,4})?$/.test(cleaned)) {
+    const parts = cleaned.split(/[./]/).map(Number);
+    const [day, month, yearRaw] = parts;
+    const year = yearRaw
+      ? (yearRaw < 100 ? 2000 + yearRaw : yearRaw)
+      : now.getFullYear();
+    const date = new Date(year, month - 1, day);
+    if (date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day) {
+      return date;
+    }
+  }
+
+  return null;
+};
+
+const normalizeMeetTimeToken = (token) => {
+  if (!token) return null;
+  let cleaned = token.trim().toLowerCase();
+  cleaned = cleaned.replace(',', ':').replace('.', ':');
+
+  if (/^\d{1,2}$/.test(cleaned)) {
+    cleaned = `${cleaned.padStart(2, '0')}:00`;
+  }
+
+  if (/^\d{3,4}$/.test(cleaned)) {
+    const padded = cleaned.padStart(4, '0');
+    cleaned = `${padded.slice(0, 2)}:${padded.slice(2)}`;
+  }
+
+  if (!/^\d{1,2}:\d{2}$/.test(cleaned)) return null;
+
+  const [hours, minutes] = cleaned.split(':').map(Number);
+  if (hours > 23 || minutes > 59) return null;
+
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+};
+
+const parseMeetDurationMinutes = (token) => {
+  if (!token) return null;
+  const cleaned = token.trim().toLowerCase();
+
+  if (/^\d+m$/.test(cleaned)) {
+    return Number.parseInt(cleaned, 10);
+  }
+
+  if (/^\d+h$/.test(cleaned)) {
+    return Number.parseInt(cleaned, 10) * 60;
+  }
+
+  const complexMatch = cleaned.match(/^(\d+)h(\d+)?m?$/);
+  if (complexMatch) {
+    const hours = Number.parseInt(complexMatch[1], 10);
+    const minutes = complexMatch[2] ? Number.parseInt(complexMatch[2], 10) : 0;
+    return hours * 60 + minutes;
+  }
+
+  return null;
+};
+
+const buildDateTime = (date, time) => {
+  const [hours, minutes] = time.split(':').map(Number);
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), hours, minutes, 0, 0);
+};
+
+const parseMeetCommand = (input, now = new Date()) => {
+  if (!input) return null;
+  const trimmed = input.trim();
+  if (!MEET_COMMAND_REGEX.test(trimmed)) return null;
+
+  const rest = trimmed.replace(MEET_COMMAND_REGEX, '').trim();
+  if (!rest) {
+    return { error: 'Zeit fehlt. Beispiel: /meet 14:00 Team Sync' };
+  }
+
+  const tokens = rest.split(/\s+/);
+  let index = 0;
+  let date = parseMeetDateToken(tokens[index], now);
+  if (date) {
+    index += 1;
+  } else {
+    date = toDateOnly(now);
+  }
+
+  const timeToken = tokens[index];
+  if (!timeToken) {
+    return { error: 'Zeit fehlt. Beispiel: /meet 14:00 Team Sync' };
+  }
+  index += 1;
+
+  let startTime = null;
+  let endTime = null;
+  let endDate = new Date(date.getTime());
+
+  if (timeToken.includes('-')) {
+    const [startToken, endToken] = timeToken.split('-');
+    startTime = normalizeMeetTimeToken(startToken);
+    endTime = normalizeMeetTimeToken(endToken);
+    if (!startTime || !endTime) {
+      return { error: 'Ungültiges Zeitformat. Beispiel: /meet 14:00-15:00 Titel' };
+    }
+
+    const startDateTime = buildDateTime(date, startTime);
+    let endDateTime = buildDateTime(date, endTime);
+    if (endDateTime <= startDateTime) {
+      endDateTime = new Date(endDateTime.getTime() + 24 * 60 * 60 * 1000);
+    }
+    endDate = endDateTime;
+    endTime = format(endDateTime, 'HH:mm');
+  } else {
+    startTime = normalizeMeetTimeToken(timeToken);
+    if (!startTime) {
+      return { error: 'Ungültige Startzeit. Beispiel: /meet 14:00 Team Sync' };
+    }
+
+    let duration = parseMeetDurationMinutes(tokens[index]);
+    if (duration) {
+      index += 1;
+    } else {
+      duration = MEET_DEFAULT_DURATION_MINUTES;
+    }
+
+    const startDateTime = buildDateTime(date, startTime);
+    const endDateTime = new Date(startDateTime.getTime() + duration * 60 * 1000);
+    endDate = endDateTime;
+    endTime = format(endDateTime, 'HH:mm');
+  }
+
+  const title = tokens.slice(index).join(' ').trim() || MEET_DEFAULT_TITLE;
+
+  return {
+    eventData: {
+      title,
+      startDate: format(date, 'yyyy-MM-dd'),
+      endDate: format(endDate, 'yyyy-MM-dd'),
+      startTime,
+      endTime,
+      type: 'meeting',
+      category: 'work',
+      notes: 'Erstellt via /meet'
+    },
+    messageBody: `Kalender: ${title}`
+  };
+};
 
 const debug = (...args) => {
   if (process.env.NODE_ENV !== 'production' && typeof console !== 'undefined') {
@@ -2217,6 +2393,11 @@ const DirectMessenger = () => {
     }
 
     const trimmed = messageInput?.trim() || '';
+    const meetCommand = parseMeetCommand(trimmed);
+    if (meetCommand?.error) {
+      showError(meetCommand.error);
+      return;
+    }
     if (!trimmed && (!Array.isArray(pendingAttachments) || pendingAttachments.length === 0) && !selectedEvent) return;
 
     let threadId = selectedThreadId;
@@ -2231,7 +2412,8 @@ const DirectMessenger = () => {
 
     const inputValue = messageInput;
     const attachments = Array.isArray(pendingAttachments) ? [...pendingAttachments] : [];
-    const eventToShare = selectedEvent;
+    const initialSelectedEvent = selectedEvent;
+    let eventToShare = selectedEvent;
     const replyTo = replyToMessage;
     setMessageInput('');
     setPendingAttachments([]);
@@ -2255,30 +2437,48 @@ const DirectMessenger = () => {
       );
     }
 
-    // Optimistic message for instant feedback
-    const optimisticId = `tmp-${Date.now()}`;
-    const optimisticMessage = {
-      id: optimisticId,
-      sender_id: user?.id,
-      sender_name: user?.name,
-      message: trimmed || (eventToShare?.title ? `Kalender: ${eventToShare.title}` : ''),
-      created_at: new Date().toISOString(),
-      attachments: attachments.map((file, idx) => ({
-        id: `tmp-attach-${idx}`,
-        filename: file.name,
-        mimetype: file.type,
-        size: file.size,
-        url: URL.createObjectURL(file)
-      })),
-      metadata: eventToShare?.id
-        ? { shared_event: eventToShare }
-        : undefined,
-      status: 'sending'
-    };
-    setMessages((prev) => [...prev, optimisticMessage]);
-    requestAnimationFrame(() => scrollToBottom());
+    let optimisticId = null;
+    let optimisticMessage = null;
+    let meetEventCreated = null;
+    let meetMessageBody = null;
 
     try {
+      if (meetCommand) {
+        const response = await createCalendarEvent(meetCommand.eventData);
+        meetEventCreated = response?.data || null;
+        if (!meetEventCreated?.id) {
+          throw new Error('Kalendertermin konnte nicht erstellt werden');
+        }
+        eventToShare = meetEventCreated;
+        meetMessageBody = meetCommand.messageBody || `Kalender: ${meetEventCreated.title || MEET_DEFAULT_TITLE}`;
+        showSuccess('Kalendertermin erstellt');
+      }
+
+      const resolvedMessageBody = meetMessageBody || trimmed || (eventToShare?.title ? `Kalender: ${eventToShare.title}` : '');
+
+      // Optimistic message for instant feedback
+      optimisticId = `tmp-${Date.now()}`;
+      optimisticMessage = {
+        id: optimisticId,
+        sender_id: user?.id,
+        sender_name: user?.name,
+        message: resolvedMessageBody,
+        created_at: new Date().toISOString(),
+        attachments: attachments.map((file, idx) => ({
+          id: `tmp-attach-${idx}`,
+          filename: file.name,
+          mimetype: file.type,
+          size: file.size,
+          url: URL.createObjectURL(file)
+        })),
+        metadata: eventToShare?.id
+          ? { shared_event: eventToShare }
+          : undefined,
+        status: 'sending'
+      };
+      setMessages((prev) => [...prev, optimisticMessage]);
+      requestAnimationFrame(() => scrollToBottom());
+
       let attachmentsData = [];
       if (attachmentsWithIds.length > 0) {
         const uploadResults = await Promise.all(
@@ -2327,7 +2527,7 @@ const DirectMessenger = () => {
 
       setShowGifPicker(false);
 
-      const messageBody = trimmed || (eventToShare?.title ? `Kalender: ${eventToShare.title}` : '');
+      const messageBody = resolvedMessageBody;
       if (!messageBody && attachmentsData.length === 0 && !eventToShare?.id) {
         throw new Error('Keine Anhänge konnten hochgeladen werden');
       }
@@ -2428,7 +2628,7 @@ const DirectMessenger = () => {
         await loadMessages(threadId);
       }
 
-      const lastThreadMessage = normalizeThreadLastMessage(newMessage || optimisticMessage);
+      const lastThreadMessage = normalizeThreadLastMessage(newMessage || optimisticMessage || {});
       setThreads((prev) =>
         prev.map((thread) =>
           isSameThreadId(thread.id, threadId)
@@ -2445,12 +2645,23 @@ const DirectMessenger = () => {
       console.error('Error sending message:', error);
       const errorMsg =
         error?.response?.data?.error || error?.message || 'Fehler beim Senden';
-      showError(errorMsg);
-      setMessageInput(inputValue || '');
+      if (meetEventCreated?.id) {
+        showError('Termin erstellt, aber Nachricht konnte nicht gesendet werden');
+      } else {
+        showError(errorMsg);
+      }
+      if (meetEventCreated?.id) {
+        setMessageInput('');
+        setSelectedEvent(meetEventCreated);
+      } else {
+        setMessageInput(inputValue || '');
+        setSelectedEvent(initialSelectedEvent || null);
+      }
       setPendingAttachments(Array.isArray(attachments) ? attachments : []);
-      setSelectedEvent(eventToShare || null);
       // Revert optimistic message
-      setMessages((prev) => prev.filter((msg) => msg.id !== optimisticId));
+      if (optimisticId) {
+        setMessages((prev) => prev.filter((msg) => msg.id !== optimisticId));
+      }
     } finally {
       setSending(false);
     }
@@ -5129,8 +5340,8 @@ const DirectMessenger = () => {
                     }}
                     placeholder={
                       activeThread?.type === 'group'
-                        ? "Nachricht schreiben... (Tipp: @BL_Bot für Hilfe)"
-                        : "Nachricht schreiben..."
+                        ? "Nachricht schreiben... (Tipp: @BL_Bot, /meet 14:00)"
+                        : "Nachricht schreiben... (z.B. /meet 14:00)"
                     }
                     className="messenger-text-input"
                     style={{
@@ -5646,7 +5857,7 @@ const DirectMessenger = () => {
               e.target.style.height = 'auto';
               e.target.style.height = Math.min(e.target.scrollHeight, 100) + 'px';
             }}
-            placeholder="Message"
+            placeholder="Nachricht oder /meet 14:00"
             rows="1"
           />
         </div>

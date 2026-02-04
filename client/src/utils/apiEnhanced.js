@@ -100,6 +100,9 @@ export const clearAllReadNotifications = () =>
 export const getCalendarEvents = (params = {}) =>
   api.get('/schedule/events', { params });
 
+export const createCalendarEvent = (eventData) =>
+  api.post('/schedule/events', eventData);
+
 // ============================================
 // ENHANCED MESSAGING APIs
 // ============================================

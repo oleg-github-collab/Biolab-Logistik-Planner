@@ -135,6 +135,34 @@ export const getTeamSchedule = () =>
 export const getArchivedSchedules = () => 
   api.get('/schedule/archived');
 
+export const getScheduleUsers = () =>
+  api.get('/schedule/users');
+
+// Schedule templates
+export const getScheduleTemplates = () =>
+  api.get('/schedule/templates');
+
+export const createScheduleTemplate = (data) =>
+  api.post('/schedule/templates', data);
+
+export const updateScheduleTemplate = (id, data) =>
+  api.put(`/schedule/templates/${id}`, data);
+
+export const deleteScheduleTemplate = (id) =>
+  api.delete(`/schedule/templates/${id}`);
+
+export const getScheduleTemplateAssignments = (userId) =>
+  api.get(`/schedule/template-assignments${userId ? `?userId=${userId}` : ''}`);
+
+export const createScheduleTemplateAssignment = (data) =>
+  api.post('/schedule/template-assignments', data);
+
+export const updateScheduleTemplateAssignment = (id, data) =>
+  api.put(`/schedule/template-assignments/${id}`, data);
+
+export const deleteScheduleTemplateAssignment = (id) =>
+  api.delete(`/schedule/template-assignments/${id}`);
+
 // Event endpoints
 export const getEvents = (start, end, type, priority) => {
   const params = new URLSearchParams();

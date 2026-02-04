@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import HoursCalendar from '../components/HoursCalendar';
 import MonthlyHoursCalculator from '../components/MonthlyHoursCalculator';
 import TeamScheduleCalendar from '../components/TeamScheduleCalendar';
+import ScheduleTemplateManager from '../components/ScheduleTemplateManager';
 import axios from 'axios';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -175,6 +176,21 @@ const Schedule = () => {
                   Team-Übersicht
                 </div>
               </button>
+              <button
+                onClick={() => setActiveTab('templates')}
+                className={`${
+                  activeTab === 'templates'
+                    ? 'schedule-tab--active border-indigo-600 text-indigo-600'
+                    : 'schedule-tab--inactive border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } schedule-tab whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors`}
+              >
+                <div className="flex items-center gap-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
+                  </svg>
+                  Vorlagen
+                </div>
+              </button>
               </nav>
             </div>
             {showTabsHint && (
@@ -196,6 +212,7 @@ const Schedule = () => {
           {activeTab === 'calendar' && <HoursCalendar focusDate={focusDate} />}
           {activeTab === 'monthly' && <MonthlyHoursCalculator />}
           {activeTab === 'team' && <TeamScheduleCalendar />}
+          {activeTab === 'templates' && <ScheduleTemplateManager />}
         </div>
 
         {/* Help Section */}
