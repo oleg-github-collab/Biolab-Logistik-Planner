@@ -112,8 +112,8 @@ const DictationArticleEditor = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full my-8 flex flex-col max-h-[calc(100vh-4rem)] overflow-hidden relative">
+    <div className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-[10050] px-3 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] sm:p-4 overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full sm:my-8 flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[calc(100vh-4rem)] overflow-hidden relative">
         {/* Processing Overlay */}
         {isProcessing && (
           <div className="absolute inset-0 bg-white/95 z-50 flex flex-col items-center justify-center gap-4">

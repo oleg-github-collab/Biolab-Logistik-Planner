@@ -613,7 +613,7 @@ const ArticleViewModal = ({
     return (
       <div className="modal-base active" role="dialog" aria-modal="true">
         <div className="backdrop active" />
-        <div className="bottom-sheet max-h-[calc(100vh-2rem)] w-full overflow-hidden flex flex-col">
+        <div className="bottom-sheet max-h-[calc(100dvh-2rem)] w-full overflow-hidden flex flex-col">
           <div className="pull-handle" aria-hidden="true" />
           {modalContent}
         </div>
@@ -878,11 +878,11 @@ const ArticleEditorModal = ({ article, categories, allTags, onSave, onClose, onD
 
 
   const modalWrapperClass = isMobile
-    ? 'fixed inset-0 bg-black/60 flex items-start justify-center z-50 p-3 pt-4'
+    ? 'fixed inset-0 bg-black/60 flex items-start justify-center z-[10050] px-3 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] overflow-y-auto'
     : 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
 
   const modalBodyClass = isMobile
-    ? 'bg-white rounded-2xl shadow-2xl w-full max-w-3xl h-[calc(100vh-1.5rem)] max-h-[calc(100vh-1.5rem)] flex flex-col overflow-hidden'
+    ? 'bg-white rounded-2xl shadow-2xl w-full max-w-3xl min-h-[calc(100dvh-2rem)] max-h-[calc(100dvh-2rem)] flex flex-col overflow-hidden'
     : 'bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[calc(100vh-4rem)] my-8 flex flex-col overflow-hidden';
 
   return (
@@ -1231,7 +1231,7 @@ const VersionDiffModal = ({ isOpen, onClose, diff }) => {
   const changedCount = rows.filter((row) => row.changed).length;
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-60 px-4 py-8">
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[10050] px-4 py-8">
       <div className="bg-white rounded-3xl w-full max-w-5xl shadow-2xl overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
           <div>
@@ -1793,7 +1793,7 @@ const KnowledgeBaseV3 = () => {
     ? 'modal-base active'
     : 'fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4 py-8';
   const dictationPanelClass = isMobile
-    ? 'bottom-sheet max-h-[calc(100vh-2rem)] w-full flex flex-col overflow-hidden'
+    ? 'bottom-sheet max-h-[calc(100dvh-2rem)] w-full flex flex-col overflow-hidden'
     : 'bg-white rounded-3xl w-full max-w-xl max-h-[calc(100vh-4rem)] shadow-2xl flex flex-col overflow-hidden';
   const dictationContent = (
     <div className="flex flex-col h-full relative">
@@ -2311,7 +2311,7 @@ const KnowledgeBaseV3 = () => {
 
       {/* Category Creation Modal */}
       {showCategoryModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10050] p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-bold text-gray-900">Neue Kategorie erstellen</h3>
