@@ -50,6 +50,10 @@
     position: sticky !important;
     top: 0 !important;
     z-index: 10 !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    margin: 0 !important;
   }
 
   .kanban-task-modal label {
