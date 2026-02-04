@@ -810,7 +810,7 @@ router.post('/users/bulk', [auth, adminAuth], async (req, res) => {
 });
 
 // @route   DELETE /api/admin/users/:id
-// @desc    Delete user (admin only) - relies on properly configured FK constraints
+// @desc    Delete user (admin only) - BULLETPROOF manual deletion
 router.delete('/users/:id', [auth, adminAuth], async (req, res) => {
   const { id } = req.params;
   const userId = parseInt(id, 10);
@@ -858,15 +858,107 @@ router.delete('/users/:id', [auth, adminAuth], async (req, res) => {
       }
     }
 
-    logger.info('Deleting user with CASCADE/SET NULL cleanup', { userId, userName: user.name });
+    logger.info('Starting BULLETPROOF user deletion', { userId, userName: user.name });
 
-    // Delete user - FK constraints will handle CASCADE/SET NULL automatically
-    // This requires migration 062 to be applied
+    // FUCK FK CONSTRAINTS - Delete everything manually in correct order
+    // This is the ONLY reliable way
+
+    // 1. Delete audit records FIRST (they reference the user)
+    await client.query('DELETE FROM work_hours_audit WHERE user_id = $1 OR changed_by = $1', [userId]);
+    logger.info('Deleted work_hours_audit', { userId });
+
+    // 2. Delete weekly schedules (referenced by work_hours_audit via trigger)
+    await client.query('DELETE FROM weekly_schedules WHERE user_id = $1', [userId]);
+    await client.query('DELETE FROM user_weekly_hours WHERE user_id = $1', [userId]);
+    logger.info('Deleted schedules', { userId });
+
+    // 3. Delete personal data
+    await client.query('DELETE FROM user_settings WHERE user_id = $1', [userId]);
+    await client.query('DELETE FROM time_entries WHERE user_id = $1', [userId]);
+    await client.query('DELETE FROM stories WHERE user_id = $1', [userId]);
+    await client.query('DELETE FROM story_viewers WHERE viewer_id = $1', [userId]);
+    logger.info('Deleted personal data', { userId });
+
+    // 4. Delete messaging data
+    await client.query('DELETE FROM chat_members WHERE user_id = $1', [userId]);
+    await client.query('DELETE FROM message_reads WHERE user_id = $1', [userId]);
+    await client.query('DELETE FROM direct_messages WHERE sender_id = $1 OR receiver_id = $1', [userId]);
+    await client.query('DELETE FROM message_mentions WHERE mentioned_user_id = $1', [userId]);
+    await client.query('DELETE FROM messenger_quick_replies WHERE user_id = $1', [userId]);
+    await client.query('DELETE FROM contact_notes WHERE user_id = $1 OR contact_id = $1', [userId]);
+    await client.query('DELETE FROM user_contacts WHERE user_id = $1 OR contact_user_id = $1', [userId]);
+    logger.info('Deleted messaging data', { userId });
+
+    // 5. Delete notifications
+    await client.query('DELETE FROM notifications WHERE user_id = $1', [userId]);
+    await client.query('DELETE FROM notification_preferences WHERE user_id = $1', [userId]);
+    await client.query('DELETE FROM notification_digest_log WHERE user_id = $1', [userId]);
+    logger.info('Deleted notifications', { userId });
+
+    // 6. Delete KB data
+    await client.query('DELETE FROM kb_favorites WHERE user_id = $1', [userId]);
+    await client.query('DELETE FROM kb_views WHERE user_id = $1', [userId]);
+    await client.query('DELETE FROM kb_feedback WHERE user_id = $1', [userId]);
+    logger.info('Deleted KB data', { userId });
+
+    // 7. Delete tasks/assignments
+    await client.query('DELETE FROM task_assignments WHERE user_id = $1', [userId]);
+    await client.query('DELETE FROM help_requests WHERE requested_by = $1 OR requested_user_id = $1', [userId]);
+    await client.query('DELETE FROM kanban_comments WHERE created_by = $1', [userId]);
+    await client.query('DELETE FROM kanban_activity WHERE user_id = $1', [userId]);
+    logger.info('Deleted tasks/assignments', { userId });
+
+    // 8. Delete bot conversation history
+    await client.query('DELETE FROM bot_conversation_history WHERE user_id = $1', [userId]);
+    logger.info('Deleted bot history', { userId });
+
+    // 9. NULL out references (where we want to keep records)
+    await client.query('UPDATE messages SET user_id = NULL WHERE user_id = $1', [userId]);
+    await client.query('UPDATE messages SET receiver_id = NULL WHERE receiver_id = $1', [userId]);
+    await client.query('UPDATE messages SET quoted_by = NULL WHERE quoted_by = $1', [userId]);
+    await client.query('UPDATE messages SET mentioned_by = NULL WHERE mentioned_by = $1', [userId]);
+    await client.query('UPDATE message_mentions SET mentioned_by = NULL WHERE mentioned_by = $1', [userId]);
+    await client.query('UPDATE kb_article_versions SET created_by = NULL WHERE created_by = $1', [userId]);
+    await client.query('UPDATE kb_article_versions SET author_id = NULL WHERE author_id = $1', [userId]);
+    await client.query('UPDATE kb_articles SET created_by = NULL WHERE created_by = $1', [userId]);
+    await client.query('UPDATE kb_articles SET updated_by = NULL WHERE updated_by = $1', [userId]);
+    await client.query('UPDATE kb_articles SET last_edited_by = NULL WHERE last_edited_by = $1', [userId]);
+    await client.query('UPDATE kb_articles SET author_id = NULL WHERE author_id = $1', [userId]);
+    await client.query('UPDATE kb_article_edits SET edited_by = NULL WHERE edited_by = $1', [userId]);
+    await client.query('UPDATE kb_comments SET author_id = NULL WHERE author_id = $1', [userId]);
+    await client.query('UPDATE calendar_events SET created_by = NULL WHERE created_by = $1', [userId]);
+    await client.query('UPDATE kanban_tasks SET created_by = NULL WHERE created_by = $1', [userId]);
+    await client.query('UPDATE kanban_tasks SET assigned_to = NULL WHERE assigned_to = $1', [userId]);
+    await client.query('UPDATE tasks SET assigned_to = NULL WHERE assigned_to = $1', [userId]);
+    await client.query('UPDATE tasks SET assigned_by = NULL WHERE assigned_by = $1', [userId]);
+    await client.query('UPDATE tasks SET claimed_by = NULL WHERE claimed_by = $1', [userId]);
+    await client.query('UPDATE tasks SET help_requested_from = NULL WHERE help_requested_from = $1', [userId]);
+    await client.query('UPDATE tasks SET help_requested_by = NULL WHERE help_requested_by = $1', [userId]);
+    await client.query('UPDATE task_pool SET assigned_to = NULL WHERE assigned_to = $1', [userId]);
+    await client.query('UPDATE task_pool SET completed_by = NULL WHERE completed_by = $1', [userId]);
+    await client.query('UPDATE task_pool SET created_by = NULL WHERE created_by = $1', [userId]);
+    await client.query('UPDATE task_templates SET created_by = NULL WHERE created_by = $1', [userId]);
+    await client.query('UPDATE kb_attachments SET uploaded_by = NULL WHERE uploaded_by = $1', [userId]);
+    await client.query('UPDATE kanban_attachments SET uploaded_by = NULL WHERE uploaded_by = $1', [userId]);
+    await client.query('UPDATE task_attachments SET uploaded_by = NULL WHERE uploaded_by = $1', [userId]);
+    await client.query('UPDATE storage_bins SET created_by = NULL WHERE created_by = $1', [userId]);
+    await client.query('UPDATE storage_bins SET completed_by = NULL WHERE completed_by = $1', [userId]);
+    await client.query('UPDATE storage_tasks SET created_by = NULL WHERE created_by = $1', [userId]);
+    await client.query('UPDATE public_holidays SET created_by = NULL WHERE created_by = $1', [userId]);
+    await client.query('UPDATE weekly_schedules SET last_updated_by = NULL WHERE last_updated_by = $1', [userId]);
+    await client.query('UPDATE broadcast_history SET admin_id = NULL WHERE admin_id = $1', [userId]);
+    await client.query('UPDATE waste_disposal_responses SET user_id = NULL WHERE user_id = $1', [userId]);
+    await client.query('UPDATE shift_groups SET created_by = NULL WHERE created_by = $1', [userId]);
+    await client.query('UPDATE shift_assignments SET user_id = NULL WHERE user_id = $1', [userId]);
+    logger.info('Nullified references', { userId });
+
+    // 10. FINALLY delete the user
     await client.query('DELETE FROM users WHERE id = $1', [userId]);
+    logger.info('User record deleted', { userId });
 
     await client.query('COMMIT');
 
-    logger.info('User deleted successfully', { userId, userName: user.name });
+    logger.info('User deleted successfully - BULLETPROOF method', { userId, userName: user.name });
 
     res.json({
       message: `Benutzer ${user.name} erfolgreich gelöscht`,
@@ -881,24 +973,17 @@ router.delete('/users/:id', [auth, adminAuth], async (req, res) => {
       constraint: err.constraint,
       code: err.code,
       table: err.table,
-      column: err.column
+      column: err.column,
+      stack: err.stack
     });
 
-    // Provide helpful error message
-    let errorMessage = 'Fehler beim Löschen';
-
-    if (err.code === '23503') {
-      // FK violation - migration 062 not applied or incomplete
-      errorMessage = `FK-Fehler: ${err.constraint || 'unbekannt'}. Bitte Migration 062 ausführen.`;
-    }
-
     res.status(500).json({
-      error: errorMessage,
+      error: 'Fehler beim Löschen',
+      message: err.message,
       details: {
         code: err.code,
         constraint: err.constraint,
-        table: err.table,
-        detail: err.detail
+        table: err.table
       }
     });
   } finally {
