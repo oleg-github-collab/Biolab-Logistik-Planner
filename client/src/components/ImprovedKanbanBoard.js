@@ -993,7 +993,7 @@ const ImprovedKanbanBoard = () => {
 
       {/* Task Modal */}
       {showTaskModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 md:p-4 z-50 overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 flex items-start md:items-center justify-center p-3 md:p-4 z-[10050] overflow-y-auto">
           <div className="bg-white rounded-xl p-4 md:p-6 w-full max-w-2xl mx-auto my-auto max-h-[95vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4 md:mb-6">
               <h3 className="text-lg md:text-xl font-bold text-gray-800">

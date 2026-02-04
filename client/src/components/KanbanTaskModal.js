@@ -114,7 +114,7 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
   if (!isOpen) return null;
 
   return (
-    <div className="modal-shell fixed inset-0 z-[120] flex items-center justify-center px-3 py-6 sm:px-6">
+    <div className="modal-shell fixed inset-0 z-[10050] flex items-start justify-center px-3 pt-4 pb-6 sm:items-center sm:py-6 sm:px-6">
       <div
         className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
         onClick={onClose}
