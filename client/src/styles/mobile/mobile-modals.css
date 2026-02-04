@@ -141,16 +141,23 @@
     line-height: 1.4 !important;
   }
 
-  /* Modal containers - Full width on mobile */
-  [class*="modal"],
-  [class*="Modal"],
+  /* Modal containers - Full width on mobile (avoid targeting headers/bodies) */
+  .modal-card,
+  .modal-shell,
+  .base-modal-dialog,
+  .modal-bottom-sheet,
   [role="dialog"] {
     max-width: 100% !important;
     width: 100% !important;
-    height: 100% !important;
     margin: 0 !important;
     border-radius: 0 !important;
     max-height: 100vh !important;
+  }
+
+  .base-modal-dialog,
+  .modal-bottom-sheet,
+  [role="dialog"] {
+    height: 100% !important;
   }
 
   /* Modal content - Proper padding */
@@ -161,6 +168,30 @@
     max-height: calc(100vh - 80px) !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* Mobile calendar/event modals - prevent oversized headers/bodies */
+  .modal-header-mobile,
+  .modal-body-mobile,
+  .modal-footer-mobile {
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+  }
+
+  .modal-header-mobile {
+    margin-bottom: 0 !important;
+    overflow: visible !important;
+  }
+
+  .modal-body-mobile {
+    flex: 1 1 auto !important;
+  }
+
+  /* Ensure BaseModal overlays sit above bottom nav */
+  .base-modal-portal-root,
+  .base-modal-overlay {
+    z-index: 10050 !important;
   }
 
   /* Modal header */

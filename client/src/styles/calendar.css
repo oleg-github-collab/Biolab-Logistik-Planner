@@ -159,6 +159,27 @@
   opacity: 0.7;
 }
 
+@media (max-width: 1023px) {
+  .base-modal-overlay.modal-backdrop-mobile {
+    align-items: flex-start !important;
+    justify-content: flex-start !important;
+    padding: env(safe-area-inset-top, 0) 0 0 0 !important;
+  }
+
+  .base-modal-overlay.modal-backdrop-mobile .modal-bottom-sheet {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  .base-modal-overlay.modal-backdrop-mobile .modal-bottom-sheet::before {
+    display: none !important;
+  }
+}
+
 /* Calendar day helper CTA */
 .calendar-workhours-cta {
   display: flex;
