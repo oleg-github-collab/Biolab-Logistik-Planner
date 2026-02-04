@@ -28,6 +28,7 @@ const {
 const { runPendingMigrations } = require('./utils/postgresMigrations');
 const { scheduleDeadlineReminders } = require('./utils/deadlineReminders');
 const botScheduler = require('./services/botScheduler');
+const { fixAllUserFKs } = require('./database/fix-user-fks');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -233,6 +234,21 @@ const startServer = async () => {
       console.error('⚠️  PostgreSQL migrations failed:', migrationError.message);
       console.error('Continuing startup, but database schema may be outdated');
     }
+
+    // ULTRA-RELIABLE: Fix FK constraints on EVERY startup
+    console.log('='.repeat(80));
+    console.log('🔧 AUTO-FIXING USER FK CONSTRAINTS');
+    console.log('='.repeat(80));
+    try {
+      const pool = require('./config/database.pg');
+      const fkResults = await fixAllUserFKs(pool);
+      console.log(`✅ FK Auto-fix complete: ${fkResults.fixed} fixed, ${fkResults.skipped} skipped`);
+      logger.info('User FK constraints auto-fixed on startup', fkResults);
+    } catch (fkError) {
+      console.error('⚠️  FK auto-fix failed:', fkError.message);
+      logger.error('FK auto-fix failed', { error: fkError.message });
+    }
+    console.log('='.repeat(80));
 
     // Initialize BL_Bot BEFORE starting server
     console.log('='.repeat(80));
