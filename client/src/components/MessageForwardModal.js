@@ -54,7 +54,8 @@ const MessageForwardModal = ({ message, threads = [], onClose, onSuccess }) => {
       onClose();
     } catch (error) {
       console.error('Error forwarding message:', error);
-      showError('Fehler beim Weiterleiten');
+      const errorMsg = error?.response?.data?.error || 'Fehler beim Weiterleiten';
+      showError(errorMsg);
     } finally {
       setForwarding(false);
     }
@@ -76,8 +77,8 @@ const MessageForwardModal = ({ message, threads = [], onClose, onSuccess }) => {
       : [...filteredContacts, ...filteredGroups];
 
   return (
-    <div className="fixed inset-0 z-[50000] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="modal-shell fixed inset-0 z-[50000] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="modal-card bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="p-4 border-b border-slate-200 bg-gradient-to-r from-green-600 to-green-700 text-white">
           <div className="flex items-center justify-between">
@@ -167,7 +168,7 @@ const MessageForwardModal = ({ message, threads = [], onClose, onSuccess }) => {
         </div>
 
         {/* Contacts List */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-2">
+        <div className="flex-1 overflow-y-auto p-4 space-y-2 modal-scroll">
           {loading && (
             <div className="flex justify-center py-8">
               <div className="animate-spin w-8 h-8 border-4 border-green-600 border-t-transparent rounded-full" />

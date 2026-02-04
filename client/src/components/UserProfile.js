@@ -269,17 +269,20 @@ const UserProfile = ({ userId, onClose }) => {
 
   return (
     <div
-      className={`user-profile-shell fixed inset-0 bg-black/60 backdrop-blur-sm z-[20000] ${
+      className={`user-profile-shell modal-shell fixed inset-0 bg-black/60 backdrop-blur-sm z-[20000] ${
         isMobile ? 'p-0 flex items-stretch justify-center' : 'p-4 flex items-center justify-center'
       }`}
     >
       <div
-        className={`bg-white shadow-2xl w-full flex flex-col ${
-          isMobile ? 'h-full max-w-none rounded-none overflow-y-auto' : 'rounded-lg max-w-4xl max-h-[90vh] overflow-y-auto'
+        className={`modal-card bg-white shadow-2xl w-full flex flex-col modal-scroll ${
+          isMobile ? 'modal-card--fullscreen h-full max-w-none rounded-none overflow-y-auto' : 'rounded-lg max-w-4xl max-h-[90vh] overflow-y-auto'
         }`}
       >
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-6 relative">
+        <div
+          className={`bg-gradient-to-r from-blue-600 to-blue-800 text-white relative ${isMobile ? 'p-5' : 'p-6'}`}
+          style={isMobile ? { paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)' } : undefined}
+        >
           <button
             onClick={onClose}
             className="absolute top-4 right-4 p-2 hover:bg-white hover:bg-opacity-20 rounded-full transition"
@@ -287,10 +290,10 @@ const UserProfile = ({ userId, onClose }) => {
             <X className="w-6 h-6" />
           </button>
 
-          <div className="flex items-center space-x-6">
+          <div className={isMobile ? 'flex flex-col items-start gap-4' : 'flex items-center space-x-6'}>
             {/* Profile Photo */}
             <div className="relative">
-              <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-white overflow-hidden border-4 border-white shadow-lg">
+              <div className={`${isMobile ? 'w-20 h-20' : 'w-24 h-24 sm:w-32 sm:h-32'} rounded-full bg-white overflow-hidden border-4 border-white shadow-lg`}>
                 {photoPreview || profile?.profile_photo ? (
                   <img
                     src={photoPreview || getAssetUrl(profile.profile_photo)}
@@ -319,8 +322,8 @@ const UserProfile = ({ userId, onClose }) => {
 
             {/* Profile Info */}
             <div className="flex-1">
-              <h2 className="text-2xl sm:text-3xl font-bold">{profile?.name}</h2>
-              <p className="text-blue-100 mt-1">{profile?.position_description || profile?.role}</p>
+              <h2 className={`${isMobile ? 'text-xl' : 'text-2xl sm:text-3xl'} font-bold`}>{profile?.name}</h2>
+              <p className={`text-blue-100 ${isMobile ? 'mt-1 text-sm' : 'mt-1'}`}>{profile?.position_description || profile?.role}</p>
               <div className="flex items-center mt-2 space-x-2">
                 <div className={`w-3 h-3 rounded-full ${statusColors[profile?.status || 'offline']}`}></div>
                 <span className="text-sm">{profile?.status_message || profile?.status}</span>

@@ -912,15 +912,16 @@
   }
 
   .contact-card__message {
-    color: rgba(226, 232, 240, 0.75);
+    color: rgba(226, 232, 240, 0.9);
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
   }
 }
 
 .contact-card__time {
   font-size: 11px;
   font-weight: 600;
-  color: var(--messenger-text-muted);
-  background: rgba(148, 163, 184, 0.16);
+  color: rgba(226, 232, 240, 0.82);
+  background: rgba(148, 163, 184, 0.22);
   border-radius: 999px;
   padding: 2px 8px;
   white-space: nowrap;
@@ -928,12 +929,13 @@
 
 .contact-card__message {
   font-size: 13px;
-  color: var(--messenger-text-muted);
+  color: rgba(226, 232, 240, 0.9);
   font-weight: 600;
   margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
 
 .contact-card__meta {
@@ -941,7 +943,7 @@
   align-items: center;
   gap: 6px;
   font-size: 11px;
-  color: var(--messenger-text-muted);
+  color: rgba(226, 232, 240, 0.75);
   font-weight: 600;
 }
 
@@ -949,7 +951,7 @@
   padding: 2px 8px;
   border-radius: 999px;
   background: rgba(148, 163, 184, 0.18);
-  color: var(--messenger-text-muted);
+  color: rgba(226, 232, 240, 0.82);
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -961,24 +963,25 @@
 }
 
 .contact-card__meta-dot {
-  color: rgba(148, 163, 184, 0.7);
+  color: rgba(226, 232, 240, 0.6);
 }
 
 .contact-card__meta-label {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-size: 10px;
-  color: rgba(148, 163, 184, 0.7);
+  color: rgba(226, 232, 240, 0.7);
 }
 
 .contact-card__meta-time {
   font-size: 11px;
-  color: var(--messenger-text);
+  color: rgba(248, 250, 252, 0.92);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
 }
 
 .contact-card__last-seen {
   font-size: 13px;
-  color: var(--messenger-text-muted);
+  color: rgba(226, 232, 240, 0.82);
   margin: 0;
   font-weight: 500;
 }

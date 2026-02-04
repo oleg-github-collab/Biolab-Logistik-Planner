@@ -1089,15 +1089,15 @@ const MobileMessenger = ({
 
       {/* Event Picker Modal */}
       {showEventPicker && (
-        <div className="fixed inset-0 z-[50000] flex items-center justify-center p-4 bg-black/80">
-          <div className="bg-[#0a0a0a] rounded-2xl w-full max-w-md max-h-[80vh] overflow-hidden">
+        <div className="modal-shell fixed inset-0 z-[50000] flex items-center justify-center p-4 bg-black/80">
+          <div className="modal-card bg-[#0a0a0a] rounded-2xl w-full max-w-md max-h-[80vh] overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b border-white/10">
               <h3 className="text-lg font-semibold text-white">Termin auswählen</h3>
               <button onClick={() => setShowEventPicker(false)} className="text-white/70 hover:text-white">
                 <X size={24} />
               </button>
             </div>
-            <div className="overflow-y-auto max-h-[60vh] p-4">
+            <div className="overflow-y-auto max-h-[60vh] p-4 modal-scroll">
               {calendarEvents && calendarEvents.length > 0 ? (
                 calendarEvents.map((event) => (
                   <button

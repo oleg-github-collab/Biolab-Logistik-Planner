@@ -115,11 +115,11 @@ const GifPicker = ({ onSelectGif, onClose }) => {
 
   return (
     <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[50000] p-4 pt-20 backdrop-blur-sm animate-fadeIn"
+      className="modal-shell fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[50000] p-4 pt-20 backdrop-blur-sm animate-fadeIn"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl w-full max-w-4xl max-h-[80vh] overflow-hidden shadow-2xl transform transition-all"
+        className="modal-card bg-white rounded-xl w-full max-w-4xl overflow-hidden shadow-2xl transform transition-all"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -189,7 +189,10 @@ const GifPicker = ({ onSelectGif, onClose }) => {
         </div>
 
         {/* GIF Grid */}
-        <div className="overflow-y-auto p-4" style={{ maxHeight: 'calc(80vh - 180px)' }}>
+        <div
+          className="overflow-y-auto p-4 modal-scroll"
+          style={{ maxHeight: 'calc(100dvh - 240px)' }}
+        >
           {loading ? (
             <LoadingSpinner variant="dots" size="md" text="Lade GIFs..." />
           ) : gifs.length === 0 ? (

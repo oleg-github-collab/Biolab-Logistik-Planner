@@ -4,6 +4,42 @@
    ========================================== */
 
 @media (max-width: 1023px) {
+  /* Universal modal scroll helpers */
+  .modal-shell {
+    position: fixed !important;
+    inset: 0 !important;
+    height: 100dvh !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior: contain !important;
+    touch-action: pan-y !important;
+  }
+
+  .modal-card {
+    width: 100% !important;
+    max-height: calc(100dvh - 32px) !important;
+    margin: 16px auto !important;
+  }
+
+  .modal-card.modal-card--fullscreen {
+    margin: 0 !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+  }
+
+  .modal-scroll {
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior: contain !important;
+    touch-action: pan-y !important;
+  }
+
+  .modal-shell .overflow-y-auto {
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior: contain !important;
+    touch-action: pan-y !important;
+  }
 
   /* Checkboxes - Normal size, not stretched */
   input[type="checkbox"] {

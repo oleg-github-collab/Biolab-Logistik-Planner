@@ -2513,12 +2513,22 @@ router.post('/:messageId/forward', auth, async (req, res) => {
     }
 
     // Get original message
+    const canBypass = req.user.role === 'superadmin';
     const originalResult = await pool.query(
       `SELECT m.*, sender.name as sender_name
        FROM messages m
        LEFT JOIN users sender ON m.sender_id = sender.id
-       WHERE m.id = $1 AND (m.sender_id = $2 OR m.receiver_id = $2)`,
-      [messageId, req.user.id]
+       LEFT JOIN message_conversation_members mcm
+         ON mcm.conversation_id = m.conversation_id
+        AND mcm.user_id = $2
+       WHERE m.id = $1
+         AND (
+           m.sender_id = $2
+           OR m.receiver_id = $2
+           OR mcm.user_id IS NOT NULL
+           OR $3 = true
+         )`,
+      [messageId, req.user.id, canBypass]
     );
 
     if (originalResult.rows.length === 0) {
@@ -2547,6 +2557,22 @@ router.post('/:messageId/forward', auth, async (req, res) => {
           [parsedRecipientId, req.user.id]
         );
 
+        if (groupCheck.rows.length === 0) {
+          const groupExists = await client.query(
+            `SELECT id
+               FROM message_conversations
+              WHERE id = $1
+                AND conversation_type IN ('group', 'topic')`,
+            [parsedRecipientId]
+          );
+
+          if (groupExists.rows.length > 0) {
+            const accessError = new Error('Kein Zugriff auf diese Gruppe');
+            accessError.status = 403;
+            throw accessError;
+          }
+        }
+
         let conversation;
         let isGroupForward = false;
 
@@ -2556,6 +2582,12 @@ router.post('/:messageId/forward', auth, async (req, res) => {
           conversation = { id: parsedRecipientId, type: 'group' };
         } else {
           // It's a direct conversation - ensure it exists
+          const userCheck = await client.query('SELECT id FROM users WHERE id = $1', [parsedRecipientId]);
+          if (userCheck.rows.length === 0) {
+            const notFoundError = new Error('Empfänger nicht gefunden');
+            notFoundError.status = 404;
+            throw notFoundError;
+          }
           conversation = await ensureDirectConversation(client, req.user.id, parsedRecipientId);
         }
 
@@ -2640,6 +2672,10 @@ router.post('/:messageId/forward', auth, async (req, res) => {
     }
   } catch (error) {
     logger.error('Error forwarding message:', error);
+    if (error?.status) {
+      res.status(error.status).json({ error: error.message || 'Fehler beim Weiterleiten' });
+      return;
+    }
     res.status(500).json({ error: 'Serverfehler' });
   }
 });
