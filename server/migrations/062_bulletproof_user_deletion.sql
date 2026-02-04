@@ -7,8 +7,6 @@
 -- Audit/tracking fields -> SET NULL (preserve history but remove user reference)
 -- User-owned data -> CASCADE (remove data when user is deleted)
 
-BEGIN;
-
 -- =============================================================================
 -- Helper function to safely update FK constraints
 -- =============================================================================
@@ -192,8 +190,6 @@ SELECT fix_user_fk_constraint('public', 'shift_assignments', 'user_id', 'SET NUL
 -- Drop the helper function
 -- =============================================================================
 DROP FUNCTION IF EXISTS fix_user_fk_constraint(TEXT, TEXT, TEXT, TEXT);
-
-COMMIT;
 
 -- =============================================================================
 -- Verification query (run manually to check results)
