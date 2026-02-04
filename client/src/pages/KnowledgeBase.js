@@ -1497,7 +1497,7 @@ const KnowledgeBaseV3 = () => {
   }, [articles]);
 
   const gridWrapperClass = isMobile
-    ? 'kb-grid-wrapper flex-1 overflow-y-auto px-4 pt-3 pb-28'
+    ? 'kb-grid-wrapper px-4 pt-3 pb-28'
     : 'kb-grid-wrapper flex-1 overflow-y-auto p-6';
 
   // Handlers
@@ -1912,68 +1912,72 @@ const KnowledgeBaseV3 = () => {
     </div>
   );
 
+  const kbMainClass = `kb-main flex-1 flex flex-col ${isMobile ? 'overflow-visible' : 'overflow-hidden'}`;
+
   return (
     <div className={`kb-page ${isMobile ? 'kb-page-mobile' : ''}`}>
       <div className={`kb-layout ${isMobile ? 'kb-layout-mobile' : ''}`}>
         {/* Sidebar */}
-        <div className="kb-sidebar flex flex-col">
-        <div className="kb-sidebar__header">
-          <h2 className="kb-sidebar__title">
-            <BookOpen className="mr-2" size={20} />
-            Knowledge Base
-          </h2>
-        </div>
-
-        <div className="kb-sidebar__content">
-          <button
-            onClick={() => handleCategorySelect(null)}
-            className={`kb-sidebar__item ${selectedCategory === null ? 'active' : ''}`}
-          >
-            <div className="kb-sidebar__item-label">
-              <div className="flex items-center">
-                <Layers size={18} className="mr-2" />
-                <span>Alle Artikel</span>
-              </div>
+        {!isMobile && (
+          <div className="kb-sidebar flex flex-col">
+            <div className="kb-sidebar__header">
+              <h2 className="kb-sidebar__title">
+                <BookOpen className="mr-2" size={20} />
+                Knowledge Base
+              </h2>
             </div>
-            <span className="kb-sidebar__badge">{articles.length}</span>
-          </button>
 
-          {categories.length > 0 && (
-            <>
-              <div className="kb-sidebar__section flex items-center justify-between">
-                <span>Kategorien</span>
-                {canCreateCategory && (
-                  <button
-                    onClick={() => setShowCategoryModal(true)}
-                    className="text-blue-600 hover:text-blue-700"
-                    title="Neue Kategorie erstellen"
-                  >
-                    <Plus size={16} />
-                  </button>
-                )}
-              </div>
-              {categories.map(category => (
-                <button
-                  key={category.id}
-                  onClick={() => handleCategorySelect(category.id)}
-                  className={`kb-sidebar__item ${selectedCategory === category.id ? 'active' : ''}`}
-                >
-                  <div className="kb-sidebar__item-label">
-                    <CategoryIcon icon={category.icon} color={category.color} />
-                    <span className="ml-2">{category.name}</span>
+            <div className="kb-sidebar__content">
+              <button
+                onClick={() => handleCategorySelect(null)}
+                className={`kb-sidebar__item ${selectedCategory === null ? 'active' : ''}`}
+              >
+                <div className="kb-sidebar__item-label">
+                  <div className="flex items-center">
+                    <Layers size={18} className="mr-2" />
+                    <span>Alle Artikel</span>
                   </div>
-                  <span className="kb-sidebar__badge">
-                    {categoryCounts[category.id] ?? 0}
-                  </span>
-                </button>
-              ))}
-            </>
-          )}
-        </div>
-      </div>
+                </div>
+                <span className="kb-sidebar__badge">{articles.length}</span>
+              </button>
 
-      {/* Main Content */}
-      <div className="kb-main flex-1 flex flex-col overflow-hidden">
+              {categories.length > 0 && (
+                <>
+                  <div className="kb-sidebar__section flex items-center justify-between">
+                    <span>Kategorien</span>
+                    {canCreateCategory && (
+                      <button
+                        onClick={() => setShowCategoryModal(true)}
+                        className="text-blue-600 hover:text-blue-700"
+                        title="Neue Kategorie erstellen"
+                      >
+                        <Plus size={16} />
+                      </button>
+                    )}
+                  </div>
+                  {categories.map(category => (
+                    <button
+                      key={category.id}
+                      onClick={() => handleCategorySelect(category.id)}
+                      className={`kb-sidebar__item ${selectedCategory === category.id ? 'active' : ''}`}
+                    >
+                      <div className="kb-sidebar__item-label">
+                        <CategoryIcon icon={category.icon} color={category.color} />
+                        <span className="ml-2">{category.name}</span>
+                      </div>
+                      <span className="kb-sidebar__badge">
+                        {categoryCounts[category.id] ?? 0}
+                      </span>
+                    </button>
+                  ))}
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Main Content */}
+        <div className={kbMainClass}>
         <div className="kb-hero">
           <div>
             <p className="kb-hero__eyebrow">Knowledge Hub</p>

@@ -3289,6 +3289,22 @@ body {
 @media (max-width: 1023px) {
   .kb-page {
     padding-bottom: 80px;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
+  .kb-layout-mobile {
+    min-height: 100dvh;
+  }
+
+  .kb-layout-mobile .kb-main {
+    padding: 1rem;
+  }
+
+  .kb-layout-mobile .kb-status-tabs,
+  .kb-layout-mobile .kb-mobile-category-grid,
+  .kb-layout-mobile .kb-grid-wrapper {
+    -webkit-overflow-scrolling: touch;
   }
 }
 
