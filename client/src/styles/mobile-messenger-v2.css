@@ -3,22 +3,33 @@
    ======================================== */
 
 @media (max-width: 1023px) {
-  body.messenger-page .top-nav-mobile,
-  body.messenger-page .bottom-nav-mobile,
-  body.messenger-page .mobile-bottom-nav {
+  body.messenger-chat-open .top-nav-mobile,
+  body.messenger-chat-open .bottom-nav-mobile,
+  body.messenger-chat-open .mobile-bottom-nav {
     display: none !important;
   }
 
-  body.messenger-page .mobile-messenger-container {
+  .mobile-messenger-container.mobile-messenger-container--list {
+    position: fixed !important;
+    top: var(--app-header-height, 56px) !important;
+    bottom: calc(var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom)) !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    z-index: 500 !important;
+  }
+
+  .mobile-messenger-container.mobile-messenger-container--chat {
     position: fixed !important;
     inset: 0 !important;
     height: 100dvh !important;
     max-height: 100dvh !important;
-    z-index: 200000 !important;
+    z-index: 4000 !important;
   }
 
-  body.messenger-page .mobile-messenger-chat-header,
-  body.messenger-page .mobile-messenger-input {
+  .mobile-messenger-container--chat .mobile-messenger-chat-header,
+  .mobile-messenger-container--chat .mobile-messenger-input {
     display: flex !important;
     visibility: visible !important;
     opacity: 1 !important;
@@ -32,7 +43,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 12000 !important;
+  z-index: 500 !important;
   height: 100dvh;
   max-height: 100dvh;
   --mm-bg: var(--messenger-bg, #0b0f14);
@@ -43,6 +54,7 @@
   --mm-muted: var(--messenger-text-muted, #94a3b8);
   --mm-accent: var(--messenger-accent, #6366f1);
   --mm-accent-soft: rgba(99, 102, 241, 0.15);
+  --mm-input-height: 64px;
   background: var(--mm-bg);
   color: var(--mm-text);
   display: flex !important;
@@ -575,13 +587,17 @@
   overflow-x: hidden !important;
   -webkit-overflow-scrolling: touch;
   padding: 16px;
-  padding-bottom: calc(150px + env(safe-area-inset-bottom));
+  padding-bottom: calc(104px + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   gap: 16px;
   scroll-behavior: smooth;
   overscroll-behavior: contain;
   background: var(--mm-bg);
+}
+
+.mobile-messenger-messages.has-composer-stack {
+  padding-bottom: calc(150px + env(safe-area-inset-bottom));
 }
 
 .mobile-messenger-messages::-webkit-scrollbar {
@@ -611,7 +627,9 @@
 .mobile-messenger-message {
   display: flex;
   gap: 8px;
-  max-width: 80%;
+  max-width: min(86%, calc(100% - 32px));
+  width: fit-content;
+  min-width: 0;
 }
 
 .mobile-messenger-message.mine {
@@ -627,7 +645,11 @@
   padding: 10px 14px;
   border-radius: 18px;
   word-break: break-word;
+  overflow-wrap: anywhere;
   position: relative;
+  max-width: 100%;
+  width: fit-content;
+  min-width: 0;
 }
 
 .mobile-messenger-message.mine .mobile-messenger-message-bubble {
@@ -667,10 +689,11 @@
   display: flex;
   gap: 8px;
   padding: 8px 10px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   border-left: 3px solid var(--mm-accent);
+  max-width: 100%;
 }
 
 .mobile-messenger-message.mine .mobile-messenger-message-reply-quote {
@@ -706,13 +729,18 @@
   opacity: 0.8;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
 }
 
 .mobile-messenger-message-text {
   font-size: 15px;
   line-height: 1.4;
   margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .mobile-messenger-message-time {
@@ -760,7 +788,7 @@
 /* Composer Stack (Reply/Event Indicators) */
 .mobile-messenger-composer-stack {
   position: fixed;
-  bottom: calc(92px + env(safe-area-inset-bottom));
+  bottom: calc(var(--mm-input-height) + env(safe-area-inset-bottom));
   left: 0;
   right: 0;
   padding: 8px 12px;
@@ -864,6 +892,70 @@
   box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.3);
   visibility: visible;
   opacity: 1;
+  min-height: var(--mm-input-height);
+}
+
+.mobile-messenger-send-spinner {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  animation: messengerSpin 0.8s linear infinite;
+}
+
+@keyframes messengerSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.mobile-messenger-recording-indicator {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(var(--mm-input-height) + 48px + env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  color: #f8fafc;
+  z-index: 12040;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+}
+
+.mobile-messenger-recording-indicator.saved {
+  background: rgba(22, 101, 52, 0.92);
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.mobile-messenger-recording-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.2);
+  animation: recordingPulse 1s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.mobile-messenger-recording-indicator.saved .mobile-messenger-recording-dot {
+  background: #22c55e;
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.2);
+  animation: none;
+}
+
+.mobile-messenger-recording-text {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+@keyframes recordingPulse {
+  0%, 100% { transform: scale(1); opacity: 0.85; }
+  50% { transform: scale(1.15); opacity: 1; }
 }
 
 .mobile-messenger-input-btn {
@@ -894,6 +986,24 @@
   background: var(--mm-accent);
   color: white;
   aspect-ratio: 1 / 1;
+}
+
+.mobile-messenger-input-btn.mic.recording {
+  background: #ef4444;
+  box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6);
+  animation: micPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes micPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
 }
 
 .mobile-messenger-input-wrapper {
@@ -1024,6 +1134,17 @@
   max-width: 280px;
 }
 
+.voice-player.is-playing .voice-player-btn {
+  animation: voicePulse 1s ease-in-out infinite;
+  box-shadow: 0 0 0 6px rgba(99, 102, 241, 0.25);
+}
+
+.voice-player.is-playing .voice-player-progress-fill {
+  background: linear-gradient(90deg, #6366f1, #22d3ee, #6366f1);
+  background-size: 200% 100%;
+  animation: voiceProgress 1.2s linear infinite;
+}
+
 .voice-player-controls {
   display: flex;
   align-items: center;
@@ -1084,6 +1205,16 @@
 
 .voice-player-time-sep {
   opacity: 0.5;
+}
+
+@keyframes voicePulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+
+@keyframes voiceProgress {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
 }
 
 /* Event Card - Calendar Event Preview */

@@ -2536,10 +2536,15 @@ router.post('/:messageId/forward', auth, async (req, res) => {
       for (const recipientId of recipientIds) {
         const parsedRecipientId = parseInt(recipientId, 10);
 
-        // Check if recipientId is a group (thread_id) or user
+        // Check if recipientId is a group conversation or user
         const groupCheck = await client.query(
-          'SELECT id, name, members FROM group_chats WHERE id = $1',
-          [parsedRecipientId]
+          `SELECT mc.id
+             FROM message_conversations mc
+             JOIN message_conversation_members mcm ON mcm.conversation_id = mc.id
+            WHERE mc.id = $1
+              AND mc.conversation_type IN ('group', 'topic')
+              AND mcm.user_id = $2`,
+          [parsedRecipientId, req.user.id]
         );
 
         let conversation;

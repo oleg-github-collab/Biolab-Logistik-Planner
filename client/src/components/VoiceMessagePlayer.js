@@ -63,7 +63,7 @@ const VoiceMessagePlayer = ({ audioUrl, duration: providedDuration, className = 
   const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
-    <div className={`voice-player ${className}`}>
+    <div className={`voice-player ${isPlaying ? 'is-playing' : ''} ${className}`.trim()}>
       <audio ref={audioRef} src={audioUrl} preload="metadata" />
 
       <div className="voice-player-controls">

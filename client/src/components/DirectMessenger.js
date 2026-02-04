@@ -1810,6 +1810,7 @@ const DirectMessenger = () => {
     try {
       debug('[DirectMessenger] Setting selected contact...');
       setSelectedContact(contact);
+      let resolvedThreadId = null;
 
       debug('[DirectMessenger] Searching for existing thread...');
       const existingThread = Array.isArray(threads)
@@ -1832,6 +1833,7 @@ const DirectMessenger = () => {
         // DON'T mark as read immediately - wait for user to actually read
         // Mark as read will be called after 2s delay or when scrolled to bottom
         setShowScrollToBottom(false);
+        resolvedThreadId = existingThread.id;
       } else {
         debug('[DirectMessenger] Creating new thread...');
         const response = await createConversationThread({
@@ -1848,6 +1850,7 @@ const DirectMessenger = () => {
           setSelectedThreadId(normalizedThread.id);
           setMessages([]);
           setThreads((prev) => Array.isArray(prev) ? [...prev, normalizedThread] : [normalizedThread]);
+          resolvedThreadId = normalizedThread.id;
           // Виклик API перед очищенням локального state
           try {
             await markConversationAsRead(normalizedThread.id);
@@ -1866,6 +1869,7 @@ const DirectMessenger = () => {
       }
 
       debug('[DirectMessenger] ===== handleContactClick SUCCESS =====');
+      return resolvedThreadId;
     } catch (error) {
       console.error('[DirectMessenger] ===== handleContactClick ERROR =====');
       console.error('[DirectMessenger] Error object:', error);
@@ -1873,6 +1877,7 @@ const DirectMessenger = () => {
       console.error('[DirectMessenger] Error stack:', error?.stack);
       const serverMessage = error?.response?.data?.error || error?.message || 'Unbekannter Fehler';
       showError('Chat konnte nicht geöffnet werden: ' + serverMessage);
+      return null;
     }
   }, [clearThreadUnread, isMobile, loadMessages, markConversationAsRead, normalizeThread, threads]);
 
@@ -2156,6 +2161,50 @@ const DirectMessenger = () => {
     return parts.length > 0 ? parts : text;
   };
 
+  const ensureThreadForSend = useCallback(async () => {
+    if (selectedThreadId) return selectedThreadId;
+    if (!selectedContact?.id) return null;
+
+    const existingThread = Array.isArray(threads)
+      ? threads.find(
+          (t) =>
+            t?.type === 'direct' &&
+            Array.isArray(t.members) &&
+            t.members.some((member) =>
+              normalizeUserId(member?.user_id) === normalizeUserId(selectedContact.id)
+            )
+        )
+      : null;
+
+    if (existingThread?.id) {
+      setSelectedThreadId(existingThread.id);
+      return existingThread.id;
+    }
+
+    try {
+      const response = await createConversationThread({
+        name: selectedContact.name || 'Unbekannt',
+        type: 'direct',
+        memberIds: [normalizeUserId(selectedContact.id)]
+      });
+
+      if (response?.data?.id) {
+        const normalizedThread = normalizeThread(response.data);
+        setSelectedThreadId(normalizedThread.id);
+        setThreads((prev) => Array.isArray(prev) ? [...prev, normalizedThread] : [normalizedThread]);
+        if (isMobile) {
+          setMobileMode('chat');
+        }
+        return normalizedThread.id;
+      }
+    } catch (error) {
+      console.error('Error creating thread for send:', error);
+      showError('Chat konnte nicht erstellt werden');
+    }
+
+    return null;
+  }, [isMobile, normalizeThread, selectedContact, selectedThreadId, threads]);
+
   const handleSendMessage = async (event) => {
     event?.preventDefault();
     if (voiceMode) {
@@ -2166,7 +2215,12 @@ const DirectMessenger = () => {
     const trimmed = messageInput?.trim() || '';
     if (!trimmed && (!Array.isArray(pendingAttachments) || pendingAttachments.length === 0) && !selectedEvent) return;
 
-    if (!selectedThreadId) {
+    let threadId = selectedThreadId;
+    if (!threadId) {
+      threadId = await ensureThreadForSend();
+    }
+
+    if (!threadId) {
       showError('Kein Chat ausgewählt');
       return;
     }
@@ -2229,7 +2283,7 @@ const DirectMessenger = () => {
               const formData = new FormData();
               formData.append('file', file);
               formData.append('context', 'message');
-              formData.append('conversationId', selectedThreadId);
+              formData.append('conversationId', threadId);
               const res = await uploadAttachment(formData, {
                 onUploadProgress: (progressEvent) => {
                   if (!progressEvent.total) return;
@@ -2321,7 +2375,7 @@ const DirectMessenger = () => {
         };
       }
 
-      const response = await sendConversationMessage(selectedThreadId, payload);
+      const response = await sendConversationMessage(threadId, payload);
       let newMessage = response?.data?.message ? normalizeMessage(response.data.message) : null;
 
       if (newMessage?.id && eventToShare?.id) {
@@ -2367,19 +2421,22 @@ const DirectMessenger = () => {
             .map((msg) => (msg.id === optimisticId ? newMessage : msg))
         );
       } else {
-        await loadMessages(selectedThreadId);
+        await loadMessages(threadId);
       }
 
       const lastThreadMessage = normalizeThreadLastMessage(newMessage || optimisticMessage);
       setThreads((prev) =>
         prev.map((thread) =>
-          isSameThreadId(thread.id, selectedThreadId)
+          isSameThreadId(thread.id, threadId)
             ? { ...thread, lastMessage: lastThreadMessage, unreadCount: 0 }
             : thread
         )
       );
 
       setSelectedEvent(null);
+      if (hasAudioAttachment) {
+        showSuccess('Audio gesendet');
+      }
     } catch (error) {
       console.error('Error sending message:', error);
       const errorMsg =
@@ -2396,20 +2453,27 @@ const DirectMessenger = () => {
   };
 
   const handleSelectGif = async (gifData) => {
-    if (!selectedThreadId) return;
+    let threadId = selectedThreadId;
+    if (!threadId) {
+      threadId = await ensureThreadForSend();
+    }
+    if (!threadId) {
+      showError('Kein Chat ausgewählt');
+      return;
+    }
     if (voiceMode) {
       setVoiceMode(false);
     }
 
     try {
       setSending(true);
-      await sendConversationMessage(selectedThreadId, {
+      await sendConversationMessage(threadId, {
         message: gifData.url || gifData,
-        message_type: 'gif'
+        messageType: 'gif'
       });
       setShowGifPicker(false);
       showSuccess('GIF gesendet');
-      await loadMessages(selectedThreadId);
+      await loadMessages(threadId);
     } catch (error) {
       console.error('Error sending GIF:', error);
       showError('Fehler beim Senden des GIFs');
@@ -6102,6 +6166,7 @@ const DirectMessenger = () => {
           setReplyToMessage={setReplyToMessage}
           selectedEvent={selectedEvent}
           setSelectedEvent={setSelectedEvent}
+          recordingSeconds={recordingSeconds}
           handleMessageSearchSelect={handleMessageSearchSelect}
           onShowGroupInfo={() => {
             debug('🔥🔥🔥 DIRECT MESSENGER: onShowGroupInfo called!', {

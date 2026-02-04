@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -10,7 +10,6 @@ import {
   ImageIcon,
   CalendarDays,
   Bot,
-  Search,
   CheckCheck,
   StopCircle,
   X,
@@ -91,12 +90,15 @@ const MobileMessenger = ({
   setReplyToMessage,
   selectedEvent,
   setSelectedEvent,
+  recordingSeconds,
   handleMessageSearchSelect,
   onShowGroupInfo,
   onCreateGroup
 }) => {
   const navigate = useNavigate();
   const [mobileMode, setMobileMode] = useState('list'); // 'list' or 'chat'
+  const [recordingStatus, setRecordingStatus] = useState('idle'); // idle | recording | saved
+  const prevRecordingRef = useRef(false);
   const [showReactionPicker, setShowReactionPicker] = useState(null); // message id
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [showForwardModal, setShowForwardModal] = useState(false);
@@ -128,6 +130,13 @@ const MobileMessenger = ({
     } catch {
       return '';
     }
+  };
+
+  const formatRecordingTime = (seconds = 0) => {
+    const safeSeconds = Math.max(0, Math.floor(seconds));
+    const mins = Math.floor(safeSeconds / 60);
+    const secs = safeSeconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   const formatLastSeenLabel = (contact) => {
@@ -167,6 +176,39 @@ const MobileMessenger = ({
       setMobileMode('chat');
     }
   }, [selectedThreadId, selectedContact]);
+
+  useEffect(() => {
+    if (!selectedThreadId && !selectedContact) {
+      setMobileMode('list');
+    }
+  }, [selectedThreadId, selectedContact]);
+
+  // Toggle body class for chat mode (hide global header/bottom nav)
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+    const className = 'messenger-chat-open';
+    if (mobileMode === 'chat') {
+      document.body.classList.add(className);
+    } else {
+      document.body.classList.remove(className);
+    }
+    return () => {
+      document.body.classList.remove(className);
+    };
+  }, [mobileMode]);
+
+  // Recording status indicator
+  useEffect(() => {
+    if (isRecording) {
+      setRecordingStatus('recording');
+    } else if (prevRecordingRef.current) {
+      setRecordingStatus('saved');
+      const timeout = setTimeout(() => setRecordingStatus('idle'), 1800);
+      return () => clearTimeout(timeout);
+    }
+    prevRecordingRef.current = isRecording;
+    return undefined;
+  }, [isRecording]);
 
   // Render contact list view
   const renderContactList = () => {
@@ -220,27 +262,6 @@ const MobileMessenger = ({
 
     return (
       <div className="mobile-messenger-list">
-        {/* Header */}
-        <div className="mobile-messenger-header">
-          <h1 className="mobile-messenger-title">Chats</h1>
-          <div className="mobile-messenger-actions">
-            <button
-              className="mobile-messenger-icon-btn"
-              onClick={() => setShowSearchModal(true)}
-              aria-label="Nachrichten durchsuchen"
-            >
-              <Search size={20} />
-            </button>
-            <button
-              className="mobile-messenger-icon-btn"
-              onClick={() => onCreateGroup && onCreateGroup()}
-              aria-label="Neue Gruppe erstellen"
-            >
-              <Plus size={20} />
-            </button>
-          </div>
-        </div>
-
         {/* Stories Section */}
         <div className="mobile-messenger-stories">
           <div className="mobile-messenger-stories-label">PINNED</div>
@@ -449,33 +470,6 @@ const MobileMessenger = ({
           )}
         </div>
 
-        {/* Bottom Navigation */}
-        <div className="mobile-messenger-bottom-nav">
-          <button className="mobile-messenger-nav-item active">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
-            </svg>
-            <span>Chats</span>
-          </button>
-          <button className="mobile-messenger-nav-item">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56-.35-.12-.74-.03-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/>
-            </svg>
-            <span>Calls</span>
-          </button>
-          <button className="mobile-messenger-nav-item">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
-            </svg>
-            <span>Groups</span>
-          </button>
-          <button className="mobile-messenger-nav-item">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
-            </svg>
-            <span>More</span>
-          </button>
-        </div>
       </div>
     );
   };
@@ -499,6 +493,7 @@ const MobileMessenger = ({
 
     const displayName = contactForHeader?.name || activeThread?.name || 'Chat';
     const isOnline = contactForHeader?.online || false;
+    const hasComposerStack = Boolean(replyToMessage || selectedEvent || pendingAttachments?.length || isRecording);
 
     return (
       <div className="mobile-messenger-chat">
@@ -561,16 +556,14 @@ const MobileMessenger = ({
             </div>
           </button>
 
-          <button
-            className="mobile-messenger-chat-search"
-            onClick={() => setShowSearchModal(true)}
-          >
-            <Search size={20} />
-          </button>
+          {/* Search removed on mobile chat header */}
         </div>
 
         {/* Messages */}
-        <div className="mobile-messenger-messages" ref={messagesContainerRef}>
+        <div
+          className={`mobile-messenger-messages ${hasComposerStack ? 'has-composer-stack' : ''}`}
+          ref={messagesContainerRef}
+        >
           {currentMessages.length === 0 ? (
             <div className="mobile-messenger-empty-chat">
               <svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor" opacity="0.3">
@@ -751,6 +744,22 @@ const MobileMessenger = ({
           <div ref={messagesEndRef} />
         </div>
 
+        {/* Recording indicator */}
+        {recordingStatus !== 'idle' && (
+          <div
+            className={`mobile-messenger-recording-indicator ${
+              recordingStatus === 'recording' ? 'recording' : 'saved'
+            }`}
+          >
+            <span className="mobile-messenger-recording-dot" />
+            <span className="mobile-messenger-recording-text">
+              {recordingStatus === 'recording'
+                ? `Aufnahme läuft · ${formatRecordingTime(recordingSeconds || 0)}`
+                : 'Aufnahme gespeichert'}
+            </span>
+          </div>
+        )}
+
         {/* Reply/Event Indicator */}
         {(replyToMessage || selectedEvent) && (
           <div className="mobile-messenger-composer-stack">
@@ -832,12 +841,12 @@ const MobileMessenger = ({
               className="mobile-messenger-input-btn send"
               disabled={sending}
             >
-              <Send size={20} />
+              {sending ? <span className="mobile-messenger-send-spinner" /> : <Send size={20} />}
             </button>
           ) : (
             <button
               type="button"
-              className="mobile-messenger-input-btn mic"
+              className={`mobile-messenger-input-btn mic ${isRecording ? 'recording' : ''}`}
               onTouchStart={startRecording}
               onTouchEnd={stopRecording}
               onMouseDown={startRecording}
@@ -946,7 +955,7 @@ const MobileMessenger = ({
 
   return (
     <>
-      <div className="messenger-mobile-container mobile-messenger-container">
+      <div className={`messenger-mobile-container mobile-messenger-container mobile-messenger-container--${mobileMode}`}>
         {mobileMode === 'list' ? renderContactList() : renderChatView()}
       </div>
 
@@ -1080,7 +1089,7 @@ const MobileMessenger = ({
 
       {/* Event Picker Modal */}
       {showEventPicker && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80">
+        <div className="fixed inset-0 z-[50000] flex items-center justify-center p-4 bg-black/80">
           <div className="bg-[#0a0a0a] rounded-2xl w-full max-w-md max-h-[80vh] overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b border-white/10">
               <h3 className="text-lg font-semibold text-white">Termin auswählen</h3>
@@ -1101,7 +1110,10 @@ const MobileMessenger = ({
                   >
                     <div className="font-medium text-white">{event.title}</div>
                     <div className="text-sm text-white/60 mt-1">
-                      {format(new Date(event.start), 'dd.MM.yyyy HH:mm')}
+                      {format(
+                        new Date(event.start || event.start_time || event.startTime),
+                        'dd.MM.yyyy HH:mm'
+                      )}
                     </div>
                   </button>
                 ))

@@ -9,8 +9,8 @@
   background: white;
 }
 
-/* Hide bottom navigation on messenger page */
-.messenger-page .mobile-bottom-nav {
+/* Hide bottom navigation only while chat is open */
+body.messenger-chat-open .mobile-bottom-nav {
   display: none !important;
 }
 

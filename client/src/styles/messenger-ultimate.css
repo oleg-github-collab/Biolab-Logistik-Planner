@@ -9,7 +9,7 @@
 }
 
 /* Hide bottom navigation on messenger page */
-.messenger-page .mobile-bottom-nav {
+body.messenger-chat-open .mobile-bottom-nav {
   display: none !important;
 }
 

@@ -139,11 +139,14 @@
     margin: 0 0 4px 0;
     font-size: 19px;
     font-weight: 700;
-    color: var(--messenger-text);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    color: #ffffff;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    word-break: break-word;
+    line-height: 1.2;
     letter-spacing: -0.3px;
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
   }
 
   .messenger-desktop-header__status-text {
@@ -897,6 +900,10 @@
     white-space: normal;
     word-break: break-word;
     line-height: 1.2;
+    display: block;
+    width: 100%;
+    overflow: visible;
+    text-overflow: clip;
   }
 
   .contact-card__time {

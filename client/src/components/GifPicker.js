@@ -115,7 +115,7 @@ const GifPicker = ({ onSelectGif, onClose }) => {
 
   return (
     <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000] p-4 pt-20 backdrop-blur-sm animate-fadeIn"
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[50000] p-4 pt-20 backdrop-blur-sm animate-fadeIn"
       onClick={onClose}
     >
       <div
