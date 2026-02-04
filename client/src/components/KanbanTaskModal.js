@@ -142,9 +142,9 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="modal-scroll px-5 sm:px-7 py-6 space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-6">
-            <div className="space-y-5">
+        <form onSubmit={handleSubmit} className="modal-scroll px-5 sm:px-7 py-4 sm:py-6 space-y-4 sm:space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-4 sm:gap-6">
+            <div className="space-y-4 sm:space-y-5">
               <div>
                 <label className="block text-sm font-semibold text-slate-800 mb-2">
                   Titel <span className="text-red-500">*</span>
@@ -225,7 +225,7 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
               )}
             </div>
 
-            <div className="space-y-5">
+            <div className="space-y-4 sm:space-y-5">
               <div>
                 <label className="block text-sm font-semibold text-slate-800 mb-2 flex items-center gap-2">
                   <Flag className="w-4 h-4 text-blue-600" />
