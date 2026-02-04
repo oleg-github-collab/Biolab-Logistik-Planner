@@ -114,17 +114,17 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center px-3 py-6 sm:px-6">
+    <div className="modal-shell fixed inset-0 z-[120] flex items-center justify-center px-3 py-6 sm:px-6">
       <div
         className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
         onClick={onClose}
         aria-hidden="true"
       />
       <div
-        className="relative z-[130] w-full max-w-4xl bg-white/95 backdrop-blur rounded-[28px] border border-slate-200/70 shadow-[0_32px_90px_rgba(15,23,42,0.25)] overflow-hidden"
+        className="modal-card kanban-task-modal relative z-[130] w-full max-w-4xl bg-white/95 backdrop-blur rounded-[28px] border border-slate-200/70 shadow-[0_32px_90px_rgba(15,23,42,0.25)] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-600 text-white px-5 sm:px-7 py-5 sm:py-6">
+        <div className="kanban-task-modal__header flex items-start justify-between gap-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-600 text-white px-5 sm:px-7 py-5 sm:py-6">
           <div>
             <p className="text-xs uppercase tracking-[0.25em] text-blue-100/80">
               {task ? 'Aktualisieren' : 'Neu anlegen'}
@@ -142,7 +142,7 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="px-5 sm:px-7 py-6 space-y-6 max-h-[80vh] overflow-y-auto">
+        <form onSubmit={handleSubmit} className="modal-scroll px-5 sm:px-7 py-6 space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-6">
             <div className="space-y-5">
               <div>

@@ -71,7 +71,7 @@ const CalendarView = ({
   const navigate = useNavigate();
 
   const handleOpenWorkHoursToday = useCallback(() => {
-    navigate('/schedule', { state: { focusDate: new Date() } });
+    navigate('/schedule', { state: { activeTab: 'team', focusDate: new Date() } });
   }, [navigate]);
 
   // Transform events for BigCalendar with proper date parsing

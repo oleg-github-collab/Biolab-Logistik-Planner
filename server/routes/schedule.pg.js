@@ -11,6 +11,7 @@ const router = express.Router();
 
 // Helper functions
 const FLEXIBLE_TIME_REGEX = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
+let scheduleTemplateSchemaReady = false;
 
 // Use workingDaysService for Monday calculation (more reliable)
 function getMonday(d) {
@@ -92,7 +93,129 @@ function normalizeTemplatePattern(pattern = {}) {
   return { days: normalizedDays };
 }
 
+async function ensureScheduleTemplateSchema() {
+  if (scheduleTemplateSchemaReady) return true;
+
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS schedule_templates (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE,
+        description TEXT,
+        is_global BOOLEAN DEFAULT TRUE,
+        is_default BOOLEAN DEFAULT FALSE,
+        pattern JSONB NOT NULL,
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS schedule_template_assignments (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        template_id INTEGER NOT NULL REFERENCES schedule_templates(id) ON DELETE CASCADE,
+        start_date DATE NOT NULL,
+        end_date DATE,
+        priority INTEGER DEFAULT 0,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_schedule_template_assignments_user ON schedule_template_assignments(user_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_schedule_template_assignments_range ON schedule_template_assignments(start_date, end_date)`);
+
+    await pool.query(`
+      INSERT INTO schedule_templates (name, description, is_global, is_default, pattern)
+      VALUES
+        (
+          'Vollzeit 40h',
+          'Mo–Fr 08:00–12:00 + 12:30–16:30',
+          TRUE,
+          TRUE,
+          '{
+            "days": [
+              {"dayOfWeek":0,"is_working":true,"time_blocks":[{"start":"08:00","end":"12:00"},{"start":"12:30","end":"16:30"}]},
+              {"dayOfWeek":1,"is_working":true,"time_blocks":[{"start":"08:00","end":"12:00"},{"start":"12:30","end":"16:30"}]},
+              {"dayOfWeek":2,"is_working":true,"time_blocks":[{"start":"08:00","end":"12:00"},{"start":"12:30","end":"16:30"}]},
+              {"dayOfWeek":3,"is_working":true,"time_blocks":[{"start":"08:00","end":"12:00"},{"start":"12:30","end":"16:30"}]},
+              {"dayOfWeek":4,"is_working":true,"time_blocks":[{"start":"08:00","end":"12:00"},{"start":"12:30","end":"16:30"}]},
+              {"dayOfWeek":5,"is_working":false,"time_blocks":[]},
+              {"dayOfWeek":6,"is_working":false,"time_blocks":[]}
+            ]
+          }'::jsonb
+        ),
+        (
+          'Teilzeit 30h',
+          'Mo–Do 08:30–15:30, Fr frei',
+          TRUE,
+          FALSE,
+          '{
+            "days": [
+              {"dayOfWeek":0,"is_working":true,"time_blocks":[{"start":"08:30","end":"15:30"}]},
+              {"dayOfWeek":1,"is_working":true,"time_blocks":[{"start":"08:30","end":"15:30"}]},
+              {"dayOfWeek":2,"is_working":true,"time_blocks":[{"start":"08:30","end":"15:30"}]},
+              {"dayOfWeek":3,"is_working":true,"time_blocks":[{"start":"08:30","end":"15:30"}]},
+              {"dayOfWeek":4,"is_working":false,"time_blocks":[]},
+              {"dayOfWeek":5,"is_working":false,"time_blocks":[]},
+              {"dayOfWeek":6,"is_working":false,"time_blocks":[]}
+            ]
+          }'::jsonb
+        ),
+        (
+          'Teilzeit 20h',
+          'Mo–Fr 08:00–12:00',
+          TRUE,
+          FALSE,
+          '{
+            "days": [
+              {"dayOfWeek":0,"is_working":true,"time_blocks":[{"start":"08:00","end":"12:00"}]},
+              {"dayOfWeek":1,"is_working":true,"time_blocks":[{"start":"08:00","end":"12:00"}]},
+              {"dayOfWeek":2,"is_working":true,"time_blocks":[{"start":"08:00","end":"12:00"}]},
+              {"dayOfWeek":3,"is_working":true,"time_blocks":[{"start":"08:00","end":"12:00"}]},
+              {"dayOfWeek":4,"is_working":true,"time_blocks":[{"start":"08:00","end":"12:00"}]},
+              {"dayOfWeek":5,"is_working":false,"time_blocks":[]},
+              {"dayOfWeek":6,"is_working":false,"time_blocks":[]}
+            ]
+          }'::jsonb
+        ),
+        (
+          'Mini 10h',
+          'Di/Do 09:00–14:00',
+          TRUE,
+          FALSE,
+          '{
+            "days": [
+              {"dayOfWeek":0,"is_working":false,"time_blocks":[]},
+              {"dayOfWeek":1,"is_working":true,"time_blocks":[{"start":"09:00","end":"14:00"}]},
+              {"dayOfWeek":2,"is_working":false,"time_blocks":[]},
+              {"dayOfWeek":3,"is_working":true,"time_blocks":[{"start":"09:00","end":"14:00"}]},
+              {"dayOfWeek":4,"is_working":false,"time_blocks":[]},
+              {"dayOfWeek":5,"is_working":false,"time_blocks":[]},
+              {"dayOfWeek":6,"is_working":false,"time_blocks":[]}
+            ]
+          }'::jsonb
+        )
+      ON CONFLICT (name) DO NOTHING
+    `);
+
+    scheduleTemplateSchemaReady = true;
+    return true;
+  } catch (error) {
+    logger.error('Error ensuring schedule template schema', error);
+    return false;
+  }
+}
+
 async function resolveTemplateForWeek(client, userId, weekStartDate) {
+  const schemaReady = await ensureScheduleTemplateSchema();
+  if (!schemaReady) {
+    return null;
+  }
   const weekStart = formatDateForDB(weekStartDate);
   const weekEnd = formatDateForDB(addDays(weekStartDate, 6));
 
@@ -1163,6 +1286,11 @@ router.get('/users', auth, async (req, res) => {
 // @desc    Get schedule templates (admin sees all, others see global)
 router.get('/templates', auth, async (req, res) => {
   try {
+    const schemaReady = await ensureScheduleTemplateSchema();
+    if (!schemaReady) {
+      return res.status(500).json({ error: 'Vorlagen-Schema konnte nicht geladen werden' });
+    }
+
     const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
     const query = isAdmin
       ? `SELECT * FROM schedule_templates ORDER BY is_default DESC, name`
@@ -1180,6 +1308,11 @@ router.get('/templates', auth, async (req, res) => {
 // @desc    Create schedule template (admin only)
 router.post('/templates', auth, async (req, res) => {
   try {
+    const schemaReady = await ensureScheduleTemplateSchema();
+    if (!schemaReady) {
+      return res.status(500).json({ error: 'Vorlagen-Schema konnte nicht geladen werden' });
+    }
+
     if (!['admin', 'superadmin'].includes(req.user.role)) {
       return res.status(403).json({ error: 'Admin access required' });
     }
@@ -1220,6 +1353,11 @@ router.post('/templates', auth, async (req, res) => {
 // @desc    Update schedule template (admin only)
 router.put('/templates/:id', auth, async (req, res) => {
   try {
+    const schemaReady = await ensureScheduleTemplateSchema();
+    if (!schemaReady) {
+      return res.status(500).json({ error: 'Vorlagen-Schema konnte nicht geladen werden' });
+    }
+
     if (!['admin', 'superadmin'].includes(req.user.role)) {
       return res.status(403).json({ error: 'Admin access required' });
     }
@@ -1271,6 +1409,11 @@ router.put('/templates/:id', auth, async (req, res) => {
 // @desc    Delete schedule template (admin only)
 router.delete('/templates/:id', auth, async (req, res) => {
   try {
+    const schemaReady = await ensureScheduleTemplateSchema();
+    if (!schemaReady) {
+      return res.status(500).json({ error: 'Vorlagen-Schema konnte nicht geladen werden' });
+    }
+
     if (!['admin', 'superadmin'].includes(req.user.role)) {
       return res.status(403).json({ error: 'Admin access required' });
     }
@@ -1292,6 +1435,11 @@ router.delete('/templates/:id', auth, async (req, res) => {
 // @desc    Get template assignments
 router.get('/template-assignments', auth, async (req, res) => {
   try {
+    const schemaReady = await ensureScheduleTemplateSchema();
+    if (!schemaReady) {
+      return res.status(500).json({ error: 'Vorlagen-Schema konnte nicht geladen werden' });
+    }
+
     const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
     const requestedUserId = req.query.userId ? parseInt(req.query.userId, 10) : req.user.id;
 
@@ -1319,6 +1467,11 @@ router.get('/template-assignments', auth, async (req, res) => {
 // @desc    Create template assignment (admin only)
 router.post('/template-assignments', auth, async (req, res) => {
   try {
+    const schemaReady = await ensureScheduleTemplateSchema();
+    if (!schemaReady) {
+      return res.status(500).json({ error: 'Vorlagen-Schema konnte nicht geladen werden' });
+    }
+
     if (!['admin', 'superadmin'].includes(req.user.role)) {
       return res.status(403).json({ error: 'Admin access required' });
     }
@@ -1355,6 +1508,11 @@ router.post('/template-assignments', auth, async (req, res) => {
 // @desc    Update template assignment (admin only)
 router.put('/template-assignments/:id', auth, async (req, res) => {
   try {
+    const schemaReady = await ensureScheduleTemplateSchema();
+    if (!schemaReady) {
+      return res.status(500).json({ error: 'Vorlagen-Schema konnte nicht geladen werden' });
+    }
+
     if (!['admin', 'superadmin'].includes(req.user.role)) {
       return res.status(403).json({ error: 'Admin access required' });
     }
@@ -1401,6 +1559,11 @@ router.put('/template-assignments/:id', auth, async (req, res) => {
 // @desc    Delete template assignment (admin only)
 router.delete('/template-assignments/:id', auth, async (req, res) => {
   try {
+    const schemaReady = await ensureScheduleTemplateSchema();
+    if (!schemaReady) {
+      return res.status(500).json({ error: 'Vorlagen-Schema konnte nicht geladen werden' });
+    }
+
     if (!['admin', 'superadmin'].includes(req.user.role)) {
       return res.status(403).json({ error: 'Admin access required' });
     }

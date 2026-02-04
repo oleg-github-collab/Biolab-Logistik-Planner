@@ -71,7 +71,7 @@ const MobileCalendarEnhanced = ({
   const [showFilters, setShowFilters] = useState(false);
 
   const handleOpenWorkHoursToday = useCallback(() => {
-    navigate('/schedule', { state: { focusDate: new Date() } });
+    navigate('/schedule', { state: { activeTab: 'team', focusDate: new Date() } });
   }, [navigate]);
 
   // Event types for filtering

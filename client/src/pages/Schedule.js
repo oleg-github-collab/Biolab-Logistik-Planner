@@ -73,6 +73,13 @@ const Schedule = () => {
 
   useEffect(() => {
     let nextFocus = null;
+    let nextTab = null;
+    const allowedTabs = new Set(['calendar', 'monthly', 'team', 'templates']);
+
+    if (location?.state?.activeTab && allowedTabs.has(location.state.activeTab)) {
+      nextTab = location.state.activeTab;
+    }
+
     if (location?.state?.focusDate) {
       const parsed = new Date(location.state.focusDate);
       if (!Number.isNaN(parsed.getTime())) {
@@ -82,9 +89,17 @@ const Schedule = () => {
       nextFocus = new Date();
     }
 
+    if (nextTab) {
+      setActiveTab(nextTab);
+    } else if (nextFocus) {
+      setActiveTab('calendar');
+    }
+
     if (nextFocus) {
       setFocusDate(nextFocus);
-      setActiveTab('calendar');
+    }
+
+    if (nextFocus || nextTab) {
       navigate(location.pathname, { replace: true, state: {} });
     }
   }, [location, navigate]);

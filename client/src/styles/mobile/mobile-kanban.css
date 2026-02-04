@@ -39,4 +39,32 @@
     max-height: none !important;
   }
 
+  /* Kanban modal - full height with sticky header */
+  .kanban-task-modal {
+    max-height: calc(100dvh - 32px) !important;
+    border-radius: 22px !important;
+    background: #ffffff !important;
+  }
+
+  .kanban-task-modal__header {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 10 !important;
+  }
+
+  .kanban-task-modal label {
+    color: #0f172a !important;
+  }
+
+  .kanban-task-modal input,
+  .kanban-task-modal textarea,
+  .kanban-task-modal select {
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  .kanban-task-modal textarea {
+    min-height: 120px !important;
+  }
+
 }
