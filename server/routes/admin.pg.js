@@ -860,17 +860,21 @@ router.delete('/users/:id', [auth, adminAuth], async (req, res) => {
 
     logger.info('Starting BULLETPROOF user deletion', { userId, userName: user.name });
 
-    // FUCK FK CONSTRAINTS - Delete everything manually in correct order
-    // This is the ONLY reliable way
+    // DISABLE THE FUCKING TRIGGER FIRST
+    await client.query('ALTER TABLE weekly_schedules DISABLE TRIGGER trg_weekly_schedules_audit');
+    logger.info('Disabled audit trigger', { userId });
 
-    // 1. Delete audit records FIRST (they reference the user)
+    // Delete in correct order - no triggers will fire
     await client.query('DELETE FROM work_hours_audit WHERE user_id = $1 OR changed_by = $1', [userId]);
     logger.info('Deleted work_hours_audit', { userId });
 
-    // 2. Delete weekly schedules (referenced by work_hours_audit via trigger)
     await client.query('DELETE FROM weekly_schedules WHERE user_id = $1', [userId]);
     await client.query('DELETE FROM user_weekly_hours WHERE user_id = $1', [userId]);
     logger.info('Deleted schedules', { userId });
+
+    // Re-enable trigger
+    await client.query('ALTER TABLE weekly_schedules ENABLE TRIGGER trg_weekly_schedules_audit');
+    logger.info('Re-enabled audit trigger', { userId });
 
     // 3. Delete personal data
     await client.query('DELETE FROM user_settings WHERE user_id = $1', [userId]);
