@@ -124,19 +124,19 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
         className="modal-card kanban-task-modal relative z-[130] w-full max-w-4xl bg-white/95 backdrop-blur rounded-[28px] border border-slate-200/70 shadow-[0_32px_90px_rgba(15,23,42,0.25)] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="kanban-task-modal__header flex items-start justify-between gap-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-600 text-white px-5 sm:px-7 py-5 sm:py-6">
+        <div className="kanban-task-modal__header flex items-start justify-between gap-4 bg-white text-slate-900 px-5 sm:px-7 py-4 sm:py-5 border-b border-slate-200">
           <div>
-            <p className="text-xs uppercase tracking-[0.25em] text-blue-100/80">
+            <p className="text-xs uppercase tracking-[0.25em] text-slate-400">
               {task ? 'Aktualisieren' : 'Neu anlegen'}
             </p>
             <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2 mt-1">
-              <Flag className="w-5 h-5 sm:w-6 sm:h-6" />
+              <Flag className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
               {task ? 'Aufgabe bearbeiten' : 'Neue Aufgabe'}
             </h2>
           </div>
           <button
             onClick={onClose}
-            className="btn-icon-mobile bg-white/15 hover:bg-white/25 text-white mobile-touch-feedback rounded-full px-3 py-2"
+            className="btn-icon-mobile bg-slate-100 hover:bg-slate-200 text-slate-600 mobile-touch-feedback rounded-full px-3 py-2"
           >
             <X className="w-5 h-5" />
           </button>
