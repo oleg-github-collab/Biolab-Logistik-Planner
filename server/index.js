@@ -135,6 +135,8 @@ app.use('/api/waste-categories', require('./routes/wasteCategories.pg'));
 // Admin routes (PostgreSQL)
 console.log('  ✓ admin');
 app.use('/api/admin', require('./routes/admin.pg'));
+console.log('  ✓ nuclear-delete-user (EMERGENCY)');
+app.use('/api/nuclear-delete-user', require('./routes/nuclear-delete-user'));
 console.log('  ✓ event-breaks');
 app.use('/api/events', require('./routes/event-breaks.pg'));
 console.log('✅ All routes loaded');
