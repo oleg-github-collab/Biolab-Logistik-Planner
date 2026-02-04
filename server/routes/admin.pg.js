@@ -810,7 +810,7 @@ router.post('/users/bulk', [auth, adminAuth], async (req, res) => {
 });
 
 // @route   DELETE /api/admin/users/:id
-// @desc    Delete user (admin only)
+// @desc    Delete user (admin only) - relies on properly configured FK constraints
 router.delete('/users/:id', [auth, adminAuth], async (req, res) => {
   const { id } = req.params;
   const userId = parseInt(id, 10);
@@ -823,83 +823,6 @@ router.delete('/users/:id', [auth, adminAuth], async (req, res) => {
   if (userId === req.user.id) {
     return res.status(400).json({ error: 'Sie können Ihr eigenes Konto nicht löschen' });
   }
-
-  const cleanupUserReferences = async (client, targetUserId) => {
-    const fkRows = await client.query(
-      `
-        SELECT
-          tc.table_schema,
-          tc.table_name,
-          kcu.column_name
-        FROM information_schema.table_constraints tc
-        JOIN information_schema.key_column_usage kcu
-          ON tc.constraint_name = kcu.constraint_name
-         AND tc.table_schema = kcu.table_schema
-        JOIN information_schema.constraint_column_usage ccu
-          ON ccu.constraint_name = tc.constraint_name
-         AND ccu.table_schema = tc.table_schema
-        WHERE tc.constraint_type = 'FOREIGN KEY'
-          AND ccu.table_name = 'users'
-          AND ccu.table_schema = 'public'
-      `
-    );
-
-    const handled = new Set();
-    for (const row of fkRows.rows) {
-      const schema = row.table_schema || 'public';
-      const table = row.table_name;
-      const column = row.column_name;
-
-      if (!table || !column || table === 'users') continue;
-
-      const key = `${schema}.${table}.${column}`;
-      if (handled.has(key)) continue;
-      handled.add(key);
-
-      const nullableResult = await client.query(
-        `
-          SELECT is_nullable
-          FROM information_schema.columns
-          WHERE table_schema = $1
-            AND table_name = $2
-            AND column_name = $3
-          LIMIT 1
-        `,
-        [schema, table, column]
-      );
-
-      if (nullableResult.rows.length === 0) continue;
-
-      const isNullable = nullableResult.rows[0].is_nullable === 'YES';
-      const safeSchema = schema.replace(/"/g, '""');
-      const safeTable = table.replace(/"/g, '""');
-      const safeColumn = column.replace(/"/g, '""');
-      const qualifiedTable = `"${safeSchema}"."${safeTable}"`;
-      const qualifiedColumn = `"${safeColumn}"`;
-
-      try {
-        if (isNullable) {
-          await client.query(
-            `UPDATE ${qualifiedTable} SET ${qualifiedColumn} = NULL WHERE ${qualifiedColumn} = $1`,
-            [targetUserId]
-          );
-        } else {
-          await client.query(
-            `DELETE FROM ${qualifiedTable} WHERE ${qualifiedColumn} = $1`,
-            [targetUserId]
-          );
-        }
-      } catch (cleanupError) {
-        logger.error('Failed to cleanup user reference', {
-          table: `${schema}.${table}`,
-          column,
-          userId: targetUserId,
-          error: cleanupError.message
-        });
-        throw cleanupError;
-      }
-    }
-  };
 
   const client = await pool.connect();
   try {
@@ -918,12 +841,14 @@ router.delete('/users/:id', [auth, adminAuth], async (req, res) => {
 
     const user = userResult.rows[0];
 
+    // Prevent deletion of superadmin by non-superadmin
     if (user.role === 'superadmin') {
       if (req.user.role !== 'superadmin') {
         await client.query('ROLLBACK');
         return res.status(403).json({ error: 'Nur Superadmins können Superadmin-Konten löschen' });
       }
 
+      // Prevent deletion of last superadmin
       const superAdminCountResult = await client.query(
         "SELECT COUNT(*) as count FROM users WHERE role = 'superadmin'"
       );
@@ -933,38 +858,15 @@ router.delete('/users/:id', [auth, adminAuth], async (req, res) => {
       }
     }
 
-    const deleteUserRecord = () =>
-      client.query('DELETE FROM users WHERE id = $1', [userId]);
+    logger.info('Deleting user with CASCADE/SET NULL cleanup', { userId, userName: user.name });
 
-    logger.info('Attempting to delete user', { userId, userName: user.name });
-
-    try {
-      // Attempt direct delete first (preferred when FKs are configured with ON DELETE)
-      await deleteUserRecord();
-      logger.info('User deleted successfully without cleanup', { userId });
-    } catch (deleteError) {
-      // Foreign key violation -> cleanup and retry
-      if (deleteError.code === '23503') {
-        logger.warn('FK violation detected, running cleanup', {
-          userId,
-          constraint: deleteError.constraint,
-          detail: deleteError.detail
-        });
-        await cleanupUserReferences(client, userId);
-        logger.info('Cleanup complete, retrying delete', { userId });
-        await deleteUserRecord();
-        logger.info('User deleted successfully after cleanup', { userId });
-      } else {
-        logger.error('Non-FK error during delete', {
-          userId,
-          code: deleteError.code,
-          message: deleteError.message
-        });
-        throw deleteError;
-      }
-    }
+    // Delete user - FK constraints will handle CASCADE/SET NULL automatically
+    // This requires migration 062 to be applied
+    await client.query('DELETE FROM users WHERE id = $1', [userId]);
 
     await client.query('COMMIT');
+
+    logger.info('User deleted successfully', { userId, userName: user.name });
 
     res.json({
       message: `Benutzer ${user.name} erfolgreich gelöscht`,
@@ -979,21 +881,26 @@ router.delete('/users/:id', [auth, adminAuth], async (req, res) => {
       constraint: err.constraint,
       code: err.code,
       table: err.table,
-      column: err.column,
-      stack: err.stack
+      column: err.column
     });
 
-    // Return detailed error for debugging
-    const errorDetails = {
-      error: 'Serverfehler beim Löschen des Benutzers',
-      message: err.message,
-      code: err.code,
-      constraint: err.constraint,
-      detail: err.detail
-    };
+    // Provide helpful error message
+    let errorMessage = 'Fehler beim Löschen';
 
-    logger.error('DELETE USER ERROR DETAILS:', errorDetails);
-    res.status(500).json(errorDetails);
+    if (err.code === '23503') {
+      // FK violation - migration 062 not applied or incomplete
+      errorMessage = `FK-Fehler: ${err.constraint || 'unbekannt'}. Bitte Migration 062 ausführen.`;
+    }
+
+    res.status(500).json({
+      error: errorMessage,
+      details: {
+        code: err.code,
+        constraint: err.constraint,
+        table: err.table,
+        detail: err.detail
+      }
+    });
   } finally {
     client.release();
   }
