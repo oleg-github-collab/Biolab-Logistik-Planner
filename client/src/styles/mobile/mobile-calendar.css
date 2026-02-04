@@ -896,6 +896,9 @@
     gap: 16px;
     background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
     flex-shrink: 0;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
   }
 
   .modal-header-mobile h2 {
@@ -936,6 +939,9 @@
     -webkit-overflow-scrolling: touch;
     padding: 24px;
     padding-bottom: calc(24px + env(safe-area-inset-bottom, 0));
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
   }
 
   /* Custom scrollbar */
@@ -965,6 +971,9 @@
     gap: 14px;
     flex-shrink: 0;
     box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.04);
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
   }
 
   .event-details-modal__footer {
