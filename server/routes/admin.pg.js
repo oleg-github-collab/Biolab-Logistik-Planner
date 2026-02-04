@@ -860,9 +860,9 @@ router.delete('/users/:id', [auth, adminAuth], async (req, res) => {
 
     logger.info('Starting BULLETPROOF user deletion', { userId, userName: user.name });
 
-    // DISABLE THE FUCKING TRIGGER FIRST
-    await client.query('ALTER TABLE weekly_schedules DISABLE TRIGGER trg_weekly_schedules_audit');
-    logger.info('Disabled audit trigger', { userId });
+    // Disable schedule triggers to prevent audit inserts during cleanup
+    await client.query('ALTER TABLE weekly_schedules DISABLE TRIGGER ALL');
+    logger.info('Disabled weekly_schedules triggers', { userId });
 
     // Delete in correct order - no triggers will fire
     await client.query('DELETE FROM work_hours_audit WHERE user_id = $1 OR changed_by = $1', [userId]);
@@ -872,9 +872,9 @@ router.delete('/users/:id', [auth, adminAuth], async (req, res) => {
     await client.query('DELETE FROM user_weekly_hours WHERE user_id = $1', [userId]);
     logger.info('Deleted schedules', { userId });
 
-    // Re-enable trigger
-    await client.query('ALTER TABLE weekly_schedules ENABLE TRIGGER trg_weekly_schedules_audit');
-    logger.info('Re-enabled audit trigger', { userId });
+    // Re-enable triggers
+    await client.query('ALTER TABLE weekly_schedules ENABLE TRIGGER ALL');
+    logger.info('Re-enabled weekly_schedules triggers', { userId });
 
     // 3. Delete personal data
     await client.query('DELETE FROM user_settings WHERE user_id = $1', [userId]);
@@ -1083,9 +1083,20 @@ router.post('/users/:id/force-delete', [auth, adminAuth], async (req, res) => {
       }
     }
 
-    logger.info('FK constraints fixed, now deleting user', { userId });
+    logger.info('FK constraints fixed, preparing schedule cleanup', { userId });
 
-    // Step 2: Delete the user (FKs should now handle cleanup automatically)
+    // Prevent audit inserts during forced deletion
+    await client.query('ALTER TABLE weekly_schedules DISABLE TRIGGER ALL');
+
+    // Remove schedules and audit logs explicitly to avoid FK issues
+    await client.query('DELETE FROM weekly_schedules WHERE user_id = $1', [userId]);
+    await client.query('DELETE FROM work_hours_audit WHERE user_id = $1 OR changed_by = $1', [userId]);
+
+    await client.query('ALTER TABLE weekly_schedules ENABLE TRIGGER ALL');
+
+    logger.info('Now deleting user', { userId });
+
+    // Step 2: Delete the user (FKs should now handle remaining cleanup automatically)
     await client.query('DELETE FROM users WHERE id = $1', [userId]);
 
     await client.query('COMMIT');

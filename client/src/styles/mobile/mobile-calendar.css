@@ -965,6 +965,11 @@
     box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.04);
   }
 
+  .event-details-modal__footer {
+    display: block;
+    gap: 0;
+  }
+
   .modal-footer-mobile .btn-mobile {
     flex: 1;
     min-height: 54px;

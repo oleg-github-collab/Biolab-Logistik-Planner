@@ -132,7 +132,7 @@ const MobileMessenger = ({
 
   const formatLastSeenLabel = (contact) => {
     if (!contact) return '';
-    if (contact.online) return 'Online';
+    if (contact.online) return 'Online jetzt';
     const lastSeen = contact.last_seen || contact.last_seen_at;
     if (!lastSeen) return 'Zuletzt online';
     return `Zuletzt online ${formatMessageTime(lastSeen)}`;
@@ -371,12 +371,13 @@ const MobileMessenger = ({
                       )}
                       <div
                         className="mobile-messenger-chat-text"
-                        data-online={!lastMessage && contactForThread?.online ? "true" : undefined}
+                        data-status={!lastMessage && thread.type === 'direct' ? 'presence' : undefined}
+                        data-online={!lastMessage && thread.type === 'direct' ? (contactForThread?.online ? 'true' : 'false') : undefined}
                       >
                         {lastMessage?.message ||
                           lastMessage?.content ||
                           (thread.type === 'direct'
-                            ? (contactForThread?.online ? 'Jetzt verfügbar' : formatLastSeenLabel(contactForThread))
+                            ? formatLastSeenLabel(contactForThread)
                             : (thread.description || 'Letzte Nachricht anzeigen'))}
                       </div>
                       {unreadCount > 0 && (
@@ -435,7 +436,8 @@ const MobileMessenger = ({
                     <div className="mobile-messenger-chat-message">
                       <div
                         className="mobile-messenger-chat-text"
-                        data-online={contact.online ? 'true' : undefined}
+                        data-status="presence"
+                        data-online={contact.online ? 'true' : 'false'}
                       >
                         {formatLastSeenLabel(contact)}
                       </div>

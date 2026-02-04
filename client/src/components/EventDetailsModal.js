@@ -1,13 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Play, Pause, X, ChevronLeft, ChevronRight, Share2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { safeParseDate, safeFormat } from '../utils/dateHelpers';
 import BaseModal from './BaseModal';
+import { useAuth } from '../context/AuthContext';
 
 const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplicate }) => {
   const navigate = useNavigate();
+  const auth = useAuth();
+  const user = auth?.user;
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
@@ -90,6 +93,7 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
   };
 
   const handleDelete = async () => {
+    if (!canManage) return;
     setIsDeleting(true);
     try {
       await onDelete(normalizedEvent.id);
@@ -132,6 +136,23 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
   };
 
   const eventDate = safeParseDate(normalizedEvent.date || normalizedEvent.start || normalizedEvent.start_date);
+
+  const creatorId =
+    normalizedEvent.created_by ??
+    normalizedEvent.createdBy ??
+    normalizedEvent.created_by_id ??
+    normalizedEvent.createdById;
+  const isAdmin = ['admin', 'superadmin'].includes(user?.role);
+  const canManage = Boolean(isAdmin || (creatorId && user?.id && Number(creatorId) === Number(user.id)));
+  const canEdit = canManage && typeof onEdit === 'function';
+  const canDelete = canManage && typeof onDelete === 'function';
+  const canDuplicate = canManage && typeof onDuplicate === 'function';
+
+  useEffect(() => {
+    if (!canDelete) {
+      setShowDeleteConfirm(false);
+    }
+  }, [canDelete, normalizedEvent.id]);
 
   // Handle audio playback
   const toggleAudioPlayback = () => {
@@ -444,40 +465,48 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
         </div>
 
         {/* Actions */}
-        <div className="modal-footer-mobile p-4 sm:p-6 border-t border-slate-200">
-          {!showDeleteConfirm ? (
+        <div className="modal-footer-mobile event-details-modal__footer p-4 sm:p-6 border-t border-slate-200">
+          {!showDeleteConfirm || !canDelete ? (
             <div className="flex flex-col gap-3">
-              <div className="flex flex-col sm:flex-row gap-3">
-                <button
-                  onClick={() => onEdit(normalizedEvent)}
-                  className="btn-mobile btn-primary-mobile flex-1 mobile-touch-feedback flex items-center justify-center gap-2"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                  <span>Bearbeiten</span>
-                </button>
+              {(canEdit || canDuplicate || canDelete) && (
+                <div className="flex flex-col sm:flex-row gap-3">
+                  {canEdit && (
+                    <button
+                      onClick={() => onEdit(normalizedEvent)}
+                      className="btn-mobile btn-primary-mobile flex-1 mobile-touch-feedback flex items-center justify-center gap-2"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                      <span>Bearbeiten</span>
+                    </button>
+                  )}
 
-                <button
-                  onClick={handleDuplicate}
-                  className="btn-mobile btn-secondary-mobile mobile-touch-feedback flex items-center justify-center gap-2"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                  <span className="hidden sm:inline">Duplizieren</span>
-                </button>
+                  {canDuplicate && (
+                    <button
+                      onClick={handleDuplicate}
+                      className="btn-mobile btn-secondary-mobile mobile-touch-feedback flex items-center justify-center gap-2"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                      <span>Duplizieren</span>
+                    </button>
+                  )}
 
-                <button
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="btn-mobile mobile-touch-feedback flex items-center justify-center gap-2 border-2 border-red-300 text-red-600 bg-red-50 hover:bg-red-100"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                  <span className="hidden sm:inline">Löschen</span>
-                </button>
-              </div>
+                  {canDelete && (
+                    <button
+                      onClick={() => setShowDeleteConfirm(true)}
+                      className="btn-mobile mobile-touch-feedback flex items-center justify-center gap-2 border-2 border-red-300 text-red-600 bg-red-50 hover:bg-red-100"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      <span>Löschen</span>
+                    </button>
+                  )}
+                </div>
+              )}
 
               <button
                 onClick={handleShareInMessage}
@@ -486,6 +515,12 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
                 <Share2 className="w-5 h-5" />
                 <span>In Nachricht teilen</span>
               </button>
+
+              {!canManage && (
+                <p className="text-xs text-slate-500 text-center">
+                  Nur der Ersteller oder ein Admin kann Termine bearbeiten.
+                </p>
+              )}
             </div>
           ) : (
             <div className="space-y-3 animate-spring">

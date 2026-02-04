@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import HoursCalendar from '../components/HoursCalendar';
 import MonthlyHoursCalculator from '../components/MonthlyHoursCalculator';
@@ -9,6 +9,33 @@ const Schedule = () => {
   const auth = useAuth(); const user = auth?.user;
   const [activeTab, setActiveTab] = useState('calendar');
   const [initializingSchedule, setInitializingSchedule] = useState(false);
+  const tabsScrollRef = useRef(null);
+  const [showTabsHint, setShowTabsHint] = useState(false);
+
+  useEffect(() => {
+    const container = tabsScrollRef.current;
+    if (!container) return;
+
+    const updateHint = () => {
+      const maxScroll = container.scrollWidth - container.clientWidth;
+      const hasOverflow = maxScroll > 6;
+      const showHint = hasOverflow && container.scrollLeft < maxScroll - 6;
+      setShowTabsHint(showHint);
+    };
+
+    updateHint();
+
+    const handleScroll = () => updateHint();
+    const handleResize = () => updateHint();
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
 
   useEffect(() => {
     const initializeDefaultSchedule = async () => {
@@ -78,8 +105,9 @@ const Schedule = () => {
 
         {/* Tabs */}
         <div className="schedule-tabs">
-          <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8 overflow-x-auto">
+          <div className="border-b border-gray-200 relative">
+            <div className="schedule-tabs__scroll" ref={tabsScrollRef}>
+              <nav className="-mb-px flex space-x-8">
               <button
                 onClick={() => setActiveTab('calendar')}
                 className={`${
@@ -125,7 +153,19 @@ const Schedule = () => {
                   Team-Übersicht
                 </div>
               </button>
-            </nav>
+              </nav>
+            </div>
+            {showTabsHint && (
+              <>
+                <div className="schedule-tabs__fade" aria-hidden="true" />
+                <div className="schedule-tabs__hint" aria-hidden="true">
+                  <span>Wischen</span>
+                  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 5l6 5-6 5" />
+                  </svg>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
