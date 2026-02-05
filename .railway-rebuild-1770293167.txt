@@ -1,5 +1,0 @@
-FORCE_REBUILD=true
-VERSION=13.14.0
-TIMESTAMP=20260205130524
-CACHE_BUST=NUCLEAR
-REASON=Complete cache invalidation - all previous builds must be ignored

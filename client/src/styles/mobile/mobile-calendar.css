@@ -125,6 +125,26 @@
     box-shadow: 0 6px 14px rgba(37, 99, 235, 0.18);
   }
 
+  .mobile-calendar-native__filter-btn,
+  .mobile-calendar-native__filter-chip,
+  .mobile-calendar-native__view-btn {
+    -webkit-tap-highlight-color: transparent;
+    outline: none;
+  }
+
+  .mobile-calendar-native__filter-btn:active,
+  .mobile-calendar-native__filter-chip:active,
+  .mobile-calendar-native__view-btn:active {
+    box-shadow: none !important;
+    outline: none !important;
+  }
+
+  .mobile-calendar-native__filter-btn:focus-visible,
+  .mobile-calendar-native__filter-chip:focus-visible,
+  .mobile-calendar-native__view-btn:focus-visible {
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.35) !important;
+  }
+
   .mobile-calendar-native__content {
     position: relative;
     z-index: 1;

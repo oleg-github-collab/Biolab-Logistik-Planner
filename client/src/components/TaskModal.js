@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Calendar,
@@ -21,11 +22,10 @@ import {
   deleteTask,
   uploadAttachment,
   deleteAttachment,
-  getPriorityLabel,
-  getPriorityColorClass,
+  fetchTaskById,
 } from '../utils/kanbanApi';
 import { getAssetUrl } from '../utils/media';
-import { useAuth } from '../context/AuthContext';
+import { useMobile } from '../hooks/useMobile';
 
 const PRIORITIES = [
   { value: 'low', label: 'Niedrig', color: 'bg-green-100 text-green-700 border-green-300' },
@@ -42,6 +42,7 @@ const STATUSES = [
 ];
 
 const TaskModal = ({ isOpen, onClose, task, users = [], onTaskUpdated, onTaskDeleted }) => {
+  const { isMobile } = useMobile();
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -60,8 +61,41 @@ const TaskModal = ({ isOpen, onClose, task, users = [], onTaskUpdated, onTaskDel
   const [loading, setLoading] = useState(false);
   const [uploadingAudio, setUploadingAudio] = useState(false);
   const [activeTab, setActiveTab] = useState('details'); // details, comments
-  const auth = useAuth();
-  const currentUser = auth?.user;
+  const [fullTask, setFullTask] = useState(null);
+  const [isFetching, setIsFetching] = useState(false);
+  const [imagePreview, setImagePreview] = useState(null);
+
+  const resolvedTask = fullTask || task;
+
+  const loadTaskDetails = useCallback(async () => {
+    if (!task?.id) return;
+    try {
+      setIsFetching(true);
+      const data = await fetchTaskById(task.id);
+      const taskPayload = data?.task || data?.data || data;
+      setFullTask(taskPayload);
+    } catch (error) {
+      console.error('Error fetching task details:', error);
+      toast.error('Details konnten nicht geladen werden');
+    } finally {
+      setIsFetching(false);
+    }
+  }, [task?.id]);
+
+  useEffect(() => {
+    if (isOpen && task?.id) {
+      loadTaskDetails();
+    }
+  }, [isOpen, task?.id, loadTaskDetails]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setFullTask(null);
+      setImagePreview(null);
+      setActiveTab('details');
+      setShowDeleteConfirm(false);
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (task) {
@@ -77,7 +111,86 @@ const TaskModal = ({ isOpen, onClose, task, users = [], onTaskUpdated, onTaskDel
         checklist: task.checklist || [],
       });
     }
-  }, [task]);
+  }, [task, isOpen]);
+
+  const normalizedAttachments = useMemo(() => {
+    const rawAttachments =
+      resolvedTask?.attachments || resolvedTask?.media || resolvedTask?.files || [];
+
+    if (!Array.isArray(rawAttachments)) return [];
+
+    return rawAttachments
+      .map((attachment, index) => {
+        const fileUrl =
+          attachment?.file_url ||
+          attachment?.url ||
+          attachment?.path ||
+          attachment?.filePath ||
+          attachment?.file_path;
+        if (!fileUrl) return null;
+
+        const name =
+          attachment?.file_name ||
+          attachment?.name ||
+          attachment?.filename ||
+          (fileUrl ? fileUrl.split('/').pop() : 'Anhang');
+        const mime =
+          attachment?.mime_type || attachment?.mimeType || attachment?.mimetype || '';
+        let type = (
+          attachment?.file_type ||
+          attachment?.type ||
+          attachment?.media_type ||
+          ''
+        )
+          .toString()
+          .toLowerCase();
+
+        if (type.includes('/')) {
+          if (type.startsWith('image')) type = 'image';
+          if (type.startsWith('audio')) type = 'audio';
+          if (type.startsWith('video')) type = 'video';
+        }
+
+        if (!type) {
+          if (mime.startsWith('image/')) type = 'image';
+          if (mime.startsWith('audio/')) type = 'audio';
+          if (mime.startsWith('video/')) type = 'video';
+        }
+
+        if (!type && name) {
+          const extension = name.split('.').pop()?.toLowerCase();
+          if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'].includes(extension)) {
+            type = 'image';
+          }
+          if (['mp3', 'wav', 'webm', 'm4a', 'ogg', 'aac'].includes(extension)) {
+            type = 'audio';
+          }
+          if (['mp4', 'mov', 'webm', 'mkv'].includes(extension)) {
+            type = 'video';
+          }
+        }
+
+        if (!['image', 'audio', 'video'].includes(type)) {
+          type = 'document';
+        }
+
+        const resolvedUrl = getAssetUrl(fileUrl);
+
+        return {
+          id: attachment?.id || attachment?.attachment_id || `${name}-${index}`,
+          name,
+          type,
+          url: resolvedUrl,
+          raw: attachment,
+        };
+      })
+      .filter(Boolean);
+  }, [resolvedTask]);
+
+  const audioAttachment = useMemo(
+    () => normalizedAttachments.find((attachment) => attachment.type === 'audio'),
+    [normalizedAttachments]
+  );
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -90,7 +203,6 @@ const TaskModal = ({ isOpen, onClose, task, users = [], onTaskUpdated, onTaskDel
     try {
       setLoading(true);
 
-      const previousStatus = task?.status;
       const updatedTask = await updateTask(task.id, {
         title: formData.title,
         description: formData.description,
@@ -147,17 +259,15 @@ const TaskModal = ({ isOpen, onClose, task, users = [], onTaskUpdated, onTaskDel
     try {
       setUploadingAudio(true);
 
-      // Create a File from the Blob
       const audioFile = new File([audioBlob], `audio-${Date.now()}.webm`, {
         type: 'audio/webm',
       });
 
       await uploadAttachment(task.id, audioFile, 'audio');
       toast.success('Audio hochgeladen');
+      await loadTaskDetails();
 
-      // Refresh task data
       if (onTaskUpdated) {
-        // Trigger a refresh in parent component
         onTaskUpdated({ ...task, _refresh: true });
       }
     } catch (error) {
@@ -169,11 +279,12 @@ const TaskModal = ({ isOpen, onClose, task, users = [], onTaskUpdated, onTaskDel
   };
 
   const handleDeleteAttachment = async (attachmentId) => {
+    if (!attachmentId) return;
     try {
       await deleteAttachment(attachmentId);
       toast.success('Anhang gelöscht');
+      await loadTaskDetails();
 
-      // Refresh task data
       if (onTaskUpdated) {
         onTaskUpdated({ ...task, _refresh: true });
       }
@@ -233,33 +344,39 @@ const TaskModal = ({ isOpen, onClose, task, users = [], onTaskUpdated, onTaskDel
     });
   };
 
-  // Get audio attachment
-  const audioAttachment = task?.attachments?.find(
-    (att) => att.file_type === 'audio' || att.file_type === 'audio/webm'
-  );
-
   if (!isOpen || !task) return null;
 
-  return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center px-3 py-6 sm:px-6">
+  const modalContent = (
+    <div
+      className={`modal-shell fixed inset-0 z-[120000] flex ${
+        isMobile
+          ? 'items-stretch justify-center p-0 kanban-task-modal__shell'
+          : 'items-center justify-center px-3 py-6 sm:px-6'
+      }`}
+    >
       <div
         className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
         onClick={onClose}
         aria-hidden="true"
       />
       <div
-        className="relative z-[130] w-full max-w-5xl bg-white/95 backdrop-blur rounded-[28px] border border-slate-200/70 shadow-[0_32px_90px_rgba(15,23,42,0.25)] overflow-hidden max-h-[90vh] flex flex-col"
+        className={`relative z-[1] w-full ${
+          isMobile
+            ? 'modal-card modal-card--fullscreen'
+            : 'max-w-5xl max-h-[90vh] rounded-[28px]'
+        } bg-white/95 backdrop-blur border border-slate-200/70 shadow-[0_32px_90px_rgba(15,23,42,0.25)] overflow-hidden flex flex-col kanban-task-modal`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-start justify-between gap-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-600 text-white px-5 sm:px-7 py-5 sm:py-6">
+        <div className="kanban-task-modal__header flex items-start justify-between gap-4 bg-slate-950 text-white px-5 sm:px-7 py-5 sm:py-6">
           <div className="flex-1">
-            <p className="text-xs uppercase tracking-[0.25em] text-blue-100/80">
-              Aufgabe #{task.id}
-            </p>
-            <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-3 text-xs uppercase tracking-[0.25em] text-slate-300">
+              <span>Aufgabe #{resolvedTask?.id ?? task.id}</span>
+              {isFetching && <span className="text-[10px] tracking-[0.3em]">Aktualisiert…</span>}
+            </div>
+            <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2 mt-2">
               <Flag className="w-5 h-5 sm:w-6 sm:h-6" />
-              {task.title}
+              {formData.title || resolvedTask?.title}
             </h2>
           </div>
           <button
@@ -331,59 +448,74 @@ const TaskModal = ({ isOpen, onClose, task, users = [], onTaskUpdated, onTaskDel
                     </div>
 
                     {/* Attachments */}
-                    {task.attachments && task.attachments.length > 0 && (
+                    {normalizedAttachments.length > 0 && (
                       <div>
                         <label className="block text-sm font-semibold text-slate-800 mb-2">
                           <Paperclip className="w-4 h-4 inline-block mr-1" />
-                          Anhänge ({task.attachments.length})
+                          Anhänge ({normalizedAttachments.length})
                         </label>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                          {task.attachments.map((attachment) => {
-                            const url = getAssetUrl(attachment.file_url);
-                            const isImage = attachment.file_type === 'image';
-                            const isAudio = attachment.file_type === 'audio';
+                          {normalizedAttachments.map((attachment) => {
+                            const deleteTargetId =
+                              attachment.raw?.id ||
+                              attachment.raw?.attachment_id ||
+                              attachment.raw?.attachmentId ||
+                              null;
 
                             return (
-                              <div
-                                key={attachment.id}
-                                className="relative group rounded-2xl border border-slate-200 overflow-hidden shadow-sm"
-                              >
-                                {isImage && (
-                                  <img
-                                    src={url}
-                                    alt={attachment.file_name}
-                                    className="w-full h-32 object-cover"
-                                  />
-                                )}
-                                {isAudio && (
-                                  <div className="p-3 bg-purple-50">
-                                    <p className="text-xs text-slate-600 mb-2 truncate flex items-center gap-1">
-                                      <Mic className="w-3 h-3" />
-                                      {attachment.file_name}
-                                    </p>
-                                    <audio controls src={url} className="w-full" />
-                                  </div>
-                                )}
-                                {!isImage && !isAudio && (
-                                  <a
-                                    href={url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="block p-3 hover:bg-slate-50 transition"
-                                  >
-                                    <p className="text-xs text-slate-600 truncate">
-                                      📎 {attachment.file_name}
-                                    </p>
-                                  </a>
-                                )}
+                            <div
+                              key={attachment.id}
+                              className="relative group rounded-2xl border border-slate-200 overflow-hidden shadow-sm bg-white"
+                            >
+                              {attachment.type === 'image' && (
                                 <button
                                   type="button"
-                                  onClick={() => handleDeleteAttachment(attachment.id)}
+                                  onClick={() => setImagePreview(attachment)}
+                                  className="block w-full"
+                                >
+                                  <img
+                                    src={attachment.url}
+                                    alt={attachment.name}
+                                    className="w-full h-32 object-cover"
+                                  />
+                                </button>
+                              )}
+                              {attachment.type === 'audio' && (
+                                <div className="p-3 bg-purple-50">
+                                  <p className="text-xs text-slate-600 mb-2 truncate flex items-center gap-1">
+                                    <Mic className="w-3 h-3" />
+                                    {attachment.name}
+                                  </p>
+                                  <audio controls src={attachment.url} className="w-full" />
+                                </div>
+                              )}
+                              {attachment.type === 'video' && (
+                                <div className="p-2 bg-slate-50">
+                                  <video controls src={attachment.url} className="w-full rounded-lg" />
+                                </div>
+                              )}
+                              {attachment.type === 'document' && (
+                                <a
+                                  href={attachment.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="block p-3 hover:bg-slate-50 transition"
+                                >
+                                  <p className="text-xs text-slate-600 truncate">
+                                    📎 {attachment.name}
+                                  </p>
+                                </a>
+                              )}
+                              {deleteTargetId && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteAttachment(deleteTargetId)}
                                   className="absolute top-2 right-2 w-6 h-6 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-red-700"
                                 >
                                   <Trash2 className="w-3 h-3" />
                                 </button>
-                              </div>
+                              )}
+                            </div>
                             );
                           })}
                         </div>
@@ -589,9 +721,13 @@ const TaskModal = ({ isOpen, onClose, task, users = [], onTaskUpdated, onTaskDel
 
                     {/* Voice Recording */}
                     <div>
+                      <label className="block text-sm font-semibold text-slate-800 mb-2 flex items-center gap-2">
+                        <Mic className="w-4 h-4 text-blue-600" />
+                        Sprachnotiz hinzufügen
+                      </label>
                       <VoiceRecorder
                         onRecordingComplete={handleVoiceRecording}
-                        existingAudioUrl={audioAttachment ? getAssetUrl(audioAttachment.file_url) : null}
+                        existingAudioUrl={audioAttachment ? audioAttachment.url : null}
                       />
                     </div>
                   </div>
@@ -602,9 +738,7 @@ const TaskModal = ({ isOpen, onClose, task, users = [], onTaskUpdated, onTaskDel
             {/* Comments Tab */}
             {activeTab === 'comments' && (
               <div className="py-2">
-                <TaskComments
-                  taskId={task.id}
-                />
+                <TaskComments taskId={task.id} />
               </div>
             )}
           </form>
@@ -642,14 +776,38 @@ const TaskModal = ({ isOpen, onClose, task, users = [], onTaskUpdated, onTaskDel
         </div>
       </div>
 
+      {/* Image Preview */}
+      {imagePreview && (
+        <div
+          className="fixed inset-0 z-[120030] flex items-center justify-center bg-slate-900/80 px-4"
+          onClick={() => setImagePreview(null)}
+        >
+          <div className="relative max-w-3xl w-full" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => setImagePreview(null)}
+              className="absolute -top-10 right-0 text-white/80 hover:text-white"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <img
+              src={imagePreview.url}
+              alt={imagePreview.name}
+              className="w-full max-h-[80vh] object-contain rounded-2xl shadow-2xl"
+            />
+            <p className="mt-3 text-center text-sm text-slate-200 truncate">{imagePreview.name}</p>
+          </div>
+        </div>
+      )}
+
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 z-[140] flex items-center justify-center px-4">
+        <div className="fixed inset-0 z-[120020] flex items-center justify-center px-4">
           <div
             className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm"
             onClick={() => setShowDeleteConfirm(false)}
           />
-          <div className="relative z-[150] bg-white rounded-2xl p-6 shadow-2xl max-w-md w-full">
+          <div className="relative z-[120030] bg-white rounded-2xl p-6 shadow-2xl max-w-md w-full">
             <h3 className="text-xl font-bold text-slate-900 mb-2">Aufgabe löschen?</h3>
             <p className="text-slate-600 mb-6">
               Diese Aktion kann nicht rückgängig gemacht werden. Alle Anhänge und Kommentare werden
@@ -675,6 +833,12 @@ const TaskModal = ({ isOpen, onClose, task, users = [], onTaskUpdated, onTaskDel
       )}
     </div>
   );
+
+  if (typeof document !== 'undefined') {
+    return createPortal(modalContent, document.body);
+  }
+
+  return modalContent;
 };
 
 export default TaskModal;

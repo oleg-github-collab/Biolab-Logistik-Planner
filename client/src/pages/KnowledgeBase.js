@@ -623,7 +623,7 @@ const ArticleViewModal = ({
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="kb-article-modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[120000] p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[calc(100vh-4rem)] my-8 flex flex-col overflow-hidden">
         {modalContent}
       </div>
@@ -879,18 +879,18 @@ const ArticleEditorModal = ({ article, categories, allTags, onSave, onClose, onD
 
 
   const modalWrapperClass = isMobile
-    ? 'modal-shell fixed inset-0 bg-black/60 flex items-stretch justify-center z-[10050] p-0 overflow-y-auto'
-    : 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
+    ? 'modal-shell kb-article-modal fixed inset-0 bg-black/60 flex items-stretch justify-center z-[120000] p-0 overflow-y-auto'
+    : 'kb-article-modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
 
   const modalBodyClass = isMobile
-    ? 'modal-card modal-card--fullscreen bg-white w-full max-w-3xl min-h-[100dvh] max-h-[100dvh] flex flex-col overflow-hidden'
-    : 'bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[calc(100vh-4rem)] my-8 flex flex-col overflow-hidden';
+    ? 'modal-card modal-card--fullscreen kb-article-modal__body bg-white w-full max-w-3xl min-h-[100dvh] max-h-[100dvh] flex flex-col overflow-hidden'
+    : 'kb-article-modal__body bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[calc(100vh-4rem)] my-8 flex flex-col overflow-hidden';
 
   const modalMarkup = (
     <div className={modalWrapperClass}>
       <div className={modalBodyClass}>
         {/* Header */}
-        <div className={`flex items-center justify-between p-6 border-b border-gray-200 ${isMobile ? 'sticky top-0 bg-white z-10 pt-[calc(env(safe-area-inset-top,0px)+1.5rem)]' : ''}`}>
+        <div className={`kb-article-modal__header flex items-center justify-between p-6 border-b border-gray-200 ${isMobile ? 'sticky top-0 bg-white z-10 pt-[calc(env(safe-area-inset-top,0px)+1.5rem)]' : ''}`}>
           <h2 className="text-2xl font-bold text-gray-900">
             {isEditing ? 'Artikel bearbeiten' : 'Neuer Artikel'}
           </h2>
@@ -903,8 +903,8 @@ const ArticleEditorModal = ({ article, categories, allTags, onSave, onClose, onD
         </div>
 
         {/* Form */}
-        <form id="kb-article-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto modal-scroll">
-          <div className="p-6 space-y-6 pb-[calc(6rem+env(safe-area-inset-bottom,0px))]">
+        <form id="kb-article-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto modal-scroll kb-article-modal__form">
+          <div className="p-6 space-y-6 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))]">
             {/* Title */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1192,7 +1192,7 @@ const ArticleEditorModal = ({ article, categories, allTags, onSave, onClose, onD
         </form>
 
         {/* Footer - fixed at bottom */}
-        <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50 flex-shrink-0">
+        <div className="kb-article-modal__footer flex items-center justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50 flex-shrink-0">
           <button
             type="button"
             onClick={onClose}
@@ -1797,13 +1797,13 @@ const KnowledgeBaseV3 = () => {
   const dictationHeaderPadding = isMobile
     ? 'px-5 py-4 pt-[calc(env(safe-area-inset-top,0px)+1rem)]'
     : 'px-6 py-4';
-  const dictationBodyClass = `${isMobile ? 'px-5 py-5 pb-[calc(6rem+env(safe-area-inset-bottom,0px))]' : 'px-6 py-6'} space-y-5 flex-1 overflow-y-auto`;
+  const dictationBodyClass = `${isMobile ? 'px-5 py-5 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))]' : 'px-6 py-6'} space-y-5 flex-1 overflow-y-auto`;
   const dictationPanelOverlayClass = isMobile
-    ? 'modal-shell fixed inset-0 bg-black/60 flex items-stretch justify-center z-[10050] p-0 overflow-y-auto'
-    : 'fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4 py-8';
+    ? 'modal-shell kb-dictation-modal fixed inset-0 bg-black/60 flex items-stretch justify-center z-[120000] p-0 overflow-y-auto'
+    : 'kb-dictation-modal fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4 py-8';
   const dictationPanelClass = isMobile
-    ? 'modal-card modal-card--fullscreen bg-white w-full max-w-xl min-h-[100dvh] max-h-[100dvh] flex flex-col overflow-hidden'
-    : 'bg-white rounded-3xl w-full max-w-xl max-h-[calc(100vh-4rem)] shadow-2xl flex flex-col overflow-hidden';
+    ? 'modal-card modal-card--fullscreen kb-dictation-modal__body bg-white w-full max-w-xl min-h-[100dvh] max-h-[100dvh] flex flex-col overflow-hidden'
+    : 'kb-dictation-modal__body bg-white rounded-3xl w-full max-w-xl max-h-[calc(100vh-4rem)] shadow-2xl flex flex-col overflow-hidden';
   const dictationContent = (
     <div className="flex flex-col h-full relative">
       {/* Processing Overlay */}

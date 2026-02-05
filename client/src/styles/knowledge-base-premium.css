@@ -201,6 +201,67 @@
   }
 }
 
+
+@media (max-width: 1023px) {
+  .kb-article-modal__body,
+  .kb-dictation-modal__body,
+  .kb-dictation-editor__body {
+    border-radius: 0 !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+  }
+
+  .kb-article-modal__form,
+  .kb-dictation-editor__content {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    min-height: 0 !important;
+  }
+
+  .kb-article-modal__header {
+    padding-top: calc(env(safe-area-inset-top, 0px) + 1.25rem);
+  }
+
+  .kb-article-modal__footer {
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .kb-article-modal__header,
+  .kb-dictation-editor__header {
+    padding: calc(env(safe-area-inset-top, 0px) + 1rem) 1.25rem 1rem !important;
+    margin-bottom: 0 !important;
+  }
+
+  .kb-article-modal__header h2,
+  .kb-dictation-editor__header h2 {
+    font-size: 20px !important;
+    line-height: 1.3 !important;
+  }
+
+  .kb-article-modal__form > div {
+    padding: 1.25rem !important;
+  }
+
+  .kb-article-modal label,
+  .kb-dictation-modal label,
+  .kb-dictation-editor label {
+    text-transform: none !important;
+    letter-spacing: 0.02em !important;
+  }
+
+  .kb-article-modal__body input,
+  .kb-article-modal__body textarea,
+  .kb-article-modal__body select,
+  .kb-dictation-modal__body input,
+  .kb-dictation-modal__body textarea,
+  .kb-dictation-modal__body select,
+  .kb-dictation-editor__body input,
+  .kb-dictation-editor__body textarea,
+  .kb-dictation-editor__body select {
+    font-size: 15px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .kb-article-card {
     transition: none;
