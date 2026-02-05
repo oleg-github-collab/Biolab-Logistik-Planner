@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Upload, Mic, Tag as TagIcon, Save, Image as ImageIcon, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import VoiceRecorder from './VoiceRecorder';
@@ -111,9 +112,9 @@ const DictationArticleEditor = ({
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-[10050] px-3 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] sm:p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full sm:my-8 flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[calc(100vh-4rem)] overflow-hidden relative">
+  const modalMarkup = (
+    <div className="modal-shell fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-[10050] px-3 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] sm:p-4 overflow-y-auto">
+      <div className="modal-card bg-white rounded-2xl shadow-2xl max-w-4xl w-full sm:my-8 flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[calc(100vh-4rem)] overflow-hidden relative">
         {/* Processing Overlay */}
         {isProcessing && (
           <div className="absolute inset-0 bg-white/95 z-50 flex flex-col items-center justify-center gap-4">
@@ -138,7 +139,7 @@ const DictationArticleEditor = ({
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 modal-scroll">
           {/* Title */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -347,6 +348,12 @@ const DictationArticleEditor = ({
       </div>
     </div>
   );
+
+  if (typeof document !== 'undefined') {
+    return createPortal(modalMarkup, document.body);
+  }
+
+  return modalMarkup;
 };
 
 export default DictationArticleEditor;

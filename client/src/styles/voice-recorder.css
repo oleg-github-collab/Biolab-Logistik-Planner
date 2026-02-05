@@ -18,12 +18,32 @@
   border: 1px solid #e2e8f0;
 }
 
+.voice-recorder__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.voice-recorder__actions .voice-recorder__btn--play,
+.voice-recorder__actions .voice-recorder__btn--upload {
+  flex: 1 1 160px;
+}
+
+.voice-recorder__actions .voice-recorder__btn--delete {
+  flex: 0 0 auto;
+}
+
 .voice-recorder__btn {
-  min-height: 40px;
-  padding: 10px 12px;
-  font-size: 14px;
-  border-radius: 12px;
-  font-weight: 700;
+  min-height: 40px !important;
+  padding: 10px 12px !important;
+  font-size: 14px !important;
+  border-radius: 12px !important;
+  font-weight: 700 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
 }
 
 .voice-recorder__btn--record {
@@ -60,12 +80,24 @@
   background: #fee2e2 !important;
   color: #b91c1c !important;
   border: 1px solid #fecaca !important;
+  padding: 8px !important;
+  min-width: 40px !important;
+  min-height: 40px !important;
 }
 
 @media (max-width: 1023px) {
   .voice-recorder {
     padding: 12px !important;
     border-radius: 16px !important;
+  }
+
+  .voice-recorder__actions {
+    gap: 6px;
+  }
+
+  .voice-recorder__actions .voice-recorder__btn--play,
+  .voice-recorder__actions .voice-recorder__btn--upload {
+    flex: 1 1 140px;
   }
 
   .voice-recorder__btn {

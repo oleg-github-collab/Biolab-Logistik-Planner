@@ -17,6 +17,8 @@ import {
   Paperclip,
   Mic,
   StopCircle,
+  Play,
+  Pause,
   Image as ImageIcon,
   Trash2,
   Check,
@@ -886,6 +888,9 @@ const DirectMessenger = () => {
   const [bootstrapDone, setBootstrapDone] = useState(false);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [audioRecorderOpen, setAudioRecorderOpen] = useState(false);
+  const [audioDraft, setAudioDraft] = useState(null);
+  const [audioPreviewPlaying, setAudioPreviewPlaying] = useState(false);
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
   const [groupDraftName, setGroupDraftName] = useState('');
   const [groupDraftDescription, setGroupDraftDescription] = useState('');
@@ -1062,6 +1067,9 @@ const DirectMessenger = () => {
   const recordingStartedAtRef = useRef(null);
   const recordingActiveRef = useRef(false);
   const voicePressActiveRef = useRef(false);
+  const recordingTargetRef = useRef('inline');
+  const recordingDiscardRef = useRef(false);
+  const audioPreviewRef = useRef(null);
   const audioPreviewUrlsRef = useRef(new Map());
   const uploadCleanupRef = useRef({});
   const lastReadUpdateRef = useRef({});
@@ -1193,6 +1201,14 @@ const DirectMessenger = () => {
 
     return () => clearInterval(timer);
   }, [isRecording]);
+
+  useEffect(() => {
+    return () => {
+      if (audioDraft?.url) {
+        URL.revokeObjectURL(audioDraft.url);
+      }
+    };
+  }, [audioDraft]);
 
   useEffect(() => () => {
     Object.values(uploadCleanupRef.current || {}).forEach((timeoutId) => {
@@ -2414,20 +2430,24 @@ const DirectMessenger = () => {
     return null;
   }, [isMobile, normalizeThread, selectedContact, selectedThreadId, threads]);
 
-  const handleSendMessage = async (event) => {
+  const handleSendMessage = async (event, options = {}) => {
     event?.preventDefault();
     if (voiceMode) {
       setVoiceMode(false);
       voicePressActiveRef.current = false;
     }
 
-    const trimmed = messageInput?.trim() || '';
+    const overrideAttachments = Array.isArray(options.attachments) ? options.attachments : null;
+    const overrideText = typeof options.messageText === 'string' ? options.messageText : null;
+    const trimmed = (overrideText ?? messageInput)?.trim() || '';
     const meetCommand = parseMeetCommand(trimmed);
     if (meetCommand?.error) {
       showError(meetCommand.error);
       return;
     }
-    if (!trimmed && (!Array.isArray(pendingAttachments) || pendingAttachments.length === 0) && !selectedEvent) return;
+    const attachmentsFallback = Array.isArray(pendingAttachments) ? pendingAttachments : [];
+    const attachmentsOverride = overrideAttachments ?? attachmentsFallback;
+    if (!trimmed && attachmentsOverride.length === 0 && !selectedEvent) return;
 
     let threadId = selectedThreadId;
     if (!threadId) {
@@ -2439,8 +2459,8 @@ const DirectMessenger = () => {
       return;
     }
 
-    const inputValue = messageInput;
-    const attachments = Array.isArray(pendingAttachments) ? [...pendingAttachments] : [];
+    const inputValue = overrideText ?? messageInput;
+    const attachments = Array.isArray(attachmentsOverride) ? [...attachmentsOverride] : [];
     const initialSelectedEvent = selectedEvent;
     let eventToShare = selectedEvent;
     const replyTo = replyToMessage;
@@ -2842,7 +2862,7 @@ const DirectMessenger = () => {
 
   const storyEntries = useMemo(() => Object.values(storiesByUser), [storiesByUser]);
 
-  const startRecording = async () => {
+  const startRecording = async (target = 'inline') => {
     if (recordingActiveRef.current) {
       return;
     }
@@ -2851,6 +2871,7 @@ const DirectMessenger = () => {
         showError('Audioaufnahme wird von diesem Gerät nicht unterstützt');
         return;
       }
+      recordingTargetRef.current = target;
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       recordingStreamRef.current = stream;
 
@@ -2895,8 +2916,13 @@ const DirectMessenger = () => {
           const blob = new Blob(recordingChunksRef.current, { type: resolvedMime });
           const file = new File([blob], `voice_${Date.now()}.${extension}`, { type: resolvedMime });
           file.__audioDuration = durationSeconds;
-          setPendingAttachments((prev) => [...prev, file]);
-          showSuccess('Audioaufnahme hinzugefügt');
+          if (!recordingDiscardRef.current && recordingTargetRef.current === 'modal') {
+            const previewUrl = URL.createObjectURL(file);
+            setAudioDraft({ file, url: previewUrl, duration: durationSeconds });
+          } else if (!recordingDiscardRef.current) {
+            setPendingAttachments((prev) => [...prev, file]);
+            showSuccess('Audioaufnahme hinzugefügt');
+          }
         }
 
         recordingStreamRef.current?.getTracks().forEach((track) => track.stop());
@@ -2904,6 +2930,7 @@ const DirectMessenger = () => {
         mediaRecorderRef.current = null;
         recordingActiveRef.current = false;
         setIsRecording(false);
+        recordingDiscardRef.current = false;
       };
 
       mediaRecorder.start();
@@ -2932,6 +2959,62 @@ const DirectMessenger = () => {
       recordingActiveRef.current = false;
       setIsRecording(false);
     }
+  };
+
+  const openAudioRecorder = () => {
+    if (isRecording) return;
+    if (audioDraft?.url) {
+      URL.revokeObjectURL(audioDraft.url);
+    }
+    setAudioDraft(null);
+    setAudioPreviewPlaying(false);
+    setAudioRecorderOpen(true);
+    recordingDiscardRef.current = false;
+    startRecording('modal');
+  };
+
+  const closeAudioRecorder = () => {
+    setAudioPreviewPlaying(false);
+    if (isRecording) {
+      recordingDiscardRef.current = true;
+      stopRecording();
+    }
+    if (audioDraft?.url) {
+      URL.revokeObjectURL(audioDraft.url);
+    }
+    setAudioDraft(null);
+    setAudioRecorderOpen(false);
+    setVoiceMode(false);
+  };
+
+  const handleAudioStop = () => {
+    if (isRecording) {
+      stopRecording();
+    }
+  };
+
+  const toggleAudioPreview = () => {
+    if (!audioPreviewRef.current) return;
+    if (audioPreviewPlaying) {
+      audioPreviewRef.current.pause();
+    } else {
+      audioPreviewRef.current.play();
+    }
+  };
+
+  const handleAudioSend = async () => {
+    if (!audioDraft?.file) return;
+    const attachments = Array.isArray(pendingAttachments)
+      ? [...pendingAttachments, audioDraft.file]
+      : [audioDraft.file];
+    setAudioPreviewPlaying(false);
+    setAudioRecorderOpen(false);
+    setVoiceMode(false);
+    if (audioDraft?.url) {
+      URL.revokeObjectURL(audioDraft.url);
+    }
+    setAudioDraft(null);
+    await handleSendMessage(null, { attachments });
   };
 
   const handleVoicePressStart = useCallback((event) => {
@@ -5346,12 +5429,7 @@ const DirectMessenger = () => {
                     <button
                       type="button"
                       onClick={() => {
-                        if (isMobile) {
-                          setVoiceMode(true);
-                          mobileTextareaRef.current?.blur();
-                        } else {
-                          isRecording ? stopRecording() : startRecording();
-                        }
+                        openAudioRecorder();
                         setShowComposerActions(false);
                       }}
                       className="messenger-composer-menu-item"
@@ -5938,33 +6016,14 @@ const DirectMessenger = () => {
           />
         </div>
 
-        {/* Send/Mic Button */}
-        {messageInput.trim() || pendingAttachments.length > 0 ? (
-          <button
-            type="submit"
-            className="messenger-mobile-input__send"
-            disabled={sending}
-          >
-            <Send size={20} />
-          </button>
-        ) : (
-          <button
-            type="button"
-            className={`messenger-mobile-input__mic ${isRecording ? 'recording' : ''}`}
-            onClick={() => {
-              if (isRecording) {
-                stopRecording();
-                setVoiceMode(false);
-              } else {
-                setVoiceMode(true);
-                startRecording();
-              }
-            }}
-            aria-pressed={isRecording}
-          >
-            {isRecording ? <StopCircle size={20} /> : <Mic size={20} />}
-          </button>
-        )}
+        {/* Send Button */}
+        <button
+          type="submit"
+          className="messenger-mobile-input__send"
+          disabled={sending || (!messageInput.trim() && pendingAttachments.length === 0 && !selectedEvent)}
+        >
+          <Send size={20} />
+        </button>
       </form>
 
       {/* Composer Actions Menu */}
@@ -5989,8 +6048,7 @@ const DirectMessenger = () => {
             <button
               type="button"
               onClick={() => {
-                setVoiceMode(true);
-                startRecording();
+                openAudioRecorder();
                 setShowComposerActions(false);
               }}
               className="messenger-mobile-actions-item"
@@ -6133,6 +6191,89 @@ const DirectMessenger = () => {
             >
               Aktualisieren
             </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderAudioRecorderModal = () => {
+    if (!audioRecorderOpen) return null;
+
+    return (
+      <div
+        className="voice-recorder-overlay"
+        role="dialog"
+        aria-modal="true"
+        onClick={closeAudioRecorder}
+      >
+        <div className="voice-recorder-sheet" onClick={(event) => event.stopPropagation()}>
+          <div className="voice-recorder-sheet__header">
+            <div>
+              <p className="voice-recorder-sheet__eyebrow">Audio</p>
+              <h3>Audio aufnehmen</h3>
+            </div>
+            <button type="button" className="voice-recorder-sheet__close" onClick={closeAudioRecorder}>
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="voice-recorder-sheet__body">
+            {isRecording && (
+              <div className="voice-recorder-sheet__status recording">
+                <span className="dot" />
+                Aufnahme läuft · {formatRecordingTime(recordingSeconds)}
+              </div>
+            )}
+
+            {!isRecording && audioDraft && (
+              <div className={`voice-recorder-sheet__preview ${audioPreviewPlaying ? 'is-playing' : ''}`}>
+                <audio
+                  ref={audioPreviewRef}
+                  src={audioDraft.url}
+                  onPlay={() => setAudioPreviewPlaying(true)}
+                  onPause={() => setAudioPreviewPlaying(false)}
+                  onEnded={() => setAudioPreviewPlaying(false)}
+                  controls
+                />
+              </div>
+            )}
+
+            {!isRecording && !audioDraft && (
+              <div className="voice-recorder-sheet__placeholder">
+                Aufnahme wird vorbereitet…
+              </div>
+            )}
+          </div>
+
+          <div className="voice-recorder-sheet__footer">
+            {isRecording ? (
+              <button type="button" className="voice-recorder-sheet__stop" onClick={handleAudioStop}>
+                <StopCircle className="w-5 h-5" />
+                Stop
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="voice-recorder-sheet__play"
+                  onClick={toggleAudioPreview}
+                  disabled={!audioDraft}
+                >
+                  {audioPreviewPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+                  {audioPreviewPlaying ? 'Pause' : 'Anhören'}
+                </button>
+                <button
+                  type="button"
+                  className="voice-recorder-sheet__send"
+                  onClick={handleAudioSend}
+                  disabled={!audioDraft}
+                >
+                  <Send className="w-5 h-5" />
+                  Senden
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -6442,8 +6583,7 @@ const DirectMessenger = () => {
           setShowEventPicker={setShowEventPicker}
           calendarEvents={eventOptions}
           handleEventSelect={handleEventSelect}
-          startRecording={startRecording}
-          stopRecording={stopRecording}
+          openAudioRecorder={openAudioRecorder}
           handleBotInvoke={handleAskBot}
           setShowStoryComposer={setShowStoryComposer}
           showStoryComposer={showStoryComposer}
@@ -6924,6 +7064,8 @@ const DirectMessenger = () => {
           onSuccess={handleForwardSuccess}
         />
       )}
+
+      {renderAudioRecorderModal()}
 
 
           {/* Mention Autocomplete */}

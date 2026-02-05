@@ -9,6 +9,7 @@ const VoiceRecorder = ({ onRecordingComplete, existingAudioUrl = null }) => {
   const [audioUrl, setAudioUrl] = useState(existingAudioUrl);
   const [isPlaying, setIsPlaying] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [hasUploaded, setHasUploaded] = useState(false);
 
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
@@ -20,6 +21,10 @@ const VoiceRecorder = ({ onRecordingComplete, existingAudioUrl = null }) => {
       setAudioUrl(existingAudioUrl);
     }
   }, [existingAudioUrl]);
+
+  useEffect(() => {
+    setHasUploaded(false);
+  }, [audioBlob, audioUrl]);
 
   useEffect(() => {
     return () => {
@@ -112,12 +117,14 @@ const VoiceRecorder = ({ onRecordingComplete, existingAudioUrl = null }) => {
     setAudioUrl(null);
     setRecordingTime(0);
     setIsPlaying(false);
+    setHasUploaded(false);
   };
 
   const uploadRecording = () => {
     if (audioBlob) {
       onRecordingComplete(audioBlob);
       toast.success('Audio-Anweisung hinzugefügt');
+      setHasUploaded(true);
     }
   };
 
@@ -193,7 +200,7 @@ const VoiceRecorder = ({ onRecordingComplete, existingAudioUrl = null }) => {
             {existingAudioUrl ? 'Audio vorhanden' : 'Aufnahme bereit · Zum Hinzufügen'}
           </p>
 
-          <div className="flex items-center gap-2">
+          <div className="voice-recorder__actions">
             <button
               type="button"
               onClick={togglePlayback}
@@ -203,14 +210,15 @@ const VoiceRecorder = ({ onRecordingComplete, existingAudioUrl = null }) => {
               {isPlaying ? 'Pause' : 'Abspielen'}
             </button>
 
-            {!existingAudioUrl && audioBlob && (
+            {audioBlob && (
               <button
                 type="button"
                 onClick={uploadRecording}
                 className="voice-recorder__btn voice-recorder__btn--upload flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-all shadow-md"
+                disabled={hasUploaded}
               >
                 <Upload className="w-4 h-4" />
-                Hinzufügen
+                {hasUploaded ? 'Hinzugefügt' : 'Hinzufügen'}
               </button>
             )}
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -878,14 +879,14 @@ const ArticleEditorModal = ({ article, categories, allTags, onSave, onClose, onD
 
 
   const modalWrapperClass = isMobile
-    ? 'fixed inset-0 bg-black/60 flex items-start justify-center z-[10050] px-3 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] overflow-y-auto'
+    ? 'modal-shell fixed inset-0 bg-black/60 flex items-start justify-center z-[10050] px-3 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] overflow-y-auto'
     : 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
 
   const modalBodyClass = isMobile
-    ? 'bg-white rounded-2xl shadow-2xl w-full max-w-3xl min-h-[calc(100dvh-2rem)] max-h-[calc(100dvh-2rem)] flex flex-col overflow-hidden'
+    ? 'modal-card bg-white rounded-2xl shadow-2xl w-full max-w-3xl min-h-[calc(100dvh-2rem)] max-h-[calc(100dvh-2rem)] flex flex-col overflow-hidden'
     : 'bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[calc(100vh-4rem)] my-8 flex flex-col overflow-hidden';
 
-  return (
+  const modalMarkup = (
     <div className={modalWrapperClass}>
       <div className={modalBodyClass}>
         {/* Header */}
@@ -902,8 +903,8 @@ const ArticleEditorModal = ({ article, categories, allTags, onSave, onClose, onD
         </div>
 
         {/* Form */}
-        <form id="kb-article-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
-          <div className="p-6 space-y-6">
+        <form id="kb-article-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto modal-scroll">
+          <div className="p-6 space-y-6 pb-[calc(6rem+env(safe-area-inset-bottom,0px))]">
             {/* Title */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1213,6 +1214,12 @@ const ArticleEditorModal = ({ article, categories, allTags, onSave, onClose, onD
       </div>
     </div>
   );
+
+  if (typeof document !== 'undefined') {
+    return createPortal(modalMarkup, document.body);
+  }
+
+  return modalMarkup;
 };
 
 const VersionDiffModal = ({ isOpen, onClose, diff }) => {

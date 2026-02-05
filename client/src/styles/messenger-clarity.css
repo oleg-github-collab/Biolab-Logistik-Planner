@@ -68,6 +68,58 @@ body.messenger-page {
   border-color: #e9d5ff !important;
 }
 
+@media (min-width: 1024px) {
+  body.messenger-page .contact-card {
+    background: linear-gradient(140deg, #0f172a 0%, #1f2937 100%) !important;
+    border-color: rgba(148, 163, 184, 0.25) !important;
+    box-shadow: 0 16px 34px rgba(15, 23, 42, 0.45) !important;
+  }
+
+  body.messenger-page .contact-card--active {
+    border-color: rgba(59, 130, 246, 0.8) !important;
+    box-shadow: 0 18px 36px rgba(59, 130, 246, 0.35) !important;
+  }
+
+  body.messenger-page .contact-card--general {
+    background: linear-gradient(140deg, #0f172a 0%, #1e293b 65%, #1d4ed8 140%) !important;
+    border-color: rgba(59, 130, 246, 0.45) !important;
+  }
+
+  body.messenger-page .contact-card--bot {
+    background: linear-gradient(140deg, #111827 0%, #1e1b4b 60%, #0f172a 120%) !important;
+    border-color: rgba(167, 139, 250, 0.4) !important;
+  }
+
+  body.messenger-page .contact-card__name {
+    color: #f8fafc !important;
+    text-shadow: 0 2px 8px rgba(2, 6, 23, 0.65);
+  }
+
+  body.messenger-page .contact-card__message {
+    color: rgba(226, 232, 240, 0.9) !important;
+  }
+
+  body.messenger-page .contact-card__meta-label,
+  body.messenger-page .contact-card__meta-time,
+  body.messenger-page .contact-card__meta-dot {
+    color: rgba(226, 232, 240, 0.7) !important;
+  }
+
+  body.messenger-page .contact-card__time {
+    color: rgba(248, 250, 252, 0.95) !important;
+    background: rgba(15, 23, 42, 0.75) !important;
+    border-color: rgba(148, 163, 184, 0.4) !important;
+  }
+
+  body.messenger-page .contact-card__status {
+    color: rgba(148, 163, 184, 0.9) !important;
+  }
+
+  body.messenger-page .contact-card__status.online {
+    color: #22c55e !important;
+  }
+}
+
 .contact-card__avatar {
   width: 52px !important;
   height: 52px !important;
@@ -660,5 +712,179 @@ body.messenger-page .group-settings-delete {
     max-height: 90vh;
     border-radius: 24px 24px 0 0;
     margin-top: auto;
+  }
+}
+
+/* Messenger audio recorder modal */
+.voice-recorder-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0));
+  z-index: 10080;
+}
+
+.voice-recorder-sheet {
+  width: min(560px, 100%);
+  background: #ffffff;
+  border-radius: 24px;
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.25);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden !important;
+  animation: slideUp 0.25s ease;
+  padding: 0 !important;
+  max-height: none !important;
+}
+
+.voice-recorder-sheet__header {
+  padding: 20px 22px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+}
+
+.voice-recorder-sheet__eyebrow {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  color: #94a3b8;
+  font-weight: 700;
+  margin: 0 0 6px 0;
+}
+
+.voice-recorder-sheet__header h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.voice-recorder-sheet__close {
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: #ffffff;
+  color: #0f172a;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.voice-recorder-sheet__body {
+  padding: 20px 22px 16px;
+  min-height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.voice-recorder-sheet__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.voice-recorder-sheet__status.recording {
+  color: #b91c1c;
+}
+
+.voice-recorder-sheet__status .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #ef4444;
+  box-shadow: 0 0 0 6px rgba(239, 68, 68, 0.18);
+  animation: pulseDot 1.1s ease-in-out infinite;
+}
+
+.voice-recorder-sheet__preview {
+  width: 100%;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: #f8fafc;
+  box-shadow: inset 0 0 0 1px rgba(226, 232, 240, 0.6);
+}
+
+.voice-recorder-sheet__preview.is-playing {
+  border-color: rgba(59, 130, 246, 0.6);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.voice-recorder-sheet__preview audio {
+  width: 100%;
+  height: 38px;
+}
+
+.voice-recorder-sheet__placeholder {
+  font-size: 14px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.voice-recorder-sheet__footer {
+  padding: 16px 22px 20px;
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.voice-recorder-sheet__footer button {
+  flex: 1 1 140px;
+  min-height: 44px;
+  border-radius: 14px;
+  border: none;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.voice-recorder-sheet__footer button:active {
+  transform: scale(0.97);
+}
+
+.voice-recorder-sheet__stop {
+  background: linear-gradient(90deg, #ef4444, #dc2626);
+  color: #ffffff;
+  box-shadow: 0 12px 22px rgba(239, 68, 68, 0.28);
+}
+
+.voice-recorder-sheet__play {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.voice-recorder-sheet__send {
+  background: linear-gradient(90deg, #2563eb, #3b82f6);
+  color: #ffffff;
+  box-shadow: 0 12px 22px rgba(59, 130, 246, 0.25);
+}
+
+@media (min-width: 768px) {
+  .voice-recorder-overlay {
+    align-items: center;
+    padding: 32px;
+  }
+
+  .voice-recorder-sheet {
+    border-radius: 28px;
   }
 }

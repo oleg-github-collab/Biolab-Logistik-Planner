@@ -11,7 +11,6 @@ import {
   CalendarDays,
   Bot,
   CheckCheck,
-  StopCircle,
   X,
   Smile,
   Reply,
@@ -63,8 +62,7 @@ const MobileMessenger = ({
   setShowEventPicker,
   calendarEvents,
   handleEventSelect,
-  startRecording,
-  stopRecording,
+  openAudioRecorder,
   handleBotInvoke,
   setShowStoryComposer,
   showStoryComposer,
@@ -97,8 +95,6 @@ const MobileMessenger = ({
 }) => {
   const navigate = useNavigate();
   const [mobileMode, setMobileMode] = useState('list'); // 'list' or 'chat'
-  const [recordingStatus, setRecordingStatus] = useState('idle'); // idle | recording | saved
-  const prevRecordingRef = useRef(false);
   const [showReactionPicker, setShowReactionPicker] = useState(null); // message id
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [showForwardModal, setShowForwardModal] = useState(false);
@@ -196,19 +192,6 @@ const MobileMessenger = ({
       document.body.classList.remove(className);
     };
   }, [mobileMode]);
-
-  // Recording status indicator
-  useEffect(() => {
-    if (isRecording) {
-      setRecordingStatus('recording');
-    } else if (prevRecordingRef.current) {
-      setRecordingStatus('saved');
-      const timeout = setTimeout(() => setRecordingStatus('idle'), 1800);
-      return () => clearTimeout(timeout);
-    }
-    prevRecordingRef.current = isRecording;
-    return undefined;
-  }, [isRecording]);
 
   // Render contact list view
   const renderContactList = () => {
@@ -745,17 +728,11 @@ const MobileMessenger = ({
         </div>
 
         {/* Recording indicator */}
-        {recordingStatus !== 'idle' && (
-          <div
-            className={`mobile-messenger-recording-indicator ${
-              recordingStatus === 'recording' ? 'recording' : 'saved'
-            }`}
-          >
+        {isRecording && (
+          <div className="mobile-messenger-recording-indicator recording">
             <span className="mobile-messenger-recording-dot" />
             <span className="mobile-messenger-recording-text">
-              {recordingStatus === 'recording'
-                ? `Aufnahme läuft · ${formatRecordingTime(recordingSeconds || 0)}`
-                : 'Aufnahme gespeichert'}
+              Aufnahme läuft · {formatRecordingTime(recordingSeconds || 0)}
             </span>
           </div>
         )}
@@ -835,26 +812,13 @@ const MobileMessenger = ({
             />
           </div>
 
-          {messageInput.trim() || pendingAttachments.length > 0 ? (
-            <button
-              type="submit"
-              className="mobile-messenger-input-btn send"
-              disabled={sending}
-            >
-              {sending ? <span className="mobile-messenger-send-spinner" /> : <Send size={20} />}
-            </button>
-          ) : (
-            <button
-              type="button"
-              className={`mobile-messenger-input-btn mic ${isRecording ? 'recording' : ''}`}
-              onTouchStart={startRecording}
-              onTouchEnd={stopRecording}
-              onMouseDown={startRecording}
-              onMouseUp={stopRecording}
-            >
-              {isRecording ? <StopCircle size={20} /> : <Mic size={20} />}
-            </button>
-          )}
+          <button
+            type="submit"
+            className="mobile-messenger-input-btn send"
+            disabled={sending || (!messageInput.trim() && pendingAttachments.length === 0 && !selectedEvent)}
+          >
+            {sending ? <span className="mobile-messenger-send-spinner" /> : <Send size={20} />}
+          </button>
         </form>
 
         {/* Composer Actions Menu */}
@@ -879,7 +843,7 @@ const MobileMessenger = ({
               <button
                 type="button"
                 onClick={() => {
-                  startRecording();
+                  openAudioRecorder();
                   setShowComposerActions(false);
                 }}
                 className="mobile-messenger-action-item"

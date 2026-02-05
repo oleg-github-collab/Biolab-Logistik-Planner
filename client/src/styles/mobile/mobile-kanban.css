@@ -157,7 +157,12 @@
   }
 
   .kanban-task-modal .modal-scroll {
-    padding-top: 12px !important;
+    padding-top: 0 !important;
+    display: block !important;
+  }
+
+  .kanban-task-modal .modal-scroll > .grid {
+    margin-top: 0 !important;
   }
 
 }
