@@ -729,6 +729,66 @@
     padding-left: 1.25rem;
   }
 
+  /* Override global mobile modal button styles for story composer */
+  .story-composer-modal .upload-btn,
+  .story-composer-modal .cancel-btn,
+  .story-composer-modal .publish-btn,
+  .story-composer-modal .camera-capture-btn,
+  .story-composer-modal .camera-close-btn,
+  .story-composer-modal .story-composer-link-btn {
+    min-height: 52px !important;
+    border-radius: 16px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.01em !important;
+  }
+
+  .story-composer-modal .upload-btn {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+    color: #ffffff !important;
+    border: none !important;
+    box-shadow: 0 8px 18px rgba(59, 130, 246, 0.35) !important;
+  }
+
+  .story-composer-modal .upload-btn.camera-btn {
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%) !important;
+  }
+
+  .story-composer-modal .camera-capture-btn {
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%) !important;
+    color: #ffffff !important;
+    border: none !important;
+  }
+
+  .story-composer-modal .camera-close-btn {
+    background: rgba(30, 41, 59, 0.95) !important;
+    color: #f1f5f9 !important;
+    border: 2px solid rgba(148, 163, 184, 0.5) !important;
+  }
+
+  .story-composer-modal .cancel-btn {
+    background: rgba(148, 163, 184, 0.18) !important;
+    color: #e2e8f0 !important;
+    border: 1px solid rgba(148, 163, 184, 0.35) !important;
+  }
+
+  .story-composer-modal .publish-btn {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+    color: #ffffff !important;
+    border: none !important;
+  }
+
+  @media (max-width: 640px) {
+    .story-composer-footer {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .cancel-btn,
+    .publish-btn {
+      width: 100%;
+    }
+  }
+
   /* Touch-friendly interactions */
   .upload-btn,
   .cancel-btn,

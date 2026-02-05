@@ -1,0 +1,77 @@
+/* Voice Recorder - unified compact UI */
+
+.voice-recorder {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #0f172a;
+}
+
+.voice-recorder label {
+  color: #0f172a;
+}
+
+.voice-recorder audio {
+  width: 100%;
+  height: 36px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+}
+
+.voice-recorder__btn {
+  min-height: 40px;
+  padding: 10px 12px;
+  font-size: 14px;
+  border-radius: 12px;
+  font-weight: 700;
+}
+
+.voice-recorder__btn--record {
+  background: linear-gradient(90deg, #ef4444, #dc2626) !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+
+.voice-recorder__btn--pause {
+  background: #f59e0b !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+
+.voice-recorder__btn--stop {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+
+.voice-recorder__btn--play {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+
+.voice-recorder__btn--upload {
+  background: #16a34a !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+
+.voice-recorder__btn--delete {
+  background: #fee2e2 !important;
+  color: #b91c1c !important;
+  border: 1px solid #fecaca !important;
+}
+
+@media (max-width: 1023px) {
+  .voice-recorder {
+    padding: 12px !important;
+    border-radius: 16px !important;
+  }
+
+  .voice-recorder__btn {
+    min-height: 38px !important;
+    font-size: 13px !important;
+    border-radius: 12px !important;
+    padding: 8px 10px !important;
+  }
+}

@@ -140,6 +140,12 @@ body.messenger-page {
   white-space: nowrap;
 }
 
+@media (prefers-color-scheme: light) {
+  body.messenger-page .contact-list .contact-card__name {
+    color: #0f172a !important;
+  }
+}
+
 .contact-card__meta {
   display: flex;
   align-items: center;
@@ -296,6 +302,69 @@ body.messenger-page {
 
 .messenger-composer-stack__item {
   pointer-events: auto;
+}
+
+/* Audio attachment preview */
+.messenger-attachment-audio {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px 10px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+  max-width: 320px;
+}
+
+.messenger-attachment-audio__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.messenger-attachment-audio__label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.messenger-attachment-audio__time {
+  font-size: 11px;
+  color: #64748b;
+  font-variant-numeric: tabular-nums;
+}
+
+.messenger-attachment-audio__player {
+  width: 100%;
+  height: 34px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.messenger-attachment-audio__remove {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  box-shadow: 0 6px 14px rgba(239, 68, 68, 0.3);
+}
+
+@media (max-width: 1023px) {
+  .messenger-attachment-audio {
+    max-width: 100%;
+  }
 }
 
 /* Recording indicator */

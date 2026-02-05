@@ -128,7 +128,7 @@ const VoiceRecorder = ({ onRecordingComplete, existingAudioUrl = null }) => {
   };
 
   return (
-    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-4 border border-blue-200">
+    <div className="voice-recorder bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-4 border border-blue-200">
       <div className="flex items-center justify-between mb-3">
         <label className="text-sm font-semibold text-slate-800 flex items-center gap-2">
           <Mic className="w-4 h-4 text-blue-600" />
@@ -145,7 +145,7 @@ const VoiceRecorder = ({ onRecordingComplete, existingAudioUrl = null }) => {
         <button
           type="button"
           onClick={startRecording}
-          className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-semibold hover:from-red-600 hover:to-red-700 transition-all shadow-md hover:shadow-lg"
+          className="voice-recorder__btn voice-recorder__btn--record w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-semibold hover:from-red-600 hover:to-red-700 transition-all shadow-md hover:shadow-lg"
         >
           <Mic className="w-5 h-5" />
           Aufnahme starten
@@ -158,7 +158,7 @@ const VoiceRecorder = ({ onRecordingComplete, existingAudioUrl = null }) => {
             <button
               type="button"
               onClick={pauseRecording}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-yellow-500 text-white rounded-xl font-semibold hover:bg-yellow-600 transition-all shadow-md"
+              className="voice-recorder__btn voice-recorder__btn--pause flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-yellow-500 text-white rounded-xl font-semibold hover:bg-yellow-600 transition-all shadow-md"
             >
               {isPaused ? <Play className="w-5 h-5" /> : <Pause className="w-5 h-5" />}
               {isPaused ? 'Fortsetzen' : 'Pause'}
@@ -166,7 +166,7 @@ const VoiceRecorder = ({ onRecordingComplete, existingAudioUrl = null }) => {
             <button
               type="button"
               onClick={stopRecording}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 transition-all shadow-md"
+              className="voice-recorder__btn voice-recorder__btn--stop flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 transition-all shadow-md"
             >
               <Square className="w-5 h-5" />
               Stopp
@@ -189,12 +189,15 @@ const VoiceRecorder = ({ onRecordingComplete, existingAudioUrl = null }) => {
             className="w-full"
             controls
           />
+          <p className="text-xs text-slate-500">
+            {existingAudioUrl ? 'Audio vorhanden' : 'Aufnahme bereit · Zum Hinzufügen'}
+          </p>
 
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={togglePlayback}
-              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-all shadow-md"
+              className="voice-recorder__btn voice-recorder__btn--play flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-all shadow-md"
             >
               {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
               {isPlaying ? 'Pause' : 'Abspielen'}
@@ -204,7 +207,7 @@ const VoiceRecorder = ({ onRecordingComplete, existingAudioUrl = null }) => {
               <button
                 type="button"
                 onClick={uploadRecording}
-                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-all shadow-md"
+                className="voice-recorder__btn voice-recorder__btn--upload flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-all shadow-md"
               >
                 <Upload className="w-4 h-4" />
                 Hinzufügen
@@ -214,7 +217,7 @@ const VoiceRecorder = ({ onRecordingComplete, existingAudioUrl = null }) => {
             <button
               type="button"
               onClick={deleteRecording}
-              className="flex items-center justify-center p-2 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 transition-all"
+              className="voice-recorder__btn voice-recorder__btn--delete flex items-center justify-center p-2 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 transition-all"
               title="Löschen"
             >
               <Trash2 className="w-4 h-4" />

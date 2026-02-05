@@ -19,6 +19,7 @@
 @import './styles/mobile/mobile-admin.css';
 @import './styles/mobile/mobile-modals.css';
 @import './styles/mobile/mobile-kanban.css';
+@import './styles/voice-recorder.css';
 
 /* Perfect Mobile Enhancements - Priority Order Matters */
 @import './styles/ubersicht-buttons-premium.css';

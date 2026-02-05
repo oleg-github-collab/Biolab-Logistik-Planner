@@ -44,6 +44,7 @@
     max-height: calc(100dvh - 32px) !important;
     border-radius: 22px !important;
     background: #ffffff !important;
+    color: #0f172a !important;
   }
 
   .kanban-task-modal__header {
@@ -58,6 +59,8 @@
 
   .kanban-task-modal label {
     color: #0f172a !important;
+    text-transform: none !important;
+    letter-spacing: 0.02em !important;
   }
 
   .kanban-task-modal input,
@@ -65,6 +68,88 @@
   .kanban-task-modal select {
     background: #ffffff !important;
     color: #0f172a !important;
+    border-color: #cbd5e1 !important;
+  }
+
+  .kanban-task-modal input::placeholder,
+  .kanban-task-modal textarea::placeholder {
+    color: #94a3b8 !important;
+  }
+
+  .kanban-task-modal .btn-icon-mobile {
+    padding: 0 !important;
+    min-height: 44px !important;
+    width: 44px !important;
+    height: 44px !important;
+  }
+
+  /* Restore colored buttons inside Kanban modal (override global modal styles) */
+  .kanban-task-modal button.bg-blue-600,
+  .kanban-task-modal button.bg-blue-700 {
+    background-color: #2563eb !important;
+    color: #ffffff !important;
+    border: none !important;
+  }
+
+  .kanban-task-modal button.bg-red-600,
+  .kanban-task-modal button.bg-red-700 {
+    background-color: #dc2626 !important;
+    color: #ffffff !important;
+    border: none !important;
+  }
+
+  .kanban-task-modal button.bg-green-600,
+  .kanban-task-modal button.bg-green-700 {
+    background-color: #16a34a !important;
+    color: #ffffff !important;
+    border: none !important;
+  }
+
+  .kanban-task-modal button.bg-yellow-500,
+  .kanban-task-modal button.bg-yellow-600 {
+    background-color: #f59e0b !important;
+    color: #ffffff !important;
+    border: none !important;
+  }
+
+  .kanban-task-modal button.bg-gradient-to-r {
+    background-image: linear-gradient(90deg, #ef4444, #dc2626) !important;
+    color: #ffffff !important;
+    border: none !important;
+  }
+
+  .kanban-task-modal button.bg-red-100 {
+    background-color: #fee2e2 !important;
+    color: #b91c1c !important;
+    border: 1px solid #fecaca !important;
+  }
+
+  .kanban-task-modal button.bg-green-100 {
+    background-color: #dcfce7 !important;
+    color: #166534 !important;
+    border-color: #86efac !important;
+  }
+
+  .kanban-task-modal button.bg-yellow-100 {
+    background-color: #fef9c3 !important;
+    color: #854d0e !important;
+    border-color: #fde68a !important;
+  }
+
+  .kanban-task-modal button.bg-orange-100 {
+    background-color: #ffedd5 !important;
+    color: #9a3412 !important;
+    border-color: #fdba74 !important;
+  }
+
+  .kanban-task-modal .voice-recorder {
+    background: #f8fafc !important;
+    border-color: #cbd5e1 !important;
+  }
+
+  .kanban-task-modal .voice-recorder__btn--delete {
+    padding: 8px !important;
+    min-height: 40px !important;
   }
 
   .kanban-task-modal textarea {

@@ -1062,6 +1062,7 @@ const DirectMessenger = () => {
   const recordingStartedAtRef = useRef(null);
   const recordingActiveRef = useRef(false);
   const voicePressActiveRef = useRef(false);
+  const audioPreviewUrlsRef = useRef(new Map());
   const uploadCleanupRef = useRef({});
   const lastReadUpdateRef = useRef({});
   const pendingReadTimeoutRef = useRef({});
@@ -1085,6 +1086,34 @@ const DirectMessenger = () => {
     const secs = String(safe % 60).padStart(2, '0');
     return `${mins}:${secs}`;
   };
+
+  const getAudioPreviewUrl = useCallback((file) => {
+    if (!file || typeof file === 'string') return '';
+    const map = audioPreviewUrlsRef.current;
+    if (!map.has(file)) {
+      map.set(file, URL.createObjectURL(file));
+    }
+    return map.get(file);
+  }, []);
+
+  useEffect(() => {
+    const map = audioPreviewUrlsRef.current;
+    const currentFiles = new Set(pendingAttachments);
+    for (const [file, url] of map.entries()) {
+      if (!currentFiles.has(file)) {
+        URL.revokeObjectURL(url);
+        map.delete(file);
+      }
+    }
+  }, [pendingAttachments]);
+
+  useEffect(() => () => {
+    const map = audioPreviewUrlsRef.current;
+    for (const url of map.values()) {
+      URL.revokeObjectURL(url);
+    }
+    map.clear();
+  }, []);
 
   const buildUploadId = (file, idx) =>
     `${file.name}-${file.size}-${file.lastModified}-${idx}-${Date.now()}`;
@@ -3940,20 +3969,46 @@ const DirectMessenger = () => {
   }, [selectedStory, selectedStoryIndex]);
 
   const renderAttachmentPreview = useCallback(
-    (file, idx) => (
-      <div key={`${file.name}-${idx}`} className="relative inline-flex items-center gap-2 px-3 py-2 bg-slate-100 rounded-lg text-xs text-slate-700">
-        <Paperclip className="w-4 h-4 text-slate-500" />
-        <span className="max-w-[140px] truncate">{file.name}</span>
-        <button
-          type="button"
-          onClick={() => removeAttachment(idx)}
-          className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center"
-        >
-          <X className="w-4 h-4" />
-        </button>
-      </div>
-    ),
-    [removeAttachment]
+    (file, idx) => {
+      const isAudio = file?.type?.startsWith('audio/') || Number.isFinite(file?.__audioDuration);
+      if (isAudio) {
+        const audioUrl = getAudioPreviewUrl(file);
+        return (
+          <div key={`${file.name}-${idx}`} className="messenger-attachment-audio">
+            <div className="messenger-attachment-audio__meta">
+              <span className="messenger-attachment-audio__label">Audio bereit</span>
+              {Number.isFinite(file?.__audioDuration) && (
+                <span className="messenger-attachment-audio__time">{formatRecordingTime(file.__audioDuration)}</span>
+              )}
+            </div>
+            <audio controls src={audioUrl} className="messenger-attachment-audio__player" />
+            <button
+              type="button"
+              onClick={() => removeAttachment(idx)}
+              className="messenger-attachment-audio__remove"
+              aria-label="Audio entfernen"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        );
+      }
+
+      return (
+        <div key={`${file.name}-${idx}`} className="relative inline-flex items-center gap-2 px-3 py-2 bg-slate-100 rounded-lg text-xs text-slate-700">
+          <Paperclip className="w-4 h-4 text-slate-500" />
+          <span className="max-w-[140px] truncate">{file.name}</span>
+          <button
+            type="button"
+            onClick={() => removeAttachment(idx)}
+            className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      );
+    },
+    [removeAttachment, getAudioPreviewUrl, formatRecordingTime]
   );
 
   const renderUploadQueue = useCallback((className = '') => {
@@ -5829,6 +5884,27 @@ const DirectMessenger = () => {
 
         <div ref={messagesEndRef} />
       </div>
+
+      {isRecording && (
+        <div className="messenger-recording-indicator messenger-recording-indicator--mobile">
+          <span className="messenger-recording-dot" />
+          <span>Aufnahme läuft</span>
+          <span className="messenger-recording-time">{formatRecordingTime(recordingSeconds)}</span>
+          <button
+            type="button"
+            onClick={() => {
+              stopRecording();
+              setVoiceMode(false);
+            }}
+            className="messenger-recording-stop"
+            aria-label="Aufnahme stoppen"
+          >
+            <StopCircle className="w-4 h-4" />
+            <span>Stop</span>
+          </button>
+        </div>
+      )}
+
       {/* Input Area with Plus Button */}
       <form onSubmit={handleSendMessage} className="messenger-mobile-input">
         {/* Plus/Attachment Button */}
@@ -5874,12 +5950,17 @@ const DirectMessenger = () => {
         ) : (
           <button
             type="button"
-            className="messenger-mobile-input__mic"
-            onTouchStart={startRecording}
-            onTouchEnd={stopRecording}
-            onMouseDown={startRecording}
-            onMouseUp={stopRecording}
-            onMouseLeave={stopRecording}
+            className={`messenger-mobile-input__mic ${isRecording ? 'recording' : ''}`}
+            onClick={() => {
+              if (isRecording) {
+                stopRecording();
+                setVoiceMode(false);
+              } else {
+                setVoiceMode(true);
+                startRecording();
+              }
+            }}
+            aria-pressed={isRecording}
           >
             {isRecording ? <StopCircle size={20} /> : <Mic size={20} />}
           </button>
@@ -5909,6 +5990,7 @@ const DirectMessenger = () => {
               type="button"
               onClick={() => {
                 setVoiceMode(true);
+                startRecording();
                 setShowComposerActions(false);
               }}
               className="messenger-mobile-actions-item"

@@ -969,26 +969,28 @@
   text-shadow: 0 1px 3px rgba(2, 6, 23, 0.45);
 }
 
-/* Ensure dark theme overrides legacy messenger styles */
-.contact-list .contact-card__name {
-  color: #f8fafc !important;
-  white-space: normal !important;
-  overflow: visible !important;
-  text-overflow: clip !important;
-}
+/* Ensure dark theme overrides legacy messenger styles (only in dark scheme) */
+@media (prefers-color-scheme: dark) {
+  .contact-list .contact-card__name {
+    color: #f8fafc !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+  }
 
-.contact-list .contact-card__message {
-  color: rgba(226, 232, 240, 0.95) !important;
-  text-shadow: 0 1px 4px rgba(2, 6, 23, 0.45) !important;
-}
+  .contact-list .contact-card__message {
+    color: rgba(226, 232, 240, 0.95) !important;
+    text-shadow: 0 1px 4px rgba(2, 6, 23, 0.45) !important;
+  }
 
-.contact-list .contact-card__meta {
-  color: rgba(226, 232, 240, 0.8) !important;
-}
+  .contact-list .contact-card__meta {
+    color: rgba(226, 232, 240, 0.8) !important;
+  }
 
-.contact-list .contact-card__status {
-  background: rgba(30, 41, 59, 0.7) !important;
-  color: rgba(226, 232, 240, 0.9) !important;
+  .contact-list .contact-card__status {
+    background: rgba(30, 41, 59, 0.7) !important;
+    color: rgba(226, 232, 240, 0.9) !important;
+  }
 }
 
 .contact-card__last-seen {

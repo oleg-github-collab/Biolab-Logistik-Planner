@@ -708,6 +708,20 @@
     border: none !important;
     padding: 0 !important;
     margin: 0 !important;
+    touch-action: pan-y;
+  }
+
+  .rbc-time-view,
+  .rbc-time-content,
+  .rbc-month-view,
+  .rbc-agenda-view {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+  }
+
+  .rbc-time-content {
+    scrollbar-width: thin;
   }
 
   .rbc-month-view {
