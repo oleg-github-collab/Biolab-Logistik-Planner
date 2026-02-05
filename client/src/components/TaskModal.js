@@ -15,7 +15,6 @@ import {
   Mic,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import VoiceRecorder from './VoiceRecorder';
 import TaskComments from './TaskComments';
 import {
   updateTask,
@@ -59,7 +58,6 @@ const TaskModal = ({ isOpen, onClose, task, users = [], onTaskUpdated, onTaskDel
   const [checklistInput, setChecklistInput] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [uploadingAudio, setUploadingAudio] = useState(false);
   const [activeTab, setActiveTab] = useState('details'); // details, comments
   const [fullTask, setFullTask] = useState(null);
   const [isFetching, setIsFetching] = useState(false);
@@ -247,34 +245,6 @@ const TaskModal = ({ isOpen, onClose, task, users = [], onTaskUpdated, onTaskDel
     } finally {
       setLoading(false);
       setShowDeleteConfirm(false);
-    }
-  };
-
-  const handleVoiceRecording = async (audioBlob) => {
-    if (!task?.id) {
-      toast.error('Bitte speichern Sie zuerst die Aufgabe');
-      return;
-    }
-
-    try {
-      setUploadingAudio(true);
-
-      const audioFile = new File([audioBlob], `audio-${Date.now()}.webm`, {
-        type: 'audio/webm',
-      });
-
-      await uploadAttachment(task.id, audioFile, 'audio');
-      toast.success('Audio hochgeladen');
-      await loadTaskDetails();
-
-      if (onTaskUpdated) {
-        onTaskUpdated({ ...task, _refresh: true });
-      }
-    } catch (error) {
-      console.error('Error uploading audio:', error);
-      toast.error('Fehler beim Hochladen');
-    } finally {
-      setUploadingAudio(false);
     }
   };
 
@@ -719,16 +689,23 @@ const TaskModal = ({ isOpen, onClose, task, users = [], onTaskUpdated, onTaskDel
                       </div>
                     </div>
 
-                    {/* Voice Recording */}
+                    {/* Voice Note Playback */}
                     <div>
                       <label className="block text-sm font-semibold text-slate-800 mb-2 flex items-center gap-2">
                         <Mic className="w-4 h-4 text-blue-600" />
-                        Sprachnotiz hinzufügen
+                        Sprachnotiz
                       </label>
-                      <VoiceRecorder
-                        onRecordingComplete={handleVoiceRecording}
-                        existingAudioUrl={audioAttachment ? audioAttachment.url : null}
-                      />
+                      {audioAttachment ? (
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                          <p className="text-xs text-slate-600 mb-2 truncate flex items-center gap-1">
+                            <Mic className="w-3 h-3" />
+                            {audioAttachment.name || 'Sprachnotiz'}
+                          </p>
+                          <audio controls src={audioAttachment.url} className="w-full" />
+                        </div>
+                      ) : (
+                        <p className="text-sm text-slate-500">Keine Sprachnotiz vorhanden.</p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -766,7 +743,7 @@ const TaskModal = ({ isOpen, onClose, task, users = [], onTaskUpdated, onTaskDel
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={loading || uploadingAudio}
+              disabled={loading}
               className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-blue-600 text-white font-semibold shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Flag className="w-5 h-5" />

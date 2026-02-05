@@ -403,7 +403,7 @@ const ArticleViewModal = ({
   const versionListClass = isMobile
     ? 'mt-4 space-y-3 max-h-[35vh] overflow-y-auto pr-1'
     : 'mt-4 space-y-3';
-  const bodyClassName = `${bodyPadding} ${bodySpacing} flex-1 overflow-y-auto ${isMobile ? 'max-h-[55vh]' : ''}`;
+  const bodyClassName = `${bodyPadding} ${bodySpacing} flex-1 overflow-y-auto ${isMobile ? 'min-h-0' : ''}`;
 
   const modalContent = (
     <div className="flex flex-col h-full">
@@ -612,10 +612,8 @@ const ArticleViewModal = ({
 
   if (isMobile) {
     return (
-      <div className="modal-base active" role="dialog" aria-modal="true">
-        <div className="backdrop active" />
-        <div className="bottom-sheet max-h-[calc(100dvh-2rem)] w-full overflow-hidden flex flex-col">
-          <div className="pull-handle" aria-hidden="true" />
+      <div className="modal-shell kb-article-modal fixed inset-0 bg-black/60 flex items-stretch justify-center z-[120000] p-0 overflow-y-auto">
+        <div className="modal-card modal-card--fullscreen kb-article-modal__body bg-white w-full max-w-4xl min-h-[100dvh] max-h-[100dvh] flex flex-col overflow-hidden">
           {modalContent}
         </div>
       </div>
