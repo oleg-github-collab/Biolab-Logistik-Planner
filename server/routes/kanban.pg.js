@@ -1,10 +1,11 @@
 const express = require('express');
+const path = require('path');
 const { pool } = require('../config/database');
 const { auth } = require('../middleware/auth');
 const { getIO, sendNotificationToUser } = require('../websocket');
 const logger = require('../utils/logger');
 const auditLogger = require('../utils/auditLog');
-const { uploadMultiple } = require('../services/fileService');
+const { uploadMultiple, uploadSingle } = require('../services/fileService');
 
 const router = express.Router();
 
@@ -121,6 +122,113 @@ router.get('/tasks/:id', auth, async (req, res) => {
   } catch (error) {
     logger.error('Error fetching task:', error);
     res.status(500).json({ error: 'Serverfehler beim Abrufen der Aufgabe' });
+  }
+});
+
+// @route   POST /api/kanban/tasks/:id/attachments
+// @desc    Upload attachment for a task
+router.post('/tasks/:id/attachments', auth, uploadSingle('file'), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'Keine Datei hochgeladen' });
+    }
+
+    const taskResult = await pool.query('SELECT id FROM tasks WHERE id = $1', [id]);
+    if (taskResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Aufgabe nicht gefunden' });
+    }
+
+    const file = req.file;
+    const mimeType = file.mimetype || '';
+    const derivedType = mimeType.startsWith('image/')
+      ? 'image'
+      : mimeType.startsWith('audio/')
+        ? 'audio'
+        : mimeType.startsWith('video/')
+          ? 'video'
+          : 'document';
+
+    const requestedType = (req.body?.file_type || '').toString().toLowerCase();
+    const fileType = ['image', 'audio', 'video', 'document'].includes(requestedType)
+      ? requestedType
+      : derivedType;
+
+    const fileUrl = `/uploads/${path.basename(file.destination)}/${file.filename}`;
+
+    const insertResult = await pool.query(
+      `
+      INSERT INTO task_attachments (
+        task_id, file_type, file_url, file_name, file_size, mime_type, uploaded_by, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+      RETURNING *
+      `,
+      [
+        id,
+        fileType,
+        fileUrl,
+        file.originalname || null,
+        file.size || null,
+        file.mimetype || null,
+        req.user?.id || null
+      ]
+    );
+
+    const attachment = insertResult.rows[0];
+
+    const io = getIO();
+    if (io) {
+      io.emit('task:attachment', { taskId: parseInt(id, 10), attachment });
+    }
+
+    logger.info('Task attachment uploaded', {
+      taskId: id,
+      attachmentId: attachment?.id,
+      userId: req.user?.id
+    });
+
+    res.status(201).json(attachment);
+  } catch (error) {
+    logger.error('Error uploading task attachment:', error);
+    res.status(500).json({ error: 'Serverfehler beim Hochladen des Anhangs' });
+  }
+});
+
+// @route   DELETE /api/kanban/attachments/:id
+// @desc    Delete task attachment
+router.delete('/attachments/:id', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const existing = await pool.query(
+      `SELECT id, task_id FROM task_attachments WHERE id = $1`,
+      [id]
+    );
+
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'Anhang nicht gefunden' });
+    }
+
+    await pool.query('DELETE FROM task_attachments WHERE id = $1', [id]);
+
+    const io = getIO();
+    if (io) {
+      io.emit('task:attachment_deleted', {
+        taskId: existing.rows[0].task_id,
+        attachmentId: parseInt(id, 10)
+      });
+    }
+
+    logger.info('Task attachment deleted', {
+      attachmentId: id,
+      userId: req.user?.id
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Error deleting task attachment:', error);
+    res.status(500).json({ error: 'Serverfehler beim Löschen des Anhangs' });
   }
 });
 
@@ -487,7 +595,7 @@ router.post('/tasks/:id/comments', auth, uploadMultiple('attachments', 5), async
     if (req.files && req.files.length > 0) {
       const attachments = req.files.map(file => ({
         file_name: file.originalname,
-        file_url: `/uploads/${file.filename}`,
+        file_url: `/uploads/${path.basename(file.destination)}/${file.filename}`,
         mime_type: file.mimetype,
         file_size: file.size
       }));
