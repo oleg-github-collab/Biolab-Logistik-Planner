@@ -219,6 +219,21 @@
     box-shadow: 0 -10px 24px rgba(15, 23, 42, 0.08);
   }
 
+  .kb-modal-shell {
+    height: 100% !important;
+    min-height: 100% !important;
+    max-height: 100% !important;
+    overflow: hidden !important;
+  }
+
+  .kb-modal-shell .kb-article-modal__body,
+  .kb-modal-shell .kb-dictation-modal__body,
+  .kb-modal-shell .kb-dictation-editor__body {
+    height: 100% !important;
+    min-height: 100% !important;
+    max-height: 100% !important;
+  }
+
   .kb-article-modal__body,
   .kb-dictation-modal__body,
   .kb-dictation-editor__body {
@@ -239,7 +254,14 @@
   }
 
   .kb-article-modal__footer {
+    flex-shrink: 0;
     padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .kb-article-modal .overflow-y-auto,
+  .kb-dictation-modal .overflow-y-auto,
+  .kb-dictation-editor .overflow-y-auto {
+    max-height: none !important;
   }
 
   .kb-article-modal__header,

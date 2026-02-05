@@ -42,7 +42,7 @@ import {
 } from '../utils/apiEnhanced';
 import { getAssetUrl } from '../utils/media';
 import toast from 'react-hot-toast';
-import { useMobile } from '../hooks/useMobile';
+import { useMobile, useScrollLock } from '../hooks/useMobile';
 import VoiceRecorder from '../components/VoiceRecorder';
 import DictationArticleEditor from '../components/DictationArticleEditor';
 
@@ -403,7 +403,9 @@ const ArticleViewModal = ({
   const versionListClass = isMobile
     ? 'mt-4 space-y-3 max-h-[35vh] overflow-y-auto pr-1'
     : 'mt-4 space-y-3';
-  const bodyClassName = `${bodyPadding} ${bodySpacing} flex-1 overflow-y-auto ${isMobile ? 'min-h-0' : ''}`;
+  const bodyClassName = `${bodyPadding} ${bodySpacing} flex-1 overflow-y-auto ${
+    isMobile ? 'min-h-0 pb-[calc(5rem+env(safe-area-inset-bottom,0px))]' : ''
+  }`;
 
   const modalContent = (
     <div className="flex flex-col h-full">
@@ -556,7 +558,7 @@ const ArticleViewModal = ({
         </div>
       </div>
 
-      <div className={`${footerLayout} ${footerPadding} border-t border-gray-200 bg-gray-50`}>
+      <div className={`kb-article-modal__footer flex-shrink-0 ${footerLayout} ${footerPadding} border-t border-gray-200 bg-gray-50`}>
         <div className="flex items-center space-x-2 flex-wrap">
           <span className="text-sm text-gray-600">War dieser Artikel hilfreich?</span>
           <button
@@ -612,7 +614,7 @@ const ArticleViewModal = ({
 
   if (isMobile) {
     return (
-      <div className="modal-shell kb-article-modal fixed inset-0 bg-black/60 flex items-stretch justify-center z-[120000] p-0 overflow-y-auto">
+      <div className="modal-shell kb-modal-shell kb-article-modal fixed inset-0 bg-black/60 flex items-stretch justify-center z-[120000] p-0">
         <div className="modal-card modal-card--fullscreen kb-article-modal__body bg-white w-full max-w-4xl min-h-[100dvh] max-h-[100dvh] flex flex-col overflow-hidden">
           {modalContent}
         </div>
@@ -877,7 +879,7 @@ const ArticleEditorModal = ({ article, categories, allTags, onSave, onClose, onD
 
 
   const modalWrapperClass = isMobile
-    ? 'modal-shell kb-article-modal fixed inset-0 bg-black/60 flex items-stretch justify-center z-[120000] p-0 overflow-y-auto'
+    ? 'modal-shell kb-modal-shell kb-article-modal fixed inset-0 bg-black/60 flex items-stretch justify-center z-[120000] p-0'
     : 'kb-article-modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
 
   const modalBodyClass = isMobile
@@ -1285,6 +1287,7 @@ const VersionDiffModal = ({ isOpen, onClose, diff }) => {
 const KnowledgeBaseV3 = () => {
   const location = useLocation();
   const { isMobile } = useMobile();
+  const { lockScroll, unlockScroll } = useScrollLock();
   // State Management
   const [categories, setCategories] = useState([]);
   const [articles, setArticles] = useState([]);
@@ -1324,11 +1327,22 @@ const KnowledgeBaseV3 = () => {
   });
 
   useEffect(() => {
-    if (typeof document === 'undefined') return;
+    if (typeof document === 'undefined') return undefined;
     const shouldHideNav = isMobile && (isEditorModalOpen || isDictationModalOpen || dictationEditMode || isViewModalOpen);
     document.body.classList.toggle('kb-modal-open', shouldHideNav);
-    return () => document.body.classList.remove('kb-modal-open');
-  }, [isMobile, isEditorModalOpen, isDictationModalOpen, dictationEditMode, isViewModalOpen]);
+
+    if (!shouldHideNav) {
+      return () => {
+        document.body.classList.remove('kb-modal-open');
+      };
+    }
+
+    lockScroll();
+    return () => {
+      document.body.classList.remove('kb-modal-open');
+      unlockScroll();
+    };
+  }, [isMobile, isEditorModalOpen, isDictationModalOpen, dictationEditMode, isViewModalOpen, lockScroll, unlockScroll]);
   const [diffModalOpen, setDiffModalOpen] = useState(false);
   const [diffPayload, setDiffPayload] = useState(null);
   const [diffLoadingVersion, setDiffLoadingVersion] = useState(null);
@@ -1804,7 +1818,7 @@ const KnowledgeBaseV3 = () => {
     : 'px-6 py-4';
   const dictationBodyClass = `${isMobile ? 'px-5 py-5 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))]' : 'px-6 py-6'} space-y-5 flex-1 overflow-y-auto`;
   const dictationPanelOverlayClass = isMobile
-    ? 'modal-shell kb-dictation-modal fixed inset-0 bg-black/60 flex items-stretch justify-center z-[120000] p-0 overflow-y-auto'
+    ? 'modal-shell kb-modal-shell kb-dictation-modal fixed inset-0 bg-black/60 flex items-stretch justify-center z-[120000] p-0'
     : 'kb-dictation-modal fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4 py-8';
   const dictationPanelClass = isMobile
     ? 'modal-card modal-card--fullscreen kb-dictation-modal__body bg-white w-full max-w-xl min-h-[100dvh] max-h-[100dvh] flex flex-col overflow-hidden'

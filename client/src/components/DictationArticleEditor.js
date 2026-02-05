@@ -113,7 +113,7 @@ const DictationArticleEditor = ({
   if (!isOpen) return null;
 
   const modalMarkup = (
-    <div className="modal-shell kb-dictation-editor fixed inset-0 bg-black/50 flex items-stretch sm:items-center justify-center z-[120000] p-0 sm:p-4 overflow-y-auto">
+    <div className="modal-shell kb-modal-shell kb-dictation-editor fixed inset-0 bg-black/50 flex items-stretch sm:items-center justify-center z-[120000] p-0 sm:p-4">
       <div className="modal-card modal-card--fullscreen kb-dictation-editor__body bg-white rounded-2xl shadow-2xl max-w-4xl w-full sm:my-8 flex flex-col max-h-[100dvh] sm:max-h-[calc(100vh-4rem)] overflow-hidden relative">
         {/* Processing Overlay */}
         {isProcessing && (
