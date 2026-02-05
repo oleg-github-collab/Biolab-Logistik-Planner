@@ -879,18 +879,18 @@ const ArticleEditorModal = ({ article, categories, allTags, onSave, onClose, onD
 
 
   const modalWrapperClass = isMobile
-    ? 'modal-shell fixed inset-0 bg-black/60 flex items-start justify-center z-[10050] px-3 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] overflow-y-auto'
+    ? 'modal-shell fixed inset-0 bg-black/60 flex items-stretch justify-center z-[10050] p-0 overflow-y-auto'
     : 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
 
   const modalBodyClass = isMobile
-    ? 'modal-card bg-white rounded-2xl shadow-2xl w-full max-w-3xl min-h-[calc(100dvh-2rem)] max-h-[calc(100dvh-2rem)] flex flex-col overflow-hidden'
+    ? 'modal-card modal-card--fullscreen bg-white w-full max-w-3xl min-h-[100dvh] max-h-[100dvh] flex flex-col overflow-hidden'
     : 'bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[calc(100vh-4rem)] my-8 flex flex-col overflow-hidden';
 
   const modalMarkup = (
     <div className={modalWrapperClass}>
       <div className={modalBodyClass}>
         {/* Header */}
-        <div className={`flex items-center justify-between p-6 border-b border-gray-200 ${isMobile ? 'sticky top-0 bg-white z-10' : ''}`}>
+        <div className={`flex items-center justify-between p-6 border-b border-gray-200 ${isMobile ? 'sticky top-0 bg-white z-10 pt-[calc(env(safe-area-inset-top,0px)+1.5rem)]' : ''}`}>
           <h2 className="text-2xl font-bold text-gray-900">
             {isEditing ? 'Artikel bearbeiten' : 'Neuer Artikel'}
           </h2>
@@ -1794,13 +1794,15 @@ const KnowledgeBaseV3 = () => {
     }
   };
 
-  const dictationHeaderPadding = isMobile ? 'px-5 py-4' : 'px-6 py-4';
-  const dictationBodyClass = `${isMobile ? 'px-5 py-5' : 'px-6 py-6'} space-y-5 flex-1 overflow-y-auto`;
+  const dictationHeaderPadding = isMobile
+    ? 'px-5 py-4 pt-[calc(env(safe-area-inset-top,0px)+1rem)]'
+    : 'px-6 py-4';
+  const dictationBodyClass = `${isMobile ? 'px-5 py-5 pb-[calc(6rem+env(safe-area-inset-bottom,0px))]' : 'px-6 py-6'} space-y-5 flex-1 overflow-y-auto`;
   const dictationPanelOverlayClass = isMobile
-    ? 'modal-base active'
+    ? 'modal-shell fixed inset-0 bg-black/60 flex items-stretch justify-center z-[10050] p-0 overflow-y-auto'
     : 'fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4 py-8';
   const dictationPanelClass = isMobile
-    ? 'bottom-sheet max-h-[calc(100dvh-2rem)] w-full flex flex-col overflow-hidden'
+    ? 'modal-card modal-card--fullscreen bg-white w-full max-w-xl min-h-[100dvh] max-h-[100dvh] flex flex-col overflow-hidden'
     : 'bg-white rounded-3xl w-full max-w-xl max-h-[calc(100vh-4rem)] shadow-2xl flex flex-col overflow-hidden';
   const dictationContent = (
     <div className="flex flex-col h-full relative">
@@ -2279,14 +2281,16 @@ const KnowledgeBaseV3 = () => {
           </button>
         </div>
       )}
-      {isDictationModalOpen && (
-        <div className={dictationPanelOverlayClass}>
-          {isMobile && <div className="backdrop active" aria-hidden="true" />}
-          <div className={`${dictationPanelClass} flex flex-col ${isMobile ? 'h-full' : ''}`}>
-            {isMobile && <div className="pull-handle" aria-hidden="true" />}
+      {isDictationModalOpen && typeof document !== 'undefined' && createPortal(
+        <div className={dictationPanelOverlayClass} onClick={closeDictationModal}>
+          <div
+            className={`${dictationPanelClass} flex flex-col`}
+            onClick={(event) => event.stopPropagation()}
+          >
             {dictationContent}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Dictation Article Editor */}

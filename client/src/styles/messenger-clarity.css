@@ -848,8 +848,8 @@ body.messenger-page .group-settings-delete {
   flex: 1 1 140px;
   min-height: 44px;
   border-radius: 14px;
-  border: none;
-  font-weight: 700;
+  border: none !important;
+  font-weight: 700 !important;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -862,20 +862,21 @@ body.messenger-page .group-settings-delete {
 }
 
 .voice-recorder-sheet__stop {
-  background: linear-gradient(90deg, #ef4444, #dc2626);
-  color: #ffffff;
-  box-shadow: 0 12px 22px rgba(239, 68, 68, 0.28);
+  background: linear-gradient(90deg, #ef4444, #dc2626) !important;
+  color: #ffffff !important;
+  box-shadow: 0 12px 22px rgba(239, 68, 68, 0.28) !important;
+  flex: 1 1 100%;
 }
 
 .voice-recorder-sheet__play {
-  background: #e2e8f0;
-  color: #0f172a;
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
 }
 
 .voice-recorder-sheet__send {
-  background: linear-gradient(90deg, #2563eb, #3b82f6);
-  color: #ffffff;
-  box-shadow: 0 12px 22px rgba(59, 130, 246, 0.25);
+  background: linear-gradient(90deg, #2563eb, #3b82f6) !important;
+  color: #ffffff !important;
+  box-shadow: 0 12px 22px rgba(59, 130, 246, 0.25) !important;
 }
 
 @media (min-width: 768px) {

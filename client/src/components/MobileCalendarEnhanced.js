@@ -139,8 +139,8 @@ const MobileCalendarEnhanced = ({
   const renderHeader = () => (
     <div className="mobile-calendar-native__header bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
       {/* Date navigation */}
-      <div className="mobile-calendar-native__nav flex items-center justify-between p-4">
-        <div className="flex items-center gap-2">
+      <div className="mobile-calendar-native__nav flex flex-wrap items-center justify-between gap-3 p-4">
+        <div className="mobile-calendar-native__nav-left flex items-center gap-2">
           <button
             onClick={handlePrevious}
             className="mobile-calendar-native__nav-btn p-2 rounded-xl hover:bg-slate-100 transition-all active:scale-95"

@@ -41,10 +41,16 @@
 
   /* Kanban modal - full height with sticky header */
   .kanban-task-modal {
-    max-height: calc(100dvh - 32px) !important;
-    border-radius: 22px !important;
+    max-height: 100dvh !important;
+    height: 100dvh !important;
+    border-radius: 0 !important;
     background: #ffffff !important;
     color: #0f172a !important;
+  }
+
+  .kanban-task-modal__shell {
+    padding: 0 !important;
+    align-items: stretch !important;
   }
 
   .kanban-task-modal__header {
@@ -55,6 +61,7 @@
     max-height: none !important;
     min-height: 0 !important;
     margin: 0 !important;
+    padding-top: calc(16px + env(safe-area-inset-top, 0)) !important;
   }
 
   .kanban-task-modal label {
@@ -156,6 +163,13 @@
     min-height: 120px !important;
   }
 
+  .kanban-task-modal audio {
+    width: 100% !important;
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 12px !important;
+  }
+
   .kanban-task-modal .modal-scroll {
     padding-top: 0 !important;
     display: block !important;
@@ -163,6 +177,11 @@
 
   .kanban-task-modal .modal-scroll > .grid {
     margin-top: 0 !important;
+  }
+
+  .kanban-task-modal__form {
+    padding-top: 12px !important;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0)) !important;
   }
 
 }

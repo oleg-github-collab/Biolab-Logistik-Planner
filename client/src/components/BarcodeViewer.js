@@ -126,14 +126,14 @@ const BarcodeViewer = ({ isOpen, onClose, date }) => {
 
   const currentBin = bins[currentIndex];
   const containerClass = isMobile
-    ? 'relative w-full h-full bg-gradient-to-br from-white via-blue-50/30 to-indigo-50/30 rounded-none shadow-2xl overflow-hidden border border-gray-200/50 flex flex-col'
+    ? 'relative w-full h-[100dvh] max-h-[100dvh] bg-gradient-to-br from-white via-blue-50/30 to-indigo-50/30 rounded-none shadow-2xl overflow-hidden border border-gray-200/50 flex flex-col'
     : 'relative w-full max-w-4xl bg-gradient-to-br from-white via-blue-50/30 to-indigo-50/30 rounded-3xl shadow-2xl overflow-hidden border border-gray-200/50 max-h-[90vh] flex flex-col';
 
   return (
-    <div className={`fixed inset-0 z-50 flex justify-center bg-black/80 backdrop-blur-sm animate-fadeIn ${isMobile ? 'items-stretch p-0' : 'items-center p-4'}`}>
+    <div className={`fixed inset-0 z-[12050] flex justify-center bg-black/80 backdrop-blur-sm animate-fadeIn ${isMobile ? 'items-stretch p-0' : 'items-center p-4'}`}>
       <div className={containerClass}>
         {/* Premium Header */}
-        <div className="relative bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 px-6 py-5 border-b border-white/20">
+        <div className="relative bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 px-6 py-5 border-b border-white/20 pt-[calc(env(safe-area-inset-top,0px)+1rem)]">
           <div className="absolute inset-0 bg-black/10"></div>
           <div className="relative z-10 flex items-center justify-between">
             <div>
@@ -167,7 +167,7 @@ const BarcodeViewer = ({ isOpen, onClose, date }) => {
 
         {/* Content */}
         <div
-          className="flex-1 overflow-y-auto p-5 sm:p-8"
+          className="flex-1 overflow-y-auto p-5 sm:p-8 pb-[calc(2.5rem+env(safe-area-inset-bottom,0px))]"
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}
@@ -267,7 +267,7 @@ const BarcodeViewer = ({ isOpen, onClose, date }) => {
 
         {/* Premium Navigation */}
         {bins.length > 1 && (
-          <div className="relative bg-white/80 backdrop-blur-md px-6 py-4 flex items-center justify-between border-t border-gray-200/50">
+          <div className="relative bg-white/80 backdrop-blur-md px-6 py-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] flex items-center justify-between border-t border-gray-200/50">
             <button
               onClick={handlePrev}
               disabled={currentIndex === 0}

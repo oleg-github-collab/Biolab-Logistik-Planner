@@ -57,6 +57,11 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
     }).filter((attachment) => Boolean(attachment.url));
   }, [task]);
 
+  const existingAudio = useMemo(
+    () => normalizedAttachments.find((attachment) => attachment.type === 'audio'),
+    [normalizedAttachments]
+  );
+
   useEffect(() => {
     if (task) {
       setFormData({
@@ -114,7 +119,7 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
   if (!isOpen) return null;
 
   return (
-    <div className="modal-shell fixed inset-0 z-[10050] flex items-start justify-center px-3 pt-4 pb-6 sm:items-center sm:py-6 sm:px-6">
+    <div className="modal-shell kanban-task-modal__shell fixed inset-0 z-[10050] flex items-start justify-center px-3 pt-4 pb-6 sm:items-center sm:py-6 sm:px-6">
       <div
         className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
         onClick={onClose}
@@ -142,7 +147,7 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="modal-scroll px-5 sm:px-7 py-4 sm:py-6 space-y-4 sm:space-y-6">
+        <form onSubmit={handleSubmit} className="modal-scroll kanban-task-modal__form px-5 sm:px-7 py-4 sm:py-6 space-y-4 sm:space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-4 sm:gap-6">
             <div className="space-y-4 sm:space-y-5">
               <div>
@@ -201,7 +206,7 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
                             key={key}
                             className="rounded-2xl border border-slate-200 bg-slate-100 p-3 shadow-inner"
                           >
-                            <p className="text-xs text-slate-600 mb-2 truncate">
+                            <p className="text-xs text-slate-700 mb-2 truncate">
                               {attachment.name || 'Audio'}
                             </p>
                             <audio controls src={attachment.url} className="w-full rounded-lg border border-slate-200 bg-white" />
@@ -341,14 +346,14 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
               </div>
 
               {/* Voice Instruction */}
-              <div>
-                <VoiceRecorder
-                  onRecordingComplete={handleVoiceRecording}
-                  existingAudioUrl={
-                    normalizedAttachments.find(a => a.type === 'audio')?.url
-                  }
-                />
-              </div>
+              {!task || !existingAudio ? (
+                <div>
+                  <VoiceRecorder
+                    onRecordingComplete={handleVoiceRecording}
+                    existingAudioUrl={existingAudio?.url}
+                  />
+                </div>
+              ) : null}
             </div>
           </div>
 

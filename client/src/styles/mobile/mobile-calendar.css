@@ -13,6 +13,10 @@
     background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 40%, #f8fafc 100%);
     position: relative;
     overflow: hidden;
+    min-height: 100dvh;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
   }
 
   .mobile-calendar-native::before {
@@ -35,6 +39,7 @@
 
   .mobile-calendar-native__nav {
     padding: 16px 16px 10px;
+    gap: 10px;
   }
 
   .mobile-calendar-native__nav-btn {
@@ -59,6 +64,11 @@
     font-weight: 800;
     letter-spacing: -0.02em;
     color: var(--cal-ink);
+    flex: 1 1 auto;
+    min-width: 0;
+    text-align: center;
+    line-height: 1.2;
+    word-break: break-word;
   }
 
   .mobile-calendar-native__filter-btn {
@@ -114,6 +124,13 @@
   .mobile-calendar-native__content {
     position: relative;
     z-index: 1;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0));
   }
 
   .mobile-calendar-native__month-view,
@@ -130,6 +147,35 @@
   .mobile-calendar-native__month-grid {
     gap: 6px;
     padding: 10px 12px 20px;
+    touch-action: pan-y;
+  }
+
+  .mobile-calendar-native__list-view,
+  .mobile-calendar-native__week-view,
+  .mobile-calendar-native__day-view {
+    touch-action: pan-y;
+  }
+
+  @media (max-width: 420px) {
+    .mobile-calendar-native__nav {
+      justify-content: center;
+    }
+
+    .mobile-calendar-native__nav-left {
+      order: 1;
+    }
+
+    .mobile-calendar-native__filter-btn {
+      order: 2;
+      margin-left: auto;
+    }
+
+    .mobile-calendar-native__title {
+      order: 3;
+      width: 100%;
+      text-align: center;
+      font-size: 1rem;
+    }
   }
 
   .mobile-calendar-native__day {
@@ -851,10 +897,10 @@
     -webkit-backdrop-filter: blur(16px);
     z-index: 12050;
     display: flex;
-    align-items: flex-start;
+    align-items: stretch;
     justify-content: center;
     overflow-y: auto;
-    padding: env(safe-area-inset-top, 0) 0 0 0;
+    padding: 0;
     animation: fadeInBackdrop 0.3s ease;
   }
 
@@ -893,7 +939,7 @@
      ========================================== */
 
   .modal-header-mobile {
-    padding: 28px 24px 18px;
+    padding: calc(env(safe-area-inset-top, 0) + 20px) 24px 18px;
     border-bottom: 1px solid rgba(15, 23, 42, 0.08);
     display: flex;
     justify-content: space-between;

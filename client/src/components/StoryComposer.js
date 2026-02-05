@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Upload, Image as ImageIcon, Loader2, Camera } from 'lucide-react';
+import { X, Upload, Image as ImageIcon, Loader2, Camera, RefreshCcw } from 'lucide-react';
 import { uploadProfileStory } from '../utils/apiEnhanced';
+import { useMobile } from '../hooks/useMobile';
 import '../styles/story-composer.css';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
@@ -14,6 +15,9 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
   const [stream, setStream] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const [cameraError, setCameraError] = useState('');
+  const [cameraFacingMode, setCameraFacingMode] = useState('user');
+  const [mobileReview, setMobileReview] = useState(false);
+  const { isMobile } = useMobile();
   const fileInputRef = useRef(null);
   const captionRef = useRef(null);
   const videoRef = useRef(null);
@@ -47,6 +51,7 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
     }
 
     setSelectedFile(file);
+    setMobileReview(false);
     const reader = new FileReader();
     reader.onload = (e) => {
       setPreview(e.target.result);
@@ -116,13 +121,14 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
     setSelectedFile(null);
     setPreview(null);
     setCaption('');
+    setMobileReview(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
     setIsDragging(false);
   };
 
-  const handleCameraClick = async () => {
+  const startCameraStream = async (facingMode = 'user') => {
     setCameraError('');
     if (!navigator.mediaDevices?.getUserMedia) {
       setCameraError('Browser unterstützt keine Kamera. Bitte wählen Sie ein Foto aus.');
@@ -131,12 +137,12 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
 
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user' }
+        video: { facingMode }
       });
+      setCameraFacingMode(facingMode);
       setStream(mediaStream);
       setShowCamera(true);
 
-      // Wait for next frame to ensure videoRef is ready
       setTimeout(() => {
         if (videoRef.current) {
           videoRef.current.srcObject = mediaStream;
@@ -151,12 +157,49 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
     }
   };
 
+  const handleCameraClick = async () => {
+    await startCameraStream(cameraFacingMode);
+  };
+
+  const handleSwitchCamera = async () => {
+    const nextMode = cameraFacingMode === 'user' ? 'environment' : 'user';
+    if (stream) {
+      stream.getTracks().forEach((track) => track.stop());
+      setStream(null);
+    }
+    await startCameraStream(nextMode);
+  };
+
   const stopCamera = () => {
     if (stream) {
       stream.getTracks().forEach(track => track.stop());
       setStream(null);
     }
     setShowCamera(false);
+  };
+
+  const capturePhoto = () => {
+    if (!videoRef.current || !canvasRef.current) return;
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const width = video.videoWidth || 640;
+    const height = video.videoHeight || 480;
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, width, height);
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const file = new File([blob], `story-${Date.now()}.png`, { type: 'image/png' });
+      setSelectedFile(file);
+      const reader = new FileReader();
+      reader.onload = (e) => setPreview(e.target.result);
+      reader.readAsDataURL(file);
+      if (isMobile) {
+        setMobileReview(true);
+      }
+    }, 'image/png');
+    stopCamera();
   };
 
   useEffect(() => {
@@ -172,6 +215,8 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
   const stepLabel = hasPreview ? 'Schritt 2 von 2' : 'Schritt 1 von 2';
   const stepSubtitle = hasPreview ? 'Beschreibung hinzufügen' : 'Medien auswählen';
   const stepProgress = hasPreview ? 100 : 50;
+  const showInlineCamera = showCamera && !isMobile;
+  const showMobileReview = isMobile && mobileReview && hasPreview;
 
   useEffect(() => {
     if (hasPreview) {
@@ -197,7 +242,36 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
         </div>
 
         <div className="story-composer-body">
-          {!hasPreview ? (
+          {showMobileReview ? (
+            <div className="story-composer-mobile-review">
+              <div className="story-composer-mobile-preview">
+                {selectedFile?.type.startsWith('image/') ? (
+                  <img src={preview} alt="Preview" className="preview-image" />
+                ) : (
+                  <video src={preview} controls className="preview-video" />
+                )}
+              </div>
+              <div className="story-composer-mobile-review-actions">
+                <button
+                  type="button"
+                  className="story-composer-mobile-review-btn primary"
+                  onClick={() => setMobileReview(false)}
+                >
+                  Hinzufügen
+                </button>
+                <button
+                  type="button"
+                  className="story-composer-mobile-review-btn secondary"
+                  onClick={() => {
+                    handleRemovePreview();
+                    handleCameraClick();
+                  }}
+                >
+                  Erneut
+                </button>
+              </div>
+            </div>
+          ) : !hasPreview ? (
             <div
               className={`upload-area${isDragging ? ' dragging' : ''}`}
               onDragEnter={handleDragEnter}
@@ -219,31 +293,14 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
               role="button"
               tabIndex={0}
             >
-              {showCamera && (
+              {showInlineCamera && (
                 <div className="camera-preview">
                   <video ref={videoRef} className="camera-video" autoPlay muted playsInline />
                   <div className="camera-actions">
                     <button
                       type="button"
                       onClick={() => {
-                        if (!videoRef.current || !canvasRef.current) return;
-                        const video = videoRef.current;
-                        const canvas = canvasRef.current;
-                        const width = video.videoWidth || 640;
-                        const height = video.videoHeight || 480;
-                        canvas.width = width;
-                        canvas.height = height;
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(video, 0, 0, width, height);
-                        canvas.toBlob((blob) => {
-                          if (!blob) return;
-                          const file = new File([blob], `story-${Date.now()}.png`, { type: 'image/png' });
-                          setSelectedFile(file);
-                          const reader = new FileReader();
-                          reader.onload = (e) => setPreview(e.target.result);
-                          reader.readAsDataURL(file);
-                        }, 'image/png');
-                        stopCamera();
+                        capturePhoto();
                       }}
                       className="camera-capture-btn"
                     >
@@ -370,32 +427,62 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
           className="hidden"
         />
 
-        <div className="story-composer-footer">
-          <button
-            type="button"
-            onClick={onClose}
-            className="cancel-btn"
-            disabled={uploading}
-          >
-            Abbrechen
-          </button>
-          <button
-            type="button"
-            onClick={handleUpload}
-            className="publish-btn"
-            disabled={!selectedFile || uploading}
-          >
-            {uploading ? (
-              <>
-                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                Wird hochgeladen...
-              </>
-            ) : (
-              'Story veröffentlichen'
-            )}
-          </button>
-        </div>
+        {!showMobileReview && (
+          <div className="story-composer-footer">
+            <button
+              type="button"
+              onClick={onClose}
+              className="cancel-btn"
+              disabled={uploading}
+            >
+              Abbrechen
+            </button>
+            <button
+              type="button"
+              onClick={handleUpload}
+              className="publish-btn"
+              disabled={!selectedFile || uploading}
+            >
+              {uploading ? (
+                <>
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  Wird hochgeladen...
+                </>
+              ) : (
+                'Story veröffentlichen'
+              )}
+            </button>
+          </div>
+        )}
       </div>
+
+      {isMobile && showCamera && (
+        <div className="story-composer-camera-fullscreen" onClick={(event) => event.stopPropagation()}>
+          <div className="story-composer-camera-top">
+            <button
+              type="button"
+              className="story-composer-camera-close"
+              onClick={stopCamera}
+            >
+              <X className="w-5 h-5" />
+              <span>Zurück</span>
+            </button>
+            <button
+              type="button"
+              className="story-composer-camera-switch"
+              onClick={handleSwitchCamera}
+            >
+              <RefreshCcw className="w-5 h-5" />
+              <span>Wechseln</span>
+            </button>
+          </div>
+          <video ref={videoRef} className="story-composer-camera-video" autoPlay muted playsInline />
+          <div className="story-composer-camera-controls">
+            <button type="button" className="story-composer-camera-shutter" onClick={capturePhoto} />
+          </div>
+          <canvas ref={canvasRef} className="hidden" />
+        </div>
+      )}
     </div>
   );
 };

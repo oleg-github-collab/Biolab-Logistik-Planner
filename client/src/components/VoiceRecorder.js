@@ -15,6 +15,11 @@ const VoiceRecorder = ({ onRecordingComplete, existingAudioUrl = null }) => {
   const audioChunksRef = useRef([]);
   const audioRef = useRef(null);
   const timerRef = useRef(null);
+  const recordingStreamRef = useRef(null);
+  const recordingFinalizedRef = useRef(false);
+  const recordingStopTimeoutRef = useRef(null);
+  const recordingStartedAtRef = useRef(null);
+  const recordingMetaRef = useRef({ mime: 'audio/webm', extension: 'webm' });
 
   useEffect(() => {
     if (existingAudioUrl) {
@@ -29,20 +34,81 @@ const VoiceRecorder = ({ onRecordingComplete, existingAudioUrl = null }) => {
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      if (recordingStopTimeoutRef.current) clearTimeout(recordingStopTimeoutRef.current);
+      if (recordingStreamRef.current) {
+        recordingStreamRef.current.getTracks().forEach(track => track.stop());
+        recordingStreamRef.current = null;
+      }
       if (audioUrl && !existingAudioUrl) URL.revokeObjectURL(audioUrl);
     };
   }, [audioUrl, existingAudioUrl]);
 
+  const resolveMimeType = () => {
+    if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported) {
+      return null;
+    }
+    const candidates = [
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/ogg;codecs=opus',
+      'audio/ogg',
+      'audio/mp4'
+    ];
+    return candidates.find((type) => MediaRecorder.isTypeSupported(type)) || null;
+  };
+
+  const finalizeRecording = ({ silent } = {}) => {
+    if (recordingFinalizedRef.current) return;
+    recordingFinalizedRef.current = true;
+    if (recordingStopTimeoutRef.current) {
+      clearTimeout(recordingStopTimeoutRef.current);
+      recordingStopTimeoutRef.current = null;
+    }
+
+    if (audioChunksRef.current.length === 0) {
+      if (!silent) {
+        toast.error('Aufnahme war leer');
+      }
+    } else {
+      const { mime, extension } = recordingMetaRef.current || { mime: 'audio/webm', extension: 'webm' };
+      const blob = new Blob(audioChunksRef.current, { type: mime || 'audio/webm' });
+      const url = URL.createObjectURL(blob);
+      setAudioBlob(blob);
+      setAudioUrl(url);
+    }
+
+    if (recordingStreamRef.current) {
+      recordingStreamRef.current.getTracks().forEach(track => track.stop());
+      recordingStreamRef.current = null;
+    }
+    mediaRecorderRef.current = null;
+  };
+
   const startRecording = async () => {
     try {
+      if (!navigator?.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+        toast.error('Audioaufnahme wird von diesem Gerät nicht unterstützt');
+        return;
+      }
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      recordingStreamRef.current = stream;
+      const mimeType = resolveMimeType();
+      const resolvedMime = mimeType || 'audio/webm';
+      const extension = resolvedMime.includes('ogg')
+        ? 'ogg'
+        : resolvedMime.includes('mp4')
+          ? 'm4a'
+          : 'webm';
+      recordingMetaRef.current = { mime: resolvedMime, extension };
 
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
-      });
+      const mediaRecorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
 
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
+      recordingFinalizedRef.current = false;
+      recordingStartedAtRef.current = Date.now();
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
@@ -51,17 +117,18 @@ const VoiceRecorder = ({ onRecordingComplete, existingAudioUrl = null }) => {
       };
 
       mediaRecorder.onstop = () => {
-        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        const url = URL.createObjectURL(blob);
-        setAudioBlob(blob);
-        setAudioUrl(url);
+        finalizeRecording();
+      };
 
-        stream.getTracks().forEach(track => track.stop());
+      mediaRecorder.onerror = (event) => {
+        console.error('Recording error:', event?.error || event);
+        finalizeRecording({ silent: true });
       };
 
       mediaRecorder.start();
       setIsRecording(true);
       setRecordingTime(0);
+      setIsPaused(false);
 
       timerRef.current = setInterval(() => {
         setRecordingTime(prev => prev + 1);
@@ -75,13 +142,27 @@ const VoiceRecorder = ({ onRecordingComplete, existingAudioUrl = null }) => {
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
+      try {
+        mediaRecorderRef.current.requestData?.();
+        mediaRecorderRef.current.stop();
+      } catch (error) {
+        console.error('Error stopping recorder:', error);
+        finalizeRecording({ silent: true });
+      }
       setIsRecording(false);
       setIsPaused(false);
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
+      if (recordingStopTimeoutRef.current) {
+        clearTimeout(recordingStopTimeoutRef.current);
+      }
+      recordingStopTimeoutRef.current = setTimeout(() => {
+        if (!recordingFinalizedRef.current) {
+          finalizeRecording({ silent: true });
+        }
+      }, 1200);
     }
   };
 
@@ -135,7 +216,7 @@ const VoiceRecorder = ({ onRecordingComplete, existingAudioUrl = null }) => {
   };
 
   return (
-    <div className="voice-recorder bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-4 border border-blue-200">
+    <div className={`voice-recorder bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-4 border border-blue-200${isRecording ? ' is-recording' : ''}${isPlaying ? ' is-playing' : ''}`}>
       <div className="flex items-center justify-between mb-3">
         <label className="text-sm font-semibold text-slate-800 flex items-center gap-2">
           <Mic className="w-4 h-4 text-blue-600" />

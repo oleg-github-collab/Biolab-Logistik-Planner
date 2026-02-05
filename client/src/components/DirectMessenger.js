@@ -1069,6 +1069,9 @@ const DirectMessenger = () => {
   const voicePressActiveRef = useRef(false);
   const recordingTargetRef = useRef('inline');
   const recordingDiscardRef = useRef(false);
+  const recordingMetaRef = useRef({ mime: 'audio/webm', extension: 'webm' });
+  const recordingFinalizedRef = useRef(false);
+  const recordingStopTimeoutRef = useRef(null);
   const audioPreviewRef = useRef(null);
   const audioPreviewUrlsRef = useRef(new Map());
   const uploadCleanupRef = useRef({});
@@ -1223,6 +1226,10 @@ const DirectMessenger = () => {
       }
     } catch (error) {
       console.warn('Failed to stop recorder on unmount', error);
+    }
+    if (recordingStopTimeoutRef.current) {
+      clearTimeout(recordingStopTimeoutRef.current);
+      recordingStopTimeoutRef.current = null;
     }
     recordingStreamRef.current?.getTracks().forEach((track) => track.stop());
     recordingStreamRef.current = null;
@@ -2862,6 +2869,42 @@ const DirectMessenger = () => {
 
   const storyEntries = useMemo(() => Object.values(storiesByUser), [storiesByUser]);
 
+  const finalizeRecording = (options = {}) => {
+    if (recordingFinalizedRef.current) return;
+    recordingFinalizedRef.current = true;
+    if (recordingStopTimeoutRef.current) {
+      clearTimeout(recordingStopTimeoutRef.current);
+      recordingStopTimeoutRef.current = null;
+    }
+
+    const stoppedAt = Date.now();
+    const startedAt = recordingStartedAtRef.current || stoppedAt;
+    const durationSeconds = Math.max(1, Math.round((stoppedAt - startedAt) / 1000));
+    const { mime = 'audio/webm', extension = 'webm' } = recordingMetaRef.current || {};
+
+    if (recordingChunksRef.current.length > 0) {
+      const blob = new Blob(recordingChunksRef.current, { type: mime });
+      const file = new File([blob], `voice_${Date.now()}.${extension}`, { type: mime });
+      file.__audioDuration = durationSeconds;
+      if (!recordingDiscardRef.current && recordingTargetRef.current === 'modal') {
+        const previewUrl = URL.createObjectURL(file);
+        setAudioDraft({ file, url: previewUrl, duration: durationSeconds });
+      } else if (!recordingDiscardRef.current) {
+        setPendingAttachments((prev) => [...prev, file]);
+        if (!options.silent) {
+          showSuccess('Audioaufnahme hinzugefügt');
+        }
+      }
+    }
+
+    recordingStreamRef.current?.getTracks().forEach((track) => track.stop());
+    recordingStreamRef.current = null;
+    mediaRecorderRef.current = null;
+    recordingActiveRef.current = false;
+    setIsRecording(false);
+    recordingDiscardRef.current = false;
+  };
+
   const startRecording = async (target = 'inline') => {
     if (recordingActiveRef.current) {
       return;
@@ -2885,10 +2928,18 @@ const DirectMessenger = () => {
       const selectedType = supportedTypes.find((type) =>
         typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(type)
       );
+      const resolvedMime = selectedType || 'audio/webm';
+      const extension = resolvedMime.includes('ogg')
+        ? 'ogg'
+        : resolvedMime.includes('mp4')
+          ? 'm4a'
+          : 'webm';
+      recordingMetaRef.current = { mime: resolvedMime, extension };
       const recorderOptions = selectedType ? { mimeType: selectedType } : undefined;
       const mediaRecorder = recorderOptions ? new MediaRecorder(stream, recorderOptions) : new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       recordingChunksRef.current = [];
+      recordingFinalizedRef.current = false;
 
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
@@ -2903,34 +2954,7 @@ const DirectMessenger = () => {
       };
 
       mediaRecorder.onstop = async () => {
-        const stoppedAt = Date.now();
-        const startedAt = recordingStartedAtRef.current || stoppedAt;
-        const durationSeconds = Math.max(1, Math.round((stoppedAt - startedAt) / 1000));
-        const resolvedMime = selectedType || 'audio/webm';
-        const extension = resolvedMime.includes('ogg')
-          ? 'ogg'
-          : resolvedMime.includes('mp4')
-            ? 'm4a'
-            : 'webm';
-        if (recordingChunksRef.current.length > 0) {
-          const blob = new Blob(recordingChunksRef.current, { type: resolvedMime });
-          const file = new File([blob], `voice_${Date.now()}.${extension}`, { type: resolvedMime });
-          file.__audioDuration = durationSeconds;
-          if (!recordingDiscardRef.current && recordingTargetRef.current === 'modal') {
-            const previewUrl = URL.createObjectURL(file);
-            setAudioDraft({ file, url: previewUrl, duration: durationSeconds });
-          } else if (!recordingDiscardRef.current) {
-            setPendingAttachments((prev) => [...prev, file]);
-            showSuccess('Audioaufnahme hinzugefügt');
-          }
-        }
-
-        recordingStreamRef.current?.getTracks().forEach((track) => track.stop());
-        recordingStreamRef.current = null;
-        mediaRecorderRef.current = null;
-        recordingActiveRef.current = false;
-        setIsRecording(false);
-        recordingDiscardRef.current = false;
+        finalizeRecording();
       };
 
       mediaRecorder.start();
@@ -2952,12 +2976,21 @@ const DirectMessenger = () => {
     }
     if (recordingActiveRef.current || isRecording) {
       try {
+        mediaRecorderRef.current.requestData?.();
         mediaRecorderRef.current.stop();
       } catch (error) {
         console.error('Error stopping recording:', error);
       }
       recordingActiveRef.current = false;
       setIsRecording(false);
+      if (recordingStopTimeoutRef.current) {
+        clearTimeout(recordingStopTimeoutRef.current);
+      }
+      recordingStopTimeoutRef.current = setTimeout(() => {
+        if (!recordingFinalizedRef.current) {
+          finalizeRecording({ silent: true });
+        }
+      }, 1200);
     }
   };
 
