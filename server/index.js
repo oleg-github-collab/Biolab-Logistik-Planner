@@ -1,5 +1,5 @@
 // Immediate startup logging
-// Build: 2025-01-08 - API routes fix deployed
+// Build: 2026-02-05 v13.13.0 - FORCE REBUILD: Voice recorder, Messenger, Kanban mega update
 console.log('='.repeat(80));
 console.log('🚀 BIOLAB LOGISTIK PLANNER - SERVER STARTING');
 console.log('='.repeat(80));
