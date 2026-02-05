@@ -70,6 +70,16 @@
     letter-spacing: 0.02em !important;
   }
 
+  .kanban-task-modal .text-slate-500,
+  .kanban-task-modal .text-slate-600,
+  .kanban-task-modal .text-slate-700 {
+    color: #475569 !important;
+  }
+
+  .kanban-task-modal .text-slate-900 {
+    color: #0f172a !important;
+  }
+
   .kanban-task-modal input,
   .kanban-task-modal textarea,
   .kanban-task-modal select {
@@ -165,6 +175,7 @@
 
   .kanban-task-modal audio {
     width: 100% !important;
+    display: block !important;
     background: #ffffff !important;
     border: 1px solid #cbd5e1 !important;
     border-radius: 12px !important;

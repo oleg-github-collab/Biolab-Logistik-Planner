@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Calendar, User, Flag, Tag, Clock, Plus, MessageCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import TaskComments from './TaskComments';
@@ -118,8 +119,8 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
 
   if (!isOpen) return null;
 
-  return (
-    <div className="modal-shell kanban-task-modal__shell fixed inset-0 z-[10050] flex items-start justify-center px-3 pt-4 pb-6 sm:items-center sm:py-6 sm:px-6">
+  const modalMarkup = (
+    <div className="modal-shell kanban-task-modal__shell fixed inset-0 z-[120000] flex items-start justify-center px-3 pt-4 pb-6 sm:items-center sm:py-6 sm:px-6">
       <div
         className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
         onClick={onClose}
@@ -387,6 +388,12 @@ const KanbanTaskModal = ({ isOpen, onClose, onSave, task = null, users = [] }) =
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') {
+    return modalMarkup;
+  }
+
+  return createPortal(modalMarkup, document.body);
 };
 
 export default KanbanTaskModal;

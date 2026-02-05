@@ -1,6 +1,6 @@
 {
   "name": "biolab-logistik-planner",
-  "version": "13.13.3",
+  "version": "13.14.0",
   "description": "Biolab Logistik Planner - Schedule, Messaging and Waste Management",
   "main": "server/index.js",
   "scripts": {

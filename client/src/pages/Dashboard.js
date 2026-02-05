@@ -441,7 +441,7 @@ const Dashboard = () => {
 
       {/* Calendar View */}
       {activeTab === 'calendar' && (
-        <div className={`relative overflow-hidden rounded-3xl bg-white shadow-xl ring-1 ring-slate-100 ${isMobile ? 'p-4' : 'p-6'}`}>
+        <div className={`relative rounded-3xl bg-white shadow-xl ring-1 ring-slate-100 ${isMobile ? 'p-4' : 'p-6 overflow-hidden'}`}>
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <h2 className="text-2xl font-bold text-slate-900">Kalender</h2>

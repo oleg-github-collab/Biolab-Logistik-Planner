@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Upload, Image as ImageIcon, Loader2, Camera, RefreshCcw } from 'lucide-react';
 import { uploadProfileStory } from '../utils/apiEnhanced';
 import { useMobile } from '../hooks/useMobile';
@@ -224,7 +225,7 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
     }
   }, [hasPreview]);
 
-  return (
+  const modalMarkup = (
     <div className="story-composer-overlay" onClick={onClose}>
       <div className="story-composer-modal" onClick={(e) => e.stopPropagation()}>
         <div className="story-composer-header">
@@ -485,6 +486,12 @@ const StoryComposer = ({ userId, onClose, onSuccess, showSuccess, showError }) =
       )}
     </div>
   );
+
+  if (typeof document === 'undefined') {
+    return modalMarkup;
+  }
+
+  return createPortal(modalMarkup, document.body);
 };
 
 export default StoryComposer;

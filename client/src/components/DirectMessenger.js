@@ -6231,9 +6231,9 @@ const DirectMessenger = () => {
   };
 
   const renderAudioRecorderModal = () => {
-    if (!audioRecorderOpen) return null;
+    if (!audioRecorderOpen || typeof document === 'undefined') return null;
 
-    return (
+    return createPortal(
       <div
         className="voice-recorder-overlay"
         role="dialog"
@@ -6289,6 +6289,13 @@ const DirectMessenger = () => {
               <>
                 <button
                   type="button"
+                  className="voice-recorder-sheet__cancel"
+                  onClick={closeAudioRecorder}
+                >
+                  Abbrechen
+                </button>
+                <button
+                  type="button"
                   className="voice-recorder-sheet__play"
                   onClick={toggleAudioPreview}
                   disabled={!audioDraft}
@@ -6309,7 +6316,8 @@ const DirectMessenger = () => {
             )}
           </div>
         </div>
-      </div>
+      </div>,
+      document.body
     );
   };
 

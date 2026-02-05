@@ -14,6 +14,7 @@
     -webkit-overflow-scrolling: touch !important;
     overscroll-behavior: contain !important;
     touch-action: pan-y !important;
+    z-index: 120000 !important;
   }
 
   .modal-card {
@@ -192,7 +193,7 @@
   /* Ensure BaseModal overlays sit above bottom nav */
   .base-modal-portal-root,
   .base-modal-overlay {
-    z-index: 10050 !important;
+    z-index: 120000 !important;
   }
 
   /* Modal header */

@@ -726,7 +726,7 @@ body.messenger-page .group-settings-delete {
   align-items: flex-end;
   justify-content: center;
   padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0));
-  z-index: 10080;
+  z-index: 120000;
 }
 
 .voice-recorder-sheet {
@@ -877,6 +877,11 @@ body.messenger-page .group-settings-delete {
   background: linear-gradient(90deg, #2563eb, #3b82f6) !important;
   color: #ffffff !important;
   box-shadow: 0 12px 22px rgba(59, 130, 246, 0.25) !important;
+}
+
+.voice-recorder-sheet__cancel {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
 }
 
 @media (min-width: 768px) {

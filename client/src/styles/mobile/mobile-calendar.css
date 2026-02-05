@@ -12,11 +12,15 @@
     --cal-accent-2: #0ea5e9;
     background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 40%, #f8fafc 100%);
     position: relative;
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
     min-height: 100dvh;
     height: 100dvh;
     display: flex;
     flex-direction: column;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
   }
 
   .mobile-calendar-native::before {
@@ -124,13 +128,20 @@
   .mobile-calendar-native__content {
     position: relative;
     z-index: 1;
-    flex: 1 1 auto;
+    flex: 0 0 auto;
     min-height: 0;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
-    touch-action: pan-y;
+    overflow: visible;
     padding-bottom: calc(88px + env(safe-area-inset-bottom, 0));
+  }
+
+  main.mobile-scroll-container .mobile-calendar-native {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  main.mobile-scroll-container .mobile-calendar-native__content {
+    overflow: visible !important;
   }
 
   .mobile-calendar-native__month-view,
@@ -895,7 +906,7 @@
     background: rgba(15, 23, 42, 0.65);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    z-index: 12050;
+    z-index: 120000;
     display: flex;
     align-items: stretch;
     justify-content: center;

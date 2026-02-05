@@ -693,10 +693,10 @@ const MobileCalendarEnhanced = ({
   };
 
   return (
-    <div className="mobile-calendar-native flex flex-col h-full bg-slate-50">
+    <div className="mobile-calendar-native flex flex-col bg-slate-50">
       {renderHeader()}
 
-      <div className="mobile-calendar-native__content flex-1 overflow-y-auto">
+      <div className="mobile-calendar-native__content">
         {loading ? (
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full" />
