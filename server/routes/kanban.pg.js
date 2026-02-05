@@ -1,12 +1,45 @@
 const express = require('express');
 const { pool } = require('../config/database');
 const { auth } = require('../middleware/auth');
-const { getIO } = require('../websocket');
+const { getIO, sendNotificationToUser } = require('../websocket');
 const logger = require('../utils/logger');
 const auditLogger = require('../utils/auditLog');
 const { uploadMultiple } = require('../services/fileService');
 
 const router = express.Router();
+
+const createAssignmentNotification = async ({ assignedTo, task, assignedBy }) => {
+  if (!assignedTo || !task) return null;
+  const assignedByName = assignedBy || 'System';
+  const content = `${assignedByName} hat dir die Aufgabe "${task.title}" zugewiesen`;
+  const metadata = {
+    taskId: task.id,
+    taskTitle: task.title,
+    assignedBy: assignedByName,
+    url: '/kanban'
+  };
+
+  const result = await pool.query(
+    `INSERT INTO notifications
+      (user_id, type, title, content, priority, task_id, action_url, metadata)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     RETURNING *`,
+    [assignedTo, 'task_assigned', 'Neue Aufgabe zugewiesen', content, 'normal', task.id, '/kanban', metadata]
+  );
+
+  const notification = result.rows[0];
+  if (notification) {
+    sendNotificationToUser(assignedTo, {
+      ...notification,
+      body: notification.content,
+      data: metadata,
+      metadata
+    });
+  }
+
+  return notification;
+};
+
 
 // ============================================
 // TASKS CRUD - Based on exact DB schema
@@ -167,6 +200,22 @@ router.post('/tasks', auth, async (req, res) => {
       io.emit('task:created', { task });
     }
 
+    if (task.assigned_to) {
+      try {
+        await createAssignmentNotification({
+          assignedTo: task.assigned_to,
+          task,
+          assignedBy: req.user?.name
+        });
+      } catch (notifyError) {
+        logger.warn('Failed to create assignment notification (create)', {
+          taskId: task.id,
+          assignedTo: task.assigned_to,
+          error: notifyError.message
+        });
+      }
+    }
+
     logger.info('Task created', { taskId: task.id, userId: req.user.id });
 
     res.status(201).json(task);
@@ -299,6 +348,22 @@ router.put('/tasks/:id', auth, async (req, res) => {
     const io = getIO();
     if (io) {
       io.emit('task:updated', { task });
+    }
+
+    if (assigned_to && assigned_to !== oldTask.rows[0].assigned_to) {
+      try {
+        await createAssignmentNotification({
+          assignedTo: assigned_to,
+          task,
+          assignedBy: req.user?.name
+        });
+      } catch (notifyError) {
+        logger.warn('Failed to create assignment notification (update)', {
+          taskId: id,
+          assignedTo: assigned_to,
+          error: notifyError.message
+        });
+      }
     }
 
     logger.info('Task updated', { taskId: id, userId: req.user.id });

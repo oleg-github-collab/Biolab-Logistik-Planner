@@ -19,6 +19,7 @@ import {
   fetchTasks,
   createTask,
   updateTask,
+  uploadAttachment,
   getPriorityLabel,
   getPriorityColorClass,
 } from '../utils/kanbanApi';
@@ -213,11 +214,24 @@ const KanbanBoard = () => {
 
   const handleTaskCreated = async (taskData) => {
     try {
+      const { voiceInstruction, ...payload } = taskData || {};
       const newTask = await createTask({
-        ...taskData,
+        ...payload,
         status: createModalStatus,
-        assigned_to: taskData.assigned_to || null,
+        assigned_to: payload.assigned_to || null,
       });
+
+      if (voiceInstruction && newTask?.id) {
+        try {
+          const audioFile = new File([voiceInstruction], `audio-${Date.now()}.webm`, {
+            type: 'audio/webm',
+          });
+          await uploadAttachment(newTask.id, audioFile, 'audio');
+        } catch (uploadError) {
+          console.error('Error uploading voice instruction:', uploadError);
+          toast.error('Audio-Anweisung konnte nicht hochgeladen werden');
+        }
+      }
 
       toast.success('Aufgabe erstellt');
       setShowCreateModal(false);

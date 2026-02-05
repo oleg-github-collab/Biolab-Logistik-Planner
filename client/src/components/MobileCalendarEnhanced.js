@@ -179,7 +179,7 @@ const MobileCalendarEnhanced = ({
           onClick={() => setViewType(VIEW_TYPES.DAY)}
           className={`mobile-calendar-native__view-btn flex-1 py-2 px-3 rounded-lg font-medium text-sm transition ${
             viewType === VIEW_TYPES.DAY
-              ? 'bg-white shadow text-blue-600 is-active'
+              ? 'bg-white text-blue-600 is-active'
               : 'text-slate-600 hover:bg-white/50'
           }`}
         >
@@ -189,7 +189,7 @@ const MobileCalendarEnhanced = ({
           onClick={() => setViewType(VIEW_TYPES.WEEK)}
           className={`mobile-calendar-native__view-btn flex-1 py-2 px-3 rounded-lg font-medium text-sm transition ${
             viewType === VIEW_TYPES.WEEK
-              ? 'bg-white shadow text-blue-600 is-active'
+              ? 'bg-white text-blue-600 is-active'
               : 'text-slate-600 hover:bg-white/50'
           }`}
         >
@@ -199,7 +199,7 @@ const MobileCalendarEnhanced = ({
           onClick={() => setViewType(VIEW_TYPES.MONTH)}
           className={`mobile-calendar-native__view-btn flex-1 py-2 px-3 rounded-lg font-medium text-sm transition ${
             viewType === VIEW_TYPES.MONTH
-              ? 'bg-white shadow text-blue-600 is-active'
+              ? 'bg-white text-blue-600 is-active'
               : 'text-slate-600 hover:bg-white/50'
           }`}
         >
@@ -209,7 +209,7 @@ const MobileCalendarEnhanced = ({
           onClick={() => setViewType(VIEW_TYPES.LIST)}
           className={`mobile-calendar-native__view-btn flex-1 py-2 px-3 rounded-lg font-medium text-sm transition ${
             viewType === VIEW_TYPES.LIST
-              ? 'bg-white shadow text-blue-600 is-active'
+              ? 'bg-white text-blue-600 is-active'
               : 'text-slate-600 hover:bg-white/50'
           }`}
         >
@@ -227,7 +227,7 @@ const MobileCalendarEnhanced = ({
                 onClick={() => setSelectedEventType(type.value)}
                 className={`mobile-calendar-native__filter-chip px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition ${
                   selectedEventType === type.value
-                    ? `${type.color} shadow is-active`
+                    ? `${type.color} is-active`
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >

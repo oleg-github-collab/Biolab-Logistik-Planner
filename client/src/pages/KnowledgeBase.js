@@ -1324,6 +1324,13 @@ const KnowledgeBaseV3 = () => {
     media: [],
     audioComments: []
   });
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const shouldHideNav = isMobile && (isEditorModalOpen || isDictationModalOpen || dictationEditMode || isViewModalOpen);
+    document.body.classList.toggle('kb-modal-open', shouldHideNav);
+    return () => document.body.classList.remove('kb-modal-open');
+  }, [isMobile, isEditorModalOpen, isDictationModalOpen, dictationEditMode, isViewModalOpen]);
   const [diffModalOpen, setDiffModalOpen] = useState(false);
   const [diffPayload, setDiffPayload] = useState(null);
   const [diffLoadingVersion, setDiffLoadingVersion] = useState(null);
@@ -2261,7 +2268,7 @@ const KnowledgeBaseV3 = () => {
       <VersionDiffModal isOpen={diffModalOpen} onClose={handleCloseDiffModal} diff={diffPayload} />
 
       {/* Floating Action Button (Mobile) */}
-      {isMobile && (
+      {isMobile && !(isEditorModalOpen || isDictationModalOpen || dictationEditMode || isViewModalOpen) && (
         <div className="kb-mobile-fab-group">
           <button
             type="button"
