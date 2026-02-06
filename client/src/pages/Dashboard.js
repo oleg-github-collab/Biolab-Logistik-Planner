@@ -566,6 +566,7 @@ const Dashboard = () => {
                 onEventCreate={handleCalendarEventCreate}
                 onViewChange={(view) => console.log('View changed to:', view)}
                 onDateChange={(date) => setSelectedDate(date)}
+                onRangeChange={handleRangeChange}
                 loading={eventsLoading}
               />
             ) : (

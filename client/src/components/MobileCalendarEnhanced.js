@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ChevronLeft,
@@ -62,6 +62,7 @@ const MobileCalendarEnhanced = ({
   onEventCreate,
   onViewChange,
   onDateChange,
+  onRangeChange,
   loading = false
 }) => {
   const navigate = useNavigate();
@@ -116,24 +117,54 @@ const MobileCalendarEnhanced = ({
 
   // Navigation functions
   const handlePrevious = () => {
+    let nextDate = currentDate;
     if (viewType === VIEW_TYPES.MONTH) {
-      setCurrentDate(subMonths(currentDate, 1));
+      nextDate = subMonths(currentDate, 1);
     } else if (viewType === VIEW_TYPES.WEEK) {
-      setCurrentDate(subWeeks(currentDate, 1));
+      nextDate = subWeeks(currentDate, 1);
     }
+    setCurrentDate(nextDate);
+    onDateChange?.(nextDate);
   };
 
   const handleNext = () => {
+    let nextDate = currentDate;
     if (viewType === VIEW_TYPES.MONTH) {
-      setCurrentDate(addMonths(currentDate, 1));
+      nextDate = addMonths(currentDate, 1);
     } else if (viewType === VIEW_TYPES.WEEK) {
-      setCurrentDate(addWeeks(currentDate, 1));
+      nextDate = addWeeks(currentDate, 1);
     }
+    setCurrentDate(nextDate);
+    onDateChange?.(nextDate);
   };
 
   const handleToday = () => {
-    setCurrentDate(new Date());
+    const today = new Date();
+    setCurrentDate(today);
+    onDateChange?.(today);
   };
+
+  useEffect(() => {
+    if (!onRangeChange) return;
+
+    let rangeStart = startOfDay(currentDate);
+    let rangeEnd = endOfDay(currentDate);
+
+    if (viewType === VIEW_TYPES.WEEK) {
+      rangeStart = startOfWeek(currentDate, { weekStartsOn: 1 });
+      rangeEnd = endOfWeek(currentDate, { weekStartsOn: 1 });
+    } else if (viewType === VIEW_TYPES.MONTH) {
+      const monthStart = startOfMonth(currentDate);
+      const monthEnd = endOfMonth(currentDate);
+      rangeStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+      rangeEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
+    } else if (viewType === VIEW_TYPES.LIST) {
+      rangeStart = startOfDay(currentDate);
+      rangeEnd = endOfDay(addWeeks(currentDate, 4));
+    }
+
+    onRangeChange({ start: rangeStart, end: rangeEnd, view: viewType });
+  }, [currentDate, viewType, onRangeChange]);
 
   // Render calendar header
   const renderHeader = () => (
@@ -176,7 +207,10 @@ const MobileCalendarEnhanced = ({
       {/* View switcher */}
       <div className="mobile-calendar-native__views flex gap-1 p-2 bg-slate-50">
         <button
-          onClick={() => setViewType(VIEW_TYPES.DAY)}
+          onClick={() => {
+            setViewType(VIEW_TYPES.DAY);
+            onViewChange?.(VIEW_TYPES.DAY);
+          }}
           className={`mobile-calendar-native__view-btn flex-1 py-2 px-3 rounded-lg font-medium text-sm transition ${
             viewType === VIEW_TYPES.DAY
               ? 'bg-white text-blue-600 is-active'
@@ -186,7 +220,10 @@ const MobileCalendarEnhanced = ({
           Tag
         </button>
         <button
-          onClick={() => setViewType(VIEW_TYPES.WEEK)}
+          onClick={() => {
+            setViewType(VIEW_TYPES.WEEK);
+            onViewChange?.(VIEW_TYPES.WEEK);
+          }}
           className={`mobile-calendar-native__view-btn flex-1 py-2 px-3 rounded-lg font-medium text-sm transition ${
             viewType === VIEW_TYPES.WEEK
               ? 'bg-white text-blue-600 is-active'
@@ -196,7 +233,10 @@ const MobileCalendarEnhanced = ({
           Woche
         </button>
         <button
-          onClick={() => setViewType(VIEW_TYPES.MONTH)}
+          onClick={() => {
+            setViewType(VIEW_TYPES.MONTH);
+            onViewChange?.(VIEW_TYPES.MONTH);
+          }}
           className={`mobile-calendar-native__view-btn flex-1 py-2 px-3 rounded-lg font-medium text-sm transition ${
             viewType === VIEW_TYPES.MONTH
               ? 'bg-white text-blue-600 is-active'
@@ -206,7 +246,10 @@ const MobileCalendarEnhanced = ({
           Monat
         </button>
         <button
-          onClick={() => setViewType(VIEW_TYPES.LIST)}
+          onClick={() => {
+            setViewType(VIEW_TYPES.LIST);
+            onViewChange?.(VIEW_TYPES.LIST);
+          }}
           className={`mobile-calendar-native__view-btn flex-1 py-2 px-3 rounded-lg font-medium text-sm transition ${
             viewType === VIEW_TYPES.LIST
               ? 'bg-white text-blue-600 is-active'
