@@ -191,6 +191,9 @@ export const updateEvent = (id, eventData) =>
 export const deleteEvent = (id) =>
   api.delete(`/schedule/events/${id}`);
 
+export const excludeEventOccurrence = (id, occurrenceDate) =>
+  api.post(`/schedule/events/${id}/exceptions`, { occurrenceDate });
+
 export const getEventStatistics = (timeframe = 'month') =>
   api.get(`/schedule/events/statistics?timeframe=${timeframe}`);
 

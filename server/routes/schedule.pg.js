@@ -547,6 +547,37 @@ function normalizeIsoDate(value) {
   return parsed ? parsed.toISOString() : null;
 }
 
+function normalizeRecurrenceExceptions(value) {
+  if (!value) return [];
+
+  let items = [];
+
+  if (Array.isArray(value)) {
+    items = value;
+  } else if (value instanceof Date) {
+    items = [value];
+  } else if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return [];
+    }
+    try {
+      const parsed = JSON.parse(trimmed);
+      items = Array.isArray(parsed) ? parsed : [trimmed];
+    } catch (error) {
+      items = [trimmed];
+    }
+  } else if (typeof value === 'object') {
+    items = Array.isArray(value) ? value : [value];
+  }
+
+  const normalized = items
+    .map((entry) => formatDateForDB(entry))
+    .filter(Boolean);
+
+  return Array.from(new Set(normalized));
+}
+
 function firstImageUrl(attachments) {
   return attachments.find((file) => file?.type === 'image')?.url || null;
 }
@@ -568,6 +599,7 @@ function transformEventRow(row) {
     attendees,
     all_day: parseBoolean(row.all_day, false),
     is_recurring: parseBoolean(row.is_recurring, false),
+    recurrence_exceptions: normalizeRecurrenceExceptions(row.recurrence_exceptions),
     recurrence_interval: row.recurrence_interval === null || row.recurrence_interval === undefined
       ? null
       : Number(row.recurrence_interval),
@@ -1826,7 +1858,9 @@ router.post('/events', auth, async (req, res) => {
       recurrence_interval,
       recurrenceInterval,
       recurrence_end_date,
-      recurrenceEndDate
+      recurrenceEndDate,
+      recurrence_exceptions,
+      recurrenceExceptions
     } = req.body;
 
     logger.info('Creating calendar event', {
@@ -1907,6 +1941,9 @@ router.post('/events', auth, async (req, res) => {
     const recurrenceEndValue = recurringFlag
       ? normalizeIsoDate(recurrence_end_date || recurrenceEndDate)
       : null;
+    const normalizedExceptions = recurringFlag
+      ? normalizeRecurrenceExceptions(recurrence_exceptions ?? recurrenceExceptions ?? [])
+      : [];
 
     const eventType = (() => {
       const candidate = event_type ?? type;
@@ -1920,14 +1957,14 @@ router.post('/events', auth, async (req, res) => {
         title, description, start_time, end_time, all_day,
         event_type, color, location, attendees, attachments, cover_image,
         priority, status, category, reminder, notes, tags,
-        is_recurring, recurrence_pattern, recurrence_interval, recurrence_end_date,
+        is_recurring, recurrence_pattern, recurrence_interval, recurrence_end_date, recurrence_exceptions,
         created_by, created_at, updated_at
       ) VALUES (
         $1, $2, $3, $4, $5,
         $6, $7, $8, $9::jsonb, $10::jsonb, $11,
         $12, $13, $14, $15, $16, $17::jsonb,
-        $18, $19, $20, $21,
-        $22, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+        $18, $19, $20, $21, $22::jsonb,
+        $23, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       )
       RETURNING *, (SELECT name FROM users WHERE id = calendar_events.created_by) AS created_by_name`,
       [
@@ -1952,6 +1989,7 @@ router.post('/events', auth, async (req, res) => {
         recurrencePatternValue ? String(recurrencePatternValue).trim() || null : null,
         recurrenceIntervalValue,
         recurrenceEndValue,
+        JSON.stringify(normalizedExceptions),
         req.user.id
       ]
     );
@@ -2041,7 +2079,9 @@ router.put('/events/:id', auth, async (req, res) => {
       recurrence_interval,
       recurrenceInterval,
       recurrence_end_date,
-      recurrenceEndDate
+      recurrenceEndDate,
+      recurrence_exceptions,
+      recurrenceExceptions
     } = req.body;
 
     // Check if event exists and user has permission
@@ -2139,6 +2179,10 @@ router.put('/events/:id', auth, async (req, res) => {
     const recurrenceEndValue = recurringFlag
       ? (normalizeIsoDate(recurrence_end_date || recurrenceEndDate) || event.recurrence_end_date || null)
       : null;
+    const rawExceptionsInput = recurrence_exceptions ?? recurrenceExceptions;
+    const normalizedExceptions = recurringFlag
+      ? normalizeRecurrenceExceptions(rawExceptionsInput === undefined ? event.recurrence_exceptions : rawExceptionsInput)
+      : [];
 
     const result = await pool.query(
       `UPDATE calendar_events SET
@@ -2163,8 +2207,9 @@ router.put('/events/:id', auth, async (req, res) => {
         recurrence_pattern = $19,
         recurrence_interval = $20,
         recurrence_end_date = $21,
+        recurrence_exceptions = $22::jsonb,
         updated_at = CURRENT_TIMESTAMP
-      WHERE id = $22
+      WHERE id = $23
       RETURNING *, (SELECT name FROM users WHERE id = calendar_events.created_by) AS created_by_name`,
       [
         normalizedTitle,
@@ -2188,6 +2233,7 @@ router.put('/events/:id', auth, async (req, res) => {
         recurrencePatternValue ? String(recurrencePatternValue).trim() || null : null,
         recurrenceIntervalValue,
         recurrenceEndValue,
+        JSON.stringify(normalizedExceptions),
         id
       ]
     );
@@ -2231,11 +2277,102 @@ router.put('/events/:id', auth, async (req, res) => {
   }
 });
 
+// @route   POST /api/schedule/events/:id/exceptions
+// @desc    Exclude a single occurrence from a recurring event
+router.post('/events/:id/exceptions', auth, async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: 'Ungültige Ereignis-ID' });
+    }
+
+    const occurrenceInput =
+      req.body?.occurrenceDate ??
+      req.body?.occurrence_date ??
+      req.query?.occurrence_date;
+
+    const occurrenceDate = formatDateForDB(occurrenceInput);
+    if (!occurrenceDate) {
+      return res.status(400).json({ error: 'Ungültiges Vorkommensdatum' });
+    }
+
+    const existing = await pool.query(
+      'SELECT * FROM calendar_events WHERE id = $1',
+      [id]
+    );
+
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'Ereignis nicht gefunden' });
+    }
+
+    const event = existing.rows[0];
+    if (event.created_by !== req.user.id && req.user.role !== 'admin' && req.user.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Nicht autorisiert' });
+    }
+
+    if (!parseBoolean(event.is_recurring, false)) {
+      return res.status(400).json({ error: 'Ereignis ist nicht wiederkehrend' });
+    }
+
+    const currentExceptions = normalizeRecurrenceExceptions(event.recurrence_exceptions);
+    if (!currentExceptions.includes(occurrenceDate)) {
+      currentExceptions.push(occurrenceDate);
+    }
+
+    const result = await pool.query(
+      `UPDATE calendar_events
+       SET recurrence_exceptions = $1::jsonb,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2
+       RETURNING *, (SELECT name FROM users WHERE id = calendar_events.created_by) AS created_by_name`,
+      [JSON.stringify(currentExceptions), id]
+    );
+
+    const updatedEvent = transformEventRow(result.rows[0]);
+
+    auditLogger.logDataChange('update', req.user.id, 'calendar_event', id, {
+      action: 'exclude_occurrence',
+      occurrence_date: occurrenceDate
+    });
+
+    const io = getIO();
+    if (io) {
+      io.emit('schedule:event_updated', {
+        event: updatedEvent,
+        user: {
+          id: req.user.id,
+          name: req.user.name
+        }
+      });
+    }
+
+    logger.info('Calendar event occurrence excluded', {
+      eventId: id,
+      userId: req.user.id,
+      occurrenceDate
+    });
+
+    res.json({ message: 'Occurrence excluded', occurrence_date: occurrenceDate, event: updatedEvent });
+
+  } catch (error) {
+    logger.error('Error excluding calendar event occurrence', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
 // @route   DELETE /api/schedule/events/:id
 // @desc    Delete calendar event
 router.delete('/events/:id', auth, async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id: rawId } = req.params;
+    const normalizedId = typeof rawId === 'string' && rawId.includes('-occ-')
+      ? rawId.split('-occ-')[0]
+      : rawId;
+    const id = Number.parseInt(normalizedId, 10);
+
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: 'Ungültige Ereignis-ID' });
+    }
 
     // Check if event exists and user has permission
     const existing = await pool.query(
@@ -2272,7 +2409,7 @@ router.delete('/events/:id', auth, async (req, res) => {
       userId: req.user.id
     });
 
-    auditLogger.logDataChange('delete', req.user.id, 'calendar_event', parseInt(id, 10), {});
+    auditLogger.logDataChange('delete', req.user.id, 'calendar_event', id, {});
 
     res.json({ message: 'Event deleted successfully', deletedId: id });
 

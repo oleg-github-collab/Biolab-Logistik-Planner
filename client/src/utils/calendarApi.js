@@ -23,6 +23,7 @@ import {
   createEvent as createEventBase,
   updateEvent as updateEventBase,
   deleteEvent as deleteEventBase,
+  excludeEventOccurrence as excludeEventOccurrenceBase,
   duplicateEvent as duplicateEventBase,
   createBulkEvents as createBulkEventsBase,
 } from './api';
@@ -71,6 +72,45 @@ const normalizeRecurrenceRule = (event) => {
   }
 
   return { pattern: rawPattern, interval };
+};
+
+const normalizeExceptionDates = (value) => {
+  if (!value) return [];
+  let items = [];
+
+  if (Array.isArray(value)) {
+    items = value;
+  } else if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return [];
+    }
+    try {
+      const parsed = JSON.parse(trimmed);
+      items = Array.isArray(parsed) ? parsed : [trimmed];
+    } catch (error) {
+      items = [trimmed];
+    }
+  } else {
+    items = [value];
+  }
+
+  const normalized = items
+    .map((entry) => {
+      if (!entry && entry !== 0) return null;
+      if (typeof entry === 'string') {
+        const trimmed = entry.trim();
+        if (!trimmed) return null;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+          return trimmed;
+        }
+      }
+      const parsed = toDateInstance(entry);
+      return parsed ? format(parsed, 'yyyy-MM-dd') : null;
+    })
+    .filter(Boolean);
+
+  return Array.from(new Set(normalized));
 };
 
 const addByPattern = (date, pattern, interval) => {
@@ -149,6 +189,13 @@ export const expandRecurringEvents = (events, rangeStart, rangeEnd) => {
     const durationMs = Math.max(0, baseEnd.getTime() - baseStart.getTime());
     const { pattern, interval } = normalizeRecurrenceRule(event);
     const recurrenceEnd = event.recurring_end ? new Date(event.recurring_end) : null;
+    const exceptionDates = new Set(
+      normalizeExceptionDates(
+        event.recurrence_exceptions ??
+          event.recurring_exceptions ??
+          event.raw?.recurrence_exceptions
+      )
+    );
     const recurrenceLimit = recurrenceEnd && !Number.isNaN(recurrenceEnd.getTime())
       ? recurrenceEnd
       : null;
@@ -162,6 +209,12 @@ export const expandRecurringEvents = (events, rangeStart, rangeEnd) => {
     }
 
     while (occurrenceStart <= effectiveEnd && safety < 2000) {
+      const occurrenceKey = format(occurrenceStart, 'yyyy-MM-dd');
+      if (exceptionDates.has(occurrenceKey)) {
+        occurrenceStart = addByPattern(occurrenceStart, pattern, interval);
+        safety += 1;
+        continue;
+      }
       const occurrenceEnd = new Date(occurrenceStart.getTime() + durationMs);
       const occurrenceId = `${event.id}-occ-${format(occurrenceStart, 'yyyyMMdd')}`;
       expanded.push({
@@ -294,9 +347,18 @@ export const updateEventWithRefetch = async (eventId, eventData, refetchCallback
  * @param {Function} refetchCallback - Callback to refetch events after deletion
  * @returns {Promise<void>}
  */
-export const deleteEventWithRefetch = async (eventId, refetchCallback) => {
+export const deleteEventWithRefetch = async (eventId, refetchCallback, options = {}) => {
   try {
-    await deleteEventBase(eventId);
+    const scope = options?.scope;
+    if (scope === 'single') {
+      const occurrenceDate = options?.occurrenceDate || options?.occurrence_date;
+      if (!occurrenceDate) {
+        throw new Error('Occurrence date is required for single delete');
+      }
+      await excludeEventOccurrenceBase(eventId, occurrenceDate);
+    } else {
+      await deleteEventBase(eventId);
+    }
 
     // Immediately refetch events to get the latest state from server
     if (refetchCallback && typeof refetchCallback === 'function') {
@@ -378,8 +440,8 @@ export const useCalendarOperations = (refetchCallback) => {
       updateEventWithRefetch(eventId, eventData, refetchCallback),
 
     // Delete operations
-    deleteEvent: (eventId) =>
-      deleteEventWithRefetch(eventId, refetchCallback),
+    deleteEvent: (eventId, options) =>
+      deleteEventWithRefetch(eventId, refetchCallback, options),
 
     // Duplicate operations
     duplicateEvent: (eventId, newDate) =>
@@ -512,6 +574,10 @@ export const transformApiEventToUi = (apiEvent) => {
     ? apiEvent.tags
     : safeParseJsonArray(apiEvent.tags);
 
+  const recurrenceExceptions = Array.isArray(apiEvent.recurrence_exceptions)
+    ? apiEvent.recurrence_exceptions
+    : safeParseJsonArray(apiEvent.recurrence_exceptions);
+
   const recurring = Boolean(apiEvent.is_recurring);
   const rawInterval =
     apiEvent.recurrence_interval ??
@@ -553,6 +619,7 @@ export const transformApiEventToUi = (apiEvent) => {
     recurring_end: recurring && apiEvent.recurrence_end_date
       ? parseEventDate(apiEvent.recurrence_end_date)
       : null,
+    recurrence_exceptions: recurrenceExceptions,
     tags,
     attachments,
     cover_image: apiEvent.cover_image || null,
@@ -639,6 +706,10 @@ export const transformUiEventToApi = (uiEvent) => {
         ? uiEvent.recurring_end.toISOString()
         : new Date(uiEvent.recurring_end).toISOString())
       : null,
+    recurrence_exceptions:
+      uiEvent.recurrence_exceptions ??
+      uiEvent.recurring_exceptions ??
+      undefined,
     priority: uiEvent.priority || 'medium',
     status: uiEvent.status || 'confirmed',
     category: uiEvent.category || 'work',

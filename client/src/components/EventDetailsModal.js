@@ -13,6 +13,7 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
   const user = auth?.user;
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteScope, setDeleteScope] = useState('series');
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [audioRef, setAudioRef] = useState(null);
   const [showImageGallery, setShowImageGallery] = useState(false);
@@ -27,7 +28,8 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
     startTime: safeEvent.startTime || safeEvent.start_time || '',
     endTime: safeEvent.endTime || safeEvent.end_time || '',
     isAllDay: safeEvent.isAllDay ?? safeEvent.all_day ?? false,
-    isRecurring: safeEvent.isRecurring ?? safeEvent.is_recurring ?? false,
+    isRecurring: safeEvent.isRecurring ?? safeEvent.is_recurring ?? safeEvent.recurring ?? false,
+    is_occurrence: safeEvent.is_occurrence ?? safeEvent.isOccurrence ?? false,
     recurrencePattern: safeEvent.recurrencePattern || safeEvent.recurring_pattern || safeEvent.recurrence_pattern,
     recurrenceEndDate: safeEvent.recurrenceEndDate || safeEvent.recurring_end || safeEvent.recurrence_end_date,
     recurrenceInterval:
@@ -92,11 +94,25 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
     return labels[pattern] || pattern;
   };
 
+  const eventDate = safeParseDate(normalizedEvent.date || normalizedEvent.start || normalizedEvent.start_date);
+  const isRecurringEvent = Boolean(normalizedEvent.isRecurring);
+  const occurrenceDate =
+    normalizedEvent.start_date ||
+    safeFormat(eventDate, 'yyyy-MM-dd', { fallback: '' });
+
   const handleDelete = async () => {
     if (!canManage) return;
     setIsDeleting(true);
     try {
-      await onDelete(normalizedEvent.id);
+      const targetId =
+        normalizedEvent.recurrence_parent_id ||
+        normalizedEvent.series_id ||
+        normalizedEvent.id;
+      const shouldDeleteSingle = isRecurringEvent && deleteScope === 'single' && occurrenceDate;
+      const options = shouldDeleteSingle
+        ? { scope: 'single', occurrenceDate }
+        : { scope: 'series' };
+      await onDelete(targetId, options);
       onClose();
     } catch (error) {
       console.error('Error deleting event:', error);
@@ -135,8 +151,6 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
     onClose();
   };
 
-  const eventDate = safeParseDate(normalizedEvent.date || normalizedEvent.start || normalizedEvent.start_date);
-
   const creatorId =
     normalizedEvent.created_by ??
     normalizedEvent.createdBy ??
@@ -149,6 +163,15 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
   const canDelete = canManage && typeof onDelete === 'function';
   const canDuplicate = canManage && typeof onDuplicate === 'function';
   const workHoursMeta = normalizedEvent.raw?.work_hours || normalizedEvent.work_hours;
+
+  useEffect(() => {
+    if (!showDeleteConfirm) return;
+    if (isRecurringEvent) {
+      setDeleteScope('single');
+    } else {
+      setDeleteScope('series');
+    }
+  }, [showDeleteConfirm, isRecurringEvent, normalizedEvent.id]);
 
   useEffect(() => {
     if (!canDelete) {
@@ -570,6 +593,41 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
                   </div>
                 </div>
               </div>
+
+              {isRecurringEvent && (
+                <div className="card-mobile bg-white border-2 border-slate-200 p-4">
+                  <p className="text-sm sm:text-base text-slate-900 font-semibold">
+                    Was möchten Sie löschen?
+                  </p>
+                  <div className="flex flex-col gap-2 mt-3">
+                    <button
+                      onClick={() => setDeleteScope('single')}
+                      className={`w-full rounded-xl border-2 px-4 py-3 text-left text-sm font-semibold transition ${
+                        deleteScope === 'single'
+                          ? 'border-red-400 bg-red-50 text-red-700'
+                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      Nur diesen Termin
+                    </button>
+                    <button
+                      onClick={() => setDeleteScope('series')}
+                      className={`w-full rounded-xl border-2 px-4 py-3 text-left text-sm font-semibold transition ${
+                        deleteScope === 'series'
+                          ? 'border-red-500 bg-red-100 text-red-700'
+                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      Gesamte Serie
+                    </button>
+                  </div>
+                  {deleteScope === 'series' && (
+                    <p className="text-xs text-red-600 mt-2">
+                      Alle zukünftigen Termine dieser Serie werden entfernt.
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div className="flex gap-3">
                 <button

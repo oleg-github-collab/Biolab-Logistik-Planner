@@ -290,11 +290,16 @@ const Dashboard = () => {
   }, [refetchEvents, showToast]);
 
   // Handle event delete
-  const handleEventDelete = useCallback(async (eventId) => {
+  const handleEventDelete = useCallback(async (eventId, options = {}) => {
     try {
       const targetEventId = selectedEvent?.recurrence_parent_id || selectedEvent?.series_id || eventId;
-      await deleteEventWithRefetch(targetEventId, refetchEvents);
-      showToast({ type: 'success', title: 'Termin gelöscht' });
+      await deleteEventWithRefetch(targetEventId, refetchEvents, options);
+      const deletedScope = options?.scope === 'single';
+      showToast({
+        type: 'success',
+        title: 'Termin gelöscht',
+        message: deletedScope ? 'Nur diese Instanz wurde entfernt.' : undefined
+      });
       setShowEventDetailsModal(false);
       setSelectedEvent(null);
     } catch (err) {
