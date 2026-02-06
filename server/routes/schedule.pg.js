@@ -12,9 +12,12 @@ const router = express.Router();
 // Helper functions
 const FLEXIBLE_TIME_REGEX = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
 let scheduleTemplateSchemaReady = false;
-let recurrenceExceptionsColumnCache = {
+let calendarEventsColumnCache = {
   checkedAt: 0,
-  exists: null
+  columns: {
+    recurrence_interval: null,
+    recurrence_exceptions: null
+  }
 };
 
 // Use workingDaysService for Monday calculation (more reliable)
@@ -77,28 +80,37 @@ function parseBoolean(value, fallback = false) {
   return fallback;
 }
 
-async function hasRecurrenceExceptionsColumn() {
+async function getCalendarEventsColumnState() {
   const now = Date.now();
-  if (recurrenceExceptionsColumnCache.exists !== null && now - recurrenceExceptionsColumnCache.checkedAt < 5 * 60 * 1000) {
-    return recurrenceExceptionsColumnCache.exists;
+  const cached = calendarEventsColumnCache;
+  if (
+    cached.columns.recurrence_interval !== null &&
+    cached.columns.recurrence_exceptions !== null &&
+    now - cached.checkedAt < 5 * 60 * 1000
+  ) {
+    return { ...cached.columns };
   }
 
   try {
     const result = await pool.query(
-      `SELECT 1
+      `SELECT column_name
        FROM information_schema.columns
        WHERE table_schema = 'public'
          AND table_name = 'calendar_events'
-         AND column_name = 'recurrence_exceptions'
-       LIMIT 1`
+         AND column_name IN ('recurrence_interval', 'recurrence_exceptions')`
     );
-    const exists = result.rowCount > 0;
-    recurrenceExceptionsColumnCache = { checkedAt: now, exists };
-    return exists;
+    const columns = new Set(result.rows.map((row) => row.column_name));
+    const state = {
+      recurrence_interval: columns.has('recurrence_interval'),
+      recurrence_exceptions: columns.has('recurrence_exceptions')
+    };
+    calendarEventsColumnCache = { checkedAt: now, columns: state };
+    return state;
   } catch (error) {
-    logger.warn('Failed to check recurrence_exceptions column', { message: error.message });
-    recurrenceExceptionsColumnCache = { checkedAt: now, exists: false };
-    return false;
+    logger.warn('Failed to check calendar_events columns', { message: error.message });
+    const fallback = { recurrence_interval: false, recurrence_exceptions: false };
+    calendarEventsColumnCache = { checkedAt: now, columns: fallback };
+    return fallback;
   }
 }
 
@@ -1981,89 +1993,76 @@ router.post('/events', auth, async (req, res) => {
       return cleaned || 'meeting';
     })();
 
-    const hasExceptionsColumn = await hasRecurrenceExceptionsColumn();
-    const insertQuery = hasExceptionsColumn
-      ? `INSERT INTO calendar_events (
-          title, description, start_time, end_time, all_day,
-          event_type, color, location, attendees, attachments, cover_image,
-          priority, status, category, reminder, notes, tags,
-          is_recurring, recurrence_pattern, recurrence_interval, recurrence_end_date, recurrence_exceptions,
-          created_by, created_at, updated_at
-        ) VALUES (
-          $1, $2, $3, $4, $5,
-          $6, $7, $8, $9::jsonb, $10::jsonb, $11,
-          $12, $13, $14, $15, $16, $17::jsonb,
-          $18, $19, $20, $21, $22::jsonb,
-          $23, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
-        )
-        RETURNING *, (SELECT name FROM users WHERE id = calendar_events.created_by) AS created_by_name`
-      : `INSERT INTO calendar_events (
-          title, description, start_time, end_time, all_day,
-          event_type, color, location, attendees, attachments, cover_image,
-          priority, status, category, reminder, notes, tags,
-          is_recurring, recurrence_pattern, recurrence_interval, recurrence_end_date,
-          created_by, created_at, updated_at
-        ) VALUES (
-          $1, $2, $3, $4, $5,
-          $6, $7, $8, $9::jsonb, $10::jsonb, $11,
-          $12, $13, $14, $15, $16, $17::jsonb,
-          $18, $19, $20, $21,
-          $22, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
-        )
-        RETURNING *, (SELECT name FROM users WHERE id = calendar_events.created_by) AS created_by_name`;
+    const columnState = await getCalendarEventsColumnState();
+    const columns = [
+      'title',
+      'description',
+      'start_time',
+      'end_time',
+      'all_day',
+      'event_type',
+      'color',
+      'location',
+      'attendees',
+      'attachments',
+      'cover_image',
+      'priority',
+      'status',
+      'category',
+      'reminder',
+      'notes',
+      'tags',
+      'is_recurring',
+      'recurrence_pattern'
+    ];
 
-    const insertValues = hasExceptionsColumn
-      ? [
-          normalizedTitle,
-          description ? String(description).trim() : null,
-          startTimestamp,
-          endTimestamp,
-          computedAllDay,
-          eventType,
-          color ? String(color).trim() : null,
-          location ? String(location).trim() : null,
-          JSON.stringify(normalizedAttendees),
-          JSON.stringify(normalizedAttachments),
-          coverImage,
-          normalizedPriority,
-          normalizedStatus,
-          normalizedCategory,
-          normalizedReminder,
-          sanitizedNotes,
-          JSON.stringify(normalizedTags),
-          recurringFlag,
-          recurrencePatternValue ? String(recurrencePatternValue).trim() || null : null,
-          recurrenceIntervalValue,
-          recurrenceEndValue,
-          JSON.stringify(normalizedExceptions),
-          req.user.id
-        ]
-      : [
-          normalizedTitle,
-          description ? String(description).trim() : null,
-          startTimestamp,
-          endTimestamp,
-          computedAllDay,
-          eventType,
-          color ? String(color).trim() : null,
-          location ? String(location).trim() : null,
-          JSON.stringify(normalizedAttendees),
-          JSON.stringify(normalizedAttachments),
-          coverImage,
-          normalizedPriority,
-          normalizedStatus,
-          normalizedCategory,
-          normalizedReminder,
-          sanitizedNotes,
-          JSON.stringify(normalizedTags),
-          recurringFlag,
-          recurrencePatternValue ? String(recurrencePatternValue).trim() || null : null,
-          recurrenceIntervalValue,
-          recurrenceEndValue,
-          req.user.id
-        ];
+    const values = [
+      normalizedTitle,
+      description ? String(description).trim() : null,
+      startTimestamp,
+      endTimestamp,
+      computedAllDay,
+      eventType,
+      color ? String(color).trim() : null,
+      location ? String(location).trim() : null,
+      JSON.stringify(normalizedAttendees),
+      JSON.stringify(normalizedAttachments),
+      coverImage,
+      normalizedPriority,
+      normalizedStatus,
+      normalizedCategory,
+      normalizedReminder,
+      sanitizedNotes,
+      JSON.stringify(normalizedTags),
+      recurringFlag,
+      recurrencePatternValue ? String(recurrencePatternValue).trim() || null : null
+    ];
 
-    const result = await pool.query(insertQuery, insertValues);
+    if (columnState.recurrence_interval) {
+      columns.push('recurrence_interval');
+      values.push(recurrenceIntervalValue);
+    }
+
+    columns.push('recurrence_end_date');
+    values.push(recurrenceEndValue);
+
+    if (columnState.recurrence_exceptions) {
+      columns.push('recurrence_exceptions');
+      values.push(JSON.stringify(normalizedExceptions));
+    }
+
+    columns.push('created_by', 'created_at', 'updated_at');
+    values.push(req.user.id);
+
+    const placeholders = values.map((_, idx) => `$${idx + 1}`).join(', ');
+    const insertQuery = `INSERT INTO calendar_events (
+        ${columns.join(', ')}
+      ) VALUES (
+        ${placeholders}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+      )
+      RETURNING *, (SELECT name FROM users WHERE id = calendar_events.created_by) AS created_by_name`;
+
+    const result = await pool.query(insertQuery, values);
 
     const newEvent = transformEventRow(result.rows[0]);
 
@@ -2255,111 +2254,51 @@ router.put('/events/:id', auth, async (req, res) => {
       ? normalizeRecurrenceExceptions(rawExceptionsInput === undefined ? event.recurrence_exceptions : rawExceptionsInput)
       : [];
 
-    const hasExceptionsColumn = await hasRecurrenceExceptionsColumn();
-    const updateQuery = hasExceptionsColumn
-      ? `UPDATE calendar_events SET
-          title = $1,
-          description = $2,
-          start_time = $3,
-          end_time = $4,
-          all_day = $5,
-          event_type = $6,
-          color = $7,
-          location = $8,
-          attendees = $9::jsonb,
-          attachments = $10::jsonb,
-          cover_image = $11,
-          priority = $12,
-          status = $13,
-          category = $14,
-          reminder = $15,
-          notes = $16,
-          tags = $17::jsonb,
-          is_recurring = $18,
-          recurrence_pattern = $19,
-          recurrence_interval = $20,
-          recurrence_end_date = $21,
-          recurrence_exceptions = $22::jsonb,
-          updated_at = CURRENT_TIMESTAMP
-        WHERE id = $23
-        RETURNING *, (SELECT name FROM users WHERE id = calendar_events.created_by) AS created_by_name`
-      : `UPDATE calendar_events SET
-          title = $1,
-          description = $2,
-          start_time = $3,
-          end_time = $4,
-          all_day = $5,
-          event_type = $6,
-          color = $7,
-          location = $8,
-          attendees = $9::jsonb,
-          attachments = $10::jsonb,
-          cover_image = $11,
-          priority = $12,
-          status = $13,
-          category = $14,
-          reminder = $15,
-          notes = $16,
-          tags = $17::jsonb,
-          is_recurring = $18,
-          recurrence_pattern = $19,
-          recurrence_interval = $20,
-          recurrence_end_date = $21,
-          updated_at = CURRENT_TIMESTAMP
-        WHERE id = $22
-        RETURNING *, (SELECT name FROM users WHERE id = calendar_events.created_by) AS created_by_name`;
+    const columnState = await getCalendarEventsColumnState();
+    const updates = [
+      { column: 'title', value: normalizedTitle },
+      { column: 'description', value: description !== undefined ? (description ? String(description).trim() : null) : (event.description || null) },
+      { column: 'start_time', value: startTimestamp },
+      { column: 'end_time', value: endTimestamp },
+      { column: 'all_day', value: computedAllDay },
+      { column: 'event_type', value: eventTypeNormalized },
+      { column: 'color', value: color !== undefined ? (color ? String(color).trim() : null) : (event.color || null) },
+      { column: 'location', value: location !== undefined ? (location ? String(location).trim() : null) : (event.location || null) },
+      { column: 'attendees', value: JSON.stringify(normalizedAttendees), cast: 'jsonb' },
+      { column: 'attachments', value: JSON.stringify(normalizedAttachments), cast: 'jsonb' },
+      { column: 'cover_image', value: coverImage },
+      { column: 'priority', value: normalizedPriority },
+      { column: 'status', value: normalizedStatus },
+      { column: 'category', value: normalizedCategory },
+      { column: 'reminder', value: normalizedReminder },
+      { column: 'notes', value: sanitizedNotes },
+      { column: 'tags', value: JSON.stringify(normalizedTags), cast: 'jsonb' },
+      { column: 'is_recurring', value: recurringFlag },
+      { column: 'recurrence_pattern', value: recurrencePatternValue ? String(recurrencePatternValue).trim() || null : null }
+    ];
 
-    const updateValues = hasExceptionsColumn
-      ? [
-          normalizedTitle,
-          description !== undefined ? (description ? String(description).trim() : null) : (event.description || null),
-          startTimestamp,
-          endTimestamp,
-          computedAllDay,
-          eventTypeNormalized,
-          color !== undefined ? (color ? String(color).trim() : null) : (event.color || null),
-          location !== undefined ? (location ? String(location).trim() : null) : (event.location || null),
-          JSON.stringify(normalizedAttendees),
-          JSON.stringify(normalizedAttachments),
-          coverImage,
-          normalizedPriority,
-          normalizedStatus,
-          normalizedCategory,
-          normalizedReminder,
-          sanitizedNotes,
-          JSON.stringify(normalizedTags),
-          recurringFlag,
-          recurrencePatternValue ? String(recurrencePatternValue).trim() || null : null,
-          recurrenceIntervalValue,
-          recurrenceEndValue,
-          JSON.stringify(normalizedExceptions),
-          id
-        ]
-      : [
-          normalizedTitle,
-          description !== undefined ? (description ? String(description).trim() : null) : (event.description || null),
-          startTimestamp,
-          endTimestamp,
-          computedAllDay,
-          eventTypeNormalized,
-          color !== undefined ? (color ? String(color).trim() : null) : (event.color || null),
-          location !== undefined ? (location ? String(location).trim() : null) : (event.location || null),
-          JSON.stringify(normalizedAttendees),
-          JSON.stringify(normalizedAttachments),
-          coverImage,
-          normalizedPriority,
-          normalizedStatus,
-          normalizedCategory,
-          normalizedReminder,
-          sanitizedNotes,
-          JSON.stringify(normalizedTags),
-          recurringFlag,
-          recurrencePatternValue ? String(recurrencePatternValue).trim() || null : null,
-          recurrenceIntervalValue,
-          recurrenceEndValue,
-          id
-        ];
+    if (columnState.recurrence_interval) {
+      updates.push({ column: 'recurrence_interval', value: recurrenceIntervalValue });
+    }
 
+    updates.push({ column: 'recurrence_end_date', value: recurrenceEndValue });
+
+    if (columnState.recurrence_exceptions) {
+      updates.push({ column: 'recurrence_exceptions', value: JSON.stringify(normalizedExceptions), cast: 'jsonb' });
+    }
+
+    const setFragments = updates.map((item, idx) => {
+      const suffix = item.cast ? `::${item.cast}` : '';
+      return `${item.column} = $${idx + 1}${suffix}`;
+    });
+    const updateValues = updates.map((item) => item.value);
+    const updateQuery = `UPDATE calendar_events SET
+        ${setFragments.join(', ')},
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $${updateValues.length + 1}
+      RETURNING *, (SELECT name FROM users WHERE id = calendar_events.created_by) AS created_by_name`;
+
+    updateValues.push(id);
     const result = await pool.query(updateQuery, updateValues);
 
     const updatedEvent = transformEventRow(result.rows[0]);
@@ -2410,8 +2349,8 @@ router.post('/events/:id/exceptions', auth, async (req, res) => {
       return res.status(400).json({ error: 'Ungültige Ereignis-ID' });
     }
 
-    const hasExceptionsColumn = await hasRecurrenceExceptionsColumn();
-    if (!hasExceptionsColumn) {
+    const columnState = await getCalendarEventsColumnState();
+    if (!columnState.recurrence_exceptions) {
       return res.status(409).json({
         error: 'recurrence_exceptions column missing',
         message: 'Bitte Datenbank-Migration 066 anwenden, um einzelne Vorkommen zu löschen.'
@@ -2610,7 +2549,7 @@ router.post('/events/bulk', auth, async (req, res) => {
       return res.status(400).json({ error: 'Events array is required' });
     }
 
-    const hasExceptionsColumn = await hasRecurrenceExceptionsColumn();
+    const columnState = await getCalendarEventsColumnState();
 
     const client = await getClient();
     try {
@@ -2683,88 +2622,75 @@ router.post('/events/bulk', auth, async (req, res) => {
           return cleaned || 'meeting';
         })();
 
-        const insertQuery = hasExceptionsColumn
-          ? `INSERT INTO calendar_events (
-              title, description, start_time, end_time, all_day,
-              event_type, color, location, attendees, attachments, cover_image,
-              priority, status, category, reminder, notes, tags,
-              is_recurring, recurrence_pattern, recurrence_interval, recurrence_end_date, recurrence_exceptions,
-              created_by, created_at, updated_at
-            ) VALUES (
-              $1, $2, $3, $4, $5,
-              $6, $7, $8, $9::jsonb, $10::jsonb, $11,
-              $12, $13, $14, $15, $16, $17::jsonb,
-              $18, $19, $20, $21, $22::jsonb,
-              $23, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
-            )
-            RETURNING *, (SELECT name FROM users WHERE id = calendar_events.created_by) AS created_by_name`
-          : `INSERT INTO calendar_events (
-              title, description, start_time, end_time, all_day,
-              event_type, color, location, attendees, attachments, cover_image,
-              priority, status, category, reminder, notes, tags,
-              is_recurring, recurrence_pattern, recurrence_interval, recurrence_end_date,
-              created_by, created_at, updated_at
-            ) VALUES (
-              $1, $2, $3, $4, $5,
-              $6, $7, $8, $9::jsonb, $10::jsonb, $11,
-              $12, $13, $14, $15, $16, $17::jsonb,
-              $18, $19, $20, $21,
-              $22, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
-            )
-            RETURNING *, (SELECT name FROM users WHERE id = calendar_events.created_by) AS created_by_name`;
+        const columns = [
+          'title',
+          'description',
+          'start_time',
+          'end_time',
+          'all_day',
+          'event_type',
+          'color',
+          'location',
+          'attendees',
+          'attachments',
+          'cover_image',
+          'priority',
+          'status',
+          'category',
+          'reminder',
+          'notes',
+          'tags',
+          'is_recurring',
+          'recurrence_pattern'
+        ];
 
-        const insertValues = hasExceptionsColumn
-          ? [
-              title,
-              event.description ? String(event.description).trim() : null,
-              startTimestamp,
-              endTimestamp,
-              computedAllDay,
-              eventType,
-              event.color ? String(event.color).trim() : null,
-              event.location ? String(event.location).trim() : null,
-              JSON.stringify(normalizedAttendees),
-              JSON.stringify(normalizedAttachments),
-              coverImage,
-              normalizedPriority,
-              normalizedStatus,
-              normalizedCategory,
-              normalizedReminder,
-              sanitizedNotes,
-              JSON.stringify(normalizedTags),
-              recurringFlag,
-              recurrencePatternValue ? String(recurrencePatternValue).trim() || null : null,
-              recurrenceIntervalValue,
-              recurrenceEndValue,
-              JSON.stringify(normalizeRecurrenceExceptions(event.recurrence_exceptions ?? event.recurrenceExceptions ?? [])),
-              req.user.id
-            ]
-          : [
-              title,
-              event.description ? String(event.description).trim() : null,
-              startTimestamp,
-              endTimestamp,
-              computedAllDay,
-              eventType,
-              event.color ? String(event.color).trim() : null,
-              event.location ? String(event.location).trim() : null,
-              JSON.stringify(normalizedAttendees),
-              JSON.stringify(normalizedAttachments),
-              coverImage,
-              normalizedPriority,
-              normalizedStatus,
-              normalizedCategory,
-              normalizedReminder,
-              sanitizedNotes,
-              JSON.stringify(normalizedTags),
-              recurringFlag,
-              recurrencePatternValue ? String(recurrencePatternValue).trim() || null : null,
-              recurrenceIntervalValue,
-              recurrenceEndValue,
-              req.user.id
-            ];
+        const values = [
+          title,
+          event.description ? String(event.description).trim() : null,
+          startTimestamp,
+          endTimestamp,
+          computedAllDay,
+          eventType,
+          event.color ? String(event.color).trim() : null,
+          event.location ? String(event.location).trim() : null,
+          JSON.stringify(normalizedAttendees),
+          JSON.stringify(normalizedAttachments),
+          coverImage,
+          normalizedPriority,
+          normalizedStatus,
+          normalizedCategory,
+          normalizedReminder,
+          sanitizedNotes,
+          JSON.stringify(normalizedTags),
+          recurringFlag,
+          recurrencePatternValue ? String(recurrencePatternValue).trim() || null : null
+        ];
 
-        const result = await client.query(insertQuery, insertValues);
+        if (columnState.recurrence_interval) {
+          columns.push('recurrence_interval');
+          values.push(recurrenceIntervalValue);
+        }
+
+        columns.push('recurrence_end_date');
+        values.push(recurrenceEndValue);
+
+        if (columnState.recurrence_exceptions) {
+          columns.push('recurrence_exceptions');
+          values.push(JSON.stringify(normalizeRecurrenceExceptions(event.recurrence_exceptions ?? event.recurrenceExceptions ?? [])));
+        }
+
+        columns.push('created_by', 'created_at', 'updated_at');
+        values.push(req.user.id);
+
+        const placeholders = values.map((_, idx) => `$${idx + 1}`).join(', ');
+        const insertQuery = `INSERT INTO calendar_events (
+            ${columns.join(', ')}
+          ) VALUES (
+            ${placeholders}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+          )
+          RETURNING *, (SELECT name FROM users WHERE id = calendar_events.created_by) AS created_by_name`;
+
+        const result = await client.query(insertQuery, values);
 
         createdEvents.push(transformEventRow(result.rows[0]));
       }
