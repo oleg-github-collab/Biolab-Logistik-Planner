@@ -18,23 +18,22 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
   const [showImageGallery, setShowImageGallery] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  if (!isOpen) return null;
-
-  if (!event) {
-    console.error('EventDetailsModal: event is null or undefined');
-    return null;
-  }
+  const safeEvent = event || {};
 
   // Normalize event data without mutation
   const normalizedEvent = {
-    ...event,
-    date: event.date || event.start_date || event.start || new Date(),
-    startTime: event.startTime || event.start_time || '',
-    endTime: event.endTime || event.end_time || '',
-    isAllDay: event.isAllDay ?? event.all_day ?? false,
-    isRecurring: event.isRecurring ?? event.is_recurring ?? false,
-    recurrencePattern: event.recurrencePattern || event.recurring_pattern || event.recurrence_pattern,
-    recurrenceEndDate: event.recurrenceEndDate || event.recurring_end || event.recurrence_end_date
+    ...safeEvent,
+    date: safeEvent.date || safeEvent.start_date || safeEvent.start || new Date(),
+    startTime: safeEvent.startTime || safeEvent.start_time || '',
+    endTime: safeEvent.endTime || safeEvent.end_time || '',
+    isAllDay: safeEvent.isAllDay ?? safeEvent.all_day ?? false,
+    isRecurring: safeEvent.isRecurring ?? safeEvent.is_recurring ?? false,
+    recurrencePattern: safeEvent.recurrencePattern || safeEvent.recurring_pattern || safeEvent.recurrence_pattern,
+    recurrenceEndDate: safeEvent.recurrenceEndDate || safeEvent.recurring_end || safeEvent.recurrence_end_date,
+    recurrenceInterval:
+      safeEvent.recurrenceInterval ??
+      safeEvent.recurrence_interval ??
+      safeEvent.recurring_interval
   };
 
   const getTypeIcon = (type) => {
@@ -81,13 +80,14 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
     return labels[priority] || 'Mittel';
   };
 
-  const getRecurrenceLabel = (pattern) => {
+  const getRecurrenceLabel = (pattern, interval = 1) => {
+    const normalizedInterval = Number(interval) && Number(interval) > 0 ? Number(interval) : 1;
     const labels = {
-      'daily': 'Täglich',
-      'weekly': 'Wöchentlich',
-      'biweekly': 'Alle 2 Wochen',
-      'monthly': 'Monatlich',
-      'yearly': 'Jährlich'
+      daily: normalizedInterval === 1 ? 'Täglich' : `Alle ${normalizedInterval} Tage`,
+      weekly: normalizedInterval === 1 ? 'Wöchentlich' : `Alle ${normalizedInterval} Wochen`,
+      biweekly: 'Alle 2 Wochen',
+      monthly: normalizedInterval === 1 ? 'Monatlich' : `Alle ${normalizedInterval} Monate`,
+      yearly: normalizedInterval === 1 ? 'Jährlich' : `Alle ${normalizedInterval} Jahre`
     };
     return labels[pattern] || pattern;
   };
@@ -185,6 +185,13 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
   const prevImage = () => {
     setCurrentImageIndex((prev) => (prev - 1 + imageAttachments.length) % imageAttachments.length);
   };
+
+  if (!isOpen) return null;
+
+  if (!event) {
+    console.error('EventDetailsModal: event is null or undefined');
+    return null;
+  }
 
   return (
     <BaseModal
@@ -359,7 +366,7 @@ const EventDetailsModal = ({ isOpen, onClose, event, onEdit, onDelete, onDuplica
               </div>
               <div className="flex-1">
                 <p className="font-semibold text-slate-900 text-base">
-                  {getRecurrenceLabel(normalizedEvent.recurrencePattern)}
+                  {getRecurrenceLabel(normalizedEvent.recurrencePattern, normalizedEvent.recurrenceInterval)}
                 </p>
                 <p className="text-sm text-slate-600 mt-1">
                   Wiederholender Termin

@@ -101,6 +101,7 @@ const EventFormModal = ({
     notes: '',
     recurring: false,
     recurring_pattern: 'weekly',
+    recurring_interval: 1,
     recurring_end: '',
     audio_url: null,
     attachments: [],
@@ -126,6 +127,15 @@ const EventFormModal = ({
       const normalizedStartTime = event.all_day ? '' : formatAsTimeInput(normalizedStart);
       const normalizedEndTime = event.all_day ? '' : formatAsTimeInput(normalizedEnd);
       const normalizedRecurringEnd = formatAsDateInput(event.recurring_end);
+      const rawInterval =
+        event.recurring_interval ??
+        event.recurrence_interval ??
+        event.recurrenceInterval ??
+        1;
+      const normalizedInterval = Math.max(1, Number.parseInt(rawInterval, 10) || 1);
+      const normalizedPattern = event.recurring_pattern === 'biweekly'
+        ? 'weekly'
+        : (event.recurring_pattern || 'weekly');
       setFormData({
         ...event,
         start: toDateInstance(normalizedStart),
@@ -137,6 +147,10 @@ const EventFormModal = ({
         start_time: normalizedStartTime || '',
         end_time: normalizedEndTime || '',
         recurring_end: normalizedRecurringEnd || '',
+        recurring_pattern: normalizedPattern,
+        recurring_interval: event.recurring_pattern === 'biweekly'
+          ? Math.max(2, normalizedInterval)
+          : normalizedInterval,
       });
       setShowRecurringOptions(Boolean(event.recurring));
       setAudioPreviewUrl(null);
@@ -172,6 +186,7 @@ const EventFormModal = ({
         notes: '',
         recurring: false,
         recurring_pattern: 'weekly',
+        recurring_interval: 1,
         recurring_end: '',
         audio_url: null,
         attachments: [],
@@ -340,8 +355,14 @@ const EventFormModal = ({
       }
     }
 
-    if (formData.recurring && !formData.recurring_end) {
-      newErrors.recurring_end = 'Wiederholungsende ist erforderlich';
+    if (formData.recurring) {
+      if (!formData.recurring_end) {
+        newErrors.recurring_end = 'Wiederholungsende ist erforderlich';
+      }
+      const intervalValue = Number.parseInt(formData.recurring_interval, 10);
+      if (!intervalValue || intervalValue < 1) {
+        newErrors.recurring_interval = 'Intervall muss mindestens 1 sein';
+      }
     }
 
     setErrors(newErrors);
@@ -789,6 +810,9 @@ const EventFormModal = ({
                 checked={formData.recurring}
                 onChange={(e) => {
                   handleChange('recurring', e.target.checked);
+                  if (e.target.checked && (!formData.recurring_interval || Number(formData.recurring_interval) < 1)) {
+                    handleChange('recurring_interval', 1);
+                  }
                   setShowRecurringOptions(e.target.checked);
                 }}
                 className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
@@ -803,11 +827,44 @@ const EventFormModal = ({
               <div className="ml-8 space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Intervall
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={formData.recurring_interval}
+                      onChange={(e) => handleChange('recurring_interval', Number(e.target.value))}
+                      className={`w-24 px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                        errors.recurring_interval ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                    />
+                    <span className="text-sm text-gray-600">
+                      {formData.recurring_pattern === 'daily' && 'Tag(e)'}
+                      {formData.recurring_pattern === 'weekly' && 'Woche(n)'}
+                      {formData.recurring_pattern === 'monthly' && 'Monat(e)'}
+                      {formData.recurring_pattern === 'yearly' && 'Jahr(e)'}
+                      {formData.recurring_pattern === 'biweekly' && 'Woche(n)'}
+                    </span>
+                  </div>
+                  {errors.recurring_interval && (
+                    <p className="mt-1 text-sm text-red-600">{errors.recurring_interval}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Wiederholung
                   </label>
                   <select
                     value={formData.recurring_pattern}
-                    onChange={(e) => handleChange('recurring_pattern', e.target.value)}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      handleChange('recurring_pattern', value);
+                      if (value === 'biweekly') {
+                        handleChange('recurring_interval', 2);
+                      }
+                    }}
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                     {RECURRENCE_PATTERNS.map((pattern) => (

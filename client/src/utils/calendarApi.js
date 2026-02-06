@@ -6,7 +6,18 @@
  * This guarantees the UI always displays the most current data from the server.
  */
 
-import { format } from 'date-fns';
+import {
+  format,
+  addDays,
+  addWeeks,
+  addMonths,
+  addYears,
+  endOfDay,
+  startOfDay,
+  differenceInCalendarDays,
+  differenceInCalendarMonths,
+  differenceInCalendarYears
+} from 'date-fns';
 import {
   getEvents as getEventsBase,
   createEvent as createEventBase,
@@ -44,6 +55,136 @@ const buildDateTimeFromFields = (dateField, timeField, fallback = null, allDay =
   const normalizedTime = timeField && timeField.length === 5 ? timeField : `${String(timeField || '00:00').padStart(5, '0')}`;
   const isoString = `${sourceDate}T${normalizedTime}:00`;
   return toDateInstance(isoString);
+};
+
+const normalizeRecurrenceRule = (event) => {
+  const rawPattern = event?.recurring_pattern || event?.recurrence_pattern || 'weekly';
+  const rawInterval =
+    event?.recurring_interval ??
+    event?.recurrence_interval ??
+    event?.recurrenceInterval ??
+    1;
+  const interval = Math.max(1, Number.parseInt(rawInterval, 10) || 1);
+
+  if (rawPattern === 'biweekly') {
+    return { pattern: 'weekly', interval: Math.max(2, interval) };
+  }
+
+  return { pattern: rawPattern, interval };
+};
+
+const addByPattern = (date, pattern, interval) => {
+  switch (pattern) {
+    case 'daily':
+      return addDays(date, interval);
+    case 'weekly':
+      return addWeeks(date, interval);
+    case 'monthly':
+      return addMonths(date, interval);
+    case 'yearly':
+      return addYears(date, interval);
+    default:
+      return addWeeks(date, interval);
+  }
+};
+
+const jumpToWindowStart = (baseStart, pattern, interval, windowStart) => {
+  if (baseStart >= windowStart) {
+    return baseStart;
+  }
+
+  switch (pattern) {
+    case 'daily': {
+      const diffDays = differenceInCalendarDays(windowStart, baseStart);
+      const steps = Math.floor(diffDays / interval);
+      return addDays(baseStart, steps * interval);
+    }
+    case 'weekly': {
+      const diffDays = differenceInCalendarDays(windowStart, baseStart);
+      const diffWeeks = Math.floor(diffDays / 7);
+      const steps = Math.floor(diffWeeks / interval);
+      return addWeeks(baseStart, steps * interval);
+    }
+    case 'monthly': {
+      const diffMonths = differenceInCalendarMonths(windowStart, baseStart);
+      const steps = Math.floor(diffMonths / interval);
+      return addMonths(baseStart, steps * interval);
+    }
+    case 'yearly': {
+      const diffYears = differenceInCalendarYears(windowStart, baseStart);
+      const steps = Math.floor(diffYears / interval);
+      return addYears(baseStart, steps * interval);
+    }
+    default:
+      return baseStart;
+  }
+};
+
+export const expandRecurringEvents = (events, rangeStart, rangeEnd) => {
+  if (!Array.isArray(events) || events.length === 0) {
+    return [];
+  }
+
+  if (!rangeStart || !rangeEnd) {
+    return events;
+  }
+
+  const windowStart = startOfDay(new Date(rangeStart));
+  const windowEnd = endOfDay(new Date(rangeEnd));
+  const expanded = [];
+
+  events.forEach((event) => {
+    if (!event?.recurring) {
+      expanded.push(event);
+      return;
+    }
+
+    const baseStart = event.start instanceof Date ? event.start : new Date(event.start);
+    if (Number.isNaN(baseStart?.getTime?.())) {
+      expanded.push(event);
+      return;
+    }
+
+    const baseEnd = event.end instanceof Date ? event.end : new Date(event.end || baseStart);
+    const durationMs = Math.max(0, baseEnd.getTime() - baseStart.getTime());
+    const { pattern, interval } = normalizeRecurrenceRule(event);
+    const recurrenceEnd = event.recurring_end ? new Date(event.recurring_end) : null;
+    const recurrenceLimit = recurrenceEnd && !Number.isNaN(recurrenceEnd.getTime())
+      ? recurrenceEnd
+      : null;
+    const effectiveEnd = recurrenceLimit && recurrenceLimit < windowEnd ? recurrenceLimit : windowEnd;
+
+    let occurrenceStart = jumpToWindowStart(baseStart, pattern, interval, windowStart);
+    let safety = 0;
+    while (occurrenceStart < windowStart && safety < 1000) {
+      occurrenceStart = addByPattern(occurrenceStart, pattern, interval);
+      safety += 1;
+    }
+
+    while (occurrenceStart <= effectiveEnd && safety < 2000) {
+      const occurrenceEnd = new Date(occurrenceStart.getTime() + durationMs);
+      const occurrenceId = `${event.id}-occ-${format(occurrenceStart, 'yyyyMMdd')}`;
+      expanded.push({
+        ...event,
+        id: occurrenceId,
+        start: occurrenceStart,
+        end: occurrenceEnd,
+        start_date: format(occurrenceStart, 'yyyy-MM-dd'),
+        end_date: format(occurrenceEnd, 'yyyy-MM-dd'),
+        start_time: event.all_day ? '' : format(occurrenceStart, 'HH:mm'),
+        end_time: event.all_day ? '' : format(occurrenceEnd, 'HH:mm'),
+        is_occurrence: true,
+        recurrence_parent_id: event.id,
+        series_start: baseStart,
+        series_end: baseEnd,
+        read_only: event.read_only || false
+      });
+      occurrenceStart = addByPattern(occurrenceStart, pattern, interval);
+      safety += 1;
+    }
+  });
+
+  return expanded;
 };
 
 /**
@@ -102,6 +243,7 @@ export const createEventWithRefetch = async (eventData, refetchCallback) => {
       is_recurring: eventData.recurring || eventData.is_recurring,
       recurrence_pattern: eventData.recurring_pattern || eventData.recurrence_pattern,
       recurrence_end_date: eventData.recurring_end || eventData.recurrence_end_date,
+      recurrence_interval: eventData.recurring_interval || eventData.recurrence_interval || eventData.recurrenceInterval,
       audio_url: eventData.audio_url,
       attachments: eventData.attachments,
       color: eventData.color,
@@ -371,6 +513,15 @@ export const transformApiEventToUi = (apiEvent) => {
     : safeParseJsonArray(apiEvent.tags);
 
   const recurring = Boolean(apiEvent.is_recurring);
+  const rawInterval =
+    apiEvent.recurrence_interval ??
+    apiEvent.recurrenceInterval ??
+    apiEvent.recurring_interval ??
+    1;
+  const normalizedInterval = Math.max(1, Number.parseInt(rawInterval, 10) || 1);
+  const normalizedPattern = apiEvent.recurrence_pattern === 'biweekly'
+    ? 'weekly'
+    : (apiEvent.recurrence_pattern || 'weekly');
 
   const isWorkHours = apiEvent.source === 'work_hours' || apiEvent.is_work_hours || Boolean(apiEvent.work_hours);
 
@@ -395,7 +546,10 @@ export const transformApiEventToUi = (apiEvent) => {
     notes: apiEvent.notes || '',
     category: apiEvent.category || 'work',
     recurring,
-    recurring_pattern: recurring ? (apiEvent.recurrence_pattern || 'weekly') : null,
+    recurring_pattern: recurring ? normalizedPattern : null,
+    recurring_interval: recurring ? (apiEvent.recurrence_pattern === 'biweekly'
+      ? Math.max(2, normalizedInterval)
+      : normalizedInterval) : 1,
     recurring_end: recurring && apiEvent.recurrence_end_date
       ? parseEventDate(apiEvent.recurrence_end_date)
       : null,
@@ -418,6 +572,23 @@ export const transformApiEventToUi = (apiEvent) => {
  */
 export const transformUiEventToApi = (uiEvent) => {
   const recurring = Boolean(uiEvent.recurring);
+  let interval = Math.max(
+    1,
+    Number.parseInt(
+      uiEvent.recurring_interval ??
+        uiEvent.recurrence_interval ??
+        uiEvent.recurrenceInterval ??
+        1,
+      10
+    ) || 1
+  );
+  const normalizedPattern = uiEvent.recurring_pattern === 'biweekly'
+    ? 'weekly'
+    : (uiEvent.recurring_pattern || null);
+
+  if (uiEvent.recurring_pattern === 'biweekly') {
+    interval = Math.max(2, interval);
+  }
   const eventType = uiEvent.type || uiEvent.event_type || 'Termin';
   const allDay = Boolean(uiEvent.all_day);
   const startTimestamp = buildDateTimeFromFields(
@@ -454,8 +625,10 @@ export const transformUiEventToApi = (uiEvent) => {
     isAllDay: allDay,
     is_recurring: recurring,
     isRecurring: recurring,
-    recurrence_pattern: recurring ? (uiEvent.recurring_pattern || null) : null,
-    recurrencePattern: recurring ? (uiEvent.recurring_pattern || null) : null,
+    recurrence_pattern: recurring ? normalizedPattern : null,
+    recurrencePattern: recurring ? normalizedPattern : null,
+    recurrence_interval: recurring ? interval : null,
+    recurrenceInterval: recurring ? interval : null,
     recurrence_end_date: recurring && uiEvent.recurring_end
       ? (uiEvent.recurring_end instanceof Date
         ? uiEvent.recurring_end.toISOString()
@@ -516,6 +689,7 @@ export default {
   setupCalendarWebSocketListeners,
   parseEventDate,
   safeParseJsonArray,
+  expandRecurringEvents,
   transformApiEventToUi,
   transformUiEventToApi,
   getEventColor,

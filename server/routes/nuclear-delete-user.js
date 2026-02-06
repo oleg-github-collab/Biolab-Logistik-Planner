@@ -5,9 +5,8 @@
 
 const express = require('express');
 const router = express.Router();
-const pool = require('../config/database.pg');
-const auth = require('../middleware/auth');
-const adminAuth = require('../middleware/adminAuth');
+const { pool } = require('../config/database');
+const { auth, adminAuth } = require('../middleware/auth');
 const logger = require('../utils/logger');
 
 // @route   POST /api/nuclear-delete-user/:id

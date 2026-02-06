@@ -166,7 +166,7 @@ const CalendarView = ({
   // Handle event drag-and-drop (move)
   const handleEventDrop = useCallback(async ({ event, start, end }) => {
     if (!onEventUpdate) return;
-    if (event?.resource?.read_only || event?.resource?.isWorkHours) return;
+    if (event?.resource?.read_only || event?.resource?.isWorkHours || event?.resource?.is_occurrence) return;
 
     try {
       setDraggedEvent(event.id);
@@ -200,7 +200,7 @@ const CalendarView = ({
   // Handle event resize
   const handleEventResize = useCallback(async ({ event, start, end }) => {
     if (!onEventUpdate) return;
-    if (event?.resource?.read_only || event?.resource?.isWorkHours) return;
+    if (event?.resource?.read_only || event?.resource?.isWorkHours || event?.resource?.is_occurrence) return;
 
     try {
       setDraggedEvent(event.id);

@@ -568,6 +568,9 @@ function transformEventRow(row) {
     attendees,
     all_day: parseBoolean(row.all_day, false),
     is_recurring: parseBoolean(row.is_recurring, false),
+    recurrence_interval: row.recurrence_interval === null || row.recurrence_interval === undefined
+      ? null
+      : Number(row.recurrence_interval),
     reminder: row.reminder === null || row.reminder === undefined ? null : Number(row.reminder),
     start_time: normalizeIsoDate(row.start_time) || row.start_time,
     end_time: normalizeIsoDate(row.end_time) || row.end_time,
@@ -1732,15 +1735,34 @@ router.get('/events', auth, async (req, res) => {
     let paramIndex = 2;
 
     if (actualStartDate && actualEndDate) {
-      query += ` AND e.start_time <= $${paramIndex + 1} AND e.end_time >= $${paramIndex}`;
+      query += ` AND (
+        (e.start_time <= $${paramIndex + 1} AND e.end_time >= $${paramIndex})
+        OR (
+          e.is_recurring = TRUE
+          AND e.start_time <= $${paramIndex + 1}
+          AND (e.recurrence_end_date IS NULL OR e.recurrence_end_date >= $${paramIndex})
+        )
+      )`;
       params.push(actualStartDate, actualEndDate);
       paramIndex += 2;
     } else if (actualStartDate) {
-      query += ` AND e.end_time >= $${paramIndex}`;
+      query += ` AND (
+        e.end_time >= $${paramIndex}
+        OR (
+          e.is_recurring = TRUE
+          AND (e.recurrence_end_date IS NULL OR e.recurrence_end_date >= $${paramIndex})
+        )
+      )`;
       params.push(actualStartDate);
       paramIndex++;
     } else if (actualEndDate) {
-      query += ` AND e.start_time <= $${paramIndex}`;
+      query += ` AND (
+        e.start_time <= $${paramIndex}
+        OR (
+          e.is_recurring = TRUE
+          AND e.start_time <= $${paramIndex}
+        )
+      )`;
       params.push(actualEndDate);
       paramIndex++;
     }
@@ -1801,6 +1823,8 @@ router.post('/events', auth, async (req, res) => {
       isRecurring,
       recurrence_pattern,
       recurrencePattern,
+      recurrence_interval,
+      recurrenceInterval,
       recurrence_end_date,
       recurrenceEndDate
     } = req.body;
@@ -1860,9 +1884,26 @@ router.post('/events', auth, async (req, res) => {
       : null;
 
     const recurringFlag = parseBoolean(is_recurring ?? isRecurring, false);
-    const recurrencePatternValue = recurringFlag
+    const rawPattern = recurringFlag
       ? (recurrence_pattern || recurrencePattern || null)
       : null;
+    const rawInterval = recurrence_interval ?? recurrenceInterval;
+    let recurrencePatternValue = rawPattern;
+    let recurrenceIntervalValue = Number.parseInt(rawInterval, 10);
+
+    if (!recurringFlag) {
+      recurrencePatternValue = null;
+      recurrenceIntervalValue = null;
+    } else {
+      if (!Number.isFinite(recurrenceIntervalValue) || recurrenceIntervalValue < 1) {
+        recurrenceIntervalValue = 1;
+      }
+      if (recurrencePatternValue === 'biweekly') {
+        recurrencePatternValue = 'weekly';
+        recurrenceIntervalValue = Math.max(2, recurrenceIntervalValue);
+      }
+    }
+
     const recurrenceEndValue = recurringFlag
       ? normalizeIsoDate(recurrence_end_date || recurrenceEndDate)
       : null;
@@ -1879,14 +1920,14 @@ router.post('/events', auth, async (req, res) => {
         title, description, start_time, end_time, all_day,
         event_type, color, location, attendees, attachments, cover_image,
         priority, status, category, reminder, notes, tags,
-        is_recurring, recurrence_pattern, recurrence_end_date,
+        is_recurring, recurrence_pattern, recurrence_interval, recurrence_end_date,
         created_by, created_at, updated_at
       ) VALUES (
         $1, $2, $3, $4, $5,
         $6, $7, $8, $9::jsonb, $10::jsonb, $11,
         $12, $13, $14, $15, $16, $17::jsonb,
-        $18, $19, $20,
-        $21, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+        $18, $19, $20, $21,
+        $22, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       )
       RETURNING *, (SELECT name FROM users WHERE id = calendar_events.created_by) AS created_by_name`,
       [
@@ -1909,6 +1950,7 @@ router.post('/events', auth, async (req, res) => {
         JSON.stringify(normalizedTags),
         recurringFlag,
         recurrencePatternValue ? String(recurrencePatternValue).trim() || null : null,
+        recurrenceIntervalValue,
         recurrenceEndValue,
         req.user.id
       ]
@@ -1996,6 +2038,8 @@ router.put('/events/:id', auth, async (req, res) => {
       isRecurring,
       recurrence_pattern,
       recurrencePattern,
+      recurrence_interval,
+      recurrenceInterval,
       recurrence_end_date,
       recurrenceEndDate
     } = req.body;
@@ -2072,9 +2116,26 @@ router.put('/events/:id', auth, async (req, res) => {
       : (event.notes || null);
 
     const recurringFlag = parseBoolean(is_recurring ?? isRecurring, event.is_recurring);
-    const recurrencePatternValue = recurringFlag
+    const rawPattern = recurringFlag
       ? (recurrence_pattern || recurrencePattern || event.recurrence_pattern || null)
       : null;
+    const rawInterval = recurrence_interval ?? recurrenceInterval ?? event.recurrence_interval;
+    let recurrencePatternValue = rawPattern;
+    let recurrenceIntervalValue = Number.parseInt(rawInterval, 10);
+
+    if (!recurringFlag) {
+      recurrencePatternValue = null;
+      recurrenceIntervalValue = null;
+    } else {
+      if (!Number.isFinite(recurrenceIntervalValue) || recurrenceIntervalValue < 1) {
+        recurrenceIntervalValue = 1;
+      }
+      if (recurrencePatternValue === 'biweekly') {
+        recurrencePatternValue = 'weekly';
+        recurrenceIntervalValue = Math.max(2, recurrenceIntervalValue);
+      }
+    }
+
     const recurrenceEndValue = recurringFlag
       ? (normalizeIsoDate(recurrence_end_date || recurrenceEndDate) || event.recurrence_end_date || null)
       : null;
@@ -2100,9 +2161,10 @@ router.put('/events/:id', auth, async (req, res) => {
         tags = $17::jsonb,
         is_recurring = $18,
         recurrence_pattern = $19,
-        recurrence_end_date = $20,
+        recurrence_interval = $20,
+        recurrence_end_date = $21,
         updated_at = CURRENT_TIMESTAMP
-      WHERE id = $21
+      WHERE id = $22
       RETURNING *, (SELECT name FROM users WHERE id = calendar_events.created_by) AS created_by_name`,
       [
         normalizedTitle,
@@ -2124,6 +2186,7 @@ router.put('/events/:id', auth, async (req, res) => {
         JSON.stringify(normalizedTags),
         recurringFlag,
         recurrencePatternValue ? String(recurrencePatternValue).trim() || null : null,
+        recurrenceIntervalValue,
         recurrenceEndValue,
         id
       ]
@@ -2318,9 +2381,26 @@ router.post('/events/bulk', auth, async (req, res) => {
           : null;
 
         const recurringFlag = parseBoolean(event.is_recurring ?? event.isRecurring, false);
-        const recurrencePatternValue = recurringFlag
+        const rawPattern = recurringFlag
           ? (event.recurrence_pattern || event.recurrencePattern || null)
           : null;
+        const rawInterval = event.recurrence_interval ?? event.recurrenceInterval ?? event.recurring_interval;
+        let recurrencePatternValue = rawPattern;
+        let recurrenceIntervalValue = Number.parseInt(rawInterval, 10);
+
+        if (!recurringFlag) {
+          recurrencePatternValue = null;
+          recurrenceIntervalValue = null;
+        } else {
+          if (!Number.isFinite(recurrenceIntervalValue) || recurrenceIntervalValue < 1) {
+            recurrenceIntervalValue = 1;
+          }
+          if (recurrencePatternValue === 'biweekly') {
+            recurrencePatternValue = 'weekly';
+            recurrenceIntervalValue = Math.max(2, recurrenceIntervalValue);
+          }
+        }
+
         const recurrenceEndValue = recurringFlag
           ? normalizeIsoDate(event.recurrence_end_date || event.recurrenceEndDate)
           : null;
@@ -2337,14 +2417,14 @@ router.post('/events/bulk', auth, async (req, res) => {
             title, description, start_time, end_time, all_day,
             event_type, color, location, attendees, attachments, cover_image,
             priority, status, category, reminder, notes, tags,
-            is_recurring, recurrence_pattern, recurrence_end_date,
+            is_recurring, recurrence_pattern, recurrence_interval, recurrence_end_date,
             created_by, created_at, updated_at
           ) VALUES (
             $1, $2, $3, $4, $5,
             $6, $7, $8, $9::jsonb, $10::jsonb, $11,
             $12, $13, $14, $15, $16, $17::jsonb,
-            $18, $19, $20,
-            $21, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+            $18, $19, $20, $21,
+            $22, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
           )
           RETURNING *, (SELECT name FROM users WHERE id = calendar_events.created_by) AS created_by_name`,
           [
@@ -2367,6 +2447,7 @@ router.post('/events/bulk', auth, async (req, res) => {
             JSON.stringify(normalizedTags),
             recurringFlag,
             recurrencePatternValue ? String(recurrencePatternValue).trim() || null : null,
+            recurrenceIntervalValue,
             recurrenceEndValue,
             req.user.id
           ]
@@ -2475,14 +2556,14 @@ router.post('/events/:id/duplicate', auth, async (req, res) => {
         title, description, start_time, end_time, all_day,
         event_type, color, location, attendees, attachments, cover_image,
         priority, status, category, reminder, notes, tags,
-        is_recurring, recurrence_pattern, recurrence_end_date,
+        is_recurring, recurrence_pattern, recurrence_interval, recurrence_end_date,
         created_by, created_at, updated_at
       ) VALUES (
         $1, $2, $3, $4, $5,
         $6, $7, $8, $9::jsonb, $10::jsonb, $11,
         $12, $13, $14, $15, $16, $17::jsonb,
-        $18, $19, $20,
-        $21, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+        $18, $19, $20, $21,
+        $22, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       )
       RETURNING *, (SELECT name FROM users WHERE id = calendar_events.created_by) AS created_by_name`,
       [
@@ -2505,6 +2586,7 @@ router.post('/events/:id/duplicate', auth, async (req, res) => {
         JSON.stringify(normalizedTags),
         original.is_recurring || false,
         original.recurrence_pattern || null,
+        original.recurrence_interval ?? null,
         original.recurrence_end_date || null,
         req.user.id
       ]

@@ -16,6 +16,7 @@ import {
   setupCalendarWebSocketListeners,
   transformApiEventToUi,
   transformUiEventToApi,
+  expandRecurringEvents,
   getEventColor
 } from '../utils/calendarApi';
 import { createAbsenceEvent } from '../utils/api';
@@ -151,7 +152,9 @@ const Dashboard = () => {
       const result = await fetchEvents(startParam, endParam, eventTypeFilter || undefined, priorityFilter || undefined);
 
       if (!result.noChange) {
-        setEvents(result.data.map(transformApiEventToUi));
+        const mapped = result.data.map(transformApiEventToUi);
+        const expanded = expandRecurringEvents(mapped, startParam, endParam);
+        setEvents(expanded);
       }
     } catch (err) {
       console.error('Error loading events:', err);
@@ -254,12 +257,13 @@ const Dashboard = () => {
 
     try {
       const payload = transformUiEventToApi(eventData);
+      const targetEventId = eventData.recurrence_parent_id || eventData.series_id || eventData.id;
 
       if (eventFormMode === 'create') {
         await createEventWithRefetch(payload, refetchEvents);
         showToast({ type: 'success', title: 'Termin erstellt', message: `${eventData.title} wurde hinzugefügt.` });
       } else {
-        await updateEventWithRefetch(eventData.id, payload, refetchEvents);
+        await updateEventWithRefetch(targetEventId, payload, refetchEvents);
         showToast({ type: 'success', title: 'Termin aktualisiert' });
       }
 
@@ -276,7 +280,8 @@ const Dashboard = () => {
   const handleEventUpdate = useCallback(async (eventId, updatedData) => {
     try {
       const payload = transformUiEventToApi(updatedData);
-      await updateEventWithRefetch(eventId, payload, refetchEvents);
+      const targetEventId = updatedData.recurrence_parent_id || updatedData.series_id || eventId;
+      await updateEventWithRefetch(targetEventId, payload, refetchEvents);
       showToast({ type: 'success', title: 'Termin verschoben' });
     } catch (err) {
       console.error('Error updating event:', err);
@@ -287,7 +292,8 @@ const Dashboard = () => {
   // Handle event delete
   const handleEventDelete = useCallback(async (eventId) => {
     try {
-      await deleteEventWithRefetch(eventId, refetchEvents);
+      const targetEventId = selectedEvent?.recurrence_parent_id || selectedEvent?.series_id || eventId;
+      await deleteEventWithRefetch(targetEventId, refetchEvents);
       showToast({ type: 'success', title: 'Termin gelöscht' });
       setShowEventDetailsModal(false);
       setSelectedEvent(null);
@@ -298,7 +304,23 @@ const Dashboard = () => {
   }, [refetchEvents, showToast]);
 
   const handleEventEdit = useCallback((event) => {
-    setSelectedEvent(event);
+    if (!event) return;
+    if (event.is_occurrence && event.recurrence_parent_id) {
+      const baseStart = event.series_start instanceof Date ? event.series_start : event.start;
+      const baseEnd = event.series_end instanceof Date ? event.series_end : event.end;
+      setSelectedEvent({
+        ...event,
+        id: event.recurrence_parent_id,
+        start: baseStart,
+        end: baseEnd,
+        start_date: baseStart ? format(baseStart, 'yyyy-MM-dd') : event.start_date,
+        end_date: baseEnd ? format(baseEnd, 'yyyy-MM-dd') : event.end_date,
+        start_time: event.all_day ? '' : (baseStart ? format(baseStart, 'HH:mm') : event.start_time),
+        end_time: event.all_day ? '' : (baseEnd ? format(baseEnd, 'HH:mm') : event.end_time),
+      });
+    } else {
+      setSelectedEvent(event);
+    }
     setEventFormMode('edit');
     setShowEventFormModal(true);
     setShowEventDetailsModal(false);
