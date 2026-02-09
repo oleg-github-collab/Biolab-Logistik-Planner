@@ -6,6 +6,10 @@
 import { showError } from './toast';
 import { takeNotificationAction, dismissNotification, snoozeNotification } from './apiEnhanced';
 
+// Helper: get current user ID for scoping localStorage keys
+const getCurrentUserId = () => localStorage.getItem('current_user_id') || 'anonymous';
+const userKey = (key) => `${key}_user_${getCurrentUserId()}`;
+
 // Check if browser supports notifications and actions
 export const isNotificationSupported = () => {
   return 'Notification' in window;
@@ -27,11 +31,11 @@ export const requestNotificationPermission = async () => {
 
     if (permission === 'granted') {
       console.log('Notification permission granted');
-      localStorage.setItem('notification_permission', 'granted');
+      localStorage.setItem(userKey('notification_permission'), 'granted');
       return true;
     } else if (permission === 'denied') {
       console.warn('Notification permission denied');
-      localStorage.setItem('notification_permission', 'denied');
+      localStorage.setItem(userKey('notification_permission'), 'denied');
       return false;
     } else {
       console.log('Notification permission dismissed');
@@ -203,13 +207,13 @@ export const NotificationTypes = {
  */
 export const showTypedNotificationWithActions = async (type, data, customOptions = {}) => {
   const soundUrl = '/sounds/notification.mp3';
-  const soundEnabled = localStorage.getItem('notification_sound') === 'true';
+  const soundEnabled = localStorage.getItem(userKey('notification_sound')) === 'true';
 
   // Play sound if enabled
   if (soundEnabled && soundUrl) {
     try {
       const audio = new Audio(soundUrl);
-      audio.volume = parseFloat(localStorage.getItem('notification_volume') || '0.5');
+      audio.volume = parseFloat(localStorage.getItem(userKey('notification_volume')) || '0.5');
       audio.play().catch(err => console.warn('Could not play notification sound:', err));
     } catch (error) {
       console.warn('Error playing notification sound:', error);

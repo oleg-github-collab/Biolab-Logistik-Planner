@@ -58,7 +58,7 @@ const NotificationCenter = ({ socket, userId }) => {
 
     // Show desktop notification if permission granted
     if (notificationPermission === 'granted') {
-      const notifPreferences = JSON.parse(localStorage.getItem('notification_preferences') || '{}');
+      const notifPreferences = JSON.parse(localStorage.getItem(`notification_preferences_${userId}`) || '{}');
 
       // Check if this type of notification is enabled
       const typeEnabled = notifPreferences[notification.type] !== false;

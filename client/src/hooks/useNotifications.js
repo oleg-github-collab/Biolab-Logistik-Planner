@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { useWebSocketContext } from '../context/WebSocketContext';
+import { useAuth } from '../context/AuthContext';
 import {
   getNotifications,
   getUnreadCount,
@@ -11,8 +12,10 @@ import {
   respondToDisposalAction
 } from '../utils/apiEnhanced';
 
-const CACHE_KEY = 'biolab.notifications.v2';
+const CACHE_KEY_PREFIX = 'biolab.notifications.v2';
 const CACHE_LIMIT = 120;
+
+const getCacheKey = (userId) => userId ? `${CACHE_KEY_PREFIX}.${userId}` : null;
 
 const normalizeNotification = (payload = {}) => {
   if (!payload) return null;
@@ -30,13 +33,13 @@ const normalizeNotification = (payload = {}) => {
   };
 };
 
-const persistNotifications = (items = []) => {
-  if (typeof window === 'undefined') {
+const persistNotifications = (cacheKey, items = []) => {
+  if (typeof window === 'undefined' || !cacheKey) {
     return;
   }
 
   try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify(items));
+    localStorage.setItem(cacheKey, JSON.stringify(items));
   } catch (error) {
     console.error('Failed to persist notifications cache:', error);
   }
@@ -44,19 +47,29 @@ const persistNotifications = (items = []) => {
 
 export const useNotifications = ({ filter = 'all' } = {}) => {
   const { notifications: socketNotifications, isConnected } = useWebSocketContext();
+  const { user } = useAuth();
+  const userId = user?.id;
+  const cacheKey = getCacheKey(userId);
   const [notifications, setNotifications] = useState([]);
   const [remoteUnreadCount, setRemoteUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const lastNotificationIdRef = useRef(null);
 
+  // Reset notifications when user changes (login/logout)
+  useEffect(() => {
+    setNotifications([]);
+    setRemoteUnreadCount(0);
+    lastNotificationIdRef.current = null;
+  }, [userId]);
+
   const updateNotificationsState = useCallback((updater) => {
     setNotifications((prev) => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
       const limited = Array.isArray(next) ? next.slice(0, CACHE_LIMIT) : [];
-      persistNotifications(limited);
+      persistNotifications(cacheKey, limited);
       return limited;
     });
-  }, []);
+  }, [cacheKey]);
 
   const computedUnreadCount = useMemo(
     () => notifications.filter((item) => !item.is_read).length,
@@ -66,10 +79,10 @@ export const useNotifications = ({ filter = 'all' } = {}) => {
   const unreadCount = Math.max(remoteUnreadCount, computedUnreadCount);
 
   const hydrateCache = useCallback(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || !cacheKey) return;
 
     try {
-      const stored = localStorage.getItem(CACHE_KEY);
+      const stored = localStorage.getItem(cacheKey);
       if (!stored) return;
       const parsed = JSON.parse(stored);
       if (!Array.isArray(parsed) || !parsed.length) return;
@@ -89,7 +102,7 @@ export const useNotifications = ({ filter = 'all' } = {}) => {
     } catch (error) {
       console.error('Error hydrating notifications cache:', error);
     }
-  }, []);
+  }, [cacheKey]);
 
   const loadNotifications = useCallback(async () => {
     setLoading(true);

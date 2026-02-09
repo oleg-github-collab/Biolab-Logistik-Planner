@@ -3,6 +3,10 @@
  * Handles desktop push notifications with permission management
  */
 
+// Helper: get current user ID for scoping localStorage keys
+const getCurrentUserId = () => localStorage.getItem('current_user_id') || 'anonymous';
+const userKey = (key) => `${key}_user_${getCurrentUserId()}`;
+
 // Check if browser supports notifications
 export const isNotificationSupported = () => {
   return 'Notification' in window;
@@ -20,11 +24,11 @@ export const requestNotificationPermission = async () => {
 
     if (permission === 'granted') {
       console.log('Notification permission granted');
-      localStorage.setItem('notification_permission', 'granted');
+      localStorage.setItem(userKey('notification_permission'), 'granted');
       return true;
     } else if (permission === 'denied') {
       console.warn('Notification permission denied');
-      localStorage.setItem('notification_permission', 'denied');
+      localStorage.setItem(userKey('notification_permission'), 'denied');
       return false;
     } else {
       console.log('Notification permission dismissed');
@@ -125,12 +129,12 @@ export const showDesktopNotification = (title, body, options = {}) => {
 
 // Show notification with sound (optional)
 export const showNotificationWithSound = (title, body, options = {}) => {
-  const soundEnabled = localStorage.getItem('notification_sound') === 'true';
+  const soundEnabled = localStorage.getItem(userKey('notification_sound')) === 'true';
 
   if (soundEnabled && options.soundUrl) {
     try {
       const audio = new Audio(options.soundUrl);
-      audio.volume = parseFloat(localStorage.getItem('notification_volume') || '0.5');
+      audio.volume = parseFloat(localStorage.getItem(userKey('notification_volume')) || '0.5');
       audio.play().catch(err => console.warn('Could not play notification sound:', err));
     } catch (error) {
       console.warn('Error playing notification sound:', error);
@@ -241,14 +245,14 @@ export const showTypedNotification = (type, data) => {
 // Get user notification preferences
 export const getNotificationPreferences = () => {
   return {
-    enabled: localStorage.getItem('notifications_enabled') !== 'false',
-    soundEnabled: localStorage.getItem('notification_sound') === 'true',
-    volume: parseFloat(localStorage.getItem('notification_volume') || '0.5'),
+    enabled: localStorage.getItem(userKey('notifications_enabled')) !== 'false',
+    soundEnabled: localStorage.getItem(userKey('notification_sound')) === 'true',
+    volume: parseFloat(localStorage.getItem(userKey('notification_volume')) || '0.5'),
     types: {
-      messages: localStorage.getItem('notify_messages') !== 'false',
-      tasks: localStorage.getItem('notify_tasks') !== 'false',
-      waste: localStorage.getItem('notify_waste') !== 'false',
-      events: localStorage.getItem('notify_events') !== 'false'
+      messages: localStorage.getItem(userKey('notify_messages')) !== 'false',
+      tasks: localStorage.getItem(userKey('notify_tasks')) !== 'false',
+      waste: localStorage.getItem(userKey('notify_waste')) !== 'false',
+      events: localStorage.getItem(userKey('notify_events')) !== 'false'
     }
   };
 };
@@ -256,17 +260,17 @@ export const getNotificationPreferences = () => {
 // Update notification preferences
 export const updateNotificationPreferences = (preferences) => {
   if (preferences.enabled !== undefined) {
-    localStorage.setItem('notifications_enabled', preferences.enabled);
+    localStorage.setItem(userKey('notifications_enabled'), preferences.enabled);
   }
   if (preferences.soundEnabled !== undefined) {
-    localStorage.setItem('notification_sound', preferences.soundEnabled);
+    localStorage.setItem(userKey('notification_sound'), preferences.soundEnabled);
   }
   if (preferences.volume !== undefined) {
-    localStorage.setItem('notification_volume', preferences.volume);
+    localStorage.setItem(userKey('notification_volume'), preferences.volume);
   }
   if (preferences.types) {
     Object.keys(preferences.types).forEach(type => {
-      localStorage.setItem(`notify_${type}`, preferences.types[type]);
+      localStorage.setItem(userKey(`notify_${type}`), preferences.types[type]);
     });
   }
 };

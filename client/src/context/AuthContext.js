@@ -65,11 +65,15 @@ export const AuthProvider = ({ children }) => {
         try {
           const res = await getUser();
           if (res && res.data) {
+            if (res.data.id) {
+              localStorage.setItem('current_user_id', String(res.data.id));
+            }
             dispatch({ type: 'LOAD_USER', payload: res.data });
           } else {
             console.error('Invalid response from getUser');
             dispatch({ type: 'USER_ERROR' });
             localStorage.removeItem('token');
+            localStorage.removeItem('current_user_id');
           }
         } catch (err) {
           console.error('Error loading user:', err);
@@ -77,6 +81,7 @@ export const AuthProvider = ({ children }) => {
           console.log('Authentication error, logging out');
           dispatch({ type: 'USER_ERROR' });
           localStorage.removeItem('token');
+          localStorage.removeItem('current_user_id');
         }
       } else {
         dispatch({ type: 'SET_LOADING', payload: false });
@@ -88,11 +93,15 @@ export const AuthProvider = ({ children }) => {
 
   const login = (token, user) => {
     localStorage.setItem('token', token);
+    if (user?.id) {
+      localStorage.setItem('current_user_id', String(user.id));
+    }
     dispatch({ type: 'LOGIN', payload: { token, user } });
   };
 
   const logout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('current_user_id');
     dispatch({ type: 'LOGOUT' });
   };
 

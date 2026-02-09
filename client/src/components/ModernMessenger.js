@@ -156,7 +156,8 @@ const ModernMessenger = () => {
         });
 
         // Play notification sound if enabled
-        const soundEnabled = localStorage.getItem('notification_sound') === 'true';
+        const currentUserId = localStorage.getItem('current_user_id') || 'anonymous';
+        const soundEnabled = localStorage.getItem(`notification_sound_user_${currentUserId}`) === 'true';
         if (soundEnabled && audioRef.current) {
           audioRef.current.play().catch(err => console.warn('Could not play sound:', err));
         }
