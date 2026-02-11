@@ -21,19 +21,28 @@ const MobileBottomNav = () => {
 
   useEffect(() => {
     const fetchUnreadCount = async () => {
+      if (document.hidden) return;
       try {
         const response = await getUnreadMessagesCount();
         setUnreadMessagesCount(response.data?.count || 0);
       } catch (error) {
-        console.error('Failed to fetch unread messages count:', error);
+        // Silently fail - don't spam console
       }
     };
 
     fetchUnreadCount();
 
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchUnreadCount, 30000);
-    return () => clearInterval(interval);
+    const interval = setInterval(fetchUnreadCount, 120000);
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) fetchUnreadCount();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   if (['/login', '/first-setup'].includes(pathname)) {

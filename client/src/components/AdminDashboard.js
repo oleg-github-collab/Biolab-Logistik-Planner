@@ -321,7 +321,9 @@ const AdminDashboard = () => {
   useEffect(() => {
     if (accessDenied) return;
     fetchData();
-    const interval = setInterval(fetchData, 30000);
+    const interval = setInterval(() => {
+      if (!document.hidden) fetchData();
+    }, 120000);
     return () => clearInterval(interval);
   }, [fetchData, accessDenied]);
 

@@ -86,10 +86,7 @@ const NotificationCenter = ({ socket, userId }) => {
 
   // Fetch unread count periodically
   const fetchUnreadCount = useCallback(async () => {
-    // Skip if offline
-    if (!navigator.onLine) {
-      return;
-    }
+    if (!navigator.onLine || document.hidden) return;
 
     try {
       const response = await fetch('/api/messages/unread-count', {
@@ -104,19 +101,23 @@ const NotificationCenter = ({ socket, userId }) => {
         setUnreadCount(Math.max(0, serverUnread || 0));
       }
     } catch (error) {
-      // Silently fail for network errors, don't spam console
-      if (!error.message?.includes('Failed to fetch') && navigator.onLine) {
-        console.error('Failed to fetch unread messages count:', error);
-      }
+      // Silently fail for network errors
     }
   }, []);
 
   useEffect(() => {
-    // Fetch initially and then every 30 seconds
     fetchUnreadCount();
-    const interval = setInterval(fetchUnreadCount, 30000);
+    const interval = setInterval(fetchUnreadCount, 120000);
 
-    return () => clearInterval(interval);
+    const handleVisibilityChange = () => {
+      if (!document.hidden) fetchUnreadCount();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [fetchUnreadCount]);
 
   // Close dropdown when clicking outside

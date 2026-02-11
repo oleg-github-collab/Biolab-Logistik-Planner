@@ -869,10 +869,20 @@ router.get('/conversation/:userId', auth, async (req, res) => {
   }
 });
 
+// In-memory cache for unread counts (per user, 15s TTL)
+const unreadCountCache = new Map();
+const UNREAD_CACHE_TTL = 15000;
+
 // @route   GET /api/messages/unread-count
 // @desc    Get count of unread messages
 router.get('/unread-count', auth, async (req, res) => {
   try {
+    const userId = req.user.id;
+    const cached = unreadCountCache.get(userId);
+    if (cached && (Date.now() - cached.ts) < UNREAD_CACHE_TTL) {
+      return res.json({ count: cached.count, unreadCount: cached.count });
+    }
+
     const result = await pool.query(
       `SELECT COALESCE(SUM(count), 0) AS count
          FROM (
@@ -889,16 +899,22 @@ router.get('/unread-count', auth, async (req, res) => {
               AND m.sender_id <> $1
               AND m.created_at > COALESCE(mcm.last_read_at, '1970-01-01'::timestamp)
          ) unread`,
-      [req.user.id]
+      [userId]
     );
 
     const unreadCount = parseInt(result.rows[0]?.count || 0, 10);
 
-    // Return both formats for compatibility
-    res.json({
-      count: unreadCount,
-      unreadCount: unreadCount
-    });
+    unreadCountCache.set(userId, { count: unreadCount, ts: Date.now() });
+
+    // Cleanup old entries periodically
+    if (unreadCountCache.size > 500) {
+      const now = Date.now();
+      for (const [key, val] of unreadCountCache) {
+        if (now - val.ts > UNREAD_CACHE_TTL * 4) unreadCountCache.delete(key);
+      }
+    }
+
+    res.json({ count: unreadCount, unreadCount: unreadCount });
 
   } catch (error) {
     logger.error('Error fetching unread count', error);

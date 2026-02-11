@@ -59,10 +59,20 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
+// In-memory cache for notification unread counts (per user, 15s TTL)
+const notifUnreadCache = new Map();
+const NOTIF_CACHE_TTL = 15000;
+
 // @route   GET /api/notifications/unread-count
 // @desc    Get unread notification count
 router.get('/unread-count', auth, async (req, res) => {
   try {
+    const userId = req.user.id;
+    const cached = notifUnreadCache.get(userId);
+    if (cached && (Date.now() - cached.ts) < NOTIF_CACHE_TTL) {
+      return res.json(cached.data);
+    }
+
     const result = await pool.query(
       `SELECT
         COUNT(*) FILTER (WHERE type = 'message') as messages,
@@ -73,10 +83,20 @@ router.get('/unread-count', auth, async (req, res) => {
         COUNT(*) as total
       FROM notifications
       WHERE user_id = $1 AND is_read = FALSE`,
-      [req.user.id]
+      [userId]
     );
 
-    res.json(result.rows[0]);
+    const data = result.rows[0];
+    notifUnreadCache.set(userId, { data, ts: Date.now() });
+
+    if (notifUnreadCache.size > 500) {
+      const now = Date.now();
+      for (const [key, val] of notifUnreadCache) {
+        if (now - val.ts > NOTIF_CACHE_TTL * 4) notifUnreadCache.delete(key);
+      }
+    }
+
+    res.json(data);
 
   } catch (error) {
     logger.error('Error fetching unread count', error);

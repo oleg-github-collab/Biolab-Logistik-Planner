@@ -44,8 +44,9 @@ const SmartNotificationPanel = ({ onClose, onOpenPreferences }) => {
 
   useEffect(() => {
     loadNotifications();
-    // Poll for new notifications every 30 seconds
-    const interval = setInterval(loadNotifications, 30000);
+    const interval = setInterval(() => {
+      if (!document.hidden) loadNotifications();
+    }, 120000);
     return () => clearInterval(interval);
   }, [loadNotifications]);
 
