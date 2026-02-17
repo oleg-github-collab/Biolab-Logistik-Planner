@@ -110,8 +110,8 @@ api.interceptors.response.use(
 export const login = (email, password) => 
   api.post('/auth/login', { email, password });
 
-export const register = (name, email, password, role = 'employee') => 
-  api.post('/auth/register', { name, email, password, role });
+export const register = (name, email, password, role = 'employee', employment_type) =>
+  api.post('/auth/register', { name, email, password, role, employment_type });
 
 export const getUser = () => 
   api.get('/auth/user');
